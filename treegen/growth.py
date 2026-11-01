@@ -223,8 +223,21 @@ class GrowthModel:
             ls == LAT_SPUR, float(fw.spur),
             np.where(T.lat_age[lat_nodes] == 0, float(fw.new_leaf), float(fw.dormant)),
         )
+        early = float(getattr(fw, "early_leaves", 0.0) or 0.0)
+        if early:
+            # a long shoot also bears its early (preformed) leaves at its base
+            w_lat = w_lat + early * T.leaf_scale[lat_nodes] * self._size_rel(lat_nodes) * self._shoot_base(lat_nodes)
         src = np.concatenate([T.pos[term_nodes], T.pos[lat_nodes]])
         return term_nodes, lat_nodes, w_term, w_lat, src, np.concatenate([w_term, w_lat])
+
+    def _shoot_base(self, nodes: np.ndarray) -> np.ndarray:
+        """True for nodes of the last growth season that start a shoot (the
+        first node of a lateral, or of an axis tip's extension): where a
+        birch long shoot carries its early leaves."""
+        T = self.tree
+        par = T.parent[nodes]
+        fresh = (T.lat[nodes] == LAT_DORMANT) & (T.lat_age[nodes] == 0)
+        return fresh & (par >= 0) & (T.birth[np.maximum(par, 0)] < T.birth[nodes])
 
     def _leader_damage(self, t: int):
         """Leader loss (leader_damage in the YAML): each season, with the
@@ -490,6 +503,9 @@ class GrowthModel:
         fw = self.sp.light.foliage_weight
         alive = T.death[:n] < 0
         leaves = np.where(T.birth[:n] == t, float(fw.new_leaf), 0.0)
+        early = float(getattr(fw, "early_leaves", 0.0) or 0.0)
+        if early:
+            leaves += np.where((T.birth[:n] == t) & self._shoot_base(np.arange(n)), early, 0.0)
         leaves += np.where(T.lat[:n] == LAT_SPUR, float(fw.spur), 0.0)
         leaves += np.where((T.term[:n] == 1) & (T.birth[:n] < t), float(fw.spur), 0.0)
         return np.where(alive, leaves * T.leaf_scale[:n] * self._size_rel(np.arange(n)), 0.0)

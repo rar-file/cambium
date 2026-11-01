@@ -379,11 +379,15 @@ light:
   horizontal_margin: 8.0
   # Leaves that each bud state carries (shadow weight).  Current-year leaf at
   # every fresh node; birch short shoots bear 2-3 early leaves [CK66, M82];
-  # older dormant buds are leafless.
+  # older dormant buds are leafless.  Birch long shoots are heterophyllous:
+  # 2-3 early (preformed) leaves at their base, then one late leaf per node
+  # [CK66]; early_leaves is that base cluster, on the first node of each
+  # season's shoot.
   foliage_weight:
     new_leaf: 1.0
     spur: 2.5
     dormant: 0.0
+    early_leaves: 2.5
   # Perception volume for the optimal growth direction V [P09]: probe
   # distance (m), cone half-angle, number of probe directions, soft-min
   # width (shadow units). VERIFY
