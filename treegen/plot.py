@@ -251,10 +251,16 @@ class Plot:
                 self._finish(k, "failed to establish" if young else "no carbon")
 
     def _die(self, active):
-        """Natural mode: a tree whose carbon no longer pays its upkeep dies."""
+        """Natural mode: a tree whose carbon no longer pays its upkeep (wood,
+        leaf and fine-root maintenance and rebuilding its leaves) two years
+        running dies.  After the first year it sheds the branches that ran
+        their own deficit (before the next flush), so it dies only if what is
+        left still cannot pay."""
         for k in active:
-            c = getattr(self.trees[k], "carbon", None)
-            if c and c.get("shoot", 0.0) < c.get("upkeep", 0.0):
+            c = getattr(self.trees[k], "carbon", None) or {}
+            n = self.info[k].get("years_in_deficit", 0) + 1 if c and c.get("fixed", 0.0) < c.get("upkeep", 0.0) else 0
+            self.info[k]["years_in_deficit"] = n
+            if n >= 2:
                 self._finish(k, "died")
 
     def _finish(self, k, cause):
@@ -291,6 +297,9 @@ class Plot:
             return pickle.load(f)
 
     def measure(self):
+        if not self.alive:
+            return {"year": self.year, "trees": 0, "stems_per_ha": 0,
+                    "died_total": sum(1 for i in self.info if i.get("cause") not in (None, "thinned"))}
         d = np.array([self._dbh(k) * 100 for k in self.alive])
         h = np.array([self.trees[k].stats[-1]["height_m"] for k in self.alive])
         la = sum(self.trees[k].stats[-1]["leaf_area_m2"] for k in self.alive)

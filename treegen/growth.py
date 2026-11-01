@@ -625,16 +625,29 @@ class GrowthModel:
         n_int = max(int(alive.sum()) - 1, 0)
         r_maint = float(res.maintenance_per_internode) * n_int
         g_resp = 1.0 + float(getattr(res, "growth_respiration_coefficient", 0.0))
-        self._shoot_carbon = max(shoot_budget - r_maint, 0.0) / g_resp
+        # this season's leaves are rebuilt and respire, and so do the fine
+        # roots that go with them (resource.leaf_costs)
+        leaf_build, leaf_maint, root_maint, leaf_dm = self._leaf_costs(bud_nodes, bud_leaf, g_resp)
+        self._bud_leaf_cost = (bud_nodes, leaf_build + leaf_maint)
+        shoot_costs = r_maint + float(leaf_build.sum() + leaf_maint.sum())
+        shoot_net = max(shoot_budget - shoot_costs, 0.0)
+        root_net = max(carbon - shoot_budget - root_maint, 0.0)
+        self._shoot_carbon = shoot_net / g_resp
+        self._root_carbon = root_net
         la_tot = float(bud_leaf.sum())
+        npp = float(leaf_build.sum()) / g_resp + (shoot_net + root_net) / g_resp
         self.carbon = {"fixed": carbon, "shoot": shoot_budget, "root": carbon - shoot_budget,
                        "mean_bud_light": float(bud_q.mean()) if bud_q.size else 0.0,
                        "fixed_per_leaf_area": carbon / la_tot if la_tot > 0 else 0.0,
-                       # upkeep of the tree's living wood (the branch carbon
-                       # balance applied to the whole tree, plot natural mode)
-                       "upkeep": r_maint,
+                       # what the tree must pay each year to keep going: wood,
+                       # leaf and fine-root maintenance and rebuilding its
+                       # leaves (the branch carbon balance applied to the whole
+                       # tree, plot natural mode)
+                       "upkeep": shoot_costs + root_maint,
+                       "wood_maint": r_maint, "leaf_build": float(leaf_build.sum()),
+                       "leaf_maint": float(leaf_maint.sum()), "fine_root_maint": root_maint, "leaf_dm_g": leaf_dm,
                        # carbon use efficiency NPP / GPP of the tree
-                       "cue": ((max(shoot_budget - r_maint, 0.0) + carbon - shoot_budget) / g_resp / carbon) if carbon > 0 else 0.0}
+                       "cue": npp / carbon if carbon > 0 else 0.0}
         self.water = {"transpiration_kg_s": flow, "psi_collar_mpa": collar, "stomatal_opening": 1.0 - stress,
                       "root_share": root_share,
                       "psi_top_mpa": float(psi[bud_nodes].min()) if self.roots is not None and len(bud_nodes) else 0.0}
@@ -745,14 +758,17 @@ class GrowthModel:
             own_c = (1.0 - root_share) * float(res.alpha) * T.basipetal(levels, cbal)
             ones_c = alive.astype(float)
             ones_c[0] = 0.0
-            upkeep_c = mu * T.basipetal(levels, ones_c)
+            # its upkeep: its wood and its own leaves (rebuilt and respiring)
+            leaf_c = np.zeros(n0)
+            np.add.at(leaf_c, *self._bud_leaf_cost)
+            upkeep_c = mu * T.basipetal(levels, ones_c) + T.basipetal(levels, leaf_c)
             br = np.nonzero(alive & T.is_lateral[:n0] & (T.birth[:n0] <= t - sh.min_branch_age))[0]
             self._starving = np.union1d(self._starving, br[own_c[br] < upkeep_c[br]])
         def flow(fm):
             vin = np.zeros(n0)
             vm = np.zeros(n0)
             vl = np.zeros(n0)
-            vin[0] = max(stem_budget - r_maint, 0.0)
+            vin[0] = max(stem_budget - shoot_costs, 0.0)
             for li, (seg, mains, lats) in enumerate(levels):
                 if li > 0:
                     if mains.size:
@@ -857,7 +873,7 @@ class GrowthModel:
 
         # 6. roots spend their share of the carbon ---------------------------
         if self.roots is not None:
-            budget = root_share * carbon / g_resp * float(res.root_segments_per_unit)
+            budget = self._root_carbon / g_resp * float(res.root_segments_per_unit)
             if getattr(self, "_plot_soil", None) is not None:
                 self.roots.step(t, budget, shared=self._plot_soil)
             elif self.stand:
@@ -967,6 +983,29 @@ class GrowthModel:
         lma = float(ss.lma_shade_g_m2) + float(ss.lma_sun_increase_g_m2) * np.power(q, float(ss.lma_exponent))
         size = a_ref * np.power(float(ss.lma_reference_g_m2) / lma, float(ss.size_lma_exponent))
         return size, lma
+
+    def _leaf_costs(self, bud_nodes, bud_leaf, g_resp):
+        """This season's leaf and fine-root costs, in model carbon units
+        (resource.leaf_costs in the YAML): rebuilding each bud's leaves
+        (dry mass = leaf area x LMA, plus growth respiration), their
+        maintenance respiration over the leafy season, and the maintenance
+        of the fine roots that go with them (a fixed fine-root to leaf mass
+        ratio).  A unit is the carbon that builds wood_volume_per_carbon of
+        wood, i.e. that volume times the wood's basic density in dry
+        matter.  Returns per-bud build and maintenance, the fine-root
+        maintenance and the leaf dry mass (g)."""
+        lc = getattr(self.sp.resource, "leaf_costs", None)
+        if lc is None or not bool(lc.enabled) or not len(bud_nodes):
+            z = np.zeros(len(bud_nodes))
+            return z, z, 0.0, 0.0
+        g_per_unit = float(self.sp.pipe_model.wood_volume_per_carbon) * float(lc.wood_basic_density_kg_m3) * 1000.0
+        dm = bud_leaf * self.tree.lma[bud_nodes]                       # g dry matter
+        build = dm / g_per_unit * g_resp
+        # g C respired per g dry matter, back to dry-matter units
+        maint = dm * float(lc.leaf_maintenance_gc_per_g) / float(lc.carbon_fraction) / g_per_unit
+        roots = float(dm.sum()) * float(lc.fine_root_to_leaf_mass) * float(lc.fine_root_maintenance_gc_per_g) \
+            / float(lc.carbon_fraction) / g_per_unit
+        return build, maint, roots, float(dm.sum())
 
     def _size_rel(self, nodes):
         T = self.tree

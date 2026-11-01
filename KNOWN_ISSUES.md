@@ -1,5 +1,56 @@
 # Known issues
 
+## Phase 20: leaves and fine roots cost carbon
+
+### Step 1: leaf and fine-root costs
+
+Leaves and fine roots were free. Every year each tree now pays (`resource.leaf_costs`):
+- **Rebuilding its leaves:** this season's leaf dry mass (leaf area × LMA), plus growth respiration.
+- **Leaf maintenance:** 0.79 g C per g per year (Oleksyn et al. 2000; season and temperature VERIFY).
+- **Fine-root maintenance:** 0.93 g C per g per year (Ryan, Lavigne & Gower 1997), for fine roots weighing 0.48 of the leaves (Aosaar et al. 2016).
+
+Grams are converted to model units through the wood the unit builds (1.2e-6 m³ at 530 kg m⁻³, so 0.64 g). Each branch's carbon balance also counts its own leaves.
+
+**CUE 0.47 cannot be kept.** Leaf and fine-root respiration plus growth respiration take ~45 % of the fixed carbon on their own.
+- Wood maintenance went 0.7 → 0.2, now ~10 % of the fixed carbon.
+- The plots' CUE (all tree-years from age 20) is 0.38–0.40, as before (0.38–0.41).
+- That is within the published 0.40–0.52 (boreal at the low end), at its edge.
+- The weakest input is the leaf respiration's measurement temperature, which is not stated in the source.
+
+**Death rule.** At first a tree died in its first deficit year, before it could shed the branches that did not pay. The natural plot lost 96 of 100 trees by 35. A tree in deficit now sheds its starving branches before the next flush, and dies only if it is still in deficit the next year. The plot also no longer crashes when its last tree dies.
+
+**Alpha 5.6 → 6.2.**
+- At 5.6 the managed plot's mean height fell just under the band at 60 (21.0 m), with crowns down to 1.9 m.
+- At 7.0 the top quarter was 1–3 m above the band.
+- At 6.2 a short shoot's leaves break even at ~22 % light, against the measured 21 % of the lowest birch leaves.
+
+**Plots at 6.2** (seed 1; before = the phase-17 runs; band from Eriksson et al. 1997):
+
+| | age | N/ha | H mean | top 25 % | band | DBH | crown ratio | crown base | LAI |
+|---|---|---|---|---|---|---|---|---|---|
+| managed, before | 30 | 450 | 19.6 | 21.2 | 13.4–19.7 | 18.3 | 0.81 | 3.9 | 3.61 |
+| | 50 | 450 | 24.5 | 26.2 | 19.2–25.3 | 20.6 | 0.66 | 8.2 | 3.66 |
+| | 60 | 450 | 25.9 | 27.3 | 21.1–26.9 | 21.6 | 0.64 | 9.4 | 3.70 |
+| managed, now | 30 | 450 | 18.7 | 20.4 | 13.4–19.7 | 19.9 | 0.74 | 5.0 | 3.15 |
+| | 50 | 450 | 22.7 | 24.1 | 19.2–25.3 | 21.2 | 0.72 | 6.4 | 3.12 |
+| | 60 | 450 | 24.0 | 25.2 | 21.1–26.9 | 21.6 | 0.75 | 6.0 | 3.12 |
+| natural, before | 30 | 1170 | 17.2 | 20.5 | 13.4–19.7 | 14.1 | 0.73 | 5.0 | 3.77 |
+| | 50 | 765 | 23.4 | 25.5 | 19.2–25.3 | 17.4 | 0.60 | 9.7 | 3.62 |
+| | 60 | 585 | 25.6 | 26.9 | 21.1–26.9 | 19.5 | 0.45 | 14.1 | 3.69 |
+| natural, now | 30 | 1206 | 16.8 | 20.1 | 13.4–19.7 | 14.8 | 0.63 | 6.5 | 3.06 |
+| | 50 | 1080 | 18.9 | 24.1 | 19.2–25.3 | 14.8 | 0.60 | 8.1 | 2.95 |
+| | 60 | 972 | 20.0 | 25.3 | 21.1–26.9 | 15.3 | 0.62 | 8.2 | 2.95 |
+
+**Stem metrics** (noise-matched, 4.6 px), now against before (photos: off-line 1.60 %, turning 11.4°, lean 2.2°):
+- natural: off-line 1.89 % (1.68), turning 8.5° (7.5), lean 1.9° (2.0);
+- managed: off-line 1.86 % (1.79), turning 8.4° (7.6), lean 2.6° (3.1).
+
+**Still off:**
+- The natural plot self-thins less (972/ha at 60, against 585 before).
+- Its deaths: 35 of carbon deficit, 10 of no carbon, 1 failed to establish.
+- LAI fell from ~3.7 to ~3.0–3.1.
+- The managed crown base is 6 m at 60, against 9.4 m before.
+
 ## Phase 19: seedlings on stones, the no-carbon death, regeneration (first version)
 
 **The 9 seedlings that never grew** (phase 18) had three causes, now fixed.

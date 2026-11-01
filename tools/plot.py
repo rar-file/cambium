@@ -88,6 +88,9 @@ def main(argv=None):
     while plot.year < args.years:
         plot.step()
         s = plot.stats[-1]
+        if not plot.alive:
+            print(f"year {s['year']}: no trees left ({s['died_total']} died)", flush=True)
+            break
         if s["year"] % 5 == 0:
             print(f"year {s['year']}: {s['trees']} trees ({s['stems_per_ha']}/ha, {s['died_total']} died), DBH {s['dbh_mean_cm']} +- "
                   f"{s['dbh_sd_cm']} cm, H max {s['height_max_m']} m, LAI {s['lai']}, {time.time() - t0:.0f} s, "
