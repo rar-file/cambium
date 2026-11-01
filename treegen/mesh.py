@@ -237,9 +237,48 @@ def plan_chunks(T, select, radius, geometry, settings: MeshSettings | None = Non
         yield np.concatenate(parts), T.axis[first[C]]
 
 
+def continue_trunk(tree, select):
+    """A view of ``tree`` for drawing, in which the stem is one tube: where
+    the trunk (axis 0) ends because its leader was lost and the way to the
+    top goes on in a lateral (a replacement leader), that lateral's axis is
+    drawn as axis 0, without the end cap on the old trunk and the branch
+    collar on the lateral.  Only where the trunk has no selected
+    continuation of its own (a living fork is left as it is).  The tree
+    itself is not changed."""
+    n = tree.n
+    sel = np.asarray(select[:n], bool)
+    idx = np.nonzero(sel)[0]
+    if idx.size == 0:
+        return tree
+    par = np.asarray(tree.parent[:n])
+    top = int(idx[np.argmax(tree.pos[idx, 2])])
+    path, k = [], top
+    while k >= 0 and len(path) <= n:
+        path.append(k)
+        k = int(par[k])
+    path = path[::-1]
+    axis = np.asarray(tree.axis[:n]).copy()
+    lat = np.asarray(tree.is_lateral[:n]).astype(bool).copy()
+    changed = False
+    for a, b in zip(path[:-1], path[1:]):
+        if axis[a] == 0 and axis[b] != 0 and lat[b]:
+            kids = idx[par[idx] == a]
+            if not np.any(axis[kids] == 0):
+                axis[axis == axis[b]] = 0
+                lat[b] = False
+                changed = True
+    if not changed:
+        return tree
+    from types import SimpleNamespace
+    return SimpleNamespace(n=n, pos=tree.pos, parent=tree.parent, axis=axis, is_lateral=lat, order=tree.order,
+                           birth=tree.birth, death=tree.death, depth=tree.depth)
+
+
 def build_mesh_chunks(tree, select, radius, geometry, settings: MeshSettings | None = None, budget: float = 400_000):
     """Mesh the selection a chunk at a time (see ``plan_chunks``); yields
-    MeshData.  Peak memory follows the chunk size, not the tree size."""
+    MeshData.  Peak memory follows the chunk size, not the tree size.  A stem
+    whose leader was replaced is drawn as one tube (``continue_trunk``)."""
+    tree = continue_trunk(tree, select)
     full = np.asarray(select[: tree.n], bool).copy()
     full[0] = False
     sel = np.zeros(tree.n, bool)
