@@ -73,7 +73,8 @@ class SpurLog:
 
 
 class GrowthModel:
-    def __init__(self, species, environment, seed: int, stand: bool = False, keyframe_step: int = 5, soil=None):
+    def __init__(self, species, environment, seed: int, stand: bool = False, keyframe_step: int = 5, soil=None,
+                 soil_frame=None):
         self.sp = species
         self.soil = soil
         self.seed = int(seed)
@@ -112,7 +113,8 @@ class GrowthModel:
         self._dmg_rng = np.random.default_rng([self.seed, 104729])
         self._lead_peak = 0.0     # largest yearly resource the leader's bud has received
         self.loss_of_dominance_year = None
-        self.roots = RootSystem(species.roots, soil, seed, self.light.vs) if soil is not None else None
+        # soil_frame: (offset, soil seed) of this tree in a plot's shared soil
+        self.roots = RootSystem(species.roots, soil, seed, self.light.vs, soil_frame) if soil is not None else None
         if self.stand:
             nrng = np.random.default_rng([self.seed, 7919])
             k = int(st.cell_trees)
@@ -856,8 +858,8 @@ class GrowthModel:
         # 6. roots spend their share of the carbon ---------------------------
         if self.roots is not None:
             budget = root_share * carbon / g_resp * float(res.root_segments_per_unit)
-            if getattr(self, "_plot_view", None) is not None:
-                self.roots.step(t, budget, None, self._plot_root_cell, self._plot_root_others)
+            if getattr(self, "_plot_soil", None) is not None:
+                self.roots.step(t, budget, shared=self._plot_soil)
             elif self.stand:
                 self.roots.step(t, budget, self._stand_transforms, cell)
             else:

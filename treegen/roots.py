@@ -9,7 +9,8 @@ each tip.
   x exp(-k * RLD), where RLD is the tree's own absorbing root-length density
   blurred over the depletion zone around each root: a root draws down the
   water near it, as a leaf casts shade.  In stand mode the neighbours' roots
-  deplete the same cells.
+  deplete the same cells.  In a plot all trees read one soil (SharedSoil):
+  the same stones and rootable depth, and every tree's roots in one field.
 * Root classes follow silver birch (Laitakari 1935): a seedling taproot that
   is soon overtaken, near-horizontal main laterals in the top soil that
   spread beyond the crown, and sinker roots that drop from the laterals near
@@ -77,11 +78,71 @@ def _fib(n: int) -> np.ndarray:
     return np.stack([r * np.cos(th), r * np.sin(th), z], axis=1)
 
 
+def _soil_grids(soil, seed: int, lo, nx: int, ny: int, nz: int, vs: float):
+    """The parts of availability that do not change: relative moisture by
+    depth x no stone x within the local rootable depth, on the voxel grid
+    starting at voxel ``lo``; and the stone grid."""
+    zc = (np.arange(nz) + lo[2] + 0.5) * vs
+    moist = soil.moisture(-zc).astype(np.float32)
+    # stones: evaluate the stone field at voxel centres
+    gx = (np.arange(nx) + lo[0] + 0.5) * vs
+    gy = (np.arange(ny) + lo[1] + 0.5) * vs
+    X, Y, Z = np.meshgrid(gx, gy, zc, indexing="ij")
+    stone = soil.is_stone(np.stack([X.ravel(), Y.ravel(), Z.ravel()], 1), seed).reshape(nx, ny, nz)
+    # below the local rootable depth the soil holds no available water
+    local = soil.depth_at(np.stack(np.meshgrid(gx, gy, indexing="ij"), -1), seed)
+    rootable = (-zc)[None, None, :] <= local[:, :, None]
+    return moist[None, None, :] * (~stone) * rootable, stone
+
+
+def _root_density(pts, ls, lo, shape, vs: float, p, periodic: bool):
+    """Absorbing root length per m^3, blurred over the depletion zone."""
+    nx, ny, nz = shape
+    rld = np.zeros((nx, ny, nz), dtype=np.float32)
+    if len(pts):
+        idx = np.floor(pts / vs).astype(int) - lo
+        if periodic:
+            idx[:, 0] %= nx
+            idx[:, 1] %= ny
+        ok = np.all((idx >= 0) & (idx < np.array([nx, ny, nz])), axis=1)
+        np.add.at(rld, tuple(idx[ok].T), ls[ok].astype(np.float32))
+        sig = float(p.depletion_radius) / vs
+        mode = ("wrap", "wrap", "constant") if periodic else "constant"
+        rld = gaussian_filter(rld, sig, mode=mode, truncate=3.0) / vs ** 3   # m root per m^3
+    return rld
+
+
+class SharedSoil:
+    """One soil for a plot of trees, in plot coordinates with one seed:
+    moisture, stones and rootable depth are laid out once, and each year the
+    absorbing roots of all trees are blurred once into one root-length
+    density.  Every tree reads the same availability, stones and depth
+    through its own offset (``RootSystem.frame``)."""
+
+    def __init__(self, soil, rp, vs: float, cell, seed: int):
+        self.p, self.vs, self.seed, self.cell = rp, float(vs), int(seed), cell
+        x0, y0, nx, ny = cell
+        zlo = -int(math.ceil(soil.max_depth / vs)) - 1
+        self.lo = np.array([int(round(x0 / vs)), int(round(y0 / vs)), zlo])
+        self.shape = (int(nx), int(ny), -zlo + 1)
+        self.static, self.stone = _soil_grids(soil, self.seed, self.lo, *self.shape, self.vs)
+        self.field = None
+
+    def update(self, pts: np.ndarray, ls: np.ndarray) -> None:
+        """This year's field from all absorbing roots (midpoints in plot coordinates)."""
+        rld = _root_density(pts, ls, self.lo, self.shape, self.vs, self.p, periodic=True)
+        A = self.static * np.exp(-float(self.p.depletion_coefficient) * rld)
+        self.field = (A.astype(np.float32), self.lo, self.stone, self.cell)
+
+
 class RootSystem:
-    def __init__(self, rp, soil, seed: int, vs: float):
+    def __init__(self, rp, soil, seed: int, vs: float, frame=None):
         self.p = rp
         self.soil = soil
         self.seed = int(seed)
+        # in a plot: (offset of this tree in plot coordinates, the plot's soil
+        # seed); stones, rootable depth and availability are read there
+        self.frame = None if frame is None else (np.asarray(frame[0], float), int(frame[1]))
         self.rng = np.random.default_rng([int(seed), 104729])
         self.vs = float(vs)
         self.tree = Tree()
@@ -124,20 +185,28 @@ class RootSystem:
         self.kind[ids] = kind
 
     # -- soil availability ---------------------------------------------------
-    def availability_field(self, t: int, clones=None, cell=None, others=None):
+    def _frame(self):
+        """(offset, soil seed) of the soil this tree reads: in a plot the
+        plot's shared soil, otherwise its own (no offset, its own seed)."""
+        fr = getattr(self, "frame", None)
+        return (None, self.seed) if fr is None else fr
+
+    def availability_field(self, t: int, clones=None, cell=None):
         """Availability grid for this year.  ``clones``: list of (angle, dx, dy)
-        neighbour transforms; ``cell``: periodic (x0, y0, nx, ny) at self.vs."""
+        neighbour transforms; ``cell``: periodic (x0, y0, nx, ny) at self.vs.
+        A tree in a plot reads the plot's SharedSoil instead (``step``); this
+        is then only its first season, in plot coordinates."""
         T, p, vs = self.tree, self.p, self.vs
         n = T.n
         alive = T.death[:n] < 0
+        off, sseed = self._frame()
         absorbing = alive & ((T.birth[:n] >= t - int(p.absorbing_years)) | (T.term[:n] == 1)) & (np.arange(n) > 0)
         mid = T.pos[:n][absorbing] - 0.5 * T.length[:n][absorbing, None] * T.dir[:n][absorbing]
+        own = T.pos[:n][alive]
+        if off is not None:
+            mid, own = mid + off, own + off
         L = T.length[:n][absorbing]
         pts, ls = [mid], [L]
-        for q, lq in (others or []):
-            # absorbing roots of other trees in a plot (in this tree's frame)
-            pts.append(q)
-            ls.append(lq)
         for a, dx, dy in (clones or []):
             c, s = math.cos(a), math.sin(a)
             q = mid.copy()
@@ -152,39 +221,23 @@ class RootSystem:
             x0, y0, nx, ny = cell
             lo = np.array([int(round(x0 / vs)), int(round(y0 / vs)), zlo])
         else:
-            allp = np.concatenate([T.pos[:n][alive], pts]) if len(pts) else T.pos[:n][alive]
+            allp = np.concatenate([own, pts]) if len(pts) else own
             m = int(math.ceil(float(p.field_margin) / vs))
             lo = np.array([int(math.floor(allp[:, 0].min() / vs)) - m, int(math.floor(allp[:, 1].min() / vs)) - m, zlo])
             hi = np.array([int(math.floor(allp[:, 0].max() / vs)) + m, int(math.floor(allp[:, 1].max() / vs)) + m])
             nx, ny = int(hi[0] - lo[0] + 1), int(hi[1] - lo[1] + 1)
         nz = -zlo + 1
-        rld = np.zeros((nx, ny, nz), dtype=np.float32)
-        if len(pts):
-            idx = np.floor(pts / vs).astype(int) - lo
-            if cell is not None:
-                idx[:, 0] %= nx
-                idx[:, 1] %= ny
-            ok = np.all((idx >= 0) & (idx < np.array([nx, ny, nz])), axis=1)
-            np.add.at(rld, tuple(idx[ok].T), ls[ok].astype(np.float32))
-            sig = float(p.depletion_radius) / vs
-            mode = ("wrap", "wrap", "constant") if cell is not None else "constant"
-            rld = gaussian_filter(rld, sig, mode=mode, truncate=3.0) / vs ** 3   # m root per m^3
-        zc = (np.arange(nz) + lo[2] + 0.5) * vs
-        moist = self.soil.moisture(-zc).astype(np.float32)
-        # stones: evaluate the stone field at voxel centres
-        gx = (np.arange(nx) + lo[0] + 0.5) * vs
-        gy = (np.arange(ny) + lo[1] + 0.5) * vs
-        X, Y, Z = np.meshgrid(gx, gy, zc, indexing="ij")
-        stone = self.soil.is_stone(np.stack([X.ravel(), Y.ravel(), Z.ravel()], 1), self.seed).reshape(nx, ny, nz)
-        # below the local rootable depth the soil holds no available water
-        local = self.soil.depth_at(np.stack(np.meshgrid(gx, gy, indexing="ij"), -1), self.seed)
-        rootable = (-zc)[None, None, :] <= local[:, :, None]
-        A = moist[None, None, :] * (~stone) * rootable * np.exp(-float(p.depletion_coefficient) * rld)
+        rld = _root_density(pts, ls, lo, (nx, ny, nz), vs, p, cell is not None)
+        static, stone = _soil_grids(self.soil, sseed, lo, nx, ny, nz, vs)
+        A = static * np.exp(-float(p.depletion_coefficient) * rld)
         self.field = (A.astype(np.float32), lo, stone, cell)
         return self.field
 
     def _sample(self, pts: np.ndarray) -> np.ndarray:
         A, lo, _, cell = self.field
+        off, _ = self._frame()
+        if off is not None:
+            pts = pts + off
         c = pts / self.vs - lo - 0.5
         if cell is None:
             return map_coordinates(A, c.T, order=1, mode="constant", cval=0.0)
@@ -192,7 +245,13 @@ class RootSystem:
         return np.where((c[:, 2] < -0.5) | (c[:, 2] > A.shape[2] - 0.5), 0.0, out)
 
     def _stone_at(self, pts: np.ndarray) -> np.ndarray:
-        return self.soil.is_stone(pts, self.seed)
+        off, sseed = self._frame()
+        return self.soil.is_stone(pts if off is None else pts + off, sseed)
+
+    def _depth_at(self, xy: np.ndarray) -> np.ndarray:
+        """Rootable depth under horizontal positions xy (this tree's frame)."""
+        off, sseed = self._frame()
+        return self.soil.depth_at(xy if off is None else xy + off[:2], sseed)
 
     # -- one season ----------------------------------------------------------
     def absorbing(self, t: int):
@@ -203,11 +262,14 @@ class RootSystem:
         ab = alive & ((T.birth[:n] >= t - int(p.absorbing_years)) | (T.term[:n] == 1)) & (np.arange(n) > 0)
         return T.pos[:n][ab] - 0.5 * T.length[:n][ab, None] * T.dir[:n][ab], T.length[:n][ab]
 
-    def step(self, t: int, budget: float, clones=None, cell=None, others=None):
+    def step(self, t: int, budget: float, clones=None, cell=None, shared=None):
         T, p, rng = self.tree, self.p, self.rng
         n0 = T.n
         alive = T.death[:n0] < 0
-        self.availability_field(t, clones, cell, others)
+        if shared is not None:
+            self.field = shared.field      # the plot's soil, built once for all trees
+        else:
+            self.availability_field(t, clones, cell)
         tips = np.nonzero(alive & (T.term[:n0] == 1))[0]
         prim = np.nonzero(alive & (T.lat[:n0] == LAT_DORMANT))[0]
         q_tip = np.zeros(n0)
@@ -427,7 +489,7 @@ class RootSystem:
             P = T.pos[c]
             Dk = D[act]
             L = seg_len[act]
-            zbot = -self.soil.depth_at(P[:, :2], self.seed) + 0.02
+            zbot = -self._depth_at(P[:, :2]) + 0.02
             # hydrotropism: towards the wettest probe point in the forward cone
             probes = P[:, None, :] + float(p.probe_radius) * self.probe[None]
             a = self._sample(probes.reshape(-1, 3)).reshape(m, -1)
@@ -581,7 +643,7 @@ class RootSystem:
         alive[0] = False
         near = alive & (np.hypot(T.pos[:n, 0], T.pos[:n, 1]) <= float(ap.rooting_depth_radius_m))
         d_root = float(-T.pos[:n][near, 2].min()) if near.any() else 0.0
-        d_root = min(d_root, float(self.soil.depth_at(np.zeros((1, 2)), self.seed)[0]))
+        d_root = min(d_root, float(self._depth_at(np.zeros((1, 2)))[0]))
         f_depth = float(np.clip(d_root / float(ap.reference_rooting_depth_m), float(ap.depth_factor_min), float(ap.depth_factor_max)))
         st = [r for r in roots if r.get("structural")] or roots
         az = np.radians([r["azimuth_deg"] for r in st])

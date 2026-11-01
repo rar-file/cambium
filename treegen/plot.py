@@ -3,9 +3,11 @@ field and one soil.
 
 Every year the plot gathers the leafy buds of all living trees, computes one
 periodic light field over the plot (shade from each tree's real leaf area),
-and steps each tree, which reads that field through its own offset.  Root
-competition: each tree's soil-water field also holds the absorbing roots of
-the others.  Trees differ by seed (architecture), germination year and a
+and steps each tree, which reads that field through its own offset.  The
+soil is one too (roots.SharedSoil): stones and rootable depth are laid out
+once with the plot seed, and every year the absorbing roots of all trees are
+blurred into one soil-water field that each tree reads at its offset (root
+competition).  Trees differ by seed (architecture), germination year and a
 heritable growth factor on their carbon gain.
 
 Two modes: "managed" follows the species' thinning programme, thinning from
@@ -28,6 +30,7 @@ from pathlib import Path
 import numpy as np
 
 from .growth import GrowthModel
+from .roots import SharedSoil
 
 
 class OffsetField:
@@ -75,7 +78,8 @@ class Plot:
             vigour = float(math.exp(rng.normal(0.0, float(pp.vigour_sd))))
             sp_k.resource.alpha = float(sp_k.resource.alpha) * vigour
             g = int(rng.choice(np.asarray(pp.germination_years, int), p=np.asarray(pp.germination_weights, float)))
-            m = GrowthModel(sp_k, environment, seed * 1000 + k, stand=True, soil=make_soil())
+            m = GrowthModel(sp_k, environment, seed * 1000 + k, stand=True, soil=make_soil(),
+                            soil_frame=(np.array([pts[k][0], pts[k][1], 0.0]), seed))
             self.trees.append(m)
             self.info.append({"id": k, "x": float(pts[k][0]), "y": float(pts[k][1]), "germination": g,
                               "vigour": round(vigour, 4), "seed": seed * 1000 + k, "removed": None})
@@ -85,6 +89,9 @@ class Plot:
         nx = max(1, int(round(L / vs)))
         self.L = nx * vs
         self.cell = (-0.5 * self.L, -0.5 * self.L, nx, nx)
+        self.seed = int(seed)
+        self.soil = None
+        self._make_soil()
         self.year = 0
         self.stats = []
         self.mode = mode
@@ -93,8 +100,21 @@ class Plot:
     def _offset(self, k):
         return np.array([self.info[k]["x"], self.info[k]["y"], 0.0])
 
+    def _make_soil(self):
+        """The plot's one soil (stones, rootable depth, moisture), laid out
+        once with the plot seed; each tree reads it at its own offset."""
+        m0 = self.trees[self.alive[0]]
+        if m0.roots is None:
+            return
+        seed = getattr(self, "seed", self.info[0]["seed"] // 1000)   # plots pickled before the shared soil
+        self.soil = SharedSoil(m0.soil, m0.sp.roots, m0.light.vs, self.cell, seed)
+        for k in self.alive:
+            self.trees[k].roots.frame = (self._offset(k), seed)
+
     def step(self):
         t = self.year + 1
+        if getattr(self, "soil", None) is None:
+            self._make_soil()
         active = [k for k in self.alive if t > self.info[k]["germination"]]
         srcs, ws = [], []
         for k in active:
@@ -106,15 +126,20 @@ class Plot:
         if srcs:
             allp = np.concatenate(srcs)
             field = self.light.compute(allp, np.concatenate(ws), np.stack([allp.min(0), allp.max(0)]), periodic=self.cell)
-        roots = {k: self.trees[k].roots.absorbing(self.trees[k].year) for k in active}
+        if self.soil is not None:
+            # every tree's absorbing roots at the start of its season, in one field
+            pts, ls = [], []
+            for k in active:
+                q, lq = self.trees[k].roots.absorbing(self.trees[k].year + 1)
+                pts.append(q + self._offset(k))
+                ls.append(lq)
+            self.soil.update(np.concatenate(pts) if pts else np.zeros((0, 3)), np.concatenate(ls) if ls else np.zeros(0))
         for k in active:
             m = self.trees[k]
-            off = self._offset(k)
-            m._plot_view = OffsetField(field, off) if field is not None else None
-            m._plot_root_cell = (self.cell[0] - off[0], self.cell[1] - off[1], self.cell[2], self.cell[3])
-            m._plot_root_others = [(q + (self._offset(j) - off), lq) for j, (q, lq) in roots.items() if j != k]
+            m._plot_view = OffsetField(field, self._offset(k)) if field is not None else None
+            m._plot_soil = self.soil
             m.step()
-            m._plot_view = None
+            m._plot_view = m._plot_soil = None
         self.year = t
         if self.mode == "natural":
             self._die(active)
