@@ -51,6 +51,38 @@ Grams are converted to model units through the wood the unit builds (1.2e-6 m³ 
 - LAI fell from ~3.7 to ~3.0–3.1.
 - The managed crown base is 6 m at 60, against 9.4 m before.
 
+### Step 2: ground light (diagnosis; the fix is open)
+
+**The light model is not the cause.** Ground light (median over the plot, at 0.1 m) follows Beer–Lambert at the plot's own LAI to within ~2 points:
+
+| plot | LAI | ground light | exp(−0.37 × LAI) |
+|---|---|---|---|
+| natural, phase 17 | 3.65 | 27.9 % | 25.9 % |
+| natural, step 1 | 2.95 | 35.5 % | 33.5 % |
+| managed, step 1 | 3.16 | 33.1 % | 31.1 % |
+
+**Stems and branches.** Hagemeier & Leuschner took K_PAR = 0.37 from measured transmission against litter-trap (leaf-only) LAI. Woody shade is therefore already in K, and adding it would count it twice.
+
+**The cause is leaf area.** Their stands measured 14.8 % at LAI 4.6. A canopy keeps leaves down to ~21 % light, which at K = 0.37 means LAI ≈ 4.2. The model's canopy stops near 33–35 %. Estonian silver-birch stands span LAI 2.5–4.4 (Uri et al.).
+
+**Branch carbon balance limits the model's LAI.** From the managed year-55 checkpoint, 5 years:
+- with it switched off, LAI climbs 3.1 → 3.55 and is still rising;
+- with the 21 % light-per-leaf rule switched off, nothing changes.
+
+**The starving branches are well lit.** Bud light is 0.40 (median), and they are order-2 limbs with ~33 buds at ~18 m. Fully watered, their own carbon would be 59 units against 7 (wood) + 34 (leaves). They starve because the trees are water-limited:
+
+| | stomatal opening at 30 / 45 / 55 | root share at 55 |
+|---|---|---|
+| managed, phase 17 | 0.91 / 0.83 / 0.79 | 0.32 |
+| managed, step 1 | 0.76 / 0.70 / 0.66 | 0.37 |
+
+**Chain:**
+1. Fine-root maintenance (step 1) comes out of the root share, which halves root building (~0.1 of the fixed carbon against ~0.2).
+2. Root length per carbon (`root_segments_per_unit`, VERIFY) and uptake per root length were tuned when roots were free, so water uptake falls.
+3. The stomata close, branches lose a third of their carbon, the well-lit limbs are shed, and LAI falls.
+
+**Open.** The fix is to re-tune what the roots buy per unit of carbon, for which no source has been found. One option: let water uptake come from the same fine-root mass the tree now pays for (0.48 of leaf mass, via specific root length).
+
 ## Phase 19: seedlings on stones, the no-carbon death, regeneration (first version)
 
 **The 9 seedlings that never grew** (phase 18) had three causes, now fixed.

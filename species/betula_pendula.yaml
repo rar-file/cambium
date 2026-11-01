@@ -317,7 +317,11 @@ light:
   # Forests 10:925, Table 5), not the 0.5 of a spherical leaf-angle
   # distribution.  With 0.5 the stand floor got 35 % light at LAI 2.2; the
   # same stands measured 14.8 % (6.4-19.8) at LAI 4.6 with the lowest leaves
-  # at ~21 %.
+  # at ~21 %.  Their LAI came from litter traps (leaves only) and K_PAR from
+  # measured PAR transmission against it, so K_PAR already holds the shade of
+  # stems and branches: wood casts no shade of its own in the model (it would
+  # be counted twice).  The model's ground light follows exp(-0.37 LAI)
+  # within ~2 points (phase 20).
   extinction_coefficient: 0.37
   # One-sided area of a silver-birch leaf (m^2): blades 3-7.5 cm long and
   # 1.5-6 cm wide (Flora of NSW; NC State Extension plant toolbox).  Current-
