@@ -1,5 +1,71 @@
 # Known issues
 
+## Phase 28: diagnosis of spare sapwood, taper, bark and why no tree is suppressed
+
+Diagnosis only; no model change. The tracer server gained `--traces <file>` for the re-click test.
+
+**Switch from the logs** (natural plot p26, plot years 10–60, all trees). The switch's cost, the ring need at λ = 0, was not logged.
+- In a year with new shoots the rings were paid in full, so the need is at most the rings actually laid (stored radii). Upkeep plus that bound is 0.80 of fixed carbon at the median and 0.85 at most; no year comes near a deficit.
+- This holds by construction: when the pool covers the need, upkeep + need < fixed − root budget. The switch can bite only in years without new shoots.
+- 23 tree-years had no new shoots. Only 4 trees had two or more in a row (95, 75, 38, 15), and they died under the existing rule at plot years 47, 39, 21 and 18. No surviving tree would have died with the switch on.
+
+**Where the spare conducting wood comes from.** The seed-1 stand tree is exact: the model's methods wrapped, ledgers decayed with the sapwood. Spare = (1 − ss) × sapwood − Huber × leaf area beyond.
+
+| age | where | sap | need | spare | of it: shed branches' sapwood | stress floor | foliage lost on living branches |
+|---|---|---|---|---|---|---|---|
+| 30 | stem at 1.3 m | 254.9 cm² | 252.2 cm² | 0 | – | – | – |
+| 30 | whole tree | 247 dm³ | 251 dm³ | 0.6 dm³ (0 %) | 37 % | 0 | 63 % |
+| 50 | stem at 1.3 m | 423.7 cm² | 398.8 cm² | 18.9 cm² (5 %) | 100 % | 0 | 0 |
+| 50 | whole tree | 537 dm³ | 506 dm³ | 23.3 dm³ (4 %) | 81 % | 0 | 19 % |
+| 60 | stem at 1.3 m | 445.6 cm² | 417.1 cm² | 22.2 cm² (5 %) | 100 % | 0 | 0 |
+| 60 | whole tree | 638 dm³ | 600 dm³ | 29.6 dm³ (5 %) | 92 % | 0 | 8 % |
+
+The suppressed plot tree (76: unbrowsed, germinated in year 3) was rebuilt from its export: sapwood from the stored radii, need from the stats leaf area. On the stand tree this rebuild matches the exact figures within 0.1 % for sapwood, 1.5 % for need and 3 cm² for spare.
+
+| plot year (tree age) | DBH (cm) | sap at 1.3 m (cm²) | need (cm²) | spare (cm²) | shed branches' sapwood still counted (cm²) |
+|---|---|---|---|---|---|
+| 30 (27) | 7.5 | 34.8 | 31.5 | 2.8 | 22.1 |
+| 50 (47) | 7.6 | 27.1 | 25.2 | 1.6 | 44.2 |
+| 60 (57) | 7.8 | 25.7 | 21.7 | 3.7 | 52.3 |
+
+- The surplus is shed branches' sapwood still counted as conducting: all of it at 1.3 m, and 81–92 % of the whole tree's at 50–60.
+- Because of it, the need at λ = 0 is zero in a tree whose foliage has stopped growing.
+- The suppressed tree's sapwood shrinks at the turnover rate and its foliage shrinks in step (8.2 → 5.6 m²). Its need stays near zero: it declines without ever running a deficit.
+
+**Stem taper against Norwegian birch** (Hansen, Rahlf, Astrup & Gobakken 2023, Scand. J. For. Res. 38:413). Kozak 1988 form; birch coefficients and the double-bark model taken from the taperNOR R package 0.2.1. Matched under bark at 1.3 m to the model's DBH.
+
+| | age | d/DBH at 0.1 / 0.3 / 0.5 / 0.7 / 0.9 H, model | taper curve | form factor, model / curve | model / curve volume | excess above 0.3 H |
+|---|---|---|---|---|---|---|
+| stand tree | 30 | 0.99 / 0.91 / 0.76 / 0.52 / 0.09 | 0.95 / 0.78 / 0.62 / 0.40 / 0.12 | 0.53 / 0.44 | 1.21 | 83 % |
+| stand tree | 50 | 0.99 / 0.91 / 0.74 / 0.52 / 0.07 | 0.92 / 0.75 / 0.59 / 0.37 / 0.11 | 0.53 / 0.40 | 1.31 | 76 % |
+| stand tree | 60 | 0.99 / 0.92 / 0.79 / 0.56 / 0.07 | 0.92 / 0.74 / 0.58 / 0.37 / 0.11 | 0.55 / 0.40 | 1.39 | 76 % |
+| plot (median) | 30 | 0.99 / 0.95 / 0.88 / 0.63 / 0.12 | 0.96 / 0.80 / 0.66 / 0.44 / 0.15 | 0.62 / 0.46 | 1.34 | 88 % |
+| plot | 50 | 0.99 / 0.95 / 0.89 / 0.82 / 0.27 | 0.93 / 0.78 / 0.65 / 0.44 / 0.15 | 0.70 / 0.44 | 1.59 | 87 % |
+| plot | 60 | 0.99 / 0.95 / 0.89 / 0.82 / 0.32 | 0.92 / 0.78 / 0.64 / 0.43 / 0.15 | 0.70 / 0.43 | 1.63 | 86 % |
+
+- The model's bole is nearly cylindrical to mid-height and its upper stem far too thick. The lowest tenth is 9–18 % thin, with no butt swell.
+- Laid out on birch taper, the same stem wood would give DBH 21.9 / 31.5 / 34.8 cm (stand) and 16.5 / 19.9 / 21.1 cm (plot) at 30 / 50 / 60. H/D would be 82 / 71 / 68 and 110 / 121 / 127, against 91 / 83 / 83 and 130 / 155 / 165. All of these are wood diameters.
+
+**Bark and density.**
+- The model has no bark: its radius is wood, and the mesh paints bark on it. Model DBH is therefore under bark.
+- Every DBH it was compared with is over bark: Repola, Hagemeier & Leuschner, Konôpka, and the Huber fit's DBH.
+- Double bark at 1.3 m by the Norwegian model: 2.1 cm at a wood DBH of 19.7 cm, 1.1 cm at 13.9 cm. Repola's sample mean is 0.9 cm at DBH 16.5.
+- Repola's stem wood excludes bark; his living branches include it.
+- Model basic density is 530 kg m⁻³ (Aosaar et al. 2016, a 17-year Estonian stand). Fresh density in the mechanics is 850 (VERIFY).
+- Corrected to over-bark DBH, model stem wood is 1.16–1.29× Repola's (stand) and 1.40–1.68× (plot). That is close to the model-to-taper volume ratios, so too little taper explains most of the heavy stems.
+- Branches: 0.10–0.13 (stand) and 0.24–0.39 (plot) of Repola's.
+
+**Why no plot tree is suppressed.**
+- The light grid is not coarse: 0.10 m voxels against crowns 1.6–2.7 m wide.
+- The shade blur is not the cause either. At the year-58 checkpoint, recomputing the light with the penumbra at 1×, 0.1× and 0× leaves the bottom quarter's leaf-weighted bud light at 1.01, 1.01 and 1.00 of the top quarter's.
+- Light is even because the crowns are level. The bottom quarter by DBH grows as fast or faster in height (1.97 / 1.53 / 1.13 m per 5 years against 1.91 / 1.22 / 0.93 at 30 / 50 / 60). It closes from 0.84 to 0.94 of the top-quarter height, and its mean bud light (0.32–0.36) equals the dominants' (0.35).
+- Height growth costs a suppressed tree almost nothing (tip cross-section × length), and nothing ties height to the stem.
+- Uniform-column buckling height H_crit = 0.79 (E / ρg)^{1/3} D^{2/3} (Greenhill 1881), with the model's E 10 GPa and fresh density 850:
+  - stand tree at 0.63–0.65 of it;
+  - plot trees median 0.81 / 0.99 / 1.07 at 30 / 50 / 60, worst 1.04 / 1.48 / 1.56. Tree 76 is 23.9 m tall on 7.8 cm at 60.
+  - For reference, the same formula gives 0.75–0.93 for Hagemeier & Leuschner's stand at 45 (DBH 19 cm over bark, 20–25 m).
+- Starting density: 1800/ha, the first stage of the managed thinning table. Its source, Swedish practice [SS14], gives that as the density after pre-commercial thinning ("no more than 1500–2000 birches/ha by 6–7 m"). Natural regeneration starts far denser (the dense-regeneration test: 9900/ha).
+
 ## Phase 27: upkeep switch tested, regeneration and canopy closure, branch wood against Repola
 
 **Upkeep switch** (`pipe_model.sapwood_replacement_is_upkeep`, off). It adds the rings that keep this season's foliage supplied (the LIGNUM ring need at λ = 0) to the upkeep in the natural-mode death test.
