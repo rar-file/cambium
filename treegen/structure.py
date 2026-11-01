@@ -1,11 +1,14 @@
 """Node store shared by the crown and the root system.
 
 Node i is the distal end of internode parent[i] -> i; node 0 is the base.
-Passes over the tree are vectorised level by level (depth from the base).
+Passes over the tree are vectorised level by level (depth from the base);
+subtree sums run compiled, node by node in the same order (kernels.py).
 """
 from __future__ import annotations
 
 import numpy as np
+
+from . import kernels
 
 
 def _normalize(v: np.ndarray) -> np.ndarray:
@@ -36,6 +39,16 @@ class Levels(list):
         if d is None:
             d = self._down = np.concatenate([seg for seg, _, _ in self[1:]]) if len(self) > 1 else np.zeros(0, np.intp)
         return d
+
+    @property
+    def up(self) -> np.ndarray:
+        """Nodes below the base, deepest level first, each level's main
+        children before its laterals (the order of the level-wise sums)."""
+        u = getattr(self, "_up", None)
+        if u is None:
+            parts = [a for _, mains, lats in reversed(self[1:]) for a in (mains, lats)]
+            u = self._up = np.concatenate(parts) if parts else np.zeros(0, np.intp)
+        return u
 
 
 class Tree:
@@ -111,12 +124,8 @@ class Tree:
     def basipetal(self, levels: list, values: np.ndarray) -> np.ndarray:
         """Subtree sums: acc[i] = values[i] + sum over descendants."""
         acc = values.copy()
-        par = self.parent
-        for _, mains, lats in reversed(levels[1:]):
-            if mains.size:
-                acc[par[mains]] += acc[mains]
-            if lats.size:
-                acc[par[lats]] += acc[lats]
+        up = levels.up if isinstance(levels, Levels) else Levels(levels).up
+        kernels.basipetal(up, self.parent, acc.reshape(acc.shape[0], int(np.prod(acc.shape[1:]))))
         return acc
 
     def trunk_chain(self) -> np.ndarray:
