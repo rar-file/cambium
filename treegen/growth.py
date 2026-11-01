@@ -601,6 +601,10 @@ class GrowthModel:
         bud_leaf = np.concatenate([w_term, w_lat]) * self.light.leaf_area
         res = sp.resource
         if self.roots is not None:
+            fine = self._fine_root_mass(bud_nodes, bud_leaf)
+            if fine is not None:
+                # this season's fine roots, built in spring with the leaves
+                self.roots.update_uptake(t, float(sp.hydraulics.root_xylem_conductivity), fine)
             area = self.conducting_area(levels, alive, bud_nodes, np.concatenate([w_term, w_lat]))
             psi, phi, flow, collar = hydraulics.solve(T, levels, alive, bud_nodes, bud_leaf, bud_q, area,
                                                       self.roots.uptake_conductance, sp.hydraulics,
@@ -942,7 +946,19 @@ class GrowthModel:
         zrt = float(getattr(rp, "zrt_radius_per_dbh", 0.0)) * d * float(getattr(rp, "zrt_fade_fraction", 0.5))
         self.roots.update_radii(float(self.tree.radius[0]) ** self.gamma, self.gamma,
                                 float(rp.tip_radius) ** self.gamma, zrt)
-        self.roots.update_uptake(t, float(self.sp.hydraulics.root_xylem_conductivity))
+        if self._fine_root_mass(np.zeros(0, np.int64), np.zeros(0)) is None:
+            # with fine-root uptake it is set at the start of each season
+            self.roots.update_uptake(t, float(self.sp.hydraulics.root_xylem_conductivity))
+
+    def _fine_root_mass(self, bud_nodes, bud_leaf):
+        """Fine-root dry mass (g) that goes with this season's leaves, when
+        water enters through the fine roots the tree pays for (leaf_costs and
+        roots.fine_root_uptake on); None otherwise."""
+        lc = getattr(self.sp.resource, "leaf_costs", None)
+        fu = getattr(self.sp.roots, "fine_root_uptake", None)
+        if lc is None or not bool(lc.enabled) or fu is None or not bool(fu.enabled):
+            return None
+        return float((bud_leaf * self.tree.lma[bud_nodes]).sum()) * float(lc.fine_root_to_leaf_mass)
 
     # ------------------------------------------------------------------
     def _axis_base_radius(self) -> np.ndarray:

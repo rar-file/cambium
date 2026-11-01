@@ -849,8 +849,27 @@ roots:
   # silver birch saplings (Sellin et al., Tree Physiol., PMC3976162):
   # soil-to-branch conductance 2.28 mmol m-2 s-1 MPa-1 of leaf area; at
   # 1e-5 the model's roots alone gave 1.4 and took 85-93 % of the sapling's
-  # water-potential drop. VERIFY (calibrated)
+  # water-potential drop.  Used only when fine_root_uptake is off.
+  # VERIFY (calibrated)
   uptake_conductance_per_m: 2.0e-5
+  # Water enters through the fine roots the tree pays for (resource.
+  # leaf_costs: 0.48 g fine root per g leaf), so their cost and their uptake
+  # are one quantity.  Their length is mass x specific root length (short,
+  # absorbing roots of silver birch 80-97 m g-1 across site qualities;
+  # Ostonen et al. 2007, Plant Biosyst. 141:426), spread over this year's
+  # absorbing roots in proportion to their length.  Conductance per metre:
+  # the root-system conductance of 3-4-year-old silver birches, 4.33e-4 kg
+  # m-2 s-1 MPa-1 per leaf area, with 0.46 g fine root (< 2 mm) per g leaf in
+  # the same trees (control plots; Sellin et al. 2015, Front. Plant Sci.
+  # 6:860), at the model's reference LMA (60.8 g m-2, [OP22]): 1.7e-7 kg s-1
+  # MPa-1 per m.  The root-system conductance includes the axial path, which
+  # the model adds again from the absorbing roots to the stem (small).
+  fine_root_uptake:
+    enabled: true
+    specific_root_length_m_per_g: 90.0
+    root_conductance_per_leaf_area: 4.33e-4
+    fine_root_per_leaf_mass: 0.46
+    leaf_mass_per_area_g_m2: 60.8
   # Tips die where availability drops below this; a lateral root is shed
   # when the mean availability at its tips and primordia does. VERIFY
   tip_survival_availability: 0.08

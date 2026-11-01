@@ -617,9 +617,15 @@ class RootSystem:
         T.radius[:n] = np.where(alive, r, T.radius[:n])
         self.radius_history.append(T.radius[:n].astype(np.float16))
 
-    def update_uptake(self, t: int, k_axial: float):
+    def update_uptake(self, t: int, k_axial: float, fine_root_mass: float | None = None):
         """Root uptake conductance (kg s^-1 MPa^-1): absorbing roots in series
-        with the woody path back to the stem."""
+        with the woody path back to the stem.  With ``fine_root_mass`` (g, the
+        fine roots the tree pays for) and roots.fine_root_uptake on, water
+        enters through those fine roots: their length (mass x specific root
+        length) is spread over this year's absorbing roots in proportion to
+        their length, at a conductance per metre from the measured root-system
+        conductance of young silver birch; otherwise at
+        uptake_conductance_per_m of absorbing structural root."""
         T, p = self.tree, self.p
         n = T.n
         alive = T.death[:n] < 0
@@ -630,7 +636,18 @@ class RootSystem:
         mid = T.pos[:n] - 0.5 * T.length[:n, None] * T.dir[:n]
         a = np.zeros(n)
         a[absorbing] = self._sample(mid[absorbing])
-        g = float(p.uptake_conductance_per_m) * T.length[:n] * a * absorbing
+        fu = getattr(p, "fine_root_uptake", None)
+        if fine_root_mass is not None and fu is not None and bool(fu.enabled):
+            srl = float(fu.specific_root_length_m_per_g)
+            # conductance per metre of fine root: root-system conductance per
+            # leaf area over the fine-root length per leaf area of the same trees
+            k_len = float(fu.root_conductance_per_leaf_area) / (
+                float(fu.fine_root_per_leaf_mass) * float(fu.leaf_mass_per_area_g_m2) * srl)
+            self.fine_root_length = float(fine_root_mass) * srl
+            L_abs = np.where(absorbing, T.length[:n], 0.0)
+            g = k_len * self.fine_root_length * L_abs / max(float(L_abs.sum()), 1e-12) * a
+        else:
+            g = float(p.uptake_conductance_per_m) * T.length[:n] * a * absorbing
         area = np.pi * np.maximum(T.radius[:n], 1e-5) ** 2
         r_seg = np.where(alive, T.length[:n] / (k_axial * area), 0.0)
         levels = T.levels(alive)
