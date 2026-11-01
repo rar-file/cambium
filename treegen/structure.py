@@ -66,6 +66,7 @@ class Tree:
         "own_pipe": np.float64, "radius": np.float64, "scaffold_birth": np.int16, "scaffold": np.int32,
         "leaf_scale": np.float64, "leaves": np.float32,
         "leaf_size": np.float64, "lma": np.float32, "wood_area": np.float64, "sap_area": np.float64,
+        "no_axil": np.bool_,
     }
 
     def __setstate__(self, state):

@@ -286,7 +286,7 @@ class GrowthModel:
         # replacement leaders: the n uppermost lateral buds / young laterals
         cand, j = [], base
         while j > 0 and len(cand) < int(ld.replacement_leaders) and T.pos[base, 2] - T.pos[j, 2] < float(ld.replacement_zone_m):
-            if T.lat[j] in (LAT_DORMANT, LAT_SPUR) or (T.lat_child[j] >= 0 and T.death[T.lat_child[j]] < 0):
+            if (T.lat[j] in (LAT_DORMANT, LAT_SPUR) and not T.no_axil[j]) or (T.lat_child[j] >= 0 and T.death[T.lat_child[j]] < 0):
                 cand.append(j)
             j = int(T.parent[j])
         for c in cand:
@@ -707,6 +707,9 @@ class GrowthModel:
             # it is no sink in the split (it took ~3/4 of the resource and
             # wasted it, phase 15)
             Glat[lat_nodes[T.lat[lat_nodes] == LAT_SPUR]] = 0.0
+        # a node grown by less than one metamer has its leaf but no axillary
+        # bud (bud_fate.axillary_buds_below_one_metamer): no sink
+        Glat[lat_nodes[T.no_axil[lat_nodes]]] = 0.0
         Gtot = T.basipetal(levels, Gterm + Glat)
         mc = T.main_child[:n0]
         lc = T.lat_child[:n0]
@@ -891,6 +894,10 @@ class GrowthModel:
 
         dm = ~g_lat_mask & ~is_spur
         dn = lat_nodes[dm]
+        # no axillary bud: its leaf has had its season, nothing follows
+        gone = dn[T.no_axil[dn]]
+        T.lat[gone] = LAT_DEAD
+        dn = dn[~T.no_axil[dn]]
         lit = Qlat[dn] >= q_ss
         to_spur = dn[lit]
         T.lat[to_spur] = LAT_SPUR
@@ -1254,6 +1261,7 @@ class GrowthModel:
         # at least one internode (a tip below one metamer's worth makes one,
         # shorter: seg_len below)
         nmet = np.maximum(np.floor(vc), 1).astype(np.int64)
+        no_axil = (vc < 1.0) & (not bool(getattr(sp.bud_fate, "axillary_buds_below_one_metamer", True)))
         expansion = self._expansion(starts)
         seg_len = self.l0 * vc / nmet * expansion
         D = np.where(is_lat[:, None], T.lat_dir[starts], T.term_dir[starts])
@@ -1426,6 +1434,11 @@ class GrowthModel:
             u, bud = self._lateral_bud_dirs(Dn, Rn, order[act], axis[act], phyllo[act] + k)
             last = nmet[act] == k + 1
             T.lat[new] = LAT_DORMANT
+            # an increment below one metamer is a short-shoot year: its leaf
+            # stands at the tip and no long-shoot bud forms in its axil (birch
+            # short shoots carry only their terminal bud; Ishihara & Kikuzawa
+            # 2009, Ann. Bot. 104:1195)
+            T.no_axil[new] = no_axil[act]
             T.lat_dir[new] = bud
             T.term[new] = last.astype(np.int8)
             # sympodial growth: the pseudo-terminal bud sits beside the aborted

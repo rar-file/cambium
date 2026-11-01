@@ -279,6 +279,16 @@ bud_fate:
   # 0.9-1.0 metamers a year and never grew, phase 20).  Below this share of
   # a metamer (0.1 = 2.8 mm) a tip does not extend.  VERIFY (resolution)
   min_tip_extension: 0.1
+  # A tip increment below one metamer is a short-shoot year: its leaf
+  # stands at the tip and no long-shoot bud forms in its axil.  Birch short
+  # shoots carry only their terminal bud (Betula grossa: Ishihara &
+  # Kikuzawa 2009, Ann. Bot. 104:1195), and long-shoot buds form in the
+  # axils of a long shoot's late leaves (B. papyrifera: "Shoot development
+  # in Betula papyrifera III", Can. J. Bot. 1984, doi:10.1139/b84-066).
+  # With axillary buds on every such
+  # increment, weak tips stacked buds and short shoots at a few mm
+  # (phase 26).
+  axillary_buds_below_one_metamer: false
   # Short shoots are cheap and self-financing, so their fate is local and
   # driven by light, not by BH resource: a lateral bud that does not extend
   # forms a short shoot (spur) if its exposure Q reaches short_shoot_light;
