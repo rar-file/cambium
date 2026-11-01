@@ -76,10 +76,16 @@ ground_vegetation:
   # The herb / field layer (grasses, herbs, dwarf shrubs) shades foliage
   # near the ground: light falls through it as exp(-k * leaf area above),
   # with its leaf area spread evenly over its height (Monsi & Saeki 1953,
-  # transl. Ann. Bot. 95:549, 2005: herb communities LAI 4-7, extinction
-  # coefficients of grass-like canopies ~0.3-0.5).  An unmown field on
-  # Swedish forest land: lower LAI. VERIFY (height, LAI)
-  enabled: false
-  height_m: 0.6
-  leaf_area_index: 3.0
-  extinction: 0.4
+  # transl. Ann. Bot. 95:549, 2005).  Under 70-year white-birch stands in
+  # the southern boreal forest the understory LAI was 2.52 +- 0.16 (cover
+  # 72 %), most of it below 50 cm ("high percent vegetation cover below
+  # 50 cm ... but very little vegetation above 100 cm"); light extinction in
+  # the 5-50 cm stratum k = 0.43 +- 0.03 (herbaceous vegetation 0.37); and
+  # the understory's transmission did not depend on the light reaching it
+  # (Aubin, Beaudet & Messier 2000, Can. J. For. Res. 30:168, Tables 1 and
+  # 4).  Betula papyrifera stands in Quebec, not Swedish silver birch, and
+  # the same layer is used in the open. VERIFY (transfer)
+  enabled: true
+  height_m: 0.5
+  leaf_area_index: 2.5
+  extinction: 0.43
