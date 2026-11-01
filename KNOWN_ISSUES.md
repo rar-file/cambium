@@ -1,15 +1,19 @@
 # Known issues
 
-## Phase 31: continuous replacement-leader tube, snow-buckling check, wind and leader diagnoses
+## Phase 31: continuous replacement-leader tube, snow-buckling check, replacement-leader diagnosis, wind rule, and leaves diagnosis
 
 **1. Continuous trunk tube across leader replacements** (`treegen/mesh.py`, commit `e6aab7a`).
 - Where a browsed leader died and a lateral replacement leader took over (`tree.relay`), the mesher now splices the parent stem and the winning replacement leader into one continuous tube instead of capping the dead leader stub with a cone and starting the replacement leader with a branch collar.
 - The white cone caps on browsed stems in the natural plot render are gone; slight narrowing remains at a couple of relay joins.
 
-**2. Replacement-leader knees after moose browsing (diagnosis).**
-- After moose browsing (0.3–3 m), the replacement leader leaves at a median 45° from vertical and runs 0.3–0.7 m sideways in its first 2 m before turning upright (tree 73 leaves at 81–88° and makes a full loop).
-- The model's woody posture correction rate (C_rw Δr/r², with C_rw = 0.012 from maturation-strain asymmetry ~0.003, Alméras & Fournier 2009, J. Theor. Biol. 256:370; ~0.29 /m/yr on a young leader) matches experimental measurements on Populus and Pinus (Coutand et al. 2007, J. Exp. Bot. 58:1829; Sierra-de-Grado et al. 2008).
-- Because posture correction scales as Δr/r², the sideways knee formed in the first season thickens into the stem (10–16 cm by age 60) and cannot be straightened in later years.
+**2. Replacement-leader knees after moose browsing (diagnosis only; no model change).**
+- **Primary bending exists for newly elongating leader internodes:** In `_grow_shoots` (`treegen/growth.py` lines 1334–1352), any axis in `self.leader_axes` gets `gsa = 0.0` (vertical), `eta = gravitropism[0] = 2.0 / m`, and is exempted from `pendulous_factor`.
+- **Why the 0.3–0.71 m sideways knee and tree 73's loop still form:**
+  1. **Bite depth removes the entire previous annual shoot (`birth >= t - 1`):** `_leader_damage(t)` (`treegen/growth.py` lines 270–297) kills 100% of the leader's `t - 1` shoot (0.7–1.1 m long), placing `base` at the top of 2-year-old wood (`birth == t - 2`). On 2-year-old wood, the upper lateral buds already broke in year `t - 1` (`lc = T.lat_child[c] >= 0`) while the leader was still alive. Thus in 34 of 34 leader replacements across the 29 browsed trees in `p26_nat`, the promoted replacement axis spent its actual first growing season (`t - 1`) elongating 0.50–0.86 m sideways (`dx_y1` median 0.28 m, max 0.71 m in tree 20 and 0.70 m in tree 73) as a plagiotropic `order = 1` branch (`gsa = 43°`, with `pendulous_factor` reducing primary gravitropism to ~0.02 /m and first-year self-weight bending it to 45–88°). When promoted in year `t`, that 1-year-old shoot is already woody (`birth == t - 1`): primary upward growth only starts at its distal tip (already 0.3–0.7 m off-axis), while the woody base can only lift at the secondary reaction-wood rate $C_{\text{rw}}\Delta r / r^2 \approx 0.29\text{ m}^{-1}\text{ yr}^{-1}$ (Alméras & Fournier 2009; Coutand et al. 2007). In tree 73, slow secondary lifting at the horizontal base rotates the already-vertical second-year extension inward past vertical, forming a loop.
+  2. **Even a newly breaking bud (`_relay_buds`) turns too slowly in its first season:** It starts at `branch_angle_deg[0] = 43°` (`T.lat_dir`) and turns toward vertical at the mature stem's $\eta_0 = 2.0\text{ m}^{-1}$ (convergence length $L_c = 1/\eta_0 = 0.5\text{ m}$), running $(1 - \cos 43^\circ)/\eta_0 \approx 0.14\text{--}0.27\text{ m}$ sideways over its first 0.5 m before becoming vertical, and then takes full unbuttressed first-year self-weight bending (`r_prev = 0`).
+- **Sources and proposed fix (not built yet):**
+  - Moose winter browsing on *Betula pendula* clips the distal part of the current annual leader at a mean bite diameter of 2.2–4.0 mm (Danell, Huss-Danell & Bergström 1985, J. Appl. Ecol. 22:883; Bergström & Danell 1987, J. Appl. Ecol. 24:803; Shipley et al. 1998, Oecologia 114:421), removing ~20–35 cm rather than the entire 0.8–1.1 m shoot down to 2-year-old wood. Thus the replacement leader breaks in spring `t` from an axillary bud on the remaining `t - 1` shoot (`_relay_buds`), not a 1-year-old lateral branch.
+  - Primary gravitropic reorientation of a released sub-terminal bud occurs within the primary growth zone ($L_{\text{gz}} \approx 3\text{--}10\text{ cm}$) with convergence length $L_c \approx 2\text{--}5\text{ cm}$, i.e. $\eta = 1/L_c \approx 20\text{--}50\text{ m}^{-1}$ (Bastien et al. 2013, PNAS 110:755), curving to vertical within the first 5–10 cm of its first flush (Chaar et al. 1997, Ann. Sci. For. 54:405; Wilson 2000, Am. J. Bot. 87:601).
 
 **3. Offline snow-buckling check on the natural plot** (`tools/snow_buckling.py`, `out/bench/p26_nat`).
 - Rayleigh cantilever buckling check (E = 10.7 GPa, fresh density 900 kg m⁻³, own winter weight plus the Finnish mean crown snow load of 5.35 kg m⁻², Lehtonen et al. 2014, Silva Fennica 48:1120) evaluated at the stored 5-year keyframes on the logged natural plot:
@@ -27,10 +31,62 @@
 - Snow buckling alone brings stand density to 1638/ha at 45 (1530/ha at 50, 1296/ha at 60), far short of Hagemeier & Leuschner's 880/ha at 45.
 - Nykänen et al. 1997 (Silva Fennica 31:193): stem breakage is the most common snow damage overall, small slender trees (high H/D) are most prone to bending, and birch tends to bend permanently under wet snow rather than snap.
 
-**4. ForestGALES wind-load parameters and licence check.**
-- Licence: the `fgr` R package (Locatelli, Gardiner, Hale & Nicoll 2020, Forest Research) is licensed under GPLv3 with the Commons Clause v1.0, which forbids commercial use without express consent. No code from `fgr` may be copied or translated; only the published equations and cited parameter values from Gardiner et al. 2000 (Ecol. Model. 129:1), Hale et al. 2015 (Environ. Model. Softw. 68:27) and Locatelli et al. 2017 (Environ. Model. Softw. 87:84) may be used.
-- Published ForestGALES birch (Betula spp., BI) parameter values: green stem density 900 kg m⁻³, green MOR 63 MPa, green MOE 9.9 GPa, knot factor 1.0, drag streamlining C = 1.9627 and N = 0.881 (capped at u = 20 m s⁻¹; Mayhead 1973 / Vollsinger et al. 2005), canopy fresh density 1.22 kg m⁻³.
-- Reference 50-year 10 m fundamental basic wind velocity for Göteborg / west coast: 25 m s⁻¹ (Boverket EKS / SS-EN 1991-1-4 Swedish National Annex; VERIFY for Lysekil).
+**4. ForestGALES wind-load rule** (`species/betula_pendula.yaml`, `treegen/growth.py`, `treegen/plot.py`, commit `8705f92`; `enabled: false` by default).
+- **Licence:** The `fgr` R package (Locatelli, Gardiner, Hale & Nicoll 2020, Forest Research) is licensed under GPLv3 with the Commons Clause v1.0, forbidding commercial use. No code from `fgr` was copied or translated; implemented strictly from the published equations and cited parameter values in Gardiner et al. 1997 (Forestry 70:233), Gardiner et al. 2000 (Ecol. Model. 129:1), Raupach 1994 (Boundary-Layer Meteorol. 71:211), Vollsinger et al. 2005 (Can. J. For. Res. 35:1238), Hale et al. 2015 (Environ. Model. Softw. 68:27), and Locatelli et al. 2017 (Environ. Model. Softw. 87:84).
+- **Parameters:** ForestGALES birch (BI) green MOR 63 MPa, knot factor 1.0, streamlining $C = 1.9627$, $N = 0.881$ (capped at $u_h = 20\text{ m s}^{-1}$). Target outer-fibre wind bending stress $\sigma_{\text{target}} = 63 / 3.5 = 18.0\text{ MPa}$ (safety factor 3.5 against green MOR; Niklas & Spatz 2000, Trees 14:230; Mattheck & Kubler 1995).
+- **Wind speeds tested on the seed-1 stand tree:**
+  1. Frequent strong synoptic wind `12.0 m/s`: trees acclimate radial growth (thigmomorphogenesis) to recurring strong synoptic winds rather than the 50-year storm (Bonnesoeur et al. 2016, New Phytol. 210:850; Gardiner, Berry & Moulia 2016, Plant Sci. 245:94), and stem taper conforms to uniform bending stress at canopy-top winds of 10–12 m/s (Morgan & Cannell 1994, Tree Physiol. 14:49; ~98–99th percentile synoptic wind on the Swedish west coast, SMHI). Sizing for 12 m/s at 18 MPa ($SF = 3.5$) also provides a breaking safety factor of ~1.5 against a 25 m/s 50-year storm at 63 MPa.
+  2. 50-year design wind `25.0 m/s`: Göteborg / west coast 10 m fundamental basic wind velocity (Boverket EKS / SS-EN 1991-1-4 National Annex; VERIFY for Lysekil).
+- **Seed-1 stand tree results (each ring is the larger of the pipe need and the wind need, paid from the same LIGNUM carbon pool):**
+
+| run | age | H (m) | DBH wood / over bark (cm) | H/D over bark | d/DBH at 0.1 / 0.3 / 0.5 / 0.7 / 0.9 H | Hansen 2023 taper | form factor (model / Hansen) | stem wood / Repola | branches / Repola | shoot C share (5-yr mean) | buckling: own / +5.35 / +30 snow |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| baseline (no wind) | 30 | 18.7 | 18.9 / 20.7 | 90 | 0.99 / 0.90 / 0.71 / 0.49 / 0.09 | 0.95 / 0.78 / 0.63 / 0.40 / 0.13 | 0.51 / 0.44 | 1.13 (142/126 kg) | 0.15 (3.3/22.5 kg) | 2.1% (2.1%) | 12.7 / 10.8 / 6.3 |
+| baseline (no wind) | 50 | 24.2 | 25.0 / 27.4 | 88 | 0.99 / 0.89 / 0.71 / 0.50 / 0.08 | 0.92 / 0.75 / 0.60 / 0.39 / 0.12 | 0.51 / 0.41 | 1.18 (320/270 kg) | 0.18 (8.2/44.3 kg) | 4.1% (3.9%) | 9.4 / 7.6 / 4.1 |
+| baseline (no wind) | 60 | 25.8 | 26.7 / 29.2 | 88 | 0.99 / 0.90 / 0.76 / 0.55 / 0.18 | 0.91 / 0.75 / 0.60 / 0.38 / 0.12 | 0.54 / 0.40 | 1.28 (411/322 kg) | 0.22 (11.1/51.6 kg) | 2.4% (3.4%) | 7.6 / 6.0 / 3.0 |
+| frequent wind (12 m/s) | 30 | 19.1 | 19.5 / 21.3 | 90 | 0.98 / 0.83 / 0.67 / 0.39 / 0.09 | 0.95 / 0.78 / 0.62 / 0.40 / 0.13 | 0.46 / 0.44 | 1.01 (138/136 kg) | 0.20 (4.9/24.4 kg) | 5.1% (4.2%) | 13.6 / 11.2 / 6.2 |
+| frequent wind (12 m/s) | 50 | 24.6 | 28.2 / 30.9 | 79 | 0.97 / 0.82 / 0.63 / 0.38 / 0.13 | 0.91 / 0.74 / 0.59 / 0.37 / 0.11 | 0.44 / 0.40 | 1.06 (355/335 kg) | 0.16 (10.3/64.0 kg) | 3.0% (2.7%) | 13.0 / 11.0 / 6.4 |
+| frequent wind (12 m/s) | 60 | 26.2 | 29.3 / 32.1 | 81 | 0.97 / 0.85 / 0.71 / 0.51 / 0.18 | 0.91 / 0.74 / 0.59 / 0.37 / 0.11 | 0.50 / 0.39 | 1.23 (468/381 kg) | 0.22 (14.8/68.0 kg) | 2.2% (3.1%) | 8.1 / 6.5 / 3.4 |
+| 50-yr wind (25 m/s) | 30 | 14.2 | 23.8 / 26.1 | 54 | 0.99 / 0.56 / 0.32 / 0.22 / 0.07 | 0.98 / 0.77 / 0.58 / 0.35 / 0.09 | 0.30 / 0.43 | 0.68 (99/146 kg) | 0.25 (16.4/64.8 kg) | 0.2% (0.9%) | 117.6 / 96.8 / 53.4 |
+| 50-yr wind (25 m/s) | 50 | 17.6 | 32.2 / 35.4 | 50 | 0.97 / 0.66 / 0.56 / 0.45 / 0.19 | 0.95 / 0.73 / 0.54 / 0.32 / 0.08 | 0.39 / 0.39 | 1.01 (298/295 kg) | 0.42 (54.8/131.9 kg) | 1.7% (1.4%) | 36.4 / 33.8 / 25.5 |
+| 50-yr wind (25 m/s) | 60 | 18.5 | 35.6 / 39.0 | 47 | 0.97 / 0.76 / 0.65 / 0.52 / 0.15 | 0.94 / 0.71 / 0.53 / 0.30 / 0.08 | 0.45 / 0.38 | 1.23 (442/359 kg) | 0.41 (68.6/165.9 kg) | 0.9% (1.2%) | 31.4 / 28.2 / 19.3 |
+
+- **Why the mid-stem (`0.3–0.7 H`) matches Hansen at 30–50 under 12 m/s wind (`0.82 / 0.63 / 0.38` vs `0.74 / 0.59 / 0.37` at age 50), but thickens between 50 and 60 (`0.85 / 0.71 / 0.51`):**
+  1. **Double-counting between `huber_path_exponent` (`c = 0.283`) and sapwood turnover (`0.014/yr`):** `c = 0.283` was calibrated without wind so that conducting sapwood + accumulated heartwood matched DBH at 1.3 m. With wind on, the wind rings grown before age 50 turn into non-conducting heartwood at `1.4%/yr`, while the pipe rule still demands `hv(l) * LA` of *conducting* sapwood on top of that heartwood. Once height growth slows after age 50, `a_wind` at the base barely grows (`DBH` +1.1 cm from 50 to 60), whereas in the mid/upper stem (`0.5–0.9 H`) `hv(l) * LA + old_wood` catches up to `a_wind` and forces ongoing sapwood-replacement rings.
+  2. **Top-heavy leaf profile and no butt swell:** 82% of the model's leaf area at age 60 sits in `0.7–1.0 H`, and Hansen's DBH includes ~4–5% butt swell at 1.3 m that the model adds only in the mesher.
+
+**5. Leaves diagnosis (no model change).**
+- **New-shoot leaf lag in young trees (`out/bench/p29_path/1_stand`):**
+  - **Source:** Silver birch is heterophyllous (Maillette 1982, J. Appl. Ecol. 19:203; Clausen & Kozlowski 1965, Can. J. Bot. 43:305): each extending long shoot bears 2–3 early (preformed) leaves at its base (`early_leaves: 2.5`) that flush in spring at budburst with the short shoots (full season), plus 1 late (neoformed) leaf per metamer (`new_leaf: 1.0`) that unfolds sequentially during June–July (~half season).
+  - **Model gap:** `light_sources()` and photosynthesis in `step()` (`treegen/growth.py` lines 521, 644) run before `_grow_shoots` (line 884), so leaves on year-$t$ shoots are paid for in year $t$ and counted in `stats["leaf_area_m2"]`, but earn zero carbon until year $t + 1$.
+  - **Carbon lost (`early + 0.5 * late` vs full `early + late`):**
+
+| age | H (m) | DBH wood (cm) | photosynthetic LA (m²) | end-of-season LA (m²) | new-shoot LA: early / late (m²) | end / photo LA | fixed C actual | est. C lost: early + 0.5×late (full) | % potential C lost |
+|---|---|---|---|---|---|---|---|---|---|
+| 2 | 0.63 | 0.0 | 0.01 | 0.10 | 0.03 / 0.06 | 7.12× | 36 | 143 (222) | 80% (86%) |
+| 4 | 2.98 | 1.0 | 0.71 | 2.92 | 0.62 / 1.59 | 4.10× | 1,505 | 2,987 (4,661) | 66% (76%) |
+| 6 | 5.33 | 4.7 | 4.83 | 12.99 | 3.19 / 4.97 | 2.69× | 8,421 | 9,896 (14,225) | 54% (63%) |
+| 10 | 9.62 | 7.5 | 9.59 | 13.61 | 1.89 / 2.13 | 1.42× | 12,468 | 3,849 (5,234) | 24% (30%) |
+| 15 | 12.82 | 10.1 | 16.36 | 21.14 | 2.32 / 2.46 | 1.29× | 23,026 | 5,001 (6,734) | 18% (23%) |
+| 30 | 18.69 | 18.9 | 54.06 | 52.16 | 0.00 / 0.00 | 0.96× | 55,288 | 0 (0) | 0% |
+| 50 | 24.22 | 25.0 | 73.39 | 73.31 | 0.00 / 0.00 | 1.00× | 68,984 | 0 (0) | 0% |
+| 60 | 25.79 | 26.7 | 75.11 | 76.16 | 0.74 / 0.31 | 1.01× | 73,394 | 874 (1,028) | 1% |
+
+- **LAI and light at 2–5 m height (`out/bench/p26_nat` and `out/bench/p29_path/1_stand`) vs. Hagemeier & Leuschner 2019 (Funct. Ecol. 33:1688):**
+  - Hagemeier & Leuschner 2019 measured mature *B. pendula* stands (age ~45–65) with mean LAI = 4.59 m² m⁻² (two stands: 3.6 and 5.4), $k = 0.37$, and under-canopy light 12.6% PAR (10.2–15.0%; pure leaf Beer-Lambert $\exp(-0.37 \times 4.59) = 18.3\%$, plus ~5% wood shading).
+
+| stand | age | stems/ha | total LAI | LAI in 2–5 m | Beer-Lambert light at 5 m / 2 m ($k=0.37$) | 3D voxel light at 5 m / 3.5 m / 2 m | bottom-Q vs top-Q height (m) | bottom-Q vs top-Q bud light |
+|---|---|---|---|---|---|---|---|---|
+| natural plot (`p26_nat`) | 30 | 1746 | 4.12 | 0.059 | 0.22 / 0.22 | 0.23 / 0.23 / 0.23 (p10–p90 0.22–0.24) | 16.9 vs 19.3 (0.88×) | 0.33 vs 0.36 |
+| natural plot (`p26_nat`) | 45 | 1728 | 4.13 | 0.017 | 0.22 / 0.22 | 0.23 / 0.23 / 0.23 (0.23–0.24) | 22.0 vs 23.9 (0.92×) | 0.34 vs 0.36 |
+| natural plot (`p26_nat`) | 50 | 1710 | 3.98 | 0.014 | 0.23 / 0.23 | 0.25 / 0.25 / 0.25 (0.24–0.26) | 23.5 vs 25.1 (0.94×) | 0.33 vs 0.35 |
+| natural plot (`p26_nat`) | 60 | 1710 | 3.99 | 0.009 | 0.23 / 0.23 | 0.25 / 0.25 / 0.25 (0.24–0.26) | 26.0 vs 27.0 (0.97×) | 0.36 vs 0.35 |
+| single stand tree (`1_stand`) | 30 | 450 | 2.35 | 0.081 | 0.43 / 0.42 | ~0.42 | 18.7 | – |
+| single stand tree (`1_stand`) | 45 | 450 | 3.17 | 0.089 | 0.32 / 0.31 | ~0.31 | 23.2 | – |
+| single stand tree (`1_stand`) | 50 | 450 | 3.30 | 0.078 | 0.30 / 0.30 | ~0.30 | 24.2 | – |
+| single stand tree (`1_stand`) | 60 | 450 | 3.43 | 0.056 | 0.29 / 0.28 | ~0.28 | 25.8 | – |
+
+  - **Why lower limbs never shed and suppressed trees never get shaded:** Branch shedding requires bud light `< 0.21` (`shedding.light_per_leaf_threshold`) and short-shoot death requires `< 0.20`. With $k = 0.37$ and no wood shading, light at 2–5 m stays at 0.23–0.25 in the natural plot (`LAI = 3.98–4.13`, just below the $\ln(1/0.21)/0.37 = 4.22$ LAI needed to cross 21%) and 0.28–0.43 in the thinned stand tree (`LAI = 2.35–3.43`, because each tree has only 43–56% of Repola's foliage). Moreover, no tree in `p26_nat` has its crown at 2–5 m: without a mechanical wind cost on stem height, the bottom DBH quartile grew right into the upper canopy (`0.88–0.97×` top-quartile height) and receives `0.33–0.36` bud light.
 
 ## Phase 30: distance rule default; render artefacts, crown, foliage and stem mechanics diagnosed
 
