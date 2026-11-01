@@ -565,12 +565,16 @@ class GrowthModel:
         Wtot = T.basipetal(levels, leafw)
         QWtot = T.basipetal(levels, qw)
         sh = sp.shedding
-        cand = np.nonzero(alive & T.is_lateral[:n0] & (T.birth[:n0] <= t - sh.min_branch_age))[0]
+        # the stem, replacement leaders included, is not a branch: a lateral
+        # that took over a lost leader carries the whole crown above it, and
+        # the tree's fate is the tree's carbon balance (plot death rules)
+        stem = np.isin(T.axis[:n0], np.fromiter(self.leader_axes, np.int64))
+        cand = np.nonzero(alive & T.is_lateral[:n0] & ~stem & (T.birth[:n0] <= t - sh.min_branch_age))[0]
         ratio = QWtot[cand] / np.maximum(Wtot[cand], 1e-12)
         shed = cand[(Wtot[cand] <= 0.0) | (ratio < sh.light_per_leaf_threshold)]
         # branch autonomy: limbs that could not pay their own upkeep last year
         starving = self._starving[(self._starving < n0)]
-        starving = starving[alive[starving] & (T.birth[starving] <= t - sh.min_branch_age)]
+        starving = starving[alive[starving] & ~stem[starving] & (T.birth[starving] <= t - sh.min_branch_age)]
         if starving.size:
             shed = np.union1d(shed, starving)
         self._starving = np.zeros(0, np.int64)
