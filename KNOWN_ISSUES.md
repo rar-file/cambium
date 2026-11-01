@@ -1,5 +1,33 @@
 # Known issues
 
+## Phase 18: speed (shared soil, compiled tree passes)
+
+The workloads are timed one at a time on the same machine, one run each:
+- a natural plot, seed 1, to 15 years (`tools/plot.py --no-mesh`);
+- one stand tree to 30;
+- 3 plot years from age 55 (resumed from a checkpoint).
+
+| change | plot to 15 | stand tree to 30 | plot years 55–58 |
+|---|---|---|---|
+| before | 280 s (peak 1.8 GB) | 9.8 s | 31.8 s |
+| 1. one shared soil per plot | 129 s (0.9 GB) | 9.6 s | 30.1 s |
+| 2. bending and posture compiled | 79 s | 7.2 s | 19.8 s |
+| 3. subtree sums compiled | **61 s** | **6.2 s** | **16.0 s** |
+| overall | 4.6× | 1.6× | 2.0× |
+
+**Change 1, the shared soil, changes results.** Before it, every tree in a plot rebuilt the whole plot's soil grid every year with its own seed, so the trees did not share stones or rootable depth.
+- At 15, the 91 trees that grew in both runs moved by +0.2 % in mean height and +1.3 % in mean DBH (0.22 m per tree on average).
+- Single trees are untouched (bit-identical).
+- Part of change 1's 2.2× comes from 9 trees that no longer grow (below). Without them it is about 2×.
+
+**Changes 2 and 3 do not change results.** Every array of every timeline and every per-year statistic is bit-identical to the run before each change. The numba kernels repeat the numpy expressions operation for operation.
+
+**Seedlings on a stone never establish, and never die.** This is open.
+- With private soils every stem sat on the corner of four stone cells, so the radicle always found a stone-free cell.
+- In the shared soil 13 of 100 stems start above a stone (the top-soil stone fraction is 8–10 %). In 9 of them the radicle cannot get past it, and the tree stays at 0 m.
+- The natural-mode death rule (carbon below upkeep) never removes these trees, because both are zero. They lower plot means (mean height at 15: 8.51 → 7.71 m with them included).
+- A seedling that cannot root should fail to establish. This needs a rule before natural regeneration is added.
+
 ## Phase 17: noise-matched traces, stem gravitropism refitted on the plot
 
 **Fair comparison.** The model's projected stems are now clicked like the hand traces:

@@ -30,6 +30,7 @@ stand runs to `out/<seed>_stand/`.
 | `treegen/mechanics.py` | bending of every internode under its added load (stiffness ∝ r⁴) and reaction-wood posture control |
 | `treegen/environment.py` | light directions and weights (CIE overcast sky, sun path) and the soil; both swappable |
 | `treegen/structure.py` | node store shared by crown and roots |
+| `treegen/kernels.py` | compiled (numba) tree passes: subtree sums, bending and posture control; bit-identical to the numpy level loops they replaced |
 | `treegen/plot.py`, `tools/plot.py` | a plot of independent trees sharing one periodic light field and the soil, thinned from below |
 | `tools/birch-stem-tracer.html`, `tools/serve_tracer.py`, `tools/stem_metrics.py` | hand-tracing of stem centrelines on the reference photos (served locally, traces saved to `reference/stem_traces.json`) and the tracer's measurements in Python for model stems |
 | `tools/render_stand.py` | eye-level stand view framed like a photograph (level camera, focal length and horizon row given), hero meshes for every tree in view |
@@ -102,7 +103,7 @@ Moose browse the leader of young trees (0.3–3 m tall) at the yearly rate measu
 
 The stem base rises in ridges over the main structural roots: each ridge is as wide and as high at the ground line as its root is thick, and the largest reaches the uppermost root collar (Laasasenaho 1982: 0.49 DBH[cm] + 0.50 H[m] cm for birch).
 
-`tools/plot.py` grows a plot of separate trees (100 at 1800/ha, thinned from below to 25 at 450/ha) that share one periodic light field. Each tree's soil water also holds the others' absorbing roots. The trees differ in seed, germination year (0–3) and a heritable growth factor.
+`tools/plot.py` grows a plot of separate trees (100 at 1800/ha, thinned from below to 25 at 450/ha) that share one periodic light field and one soil: stones and rootable depth are laid out once, and every tree's absorbing roots draw down the same soil-water field. The trees differ in seed, germination year (0–3) and a heritable growth factor.
 
 Plot modes (`--mode`):
 - `managed` (default) thins from below by the programme.
