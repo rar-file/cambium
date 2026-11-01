@@ -136,16 +136,24 @@ class Tree:
         return acc
 
     def trunk_chain(self) -> np.ndarray:
-        """The stem from the base to its tip; past a lost leader it follows
-        the lateral that replaced it (``relay``: node -> first node of the
-        replacement leader)."""
+        """The stem from the base to its tip: the main child, unless a living
+        lateral or the shoot that replaced a lost leader (``relay``: node ->
+        first node of the replacement leader) is thicker, as the stem is
+        found in the field.  After browsing the first replacement to grow is
+        not always the one that wins; following it measured DBH on a
+        suppressed side stem (3.7 cm against 20 cm, phase 26)."""
         chain = [0]
-        mc = self.main_child
+        mc, lc = self.main_child, self.lat_child
         relay = getattr(self, "relay", {})
         while True:
             k = chain[-1]
-            nxt = int(mc[k]) if mc[k] >= 0 and self.death[mc[k]] < 0 else relay.get(k, -1)
-            if nxt < 0 or self.death[nxt] >= 0:
+            nxt, best = -1, -1.0
+            for c in (int(mc[k]), int(lc[k]), int(relay.get(k, -1))):
+                if c >= 0 and self.death[c] < 0 and self.radius[c] > best:
+                    nxt, best = c, float(self.radius[c])
+            if mc[k] >= 0 and self.death[mc[k]] < 0 and self.radius[mc[k]] >= best:
+                nxt = int(mc[k])
+            if nxt < 0:
                 break
             chain.append(nxt)
         return np.array(chain)
