@@ -1,5 +1,53 @@
 # Known issues
 
+## Phase 29: comparisons over bark; why the stem is cylinder-like; Huber value by path length (tested, off)
+
+**Over bark.** The model has no bark, so its DBH is wood. `tools/bark.py` converts it with the birch double-bark model of Hansen et al. 2023 (with its 2024 correction; taperNOR coefficients). `tools/stem_compare.py` applies the conversion to every comparison with field DBH, and `tools/fit_huber_exponent.py` does too; b is unchanged.
+
+| | age | H/D, wood DBH | H/D, over bark | same stem wood with birch taper, over bark |
+|---|---|---|---|---|
+| seed-1 stand tree | 30 | 91 | 83 | 73 |
+| seed-1 stand tree | 50 | 83 | 76 | 62 |
+| seed-1 stand tree | 60 | 83 | 75 | 59 |
+| natural plot p26 (median) | 30 | 130 | 119 | 101 |
+| natural plot | 50 | 155 | 142 | 113 |
+| natural plot | 60 | 165 | 150 | 118 |
+
+Over bark, stem wood is 1.18–1.35× Repola's (stand tree) and 1.35–1.54× (plot); living branches are 0.10–0.14 and 0.22–0.35 of his.
+
+**Why the ring rule makes a cylinder-like stem.** Seed-1 stand tree, exact (the model's methods wrapped). Along the stem, relative to 1.3 m:
+
+| age | z/H | wood | birch taper | ring need | = leaf area above | × Huber(r) | disused-pipe sapwood U, % of wood |
+|---|---|---|---|---|---|---|---|
+| 30 | 0.3 / 0.5 / 0.7 | 0.83 / 0.58 / 0.27 | 0.61 / 0.38 / 0.16 | 0.85 / 0.61 / 0.30 | 0.88 / 0.66 / 0.37 | 0.97 / 0.92 / 0.82 | 1 / 0 / 0 (10 at 0.05 H) |
+| 50 | 0.3 / 0.5 / 0.7 | 0.83 / 0.56 / 0.28 | 0.56 / 0.35 / 0.14 | 0.86 / 0.61 / 0.32 | 0.89 / 0.67 / 0.39 | 0.97 / 0.91 / 0.82 | 3 / 2 / 1 (8 at 0.05 H) |
+| 60 | 0.3 / 0.5 / 0.7 | 0.84 / 0.62 / 0.33 | 0.55 / 0.34 / 0.13 | 0.89 / 0.69 / 0.40 | 0.91 / 0.75 / 0.48 | 0.97 / 0.93 / 0.84 | 5 / 4 / 3 (10 at 0.05 H) |
+
+- **The wood follows the ring need at every height.** The need is leaf area above × a Huber value that depends on radius. Along a bole whose radius barely changes, the Huber value hardly changes either: 0.91–0.93 of the breast-height value at mid-height. The leaf area above stays high to mid-height (66–75 %).
+- **So the rule asks for 61–69 % of the breast-height cross-section at mid-height,** against 34–38 % in birch.
+- **The radius exponent b stands in for the extra wood real stems carry at breast height,** but adds it wherever the stem is thick, inside the crown too.
+- **Disused pipes:** shed branches' sapwood is only 6–11 % of the wood at the base and less above. The model's limbs are 10–14 % of Repola's, so shedding them retires little. It is not the main cause of the cylinder-like lower stem.
+- **Butt swell is not modelled.** The curve has 1.03–1.11× the breast-height area at 0.05 H; the model has 1.00.
+- **Mäkelä 2002 (Tree Physiol. 22:891)** derives birch-free stem taper from the pipe model with pipe reuse controlled by foliage dynamics, and later work in that line has pipes outlast their foliage and be reused. Immediate retirement of all a shed branch's pipes is not what that theory uses.
+
+**Fix tested alone: Huber value by path length** (`pipe_model.huber_path_exponent`, off).
+- The Huber value rises tip to base with the leaf-weighted path length l to the leaves each internode supplies: huber_value × (l / 0.14 m)^c. Sapwood per leaf area beyond rising tip to base is from Mencuccini et al. 2019, New Phytol. 224:1544. The 0.14 m is half the 27.9 cm current-year shoots the twig value was measured on [OP22].
+- Fitted to Konôpka and Repola over bark: c = 0.283. The same structured misfit as the radius rule remains: young trees have 2.3–1.6× Konôpka's leaf area, DBH 20–26 cm trees 0.7–0.6× Repola's.
+
+| seed-1 stand tree | 30 | 45 | 50 | 60 |
+|---|---|---|---|---|
+| height, radius rule → path rule (m) | 18.0 → 18.7 | 21.4 → 23.2 | 22.5 → 24.2 | 23.8 → 25.8 |
+| H/D over bark | 83 → 90 | – | 76 → 88 | 75 → 88 |
+| form factor (birch taper) | 0.53 → 0.51 (0.44) | – | 0.53 → 0.51 (0.41) | 0.55 → 0.54 (0.40) |
+| d/DBH at 0.3 / 0.5 H (taper) | 0.91, 0.76 → 0.90, 0.71 (0.78, 0.63) | – | 0.91, 0.74 → 0.89, 0.71 (0.75, 0.60) | 0.92, 0.79 → 0.90, 0.76 (0.75, 0.60) |
+| stem wood / Repola, over bark | 1.18 → 1.13 | – | 1.26 → 1.18 | 1.35 → 1.28 |
+| branches / Repola | 0.10 → 0.15 | – | 0.11 → 0.18 | 0.14 → 0.22 |
+| CUE, path rule | 0.50 | 0.45 | 0.43 | 0.44 |
+
+- The direction is right: thinner upper stem, more branch wood, and heights and H/D inside their bands.
+- The taper barely moves. The breast-height data hold c near 0.28, which gives a Huber value at mid-height of ~0.76 of breast height's, where birch taper needs ~0.45–0.5.
+- No single-exponent Huber rule calibrated at breast height puts enough of the stem wood at the base in this model.
+
 ## Click scatter, measured
 
 You re-traced ten trunks blind on the three Gullmarsskogen photos, plus one on an iNaturalist photo. The tracer pointed at `reference/stem_traces_reclick.json`; the original traces are unchanged. Each new trace was matched to the old one by its base (6–41 px apart). For every click, the sideways offset from the other trace's line at the same height was measured, both ways (`tools/click_scatter.py`).
