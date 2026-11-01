@@ -546,25 +546,33 @@ pipe_model:
   # shoot carbon.  Before, shoots got the whole pool at one unit per
   # metamer and the rings the whole pool again.
   growth: lignum        # pipe | stem_rings | rings | lignum
-  # Share of sapwood that stops conducting each year (turns to heartwood
-  # and must be replaced by new rings): 0.07 per year in LIGNUM for Scots
-  # pine (Silva Fennica pdf 510, parameter table; Sievanen, Nikinmaa &
-  # Perttunen 1997, Silva Fennica 31).  VERIFY (birch)
-  sapwood_senescence_per_year: 0.07
-  # Birch has no distinct heartwood: the requirement is on the whole wood
-  # cross-section (no sapwood turnover; nothing counted twice).  true =
-  # sapwood only, with sapwood_senescence_per_year.
-  sapwood: false
-  # Wood cross-section per unit of foliage beyond rises from the twigs to
-  # the stem: hydraulics.huber_value at a current-year shoot (tip_radius),
-  # times (r / tip_radius)^b.  b fitted to young and older silver birch
-  # together, both at breast height: Konopka et al. 2023 (Plants 12:1607;
-  # leaf area 2.37 m2 (D0/50 mm)^1.851, DBH = -6.627 + 0.611 D0 mm; D0
-  # 50-100 mm: 1.9-2.7e-4 m2 of wood per m2 of leaf) and Repola 2008
-  # (Silva Fennica 42:605, foliage Eq. 12, DBH 11-26 cm, SLA 15 m2/kg [Uri
-  # et al. 2007]: 4.5-5.8e-4); equal weight per dataset, b = 0.279 (fit
-  # 2.5-3.1 and 3.8-4.8e-4).  Marklund 1988 has no birch foliage function.
-  huber_radius_exponent: 0.279
+  # Share of the conducting wood that stops conducting each year and must
+  # be replaced by a new ring outside; the old wood stays in the stem
+  # (birch has no visible heartwood, but its inner rings lose
+  # conductivity).  1 / (rings that conduct): in mature diffuse-porous
+  # broadleaves the dyed hydro-active xylem spans the outer 40-88 rings
+  # (median 72; beech, hornbeam, lime, sycamore, field maple whose
+  # sapwood is younger than the tree; Gebauer, Horna & Leuschner 2008,
+  # Tree Physiol. 28:1821, Table 1), so 0.014 (0.011-0.025).  No birch
+  # count found: VERIFY (birch).  LIGNUM's Scots pine value is 0.07.
+  sapwood_senescence_per_year: 0.014
+  # true: the requirement is on the conducting wood, with
+  # sapwood_senescence_per_year; false: on the whole wood, no turnover.
+  sapwood: true
+  # Conducting wood per unit of foliage beyond rises from the twigs to the
+  # stem: hydraulics.huber_value at a current-year shoot (tip_radius),
+  # times (r / tip_radius)^b.  b is fitted so that the whole cross-section
+  # (conducting plus old wood) per unit of leaf area at breast height
+  # matches young and older silver birch together, with equal weight:
+  # Konopka et al. 2023 (Plants 12:1607; leaf area 2.37 m2 (D0/50 mm)^1.851,
+  # DBH = -6.627 + 0.611 D0 mm; D0 50-100 mm) and Repola 2008 (Silva
+  # Fennica 42:605, foliage Eq. 12, DBH 11-26 cm, SLA 15 m2/kg [Uri et al.
+  # 2007]).  The old wood depends on each tree's history, so the fit grows
+  # the seed-1 stand tree for each b (tools/fit_huber_exponent.py): b =
+  # 0.312.  It leaves the young trees with 1.4-2.5x Konopka's leaf area
+  # for their DBH and DBH 20-26 cm with 0.6-0.7x Repola's.  Marklund 1988
+  # has no birch foliage function.
+  huber_radius_exponent: 0.312
   # Wood volume per model carbon unit (m3): the size of the unit (with the
   # basic density in leaf_costs, 0.64 g dry matter).  In lignum growth it
   # only converts wood to carbon.  The model's carbon has no
