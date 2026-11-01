@@ -115,7 +115,13 @@ resource:
   # themselves (built, maintained, with their fine roots) down to ~22 %
   # light, against the 21 % at which the lowest birch leaves sit
   # (Hagemeier & Leuschner 2019).
-  alpha: 6.2
+  # 5.2 once water enters through the fine roots the tree pays for (roots.
+  # fine_root_uptake): the trees are no longer water-limited (stomata 0.85-
+  # 1.0 open) and at 6.2 the natural plot's top quarter was 4-5 m above the
+  # band; at 5.2 it is 20.1 / 25.0 / 25.8 / 27.0 m at 30 / 45 / 50 / 60 (the
+  # band's top edge, mean in the band).  A short shoot then breaks even at
+  # ~26 % light (21 % measured), and the natural plot's CUE is 0.37.
+  alpha: 5.2
   # The BH split weight lambda [P09 Eq. 3, BH84] (lambda > 0.5 favours the
   # main axis) is used with two values, following the botanical distinction
   # between apical dominance (the apex suppressing its own lateral buds) and

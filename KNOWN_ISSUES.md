@@ -1,5 +1,59 @@
 # Known issues
 
+## Phase 21: water through the fine roots, the field layer on bared soil
+
+**Water uptake through the fine roots the tree pays for.**
+- Fine-root length = fine-root mass (0.48 × leaf mass) × specific root length (90 m/g; silver birch short roots 80–97, Ostonen et al. 2007).
+- Conductance per metre: 1.7e-7 kg s⁻¹ MPa⁻¹, from the root-system conductance of young silver birch (4.33e-4 kg m⁻² s⁻¹ MPa⁻¹ per leaf area) with 0.46 g fine root per g leaf in the same trees (Sellin et al. 2015), at the model's reference LMA.
+- No calibrated value remains.
+- In the plots the trees are no longer water-limited: stomata are 1.00 / 0.95 / 0.85 open at 30 / 45 / 60 (0.76 / 0.70 / 0.66 in phase 20).
+
+**Field layer.** It is absent on bared mineral soil and grows back with a half-life of 4 years (Ring & Sikström 2024; VERIFY form).
+- The first cohort grows on ground bared at year 0.
+- Recruits are drawn on mineral soil or the organic layer in proportion to establishment.
+- Sunny-gap seedlings grow 0.07 / 0.16 / 0.29 / 0.48 / 0.77 / 1.21 / 1.88 / 2.81 m at 1–8 years (1.24 m at 10 under a uniform field layer).
+- Seedlings now get carbon in their first season, because uptake is set from that season's fine roots.
+
+**Dense regeneration does not close its canopy at 4–5 years.**
+- At one seedling per m² on bared ground: LAI 0.05 at 5 years, 0.64 at 8 (ground light 80 %), median height 0.42 m at 5.
+- Without the field layer LAI was 0.17 at 5; without the leaf costs, 0.10.
+- So neither is the cause: young trees carry too little leaf (a 0.8 m sapling has ~0.02 m², about a dozen leaves).
+- For comparison, the FAHM silver birches were 3.0–3.5 m tall at ~4 years (planted on fertile former farmland; Sellin et al. 2015). Open.
+
+**Alpha 6.2 → 5.2.** At 6.2 the natural plot's top quarter was 4–5 m above the band (31.4 m at 60). At 5.2:
+
+| plot | age | N/ha | H mean | top 25 % | band | DBH | crown ratio | crown base | LAI | stomata |
+|---|---|---|---|---|---|---|---|---|---|---|
+| natural | 30 | 972 | 14.6 | 20.1 | 13.4–19.7 | 12.3 | 0.81 | 3.2 | 3.39 | 0.96 |
+| | 45 | 612 | 20.5 | 25.0 | 18.0–24.0 | 16.2 | 0.63 | 8.1 | 3.26 | 0.93 |
+| | 50 | 540 | 22.6 | 25.8 | 19.2–25.3 | 17.8 | 0.60 | 9.5 | 3.21 | 0.94 |
+| | 60 | 522 | 24.0 | 27.0 | 21.1–26.9 | 19.0 | 0.54 | 11.4 | 3.35 | 0.90 |
+| managed | 30 | 450 | 18.0 | 20.9 | 13.4–19.7 | 16.8 | 0.83 | 3.2 | 3.21 | 1.00 |
+| | 45 | 432 | 22.7 | 25.3 | 18.0–24.0 | 18.9 | 0.71 | 7.0 | 3.34 | 0.95 |
+| | 50 | 432 | 23.7 | 26.1 | 19.2–25.3 | 19.5 | 0.63 | 9.1 | 3.18 | 0.93 |
+| | 60 | 414 | 25.4 | 27.3 | 21.1–26.9 | 20.8 | 0.58 | 10.8 | 3.20 | 0.88 |
+
+- Mean heights are in the band. The top quarter is 0.1–1.3 m above its upper edge, as in phase 15.
+- **CUE:** 0.37 natural, 0.40 managed.
+- **A short shoot breaks even at ~26 % light** (21 % measured).
+- **Stems** (noise-matched; photos off-line 1.60 %, turning 11.4°, lean 2.2°): natural 1.83 % / 8.6° / 2.6°, managed 1.80 % / 8.2° / 2.7°.
+- **Natural density at 60 is 522/ha.** The closed silver-birch stands of Hagemeier & Leuschner 2019 had 880/ha at 45 and 420/ha at 67, so ~570/ha at 60. Phase 17 had 585/ha and phase 20 972/ha.
+- **Ground light is 32 % at LAI 3.27 (natural, 55).** At alpha 6.2 it was 28 % at LAI 3.66. Lower alpha lowers both LAI and CUE.
+
+**The 8-year regeneration test** (natural plot from 55, alpha 5.2):
+- **Recruits:** 546 in the first year, every free cell, all on bared mineral soil. Bared soil is 3.1 % of the ground, but 6,500 seeds/m² still give ~36 one-year seedlings per m². None recruited under the field layer, where 32 % × 0.38 ≈ 12 % light is below 21 %.
+- **Survival: 100 % after 7 seasons,** at 0.08 m. Published: ~20 % of paper birch germinants after 5 years; >50 % for mountain birch at 1–2 years; silver birch does not persist under a closed canopy.
+
+**Cause: leafless buds fix carbon.** Carbon is alpha × the light of every bud, whatever leaves it carries. A dormant bud has leaf weight 0 yet earns alpha × Q, and a short shoot's 2.5 leaves count as one.
+- A shaded recruit's income grows with its bud count (1 → 5 buds: 1.4 → 4.5 units).
+- Its light falls (0.26 → 0.17) and its leaf costs stay flat, so it is never in deficit.
+
+**Open: carbon per leaf.** Fixing this (carbon = alpha × leaf weight × light, for the tree and in each branch's balance) is saved as a patch, not applied.
+- The canopy's carbon roughly doubles (short shoots carry 2.5 leaves), and the stand tree's CUE goes to ~0.6.
+- It needs a full recalibration of alpha and maintenance.
+
+**A stem bug it exposed:** a replacement leader (a lateral that took over after browsing) counts as a branch for the shedding rules. In a dense crown its leaf-weighted mean light can fall to the 21 % threshold, and the whole crown above it is shed (seed-1 stand tree, year 34). Fixed separately.
+
 ## Phase 20: leaves and fine roots cost carbon
 
 ### Step 1: leaf and fine-root costs
