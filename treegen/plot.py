@@ -30,6 +30,7 @@ from pathlib import Path
 import numpy as np
 
 from .growth import GrowthModel
+from .regeneration import Regeneration
 from .roots import SharedSoil
 
 # a tree that dies of no carbon within this many years of its own age is
@@ -100,6 +101,9 @@ class Plot:
         self.stats = []
         self.mode = mode
         self.on_finish = None
+        # the template and environment new trees are made from (regeneration)
+        self.species, self.environment = species, environment
+        self.regen = None
 
     def _offset(self, k):
         return np.array([self.info[k]["x"], self.info[k]["y"], 0.0])
@@ -110,10 +114,66 @@ class Plot:
         m0 = self.trees[self.alive[0]]
         if m0.roots is None:
             return
-        seed = getattr(self, "seed", self.info[0]["seed"] // 1000)   # plots pickled before the shared soil
+        self.seed = seed = getattr(self, "seed", self.info[0]["seed"] // 1000)   # plots pickled before the shared soil
         self.soil = SharedSoil(m0.soil, m0.sp.roots, m0.light.vs, self.cell, seed)
         for k in self.alive:
             self.trees[k].roots.frame = (self._offset(k), seed)
+
+    def enable_regeneration(self, species=None, environment=None):
+        """Natural regeneration from now on (treegen/regeneration.py).  Plots
+        pickled before regeneration existed take the species template and
+        environment here."""
+        if species is not None:
+            self.species = species
+        if environment is not None:
+            self.environment = environment
+        if getattr(self, "soil", None) is None:
+            self._make_soil()
+        self.regen = Regeneration(self.species.regeneration, self.species.bud_fate.short_shoot_survival_light,
+                                  self.trees[self.alive[0]].soil, self.L, self.seed)
+        if self.year > 0:
+            # switched on in a grown stand: the exposed mineral soil of a stand
+            # long past its disturbance (new exposure = cover each year)
+            self.regen.mineral[:] = self.regen.equilibrium_mineral()
+
+    def _regenerate(self, field):
+        """Seed rain from the living trees onto the ground grid, germination
+        where the light and seedbed allow, and this year's recruits."""
+        R = self.regen
+        xy, seeds = [], []
+        for k in self.alive:
+            f = R.fecundity(self._dbh(k), self.trees[k].year)
+            if f > 0.0:
+                xy.append(self._offset(k)[:2])
+                seeds.append(f)
+        pts = np.stack([R.cx.ravel(), R.cy.ravel(), np.full(R.cx.size, 0.1)], 1)
+        light = np.ones(len(pts))
+        if field is not None:
+            # the light grid ends at the lowest leaves; below them the shade
+            # carries on unchanged to the ground (stand: no fading with depth)
+            q = pts.copy()
+            q[:, 2] = np.maximum(q[:, 2], (field.lo[2] + 0.5) * self.light.vs)
+            light = np.exp(-field.sample(q) / self.light.C)
+        light = light * self.trees[self.alive[0]]._herb_factor(pts[:, 2])
+        occupied = np.zeros((R.nc, R.nc), bool)
+        i, j = R._cell(np.array([[self.info[k]["x"], self.info[k]["y"]] for k in self.alive]))
+        occupied[i, j] = True
+        for x, y in R.step(np.array(xy).reshape(-1, 2), np.array(seeds), light.reshape(R.nc, R.nc), occupied):
+            self._recruit(float(x), float(y))
+
+    def _recruit(self, x, y):
+        """A new tree from this year's seed; it germinates next spring."""
+        k = len(self.trees)
+        sp_k = copy.deepcopy(self.species)
+        vigour = float(math.exp(self.regen.rng.normal(0.0, float(self.species.plot.vigour_sd))))
+        sp_k.resource.alpha = float(sp_k.resource.alpha) * vigour
+        s = self.seed * 1_000_000 + k
+        m = GrowthModel(sp_k, self.environment, s, stand=True, soil=self.trees[self.alive[0]].soil,
+                        soil_frame=(np.array([x, y, 0.0]), self.seed))
+        self.trees.append(m)
+        self.info.append({"id": k, "x": x, "y": y, "germination": self.year, "vigour": round(vigour, 4), "seed": s,
+                          "removed": None, "recruit": True})
+        self.alive.append(k)
 
     def step(self):
         t = self.year + 1
@@ -150,6 +210,8 @@ class Plot:
             self._die([k for k in active if k in self.alive])
         else:
             self._thin()
+        if getattr(self, "regen", None) is not None and self.alive:
+            self._regenerate(field)
         self.stats.append(self.measure())
 
     def _dbh(self, k):
@@ -233,9 +295,14 @@ class Plot:
         h = np.array([self.trees[k].stats[-1]["height_m"] for k in self.alive])
         la = sum(self.trees[k].stats[-1]["leaf_area_m2"] for k in self.alive)
         dead = sum(1 for i in self.info if i.get("cause") not in (None, "thinned"))
-        return {"year": self.year, "trees": len(self.alive), "stems_per_ha": round(len(self.alive) / self.area * 1e4),
-                "died_total": dead,
-                "dbh_mean_cm": round(float(d.mean()), 2), "dbh_sd_cm": round(float(d.std()), 2),
-                "dbh_min_cm": round(float(d.min()), 2), "dbh_max_cm": round(float(d.max()), 2),
-                "height_mean_m": round(float(h.mean()), 2), "height_max_m": round(float(h.max()), 2),
-                "lai": round(la / self.area, 3)}
+        row = {"year": self.year, "trees": len(self.alive), "stems_per_ha": round(len(self.alive) / self.area * 1e4),
+               "died_total": dead,
+               "dbh_mean_cm": round(float(d.mean()), 2), "dbh_sd_cm": round(float(d.std()), 2),
+               "dbh_min_cm": round(float(d.min()), 2), "dbh_max_cm": round(float(d.max()), 2),
+               "height_mean_m": round(float(h.mean()), 2), "height_max_m": round(float(h.max()), 2),
+               "lai": round(la / self.area, 3)}
+        if getattr(self, "regen", None) is not None:
+            # everything above counts the recruits too
+            row["recruits_alive"] = sum(1 for k in self.alive if self.info[k].get("recruit"))
+            row.update({k: round(v, 4) if isinstance(v, float) else v for k, v in self.regen.last.items()})
+        return row

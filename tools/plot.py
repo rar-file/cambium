@@ -36,6 +36,8 @@ def main(argv=None):
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--set", action="append", default=[], metavar="KEY=JSON",
                     help="override a species value, e.g. tropism.gravitropism_per_m=[2,3.5,2,0.5]")
+    ap.add_argument("--regeneration", action="store_true",
+                    help="natural regeneration: seed rain, germination and recruits (treegen/regeneration.py)")
     args = ap.parse_args(argv)
     out = Path(args.out or f"out/plot_{args.seed}")
     out.mkdir(parents=True, exist_ok=True)
@@ -54,7 +56,10 @@ def main(argv=None):
             setattr(obj, key.split(".")[-1], json.loads(val))
         env_p, _ = cli.load_environment(args.environment)
         plot = Plot(sp, cli.make_environment(env_p), lambda: cli.make_soil(env_p), args.trees, args.seed, args.mode)
-        print(f"plot {plot.L:.1f} m square, {len(plot.trees)} trees at start, {plot.mode}", flush=True)
+        if args.regeneration:
+            plot.enable_regeneration()
+        print(f"plot {plot.L:.1f} m square, {len(plot.trees)} trees at start, {plot.mode}"
+              f"{', regeneration' if args.regeneration else ''}", flush=True)
     meta_base = {"species": sp.species.scientific_name, "environment": args.environment, "mode": f"plot ({plot.mode})",
                  "plot_seed": args.seed}
 

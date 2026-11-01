@@ -1,5 +1,43 @@
 # Known issues
 
+## Phase 19: seedlings on stones, the no-carbon death, regeneration (first version)
+
+**The 9 seedlings that never grew** (phase 18) had three causes, now fixed.
+- **Stones reached the surface everywhere.** Stones now lie below a stone-free organic layer of 6 cm (4–10 cm on mesic till, Larson et al. 2023, Sci. Rep. 13:14909). They reach the surface only on `surface_stone_cover` of the ground (2 %, VERIFY).
+- **A root tip meeting a stone tried three random deflections and then stopped.** It now turns sideways along the stone by the smallest turn that clears it: 30°, 60° or 90°, towards any of 8 sides (Massa & Gilroy 2003, Plant J. 33:435).
+- **A tree with no absorbing root got a token uptake conductance of 1e-12.** It could fix a trickle of carbon forever. It now gets none: no water, no carbon.
+
+**Death rule.** In either plot mode, a tree that fixes no carbon two years running dies. In its first 5 years this is logged as "failed to establish".
+
+**Natural plot, seed 1, at 15 years:**
+- All 9 seedlings now establish and grow to 6.0–11.0 m.
+- Deaths: 1 of carbon deficit (year 14), 1 failed to establish (on a surface stone, year 3).
+- The 97 trees alive in both runs moved by 0.15 m on average against the first reference.
+
+**Regeneration** (`treegen/regeneration.py`; `tools/plot.py --regeneration`; values in `regeneration:` in the species YAML) works as follows:
+- **Seed rain** from every tree past `maturity_years`, falling off with distance.
+- **One-year seedlings per seed** depend on the seedbed: exposed mineral soil or the organic layer.
+- **Light:** germinants below the 21 % light at which birch leaves die are lost.
+- **Recruits:** at most one per 1 m cell per year, grown on as full trees.
+
+Short test: the 55-year natural plot (13 trees, 585/ha), resumed and run 8 years with regeneration.
+- **Seed rain** was 7,500–8,000 seeds/m² a year. Liu & Evans 2021 report up to 2,000–9,600 within 40–50 m of a seed tree.
+- **Ground light** was 25–29 % everywhere under the 60-year canopy. That is above 21 %, so every free cell recruited in the first year: 212 recruits on 222 m². None followed, because every cell was then occupied.
+- **Survival:** all 212 were alive after 7 seasons, at a median height of 0 m (max 0.18 m).
+- **Published survival:**
+  - paper birch on Alaskan clear-cuts: about 20 % of first-year germinants alive after 5 years (USDA Silvics);
+  - mountain birch in Iceland: over 50 % after 1–2 years (Óskarsdóttir et al. 2025, Ecol. Appl. 35:e70115);
+  - silver birch is shade-intolerant, and its seedlings do not persist under a closed canopy.
+
+**Causes, open:**
+1. **A shaded seedling never extends and never dies.** Its bud gets about 1.5 carbon units a year, and a long shoot needs 3. So it stays a single short shoot. It has no wood and so pays no upkeep, and it still fixes carbon, so neither death rule applies.
+2. **Nothing shades seedlings below the canopy.** The field layer (herbs, grasses, dwarf shrubs) is off by default.
+   - With it on, a seedling under 27 % canopy light would get about 7 % at 5 cm and lose its leaves.
+   - But a seedling in full light would get only about 25 %, also short of a long shoot. So the field layer alone would stop all regeneration, the first cohort included.
+3. **Browsing of small seedlings (voles, hares) after their first year** is not modelled. No source has been found yet.
+
+**Not yet modelled:** old-age death, uprooting (root plates exposing mineral soil), and variation in the seed crop between years.
+
 ## Phase 18: speed (shared soil, compiled tree passes)
 
 The workloads are timed one at a time on the same machine, one run each:

@@ -585,6 +585,46 @@ plot:
   germination_weights: [0.4, 0.3, 0.2, 0.1]
   vigour_sd: 0.06
 
+regeneration:
+  # Natural regeneration in a plot (treegen/regeneration.py; tools/plot.py
+  # --regeneration).  Seeds shed in a year by a tree of 20 cm DBH: ~137,000
+  # (Wytham Woods, UK, 2015, inverse modelling of seed traps) [Liu & Evans
+  # 2021, Forests 12:929].  Seed crops vary several-fold between years [same;
+  # Dahlgren Lidman et al. 2023]; a constant crop here.
+  seeds_ref: 137000
+  dbh_ref_m: 0.20
+  # Seed output in proportion to basal area (DBH^2). VERIFY
+  fecundity_exponent: 2.0
+  # Age from which a tree sheds seed.  Grafts and seedlings in Finnish seed
+  # orchards flower from 2-3 years; no figure found for stand-grown trees.
+  # VERIFY
+  maturity_years: 10
+  # Mean dispersal distance 38 m in a closed stand (65 m in the open) [Liu &
+  # Evans 2021]; a 2-D exponential kernel. VERIFY (kernel shape)
+  dispersal_mean_m: 38.0
+  # One-year silver-birch seedlings per seed sown, unfenced, in full light on
+  # clear fellings in central and northern Sweden, September one year after
+  # sowing [Dahlgren Lidman et al. 2023, New Forests 55:157, Table 5]: on bare
+  # mineral soil median 18 % (0-179 %, 12 site-years on mesic and moist
+  # sites); on undisturbed humus on mesic sites 0.3 % (mean of 6 site-years:
+  # 0, 0, 0, 0, 0, 2 %).  They include germination and the first year's
+  # losses (drought, seed predation, browsing).
+  establishment_mineral: 0.18
+  establishment_organic: 0.003
+  # Ground grid cell (m); at most one recruit per cell and year: more than one
+  # seedling per m2 adds little because birch seedlings outcompete each other
+  # within a few years [Dahlgren Lidman et al. 2023].
+  cell_m: 1.0
+  # Exposed mineral soil: share of the ground at the start (the stand grows up
+  # after a stand-replacing disturbance), share newly exposed each year
+  # (uprooting, animals, frost heave) and half-life of its cover by moss and
+  # litter.  Pit-mound microrelief from uprooting covers 7-12 % of the ground
+  # in all-aged boreal forests [Samonil et al. 2010, Geoderma 157:65, review].
+  # VERIFY (all three)
+  mineral_initial: 0.3
+  mineral_new_per_year: 0.005
+  mineral_half_life_years: 5.0
+
 stand:
   # --stand: neighbour trees as shadow volumes.  The light grid is one
   # periodic cell of a hexagonal stand lattice; every lattice point is a copy
