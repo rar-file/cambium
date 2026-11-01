@@ -197,7 +197,7 @@ class GrowthModel:
         tgt /= np.linalg.norm(tgt)
         out = np.full((n, 3), np.nan)
         if has_cl:
-            stem = T.trunk_chain()
+            stem = T.trunk_chain(self.leader_axes)
             cb = (self.stats[-1].get("crown_base_height_m") if self.stats else None) or 0.0
             out[stem[T.pos[stem, 2] >= cb]] = tgt
         if len(self.leader_axes) > 1:
@@ -317,7 +317,7 @@ class GrowthModel:
         q = np.concatenate([Qterm[term_nodes], Qlat[lat_nodes]]) * np.concatenate([w_term, w_lat])
         if nodes.size == 0 or q.sum() <= 0:
             return np.zeros(3)
-        stem = T.trunk_chain()
+        stem = T.trunk_chain(self.leader_axes)
         zs = T.pos[stem, 2]
         P = T.pos[nodes]
         k = np.clip(np.searchsorted(zs, P[:, 2]), 0, len(stem) - 1)
@@ -985,7 +985,7 @@ class GrowthModel:
     def dbh_m(self) -> float | None:
         """Stem diameter at 1.3 m (m), None while the tree is shorter."""
         T = self.tree
-        trunk = T.trunk_chain()
+        trunk = T.trunk_chain(self.leader_axes)
         z = T.pos[trunk, 2]
         r = T.radius[trunk]
         if z.max() < 1.3:
@@ -1614,7 +1614,7 @@ class GrowthModel:
         down the bole and the lower stem, older, carries more rings.  Wood
         is never thinner than the pipes it carries."""
         T = self.tree
-        trunk = T.trunk_chain()
+        trunk = T.trunk_chain(self.leader_axes)
         a_pipe = np.pi * r_pipe[trunk] ** 2
         prev = getattr(self, "_stem_pipe_prev", np.zeros(0))
         a_prev = np.zeros(len(trunk))
@@ -1691,7 +1691,7 @@ class GrowthModel:
         li = np.nonzero(leaves > 0)[0]
         w = leaves[li]
         band = np.clip((pos[li, 2] / H * 10).astype(int), 0, 9)
-        trunk = T.trunk_chain()
+        trunk = T.trunk_chain(self.leader_axes)
         j = np.clip(np.searchsorted(pos[trunk, 2], pos[li, 2]), 0, len(trunk) - 1)
         rr = np.hypot(pos[li, 0] - pos[trunk[j], 0], pos[li, 1] - pos[trunk[j], 1])
         rmax = np.array([np.percentile(rr[band == b], 98) if (band == b).any() else 0.0 for b in range(10)])

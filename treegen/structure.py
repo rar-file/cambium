@@ -136,20 +136,24 @@ class Tree:
         kernels.basipetal(up, self.parent, acc.reshape(acc.shape[0], int(np.prod(acc.shape[1:]))))
         return acc
 
-    def trunk_chain(self) -> np.ndarray:
+    def trunk_chain(self, leaders=None) -> np.ndarray:
         """The stem from the base to its tip: the main child, unless a living
-        lateral or the shoot that replaced a lost leader (``relay``: node ->
-        first node of the replacement leader) is thicker, as the stem is
-        found in the field.  After browsing the first replacement to grow is
-        not always the one that wins; following it measured DBH on a
-        suppressed side stem (3.7 cm against 20 cm, phase 26)."""
+        replacement leader (a lateral on one of the ``leaders`` axes, or the
+        shoot that replaced a lost leader, ``relay``: node -> its first node)
+        is thicker, as the stem is found in the field.  After browsing the
+        first replacement to grow is not always the one that wins; following
+        it measured DBH on a suppressed side stem (3.7 cm against 20 cm, phase
+        26).  Ordinary limbs never take over: without ``leaders`` only the
+        relay shoot can."""
         chain = [0]
         mc, lc = self.main_child, self.lat_child
         relay = getattr(self, "relay", {})
+        lead = set() if leaders is None else set(int(a) for a in leaders)
         while True:
             k = chain[-1]
             nxt, best = -1, -1.0
-            for c in (int(mc[k]), int(lc[k]), int(relay.get(k, -1))):
+            lat = int(lc[k]) if lc[k] >= 0 and int(self.axis[lc[k]]) in lead else -1
+            for c in (int(mc[k]), lat, int(relay.get(k, -1))):
                 if c >= 0 and self.death[c] < 0 and self.radius[c] > best:
                     nxt, best = c, float(self.radius[c])
             if mc[k] >= 0 and self.death[mc[k]] < 0 and self.radius[mc[k]] >= best:

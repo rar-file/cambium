@@ -76,7 +76,7 @@ def anchorage_numbers(model, sp):
         return None
     s = model.stats[-1]
     T = model.tree
-    trunk = T.trunk_chain()
+    trunk = T.trunk_chain(model.leader_axes)
     vol = float((np.pi * T.radius[trunk[1:]] ** 2 * T.length[trunk[1:]]).sum())
     stem_mass = vol * float(sp.mechanics.wood_density)
     return model.roots.anchorage(sp.anchorage, s["height_m"], s["dbh_cm"], stem_mass, vol)
