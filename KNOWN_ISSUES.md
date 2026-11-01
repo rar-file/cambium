@@ -1,5 +1,79 @@
 # Known issues
 
+## Phase 27: upkeep switch tested, regeneration and canopy closure, branch wood against Repola
+
+**Upkeep switch** (`pipe_model.sapwood_replacement_is_upkeep`, off). It adds the rings that keep this season's foliage supplied (the LIGNUM ring need at λ = 0) to the upkeep in the natural-mode death test.
+- Source: in the pipe model's carbon balance the growth that replaces senescent sapwood comes before foliage, and a tree that cannot pay it declines and dies (Mäkelä 1986, J. Theor. Biol. 123:103; IIASA WP-85-89).
+- It changes no growth: the seed-1 stand tree is identical with it on and off.
+
+| age | H (m) | DBH (cm) | H/D | CUE | upkeep / fixed, off | replacement rings / fixed | upkeep / fixed, on |
+|---|---|---|---|---|---|---|---|
+| 30 | 17.7 | 18.8 | 94 | 0.53 | 0.42 | 0.17 | 0.59 |
+| 45 | 21.0 | 25.0 | 84 | 0.44 | 0.55 | 0.05 | 0.61 |
+| 50 | 22.0 | 26.7 | 83 | 0.43 | 0.56 | 0.00 | 0.56 |
+| 60 | 23.4 | 28.4 | 82 | 0.44 | 0.54 | 0.00 | 0.54 |
+
+- The highest upkeep/fixed over ages 6–60 is 0.89 (age 28), with no deficit year.
+- Once foliage stops growing, the conducting wood exceeds what this season's foliage needs, so the replacement need is 0. The tree's rings are all for new shoots' leaves.
+
+**Regeneration, 8 years with the switch on** (resumed from the natural plot at 58, 95 trees):
+- Shaded seedlings die. Of recruits old enough, the share alive was 1.00 after one and two seasons, then 0.06, 0.02 and 0.01 after three, four and five, and 0 of 481 after six. Before the per-leaf carbon fix every recruit survived.
+- Causes: 936 failed to establish (no carbon two years running: their buds fall below the shoot survival light and the seedling loses its leaves), 5 died of deficit, 1 no carbon.
+- None of the 95 established trees died in the 8 years. The switch did not start self-thinning.
+- Peak memory 4.9 GB.
+
+**Canopy closure, dense regeneration** (44 seedlings on 44 m², 9900/ha, bared ground, switch on). Ages 50 and 60 do not apply to this 10-year test.
+
+| year | trees | height median / max (m) | LAI | light under the canopy |
+|---|---|---|---|---|
+| 4 | 44 | 1.76 / 3.05 | 1.18 | 69 % |
+| 5 | 44 | 2.80 / 4.23 | 3.21 | 30 % |
+| 6 | 44 | 3.96 / 5.40 | 5.15 | 13 % |
+| 8 | 40 | 5.93 / 7.61 | 4.80 | 16 % |
+| 10 | 35 | 7.61 / 9.56 | 4.42 | 18 % |
+
+The canopy closes at 5–6 years (before: LAI 0.09 at 5 and 0.96 at 8), and self-thinning starts at 8.
+
+**Stem-chain regression fixed.** The thickest-continuation rule of phase 26 also let an ordinary limb take over where it was thicker than the leader's top. In the seed-1 stand tree at 50–60 the chain left the leader at 19.7 m, so the stem's posture target went to a limb.
+- Only leader axes (the stem and its replacement leaders) or the relay shoot may now take over.
+- Seeds 1 and 3: the chain reaches the top at 30–60.
+- 12-year natural plot: 31 of 33 browsed trees have DBH on the stem that carries the top. The other 2 are forks whose thicker stem is the shorter.
+- Seed-1 stand tree now: H 18.0 / 21.4 / 22.5 / 23.8 m and H/D 91 / 84 / 83 / 83 at 30 / 45 / 50 / 60, CUE 0.52–0.44.
+
+**Branch wood against Repola 2008** (model 1, at each tree's own DBH and height):
+- Living branches (Eq. 9): ln y = −4.152 + 15.874 dS/(dS+16) − 4.407 h/(h+10).
+- Stem wood (Eq. 7): ln y = −4.879 + 9.651 dS/(dS+12) + 1.012 ln h.
+- Both with his bias corrections. dS rather than d in Eq. 9 is checked against his mean tree: 10.6 kg of branches on 73.6 kg of stem, as in his measured plot 4_11 (9.4 on 70.8).
+- Model wood is π r² L × 530 kg m⁻³, wood only; Repola's branches include bark.
+
+| | age | DBH (cm) | H (m) | branch wood, model / Repola (kg) | ratio | stem wood, model / Repola | branch : stem, model / Repola |
+|---|---|---|---|---|---|---|---|
+| stand tree | 30 | 19.7 | 18.0 | 2.7 / 19.8 | 0.13 | 1.40 | 0.02 / 0.18 |
+| stand tree | 50 | 27.0 | 22.5 | 6.9 / 45.6 | 0.15 | 1.47 | 0.02 / 0.19 |
+| stand tree | 60 | 28.8 | 23.8 | 9.8 / 53.0 | 0.19 | 1.57 | 0.02 / 0.18 |
+| natural plot, median of trees | 30 | 13.9 | 18.1 | 1.9 / 5.9 | 0.31 (0.22–0.75) | 1.62 | 0.02 / 0.10 |
+| natural plot | 50 | 15.6 | 24.3 | 2.6 / 6.6 | 0.39 (0.32–0.74) | 1.82 | 0.02 / 0.07 |
+| natural plot | 60 | 16.3 | 26.5 | 3.3 / 7.0 | 0.47 (0.37–0.67) | 1.85 | 0.02 / 0.06 |
+
+At matched DBH and height, the model carries 1.4–1.9× Repola's stem wood and 13–47 % of his branch wood.
+
+**Which way each candidate moves carbon** (diagnosis only, nothing built):
+- **Refit b, like for like:**
+  - Young trees in the dense plot carry the same leaf area per DBH as the open-grown stand tree: 6.0 / 9.3 / 12.6 m² at DBH 2.4 / 3.9 / 5.4 cm, against Konôpka's 2.4 / 5.0 / 8.5. So b would not move.
+  - Fitted to Repola alone, b is ~0.25 (misfit 0.077 against 0.106). No single b fits his shape: at b 0.25 the model's leaf area runs from 1.5× his at DBH 11 to 0.7× at 26.
+  - b 0.25 moves carbon from rings to shoots, but only from 1–4 % to 4–6 % of the pool, and mostly into height: H/D 108 / 104 / 103 / 104 at 30 / 45 / 50 / 60 against 91 / 84 / 83 / 83. Limbs ≥ 1 cm still get 0–2 %.
+- **Disused pipes:** shed branches' sapwood stops conducting below them, so the same foliage needs more ring. Carbon moves from shoots to rings.
+  - On the stand tree's stem the shed limbs' base area is 13 % of the stem ring at 1.3 m in 46–50 and 28 % in 56–60 (none shed in 26–30).
+  - Shoots would lose most of their 3–4 %, unless b were refitted lower to compensate.
+
+**Photo lean and perspective** (signed lean against horizontal position, per photo):
+- The iNaturalist photos show keystone: tops lean towards the centre, at −1.7 to −13.6° per half-width, R² 0.41–0.95.
+- The three Gullmarsskogen stand photos show none: slopes are small and the wrong sign (+0.9 to +3.0, R² 0.03–0.21). The render's horizon row would imply a 17° upward tilt and 7.5° of keystone at the frame edge, so the photos behave as if taken level or perspective-corrected.
+- Their mean signed lean is +2.1, +2.9 and −0.3°. That is camera roll or a real shared lean; the traces cannot tell them apart.
+- Removing roll and keystone per photo, the median |lean| goes from 2.2 to 1.6° for all photos and from 2.1 to 1.9° for Gullmarsskogen. That is a lower bound, as it also removes any real shared lean. Model trunks at matched size: 0.8–0.9°.
+
+**Click scatter, re-click set:** ten trunks on the three Gullmarsskogen photos, chosen to span straight to wobbly (off-line 0.44–4.69 %), 41–84 % of image height and 3–8 clicks. Trunk ids: tmvx5h57c137, tmvx5iaw2148, tmvx5ikyp149 (stand_5); tmvx59zso70, tmvx583zl57, tmvx5981k67, tmvx5al1n77 (stand_1); tmvx4zk1i51, tmvx4zcjz49, tmvx4yz4y46 (stand_6).
+
 ## Phase 26: natural plot with turnover, stem chain, short-shoot buds, stem traces per trunk
 
 **Stem chain.** After browsing, the stem followed the first replacement shoot that grew, not the one that won. DBH was measured on a suppressed side stem: 3.7 cm, against 20 cm on the stem that carries the crown, with a crown ratio of 0.97. The chain now takes the main child unless a living lateral or the relay shoot is thicker. Plot tables below are re-measured from the timelines with this rule.
