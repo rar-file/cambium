@@ -1,5 +1,14 @@
 # Known issues
 
+## Click scatter, measured
+
+You re-traced ten trunks blind on the three Gullmarsskogen photos, plus one on an iNaturalist photo. The tracer pointed at `reference/stem_traces_reclick.json`; the original traces are unchanged. Each new trace was matched to the old one by its base (6–41 px apart). For every click, the sideways offset from the other trace's line at the same height was measured, both ways (`tools/click_scatter.py`).
+- **Click scatter:** σ ≤ 0.39 % of image height, 7.0 px on the render. A version less sensitive to outliers gives 0.32 %, 5.8 px. Real wobble between clicks adds to it, so it is an upper bound.
+- **Against the earlier figures:** 0.63–0.77× the earlier single-trace upper bound of 9.1 px. The model comparisons assumed 0.5× (4.6 px).
+- **Click counts:** the re-clicks used 8–12 clicks per trunk, against 3–8 originally.
+- **Repeatability, median |old − new|:** off-line 0.58 percentage points, turning 7.0°, lean 0.4°, bends 1. The photos' lean (median 2.1°) is well above click noise.
+- **Effect on the stem table (phase 26):** at 0.63–0.77× the model's matched-size stems sit between the 0.5× and 1× rows. Roughly: off-line 0.9–1.0 % against 1.74 %, turning 3.5–4.5° against 12.7°, lean ~0.85° against 2.1°. The model's stems stay straighter and more upright than the photos (stem traces parked until thinning works).
+
 ## Phase 28: diagnosis of spare sapwood, taper, bark and why no tree is suppressed
 
 Diagnosis only; no model change. The tracer server gained `--traces <file>` for the re-click test.
