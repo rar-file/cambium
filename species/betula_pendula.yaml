@@ -569,6 +569,16 @@ pipe_model:
   # true: the requirement is on the conducting wood, with
   # sapwood_senescence_per_year; false: on the whole wood, no turnover.
   sapwood: true
+  # Count the rings that keep this season's foliage supplied (replacing
+  # sapwood that stopped conducting, plus the foliage added) as upkeep in
+  # the natural-mode death test, like rebuilding the leaves.  In the pipe
+  # model's carbon balance the growth that replaces senescent sapwood comes
+  # before foliage, and a tree whose production cannot cover it loses
+  # foliage and dies: "the model hence explains the mortality of suppressed
+  # trees" (Makela 1986, J. Theor. Biol. 123:103; IIASA WP-85-89).  Here the
+  # cost enters the existing two-year deficit test instead of shrinking the
+  # foliage first.  Off: only maintenance and leaf and fine-root costs.
+  sapwood_replacement_is_upkeep: false
   # Conducting wood per unit of foliage beyond rises from the twigs to the
   # stem: hydraulics.huber_value at a current-year shoot (tip_radius),
   # times (r / tip_radius)^b.  b is fitted so that the whole cross-section

@@ -828,6 +828,12 @@ class GrowthModel:
             lam, self._ring = self._growth_factor(pool, g_resp, levels, alive, term_nodes, share_t, lat_nodes, share_l,
                                                   bud_q, bud_nodes, bud_leaf)
             v_term, v_lat = lam * share_t, lam * share_l
+            if bool(getattr(sp.pipe_model, "sapwood_replacement_is_upkeep", False)):
+                # the rings that keep this season's foliage supplied (sapwood
+                # that stopped conducting, foliage added) are part of what the
+                # tree must pay to keep going, like rebuilding its leaves
+                self.carbon["upkeep"] += self._ring_need
+                self.carbon["sapwood_replacement"] = self._ring_need
         else:
             # what reaches a bud builds new shoot after growth respiration
             v_term = vm[term_nodes] / g_resp
@@ -1231,6 +1237,7 @@ class GrowthModel:
             return (shoot_vol + float((ring * L).sum())) / unit + leaf_units, ring
 
         c0, r0 = parts(0.0)
+        self._ring_need = c0
         if c0 >= pool:
             # the foliage's sapwood alone takes the whole pool: no new shoots,
             # and only that share of the rings
