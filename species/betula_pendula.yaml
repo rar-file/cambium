@@ -589,19 +589,22 @@ pipe_model:
   # Fennica 42:605, foliage Eq. 12, DBH 11-26 cm, SLA 15 m2/kg [Uri et al.
   # 2007]).  The old wood depends on each tree's history, so the fit grows
   # the seed-1 stand tree for each b (tools/fit_huber_exponent.py): b =
-  # 0.312.  It leaves the young trees with 1.4-2.5x Konopka's leaf area
+  # 0.312 (not used while huber_path_exponent is set).  It leaves the
+  # young trees with 1.4-2.5x Konopka's leaf area
   # for their DBH and DBH 20-26 cm with 0.6-0.7x Repola's.  Marklund 1988
   # has no birch foliage function.
   huber_radius_exponent: 0.312
-  # Alternative (phase 29, off while 0): the Huber value rises from tip to
-  # base with the leaf-weighted path length l from each internode to the
-  # leaves it supplies, huber_value x (l / l_ref)^c, instead of with its
-  # radius (sapwood per leaf area beyond rises tip to base: Mencuccini et al.
-  # 2019, New Phytol. 224:1544).  l_ref: the leaves of the current-year
+  # In use (phase 30): the Huber value rises from tip to base with the
+  # leaf-weighted path length l from each internode to the leaves it
+  # supplies, huber_value x (l / l_ref)^c, instead of with its radius.  The
+  # pattern, sapwood per leaf area beyond rising tip to base: Mencuccini et
+  # al. 2019, New Phytol. 224:1544.  l_ref: the leaves of the current-year
   # shoots huber_value was measured on sit on average half their 27.9 cm
-  # beyond the shoot base [OP22].  When c is set, huber_radius_exponent is
-  # not used.
-  huber_path_exponent: 0.0
+  # beyond the shoot base [OP22].  c = 0.283 is fitted to Konopka et al.
+  # 2023 and Repola 2008 Eq. 12 together, at breast height over bark
+  # (tools/fit_huber_exponent.py --path), as b was.  With c set,
+  # huber_radius_exponent is not used.
+  huber_path_exponent: 0.283
   huber_path_reference_m: 0.14
   # Wood volume per model carbon unit (m3): the size of the unit (with the
   # basic density in leaf_costs, 0.64 g dry matter).  In lignum growth it
