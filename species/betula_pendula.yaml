@@ -633,29 +633,35 @@ pipe_model:
   # the conducting sapwood need and what keeps the peak wind bending stress
   # sigma = M / (pi r^3 / 4) at or below a safe fraction of green wood
   # strength, paid from the same shoot carbon budget.  Crown wind drag from
-  # the ForestGALES roughness method (Gardiner et al. 1997, Forestry 70:233;
-  # Gardiner et al. 2000, Ecol. Model. 129:1; Hale et al. 2015, Environ.
-  # Model. Softw. 68:27; Locatelli et al. 2017, Environ. Model. Softw.
-  # 87:84) with Raupach's (1994, Boundary-Layer Meteorol. 71:211) canopy
-  # drag partition and zero-plane displacement, distributed over the crown's
-  # leaf area by height so the stem is sized all the way to the top (Metzger
-  # 1893; Morgan & Cannell 1994, Tree Physiol. 14:49).
+  # the ForestGALES roughness method (Gardiner et al. 1997, Forestry 70:233,
+  # DOI 10.1093/forestry/70.3.233; Gardiner et al. 2000, Ecol. Model. 129:1,
+  # DOI 10.1016/S0304-3800(00)00220-9; Hale et al. 2015, Environ. Model.
+  # Softw. 68:27, DOI 10.1016/j.envsoft.2015.01.016; Locatelli et al. 2017,
+  # Environ. Model. Softw. 87:84, DOI 10.1016/j.envsoft.2016.10.010) with
+  # Raupach's (1994, Boundary-Layer Meteorol. 71:211, DOI 10.1007/BF00709229)
+  # canopy drag partition and zero-plane displacement, distributed over the
+  # crown's leaf area by height so the stem is sized all the way to the top
+  # (Metzger 1893; Morgan & Cannell 1994, Tree Physiol. 14:49, DOI
+  # 10.1093/treephys/14.1.49).
   # ForestGALES silver birch (BI) parameters: green MOR 63.0 MPa, knot
   # factor 1.0 (Lavers 1969, For. Prod. Res. Lab. Bull. 50; Hale et al.
   # 2015), crown streamlining C = 1.9627 and N = 0.881 clamped to 10-20 m/s
-  # (Mayhead 1973, Agric. Meteorol. 12:123; Vollsinger et al. 2005, Can. J.
-  # For. Res. 35:1238), air density 1.22 kg m-3, deflection loading factor
-  # 1.136 (Gardiner et al. 2000).
-  # Target stress = wood_mor_green_mpa * knot_factor / safety_factor, with
-  # safety_factor 3.5 against green MOR (Niklas & Spatz 2000, Trees 14:230;
-  # Mattheck & Kubler 1995; Univ. Tokyo branch study) -> 18.0 MPa. VERIFY
-  # Wind speed (m s-1): 25.0 is the 50-year 10-min reference wind for
-  # Goteborg / Swedish west coast (Boverket EKS / SS-EN 1991-1-4 national
-  # annex; VERIFY for Lysekil); 12.0 is the recurring strong synoptic wind
-  # (return period > 1 week; ~98-99th percentile on the Swedish west coast,
-  # SMHI) that trees acclimate radial growth to after filtering out chronic
-  # daily winds (Bonnesoeur et al. 2016, New Phytol. 210:850; Morgan &
-  # Cannell 1994: uniform stress at 10-12 m s-1 canopy-top wind). VERIFY
+  # (Mayhead 1973, Agric. Meteorol. 12:123, DOI 10.1016/0002-1571(73)90013-7;
+  # Vollsinger et al. 2005, Can. J. For. Res. 35:1238, DOI 10.1139/x05-051),
+  # air density 1.22 kg m-3, deflection loading factor 1.136 (Gardiner et al.
+  # 2000).
+  # Target stress = wood_mor_green_mpa * knot_factor / safety_factor.
+  # safety_factor 3.5 -> 18.0 MPa (from Univ. Tokyo branch study above; note
+  # Niklas & Spatz 2000, Trees 14:230, DOI 10.1007/s004680050008 argue against
+  # a constant stress or constant safety factor across tree sizes). VERIFY
+  # Wind speed (m s-1): Morgan & Cannell (1994, DOI 10.1093/treephys/14.1.49)
+  # find uniform-stress taper holds for average canopy-top winds of 2.5-10.0
+  # m s-1 (standard 5.0 m s-1) and breaks down at >= 15 m s-1; Bonnesoeur et
+  # al. (2016, New Phytol. 210:850, DOI 10.1111/nph.13836) show radial
+  # acclimation responds to intense storms rather than daily breezes (no speed
+  # in m s-1 given); 25.0 is the 50-year 10-min reference wind for Goteborg /
+  # Swedish west coast (Boverket EKS / SS-EN 1991-1-4 national annex; VERIFY
+  # for Lysekil). VERIFY
   wind_load:
     enabled: false
     wind_speed_m_s: 25.0
