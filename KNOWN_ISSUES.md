@@ -1,5 +1,96 @@
 # Known issues
 
+## Phase 30: distance rule default; render artefacts, crown, foliage and stem mechanics diagnosed
+
+**Default.** `pipe_model.huber_path_exponent` is 0.283: the Huber value rises tip to base with the leaf-weighted path length to the leaves supplied (the pattern: Mencuccini et al. 2019), fitted to Konôpka and Repola over bark. All 20 tests pass.
+
+**A. Hooks, loops and cones in the plot render** (p26 natural plot at 60). No model change.
+- **All 29 living browsed trees continue their stem on a lateral replacement leader.** Its first internode leaves at a median 45° from vertical (34–50°).
+  - In 10 trees it runs more than 0.3 m sideways in its first 2 m, up to 0.71 m.
+  - That first-year knee thickened into the stem (10–16 cm now). Posture correction (rate ∝ dr/r²) cannot straighten it.
+  - The big loop is tree 73: browsed in year 5, replacement born in year 4 at 1.8 m, leaving at 81–88° and running 0.68 m sideways before turning up. It is 13.5 cm thick now.
+- **The losing replacement leaders do die.** Only 3 of 95 living trees keep an axis-0 stub off the winning stem. No axis below 4 m turns more than 300°.
+- **The white cones are drawing artefacts.** Axis 0 ends where the browsed leader died, and the mesh caps it with a cone. The replacement leader starts as a branch with a collar instead of continuing the tube. Only 2 thick living tube ends below 4 m exist in the whole plot.
+
+**C. Tufts on the single tree.** They are living, leafy small limbs, not dead ones.
+
+| tree | age | H (m) | crown base by leaf share (m) | crown ratio | lowest live limb (m) | crown ratio by lowest live limb | live limbs below the crown base | per m below 0.5 H |
+|---|---|---|---|---|---|---|---|---|
+| radius rule (rendered) | 30 | 18.0 | 4.1 | 0.77 | 1.6 | 0.91 | 35 | 25.6 |
+| radius rule | 50 | 22.5 | 9.1 | 0.60 | 1.6 | 0.93 | 139 | 21.0 |
+| radius rule | 60 | 23.8 | 10.7 | 0.55 | 1.6 | 0.93 | 136 | 14.9 |
+| distance rule (default) | 30 | 18.7 | 4.0 | 0.79 | 2.8 | 0.85 | 2 | 16.0 |
+| distance rule | 50 | 24.2 | 8.5 | 0.65 | 2.8 | 0.89 | 64 | 14.5 |
+| distance rule | 60 | 25.8 | 8.5 | 0.67 | 2.8 | 0.89 | 37 | 8.5 |
+
+- Every limb below the crown base carries leafy short shoots, but each holds under 0.5 % of the tree's leaves (`stats.crown_base_min_leaf_share`). They are about 1.1 m long and 0.6 cm thick at 60.
+- With about 360 limbs on a 24 m stem, the crown reads as tufts all down the stem. The 6 Nordic scans have about 68 first-order branches of 1 cm or more.
+- Repola's Finnish stand sample has a crown ratio of 0.58 ± 0.14 (0.29–0.96). The model matches by its leaf-share definition (0.55–0.79) but not by lowest live limb (0.85–0.93).
+- The small limbs are lit above the 21 % death light and pay their own upkeep, consistent with the stand floor light being too high (0.24 against 0.15 measured, phase 10).
+
+**2. Leaf area check: a leaf problem for older trees.**
+
+| | age | DBH over bark (cm) | model LMA (g/m²) | foliage / Repola Eq. 12 | / A6 with model crown ratio | / A6 with crown ratio by lowest live limb |
+|---|---|---|---|---|---|---|
+| stand tree | 30 | 20.7 | 54 | 0.56 | 0.31 | 0.25 |
+| stand tree | 50 | 27.4 | 52 | 0.47 | 0.44 | 0.23 |
+| stand tree | 60 | 29.3 | 51 | 0.43 | 0.40 | 0.21 |
+| natural plot (median) | 30 | 15.3 | 51 | 0.47 | 0.35 | 0.16 |
+| natural plot | 50 | 17.1 | 51 | 0.35 | 0.62 | 0.14 |
+| natural plot | 60 | 17.9 | 51 | 0.31 | 0.69 | 0.13 |
+
+- **Older trees** carry about half of Repola's foliage, or less, for their DBH. With branches at 15–22 % of his and stem wood 1.13–1.28× at matched DBH and height (mostly taper), the crown is undersized.
+- **Young trees, against Konôpka at the base diameter he measured:** the model has 3.8 / 3.0 / 1.6× his leaf area at D0 = 50 / 75 / 100 mm.
+- **Two leaf sets.** The reported leaf area (stats) counts leaves on every node grown this year. Photosynthesis and the logged leaf dry mass count the leaves of nodes grown last year, one season later. In fast-growing young years the two differ about 3× (age 6: 13.0 against ~4 m²); by 30 they agree (52.2 against 54 m²). The reported leaf area is the one that matches this year's rings.
+- The model's LMA (51–54 g/m²) is below the 67–68 behind Repola's and Konôpka's conversions.
+
+**B and 3. Stem mechanics.**
+- **The stem is loaded only by the increment of its weight, and only through horizontal lever arms** (`mechanics.bend_and_correct`: this year's added wood and leaf mass, moment = arm × g). A vertical stem has no lever arm.
+- **There is no axial compression or buckling, no wind and no snow.** Leader axes are stiff and corrected towards vertical by reaction wood at a rate set by the year's ring (C_rw dr/r²).
+- **Uprightness costs nothing.** In LIGNUM mode the stress-floor wood (self-weight bending) is also added outside the pool, though it never binds.
+- **Fresh density:** Finnish *B. pendula* basic density 512 kg m⁻³ (Heräjärvi 2004; 530 in Aosaar et al. 2016) × (1 + 0.72), with green sapwood moisture of 70–72 % for paper, sweet and yellow birch (Wood Handbook FPL-GTR-282, Table 4-1). That gives 880–910 kg m⁻³, so the model's 850 is 4–7 % low. No silver-birch green moisture content was found.
+- **Green stiffness and strength:** Finnish silver birch 14.5 GPa and 114 MPa (Heräjärvi 2004, Wood Sci. Technol.), scaled by yellow birch's green-to-12 % ratios (10.3/13.9, 57/114; Table 5-3a), give 10.7 GPa and 57 MPa. The model uses 10 GPa.
+- **Buckling:** Rayleigh estimate for a cantilever column with the stem's own EI(z), own weight and the crown's wood, winter. Snow on the crown's projected area: 5.35 kg m⁻² (the Finnish mean crown load, Lehtonen et al. 2014, Silva Fennica 48:1120) and 30 kg m⁻² (above which wet snow typically damages trees, Nykänen et al. 1997, Silva Fennica 31:193). Below 1 the stem buckles.
+
+| tree | age | H (m) | DBH over bark (cm) | H/D | own weight | + 5.35 kg m⁻² | + 30 kg m⁻² |
+|---|---|---|---|---|---|---|---|
+| stand tree | 30 | 18.7 | 20.7 | 90 | 12.7 | 10.8 | 6.3 |
+| stand tree | 45 | 23.2 | 25.9 | 90 | 9.4 | 7.5 | 3.9 |
+| stand tree | 50 | 24.2 | 27.4 | 88 | 9.4 | 7.6 | 4.1 |
+| stand tree | 60 | 25.8 | 29.2 | 88 | 7.6 | 6.0 | 3.0 |
+| plot tree 76 | plot year 30 | 15.0 | 8.1 | 184 | 2.7 | 1.6 | 0.54 |
+| plot tree 76 | plot year 50 | 21.4 | 8.3 | 260 | 0.65 | 0.36 | 0.12 |
+| plot tree 76 | plot year 60 | 23.9 | 8.5 | 282 | 0.48 | 0.27 | 0.09 |
+
+From plot year 50, tree 76 would buckle under its own winter weight, and under an ordinary snow load. The model stands it for free.
+
+**The thin top and the steps** (B; the stand tree at 60):
+- The leader grows in pulses. In many years it barely extends: years 37–39 at 0.84 H, 41–45 at 0.88–0.90 H.
+- Rings build up on the last segment during a stall, and the next pulse starts at the tip radius. That gives the steps: d/DBH 0.129 → 0.073 at year 46 (radius rule), 0.162 → 0.073 at year 49 (distance rule).
+- Below about 0.88 H the stem is too thick; above, too thin (0.07 against 0.11 at 0.9 H).
+- Nothing mechanical requires the leader to be thicker: height costs only tip cross-section × length.
+
+**What a wind-load rule would take** (not built). The constant-stress hypothesis (Metzger 1893; holds approximately above the butt swell for canopy-top winds of 2.5–10 m/s, Morgan & Cannell 1994, Tree Physiol. 14:49; mostly supported in Dean et al. 2002, Trees; disputed for some species) sets the diameter so that bending stress from wind on the crown is even down the stem: d(z) ∝ M(z)^{1/3}.
+- **Its shape, with the model's own crown as the load** (drag in proportion to leaf area, uniform wind), against the model stem and Hansen taper:
+
+| tree | age | d/DBH at 0.3 / 0.5 / 0.7 H: model | constant stress | birch taper |
+|---|---|---|---|---|
+| stand tree | 30 | 0.90 / 0.71 / 0.49 | 0.83 / 0.64 / 0.43 | 0.78 / 0.63 / 0.40 |
+| stand tree | 50 | 0.89 / 0.71 / 0.50 | 0.83 / 0.65 / 0.41 | 0.75 / 0.60 / 0.39 |
+| stand tree | 60 | 0.90 / 0.76 / 0.55 | 0.84 / 0.68 / 0.45 | 0.75 / 0.60 / 0.38 |
+| plot tree 76 | plot year 50 | 0.92 / 0.86 / 0.78 | 0.89 / 0.77 / 0.60 | 0.82 / 0.69 / 0.48 |
+| plot tree 76 | plot year 60 | 0.91 / 0.85 / 0.77 | 0.89 / 0.78 / 0.62 | 0.81 / 0.68 / 0.48 |
+
+  In the top fifth of the stem the constant-stress profile tracks birch taper within about 0.01–0.02 of DBH, with no thin whip.
+- **What it would need:**
+  1. A wind load per crown element: drag area from leaf and branch area, a drag coefficient with streamlining, and a vertical wind profile with shelter in the stand. Birch parameters would come from wind-risk models such as HWIND/GALES (VERIFY sources).
+  2. A target stress: a fraction of green MOR (57 MPa derived) with a safety factor. The existing self-weight stress floor uses 16 MPa.
+  3. A reference wind speed. It sets the magnitude, not the shape, so it must be sourced or it becomes a free knob.
+  4. Each ring is the larger of the pipe requirement and the stress requirement, paid from the same pool (unlike the current stress floor). Height then costs stem wood, because a taller stem with the same crown needs a thicker base.
+  5. Optionally, a self-weight and snow buckling check.
+
+**Parked:** butt swell and disused pipes, until limbs carry realistic wood.
+
 ## Phase 29: comparisons over bark; why the stem is cylinder-like; Huber value by path length (tested, off)
 
 **Over bark.** The model has no bark, so its DBH is wood. `tools/bark.py` converts it with the birch double-bark model of Hansen et al. 2023 (with its 2024 correction; taperNOR coefficients). `tools/stem_compare.py` applies the conversion to every comparison with field DBH, and `tools/fit_huber_exponent.py` does too; b is unchanged.
