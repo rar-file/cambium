@@ -1,5 +1,51 @@
 # Known issues
 
+## Phase 22: carbon from leaves, early leaves, alpha from sources, stem mechanics
+
+**Carbon comes from leaves, not buds.** Carbon = alpha × Σ (leaf weight × light × stomatal opening), also in each branch's own balance. Leafless dormant buds fix none; a short shoot's cluster counts 2.5 leaves.
+
+**Early leaves.** Long shoots already carried one late leaf per node. They now also bear their 2–3 early (preformed) leaves at their base (Clausen & Kozlowski 1965). An open sapling has 2.1 m² of leaf at 2.75 m and 5.0 m² at 2.90 m; 3–3.5 m FAHM silver birches had ~4.2 m² (root conductance over conductance per leaf area, Sellin et al. 2015).
+
+**Alpha from sources: 4.8** (carbon of one reference leaf in full light per year).
+- Source: a 10-year fertile Estonian stand, NPP 13.0 Mg/ha/yr with 2.81 Mg/ha of leaves (Aosaar et al. 2016), LAI 4.2 (SLA 15 m²/kg, Uri et al. 2007).
+- At CUE 0.45 that is ~330 g C per m² of leaf, ~1080 model units. The natural plot fixes that at LAI 3.9–4.05 with alpha 4.8.
+- Wood maintenance 0.5: CUE 0.42 (target ~0.45, provisional).
+
+**Natural plot at alpha 4.8, before the stem mechanics fix (biomass from the wood geometry at 530 kg m⁻³):**
+
+| age | N/ha | H mean | top 25 % | band | DBH | basal area | aboveground wood |
+|---|---|---|---|---|---|---|---|
+| 30 | 990 | 21.3 | 25.1 | 13.4–19.7 | 15.6 | 20.0 m²/ha | 106 t/ha |
+| 45 | 756 | 30.7 | 32.9 | 18.0–24.0 | 19.0 | 22.5 | 187 |
+| 50 | 720 | 32.3 | 34.5 | 19.2–25.3 | 19.9 | 23.6 | 213 |
+| 60 | 630 | 34.8 | 36.9 | 21.1–26.9 | 21.9 | 24.9 | 264 |
+
+**Budget or allocation?** Mainly allocation.
+- **Girth matches closed silver-birch stands of similar density.** Hagemeier & Leuschner 2019 had 880/ha with DBH 19 cm and ~25 m²/ha at 45, 20–25 m tall.
+- **Biomass is at the fertile end**, not far above it. Fertile Estonian Oxalis stands had 224 t/ha at 45 and 220 at 60 (Varik et al. 2011; Uri et al. 2012).
+- **Height is ~10 m over, and H/D ~160** (those stands ~110–130).
+- **Cause found: the net shoot carbon is counted twice.** The flow hands the whole pool to the buds (new shoots), and the rings are built from the whole pool as well (`wood_volume_per_carbon × _shoot_carbon`). Extension never competes with girth.
+- **The metamer unit is not in grams.** It is P09's unit (one metamer, leaf included). Leaves are now charged separately, and a metamer's wood is far smaller than the 0.64 g a unit stands for. Open.
+- **The budget is also too large for average Swedish sites**, since alpha comes from the fertile farmland stand. Nitrogen and season length: open.
+
+**The stuck forked leader (step 3), fixed.** Replacement leaders were limbs in the mechanics: they had the pendulous factor (no stiffness or posture correction on thin wood) and the 43° set-point.
+- On the seed-1 stand tree, after the year-9 browse, both fork tips drooped (dir_z down to −0.46). One stayed at 4–5 m for 18 years.
+- Now the stem axes are orthotropic with the stem's set-point, and the leader grows 8.5 / 23.0 / 32.0 m at 14 / 30 / 45.
+- The lone stand tree was only short because of this; it now races too (H/D ~150).
+
+**Natural plot with the stem fix** (stopped by the low-memory guard at 55; stand means from the last checkpoint):
+
+| age | N/ha | H mean | H max | DBH | LAI |
+|---|---|---|---|---|---|
+| 30 | 1278 | 22.6 | 26.0 | 14.6 | 4.01 |
+| 45 | 864 | 31.0 | 34.9 | 18.8 | 3.97 |
+| 50 | 828 | 32.8 | 37.6 | 19.6 | 3.94 |
+| 54 | 720 | 34.7 | 39.7 | 20.8 | 3.94 |
+
+LAI is ~4.0, close to the measured 4.6.
+
+**Dense regeneration (one per m²) still does not close at 4–5 years.** LAI is 0.09 at 5 and 0.96 at 8; the median seedling is 0.04 / 0.28 / 0.52 m at 2 / 4 / 5.
+
 ## Phase 21: water through the fine roots, the field layer on bared soil
 
 **Water uptake through the fine roots the tree pays for.**
