@@ -1,5 +1,37 @@
 # Known issues
 
+## Phase 31: continuous replacement-leader tube, snow-buckling check, wind and leader diagnoses
+
+**1. Continuous trunk tube across leader replacements** (`treegen/mesh.py`, commit `e6aab7a`).
+- Where a browsed leader died and a lateral replacement leader took over (`tree.relay`), the mesher now splices the parent stem and the winning replacement leader into one continuous tube instead of capping the dead leader stub with a cone and starting the replacement leader with a branch collar.
+- The white cone caps on browsed stems in the natural plot render are gone; slight narrowing remains at a couple of relay joins.
+
+**2. Replacement-leader knees after moose browsing (diagnosis).**
+- After moose browsing (0.3–3 m), the replacement leader leaves at a median 45° from vertical and runs 0.3–0.7 m sideways in its first 2 m before turning upright (tree 73 leaves at 81–88° and makes a full loop).
+- The model's woody posture correction rate (C_rw Δr/r², with C_rw = 0.012 from maturation-strain asymmetry ~0.003, Alméras & Fournier 2009, J. Theor. Biol. 256:370; ~0.29 /m/yr on a young leader) matches experimental measurements on Populus and Pinus (Coutand et al. 2007, J. Exp. Bot. 58:1829; Sierra-de-Grado et al. 2008).
+- Because posture correction scales as Δr/r², the sideways knee formed in the first season thickens into the stem (10–16 cm by age 60) and cannot be straightened in later years.
+
+**3. Offline snow-buckling check on the natural plot** (`tools/snow_buckling.py`, `out/bench/p26_nat`).
+- Rayleigh cantilever buckling check (E = 10.7 GPa, fresh density 900 kg m⁻³, own winter weight plus the Finnish mean crown snow load of 5.35 kg m⁻², Lehtonen et al. 2014, Silva Fennica 48:1120) evaluated at the stored 5-year keyframes on the logged natural plot:
+
+| plot year | trees alive (logged) | /ha logged | buckled by now under own weight | /ha left | buckled with mean snow load | /ha left |
+|---|---|---|---|---|---|---|
+| 20 | 98 | 1764 | 0 | 1764 | 0 | 1764 |
+| 30 | 97 | 1746 | 0 | 1746 | 0 | 1746 |
+| 40 | 96 | 1728 | 0 | 1728 | 2 | 1692 |
+| 45 | 96 | 1728 | 1 | 1710 | 5 | 1638 |
+| 50 | 95 | 1710 | 4 | 1638 | 10 | 1530 |
+| 60 | 95 | 1710 | 12 | 1494 | 23 | 1296 |
+
+- First snow-buckling failures occur at plot years 33–46 on slender trees with wood H/D 216–255 (e.g. tree 95 at year 33, H 13.8 m, DBH 5.8 cm; tree 76 at year 38, H 18.2 m, DBH 7.5 cm).
+- Snow buckling alone brings stand density to 1638/ha at 45 (1530/ha at 50, 1296/ha at 60), far short of Hagemeier & Leuschner's 880/ha at 45.
+- Nykänen et al. 1997 (Silva Fennica 31:193): stem breakage is the most common snow damage overall, small slender trees (high H/D) are most prone to bending, and birch tends to bend permanently under wet snow rather than snap.
+
+**4. ForestGALES wind-load parameters and licence check.**
+- Licence: the `fgr` R package (Locatelli, Gardiner, Hale & Nicoll 2020, Forest Research) is licensed under GPLv3 with the Commons Clause v1.0, which forbids commercial use without express consent. No code from `fgr` may be copied or translated; only the published equations and cited parameter values from Gardiner et al. 2000 (Ecol. Model. 129:1), Hale et al. 2015 (Environ. Model. Softw. 68:27) and Locatelli et al. 2017 (Environ. Model. Softw. 87:84) may be used.
+- Published ForestGALES birch (Betula spp., BI) parameter values: green stem density 900 kg m⁻³, green MOR 63 MPa, green MOE 9.9 GPa, knot factor 1.0, drag streamlining C = 1.9627 and N = 0.881 (capped at u = 20 m s⁻¹; Mayhead 1973 / Vollsinger et al. 2005), canopy fresh density 1.22 kg m⁻³.
+- Reference 50-year 10 m fundamental basic wind velocity for Göteborg / west coast: 25 m s⁻¹ (Boverket EKS / SS-EN 1991-1-4 Swedish National Annex; VERIFY for Lysekil).
+
 ## Phase 30: distance rule default; render artefacts, crown, foliage and stem mechanics diagnosed
 
 **Default.** `pipe_model.huber_path_exponent` is 0.283: the Huber value rises tip to base with the leaf-weighted path length to the leaves supplied (the pattern: Mencuccini et al. 2019), fitted to Konôpka and Repola over bark. All 20 tests pass.
@@ -28,7 +60,7 @@
 - Repola's Finnish stand sample has a crown ratio of 0.58 ± 0.14 (0.29–0.96). The model matches by its leaf-share definition (0.55–0.79) but not by lowest live limb (0.85–0.93).
 - The small limbs are lit above the 21 % death light and pay their own upkeep, consistent with the stand floor light being too high (0.24 against 0.15 measured, phase 10).
 
-**2. Leaf area check: a leaf problem for older trees.**
+**2. Leaf area check: a leaf problem for older trees** (`tools/foliage_check.py`).
 
 | | age | DBH over bark (cm) | model LMA (g/m²) | foliage / Repola Eq. 12 | / A6 with model crown ratio | / A6 with crown ratio by lowest live limb |
 |---|---|---|---|---|---|---|
@@ -44,7 +76,7 @@
 - **Two leaf sets.** The reported leaf area (stats) counts leaves on every node grown this year. Photosynthesis and the logged leaf dry mass count the leaves of nodes grown last year, one season later. In fast-growing young years the two differ about 3× (age 6: 13.0 against ~4 m²); by 30 they agree (52.2 against 54 m²). The reported leaf area is the one that matches this year's rings.
 - The model's LMA (51–54 g/m²) is below the 67–68 behind Repola's and Konôpka's conversions.
 
-**B and 3. Stem mechanics.**
+**B and 3. Stem mechanics** (`tools/stem_mechanics.py`).
 - **The stem is loaded only by the increment of its weight, and only through horizontal lever arms** (`mechanics.bend_and_correct`: this year's added wood and leaf mass, moment = arm × g). A vertical stem has no lever arm.
 - **There is no axial compression or buckling, no wind and no snow.** Leader axes are stiff and corrected towards vertical by reaction wood at a rate set by the year's ring (C_rw dr/r²).
 - **Uprightness costs nothing.** In LIGNUM mode the stress-floor wood (self-weight bending) is also added outside the pool, though it never binds.
