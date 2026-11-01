@@ -621,8 +621,12 @@ class GrowthModel:
             phi = np.ones(len(bud_nodes))
             flow, collar = 0.0, 0.0
         phi_t, phi_l = phi[: len(term_nodes)], phi[len(term_nodes):]
-        carbon = float(res.alpha) * float((bud_q * phi).sum())
-        stress = 1.0 - float((bud_q * phi).sum()) / max(float(bud_q.sum()), 1e-12)
+        # carbon is fixed by leaves: each bud's light times its leaf weight (a
+        # leafless dormant bud fixes none, a short shoot's cluster 2.5 times a
+        # single leaf); alpha is the carbon of one reference leaf in full light
+        bud_w = np.concatenate([w_term, w_lat])
+        carbon = float(res.alpha) * float((bud_q * phi * bud_w).sum())
+        stress = 1.0 - float((bud_q * phi * bud_w).sum()) / max(float((bud_q * bud_w).sum()), 1e-12)
         # functional balance (Brouwer 1963; Thornley 1972): a water-limited
         # tree sends more of its carbon below ground
         root_share = float(res.root_share_min) + (float(res.root_share_max) - float(res.root_share_min)) * stress
@@ -728,8 +732,8 @@ class GrowthModel:
             limb = np.nonzero(alive & T.is_lateral[:n0] & (T.order[:n0] == 1))[0]
         if limb.size:
             cb = np.zeros(n0)
-            cb[term_nodes] += Qterm[term_nodes] * phi_t
-            cb[lat_nodes] += Qlat[lat_nodes] * phi_l
+            cb[term_nodes] += Qterm[term_nodes] * phi_t * w_term
+            cb[lat_nodes] += Qlat[lat_nodes] * phi_l * w_lat
             own = (1.0 - root_share) * float(res.alpha) * T.basipetal(levels, cb)[limb]
             if len(self._established) < n0:
                 grow_by = n0 - len(self._established)
@@ -764,8 +768,8 @@ class GrowthModel:
             # the upkeep of its wood (Sprugel, Hinckley & Schaap 1991); it is
             # shed before next season's flush.  Ageing only lowers vigour.
             cbal = np.zeros(n0)
-            cbal[term_nodes] += Qterm[term_nodes] * phi_t
-            cbal[lat_nodes] += Qlat[lat_nodes] * phi_l
+            cbal[term_nodes] += Qterm[term_nodes] * phi_t * w_term
+            cbal[lat_nodes] += Qlat[lat_nodes] * phi_l * w_lat
             own_c = (1.0 - root_share) * float(res.alpha) * T.basipetal(levels, cbal)
             ones_c = alive.astype(float)
             ones_c[0] = 0.0
