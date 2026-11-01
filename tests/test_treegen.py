@@ -85,8 +85,13 @@ def test_pipe_model_at_every_junction(grown):
     T, g = m.tree, m.gamma
     n = T.n
     alive = T.death[:n] < 0
-    # the pipes; the stem may carry more wood than its pipes (annual rings)
-    assert (T.radius[:n][alive] >= m._r_pipe[:n][alive] - 1e-12).all()
+    if str(m.sp.pipe_model.growth) == "lignum":
+        # LIGNUM: wood follows the foliage beyond (Huber value), not the
+        # tip count, so limbs may be thinner than their pipes
+        assert (T.radius[:n][alive] >= float(m.sp.pipe_model.tip_radius) - 1e-12).all()
+    else:
+        # the pipes; the stem may carry more wood than its pipes (annual rings)
+        assert (T.radius[:n][alive] >= m._r_pipe[:n][alive] - 1e-12).all()
     P = m._r_pipe[:n] ** g
     children = np.zeros(n)
     kids = np.nonzero(alive)[0][1:]
@@ -248,9 +253,10 @@ def test_chunked_mesh_matches_one_pass(grown):
     # fraction of a millimetre (the context axis is sampled a little
     # differently); everything else is identical.  How many vertices that is
     # depends on how many junctions the chunk boundaries happen to cut, i.e.
-    # on the tree's shape (0.12 % with the phase-9 defaults)
+    # on the tree's shape (0.12 % with the phase-9 defaults, 0.22 % with the
+    # LIGNUM growth of phase 24)
     assert d.max() < 5e-4
-    assert (d < 1e-9).mean() > 0.998
+    assert (d < 1e-9).mean() > 0.997
 
 
 def test_reduced_mesh_under_ten_percent(grown):

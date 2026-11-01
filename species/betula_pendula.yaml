@@ -545,14 +545,26 @@ pipe_model:
   # per unit of foliage beyond, after sapwood senescence) equal the net
   # shoot carbon.  Before, shoots got the whole pool at one unit per
   # metamer and the rings the whole pool again.
-  # Not the default yet (phase 23): with the shoot-level Huber value the
-  # trees are far too slender (stand tree H/D 130-230); see KNOWN_ISSUES.
-  growth: rings         # pipe | stem_rings | rings | lignum
+  growth: lignum        # pipe | stem_rings | rings | lignum
   # Share of sapwood that stops conducting each year (turns to heartwood
   # and must be replaced by new rings): 0.07 per year in LIGNUM for Scots
   # pine (Silva Fennica pdf 510, parameter table; Sievanen, Nikinmaa &
   # Perttunen 1997, Silva Fennica 31).  VERIFY (birch)
   sapwood_senescence_per_year: 0.07
+  # Birch has no distinct heartwood: the requirement is on the whole wood
+  # cross-section (no sapwood turnover; nothing counted twice).  true =
+  # sapwood only, with sapwood_senescence_per_year.
+  sapwood: false
+  # Wood cross-section per unit of foliage beyond rises from the twigs to
+  # the stem: hydraulics.huber_value at a current-year shoot (tip_radius),
+  # times (r / tip_radius)^b.  b fitted to young and older silver birch
+  # together, both at breast height: Konopka et al. 2023 (Plants 12:1607;
+  # leaf area 2.37 m2 (D0/50 mm)^1.851, DBH = -6.627 + 0.611 D0 mm; D0
+  # 50-100 mm: 1.9-2.7e-4 m2 of wood per m2 of leaf) and Repola 2008
+  # (Silva Fennica 42:605, foliage Eq. 12, DBH 11-26 cm, SLA 15 m2/kg [Uri
+  # et al. 2007]: 4.5-5.8e-4); equal weight per dataset, b = 0.279 (fit
+  # 2.5-3.1 and 3.8-4.8e-4).  Marklund 1988 has no birch foliage function.
+  huber_radius_exponent: 0.279
   # Wood volume per model carbon unit (m3): the size of the unit (with the
   # basic density in leaf_costs, 0.64 g dry matter).  In lignum growth it
   # only converts wood to carbon.  The model's carbon has no

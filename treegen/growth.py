@@ -1175,15 +1175,20 @@ class GrowthModel:
         n0 = len(alive)
         pm, bf, fw = sp.pipe_model, sp.bud_fate, sp.light.foliage_weight
         hv = float(sp.hydraulics.huber_value)
-        hv_base = getattr(pm, "huber_value_stem_base", None)
-        if hv_base:
-            # sapwood per unit of foliage rises from the twigs towards the stem
-            # base: between the current-year shoot's value and the stem base's,
-            # with the internode's radius
-            r_base = float(getattr(pm, "huber_base_radius", 0.05))
-            b = math.log(float(hv_base) / hv) / math.log(r_base / float(pm.tip_radius))
-            hv = np.minimum(hv * (np.maximum(T.radius[:n0], float(pm.tip_radius)) / float(pm.tip_radius)) ** b, float(hv_base))
-        keep = np.where(alive, (1.0 - float(pm.sapwood_senescence_per_year)) * T.sap_area[:n0], 0.0)
+        b = float(getattr(pm, "huber_radius_exponent", 0.0) or 0.0)
+        if b:
+            # wood per unit of foliage beyond rises from the twigs towards the
+            # stem: huber_value at a current-year shoot (tip radius), times
+            # (r / r_tip)^b
+            r_tip = float(pm.tip_radius)
+            hv = hv * (np.maximum(T.radius[:n0], r_tip) / r_tip) ** b
+        if bool(getattr(pm, "sapwood", True)):
+            # sapwood only, after a share of last year's turned to heartwood
+            keep = np.where(alive, (1.0 - float(pm.sapwood_senescence_per_year)) * T.sap_area[:n0], 0.0)
+        else:
+            # no distinct heartwood (birch): the requirement is on the whole
+            # wood cross-section, so no wood is counted twice
+            keep = np.where(alive, T.wood_area[:n0], 0.0)
         la_now = np.zeros(n0)
         np.add.at(la_now, bud_nodes, bud_leaf)
         la_now = T.basipetal(levels, la_now)
@@ -1458,7 +1463,8 @@ class GrowthModel:
             T.wood_area[:n] = np.where(new, tip, T.wood_area[:n])
             T.sap_area[:n] = np.where(new, tip, T.sap_area[:n])
             ring = getattr(self, "_ring", None)
-            ss = float(pm.sapwood_senescence_per_year)
+            # no heartwood (sapwood: false): sap_area stays the whole wood
+            ss = float(pm.sapwood_senescence_per_year) if bool(getattr(pm, "sapwood", True)) else 0.0
             m = min(len(ring), n) if ring is not None else 0
             old = alive[:m] & ~new[:m]
             if m:
