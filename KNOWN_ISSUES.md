@@ -1,5 +1,28 @@
 # Known issues
 
+## Phase 23: one carbon pool for shoots and rings (LIGNUM), not yet the default
+
+**What is built.** `pipe_model.growth: lignum`, following LIGNUM (Perttunen et al. 1996). Each year one growth factor λ scales every bud's shoot (λ × its Borchert–Honda share) so that the pool pays for:
+- the new shoots' wood (tip cross-section × length);
+- their leaves, late and early (built with the shoots; next season they pay maintenance but are not rebuilt);
+- the sapwood rings the pipe model needs: `huber_value` of sapwood per unit of foliage beyond, after `sapwood_senescence_per_year` = 0.07 (LIGNUM, Scots pine; VERIFY for birch).
+
+Together these equal the net shoot carbon. The one-unit-per-metamer cost is gone. It is off by default (`rings`), and all tests pass.
+
+**Result: it hinges on sapwood per leaf area along the tree.** Seed-1 stand tree, alpha 4.8:
+
+| Huber value | 10 y | 20 y | 40 y | 60 y |
+|---|---|---|---|---|
+| 1.24e-4 everywhere (current-year shoots, [OP22]) | H 10.0 m, DBH 5.3, H/D 188 | 19.1, 9.1, 211 | 26.8, 17.6, 152 | 29.7, 22.3, 133 |
+| rising with radius to 8.3e-4 at 5 cm (stem base, see below) | 5.8, 12.0, 48 | 9.3, 18.2, 51 | 12.3, 27.6, 45 | 13.3, 36.2, 37 |
+
+The acceptance range is H/D 80–100. Neither profile is sourced along its length.
+- **Twig and stem values.** 1.24e-4 is measured at current-year shoots. Birch HV rises towards the base (Sellin & Kupper 2006, Trees 20:311; values not available).
+- **Young silver birch, as a whole stem** (natural regeneration ≤ 15 years, Western Carpathians): 2.37 m² of leaf at a base diameter of 50 mm, ~4× that at 100 mm, so ~8.3e-4 m² of stem cross-section per m² of leaf (Konôpka et al. 2023, Plants 12:1607).
+- **Double counting.** That is total cross-section. Using it as the sapwood need and adding heartwood on top (senescence 0.07) counts the wood twice. Birch is a sapwood tree with no distinct heartwood.
+
+**Open.** A sapwood-per-leaf-area profile and turnover for birch: either from Sellin & Kupper's crown data, or set so that young trees reproduce Konôpka et al.'s base-diameter to leaf-area allometry (a measured relation, not heights).
+
 ## Phase 22: carbon from leaves, early leaves, alpha from sources, stem mechanics
 
 **Carbon comes from leaves, not buds.** Carbon = alpha × Σ (leaf weight × light × stomatal opening), also in each branch's own balance. Leafless dormant buds fix none; a short shoot's cluster counts 2.5 leaves.

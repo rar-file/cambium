@@ -65,8 +65,15 @@ class Tree:
         "lat": np.int8, "lat_age": np.int16, "spur_birth": np.int16,
         "own_pipe": np.float64, "radius": np.float64, "scaffold_birth": np.int16, "scaffold": np.int32,
         "leaf_scale": np.float64, "leaves": np.float32,
-        "leaf_size": np.float64, "lma": np.float32, "wood_area": np.float64,
+        "leaf_size": np.float64, "lma": np.float32, "wood_area": np.float64, "sap_area": np.float64,
     }
+
+    def __setstate__(self, state):
+        # trees pickled before an array existed get it (zeros; sap_area: all wood)
+        self.__dict__.update(state)
+        for name, dt in self.SCALAR.items():
+            if name not in state:
+                setattr(self, name, state["wood_area"].copy() if name == "sap_area" else np.zeros(self.cap, dtype=dt))
 
     def __init__(self, capacity: int = 4096):
         self.n = 0

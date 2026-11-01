@@ -815,10 +815,21 @@ class GrowthModel:
         if limb.size:
             young = limb[~unit[limb]]
             self._limb_draw[young] = vl[par[young]]     # what each young limb drew this year
-        # what reaches a bud builds new shoot after growth respiration
-        v_term = vm[term_nodes] / g_resp
-        v_lat = vl[lat_nodes] / g_resp
-        if bool(getattr(sp.bud_fate, "idle_buds_no_sink", False)) and not limb.size:
+        lignum = str(getattr(sp.pipe_model, "growth", "pipe")) == "lignum"
+        if lignum:
+            # one pool for new shoots and rings: each bud's shoot is lambda x
+            # its share, lambda set so that shoots and rings use the pool
+            pool = max(stem_budget - shoot_costs, 0.0)
+            share_t = vm[term_nodes] / pool if pool > 0.0 else np.zeros(len(term_nodes))
+            share_l = vl[lat_nodes] / pool if pool > 0.0 else np.zeros(len(lat_nodes))
+            lam, self._ring = self._growth_factor(pool, g_resp, levels, alive, term_nodes, share_t, lat_nodes, share_l,
+                                                  bud_q, bud_nodes, bud_leaf)
+            v_term, v_lat = lam * share_t, lam * share_l
+        else:
+            # what reaches a bud builds new shoot after growth respiration
+            v_term = vm[term_nodes] / g_resp
+            v_lat = vl[lat_nodes] / g_resp
+        if bool(getattr(sp.bud_fate, "idle_buds_no_sink", False)) and not limb.size and not lignum:
             # a bud that will not grow this year (a tip below one metamer, a
             # fresh lateral below the long-shoot gate) is no sink: the split is
             # made again among the buds that grow, so their resource is not
@@ -1048,8 +1059,15 @@ class GrowthModel:
             z = np.zeros(len(bud_nodes))
             return z, z, 0.0, 0.0
         g_per_unit = float(self.sp.pipe_model.wood_volume_per_carbon) * float(lc.wood_basic_density_kg_m3) * 1000.0
-        dm = bud_leaf * self.tree.lma[bud_nodes]                       # g dry matter
+        T = self.tree
+        dm = bud_leaf * T.lma[bud_nodes]                               # g dry matter
         build = dm / g_per_unit * g_resp
+        if str(getattr(self.sp.pipe_model, "growth", "pipe")) == "lignum":
+            # the leaves of last season's new shoots (their tips and fresh
+            # lateral buds) were built with the shoots (_growth_factor)
+            last = T.birth[bud_nodes] == self.year
+            paid = last & ((T.term[bud_nodes] == 1) | ((T.lat[bud_nodes] == LAT_DORMANT) & (T.lat_age[bud_nodes] == 0)))
+            build = np.where(paid, 0.0, build)
         # g C respired per g dry matter, back to dry-matter units
         maint = dm * float(lc.leaf_maintenance_gc_per_g) / float(lc.carbon_fraction) / g_per_unit
         roots = float(dm.sum()) * float(lc.fine_root_to_leaf_mass) * float(lc.fine_root_maintenance_gc_per_g) \
@@ -1119,23 +1137,11 @@ class GrowthModel:
         bud = np.cos(theta)[:, None] * D + np.sin(theta)[:, None] * u
         return u, _normalize(bud)
 
-    def _grow_shoots(self, t, field, g_term, v_term, g_lat, v_lat, q_start=None):
-        sp, T, rng = self.sp, self.tree, self.rng
-        starts = np.concatenate([g_term, g_lat]).astype(np.int64)
-        if q_start is None:
-            q_start = np.ones(len(starts))
-        leaf_size0, lma0 = self.leaf_traits(q_start)
-        if starts.size == 0:
-            return
-        is_lat = np.concatenate([np.zeros(len(g_term), bool), np.ones(len(g_lat), bool)])
-        v = np.concatenate([v_term, v_lat])
-        nmax = max(1, int(float(sp.shoot.max_shoot_length) / self.l0))
-        vc = np.minimum(v, nmax)
-        # at least one internode (a tip below one metamer's worth makes one,
-        # shorter: seg_len below)
-        nmet = np.maximum(np.floor(vc), 1).astype(np.int64)
-        # Hydraulic limit on expansion (Koch et al. 2004): turgor falls with
-        # height, so internodes (and leaves) get smaller while nodes keep forming.
+    def _expansion(self, starts: np.ndarray) -> np.ndarray:
+        """Hydraulic limit on expansion (Koch et al. 2004): turgor falls with
+        height, so internodes (and leaves) get smaller while nodes keep
+        forming.  Share of the full internode length at each start node."""
+        sp, T = self.sp, self.tree
         hmax = getattr(sp.shoot, "max_tree_height", None)
         if self._psi is not None:
             if getattr(sp.hydraulics, "expansion_water_potential", "midday") == "predawn":
@@ -1151,6 +1157,99 @@ class GrowthModel:
             expansion = np.ones(len(starts))
         if hmax:
             expansion = np.minimum(expansion, np.clip(1.0 - T.pos[starts, 2] / float(hmax), float(sp.shoot.min_expansion), 1.0))
+        return expansion
+
+    def _growth_factor(self, pool, g_resp, levels, alive, term_nodes, share_t, lat_nodes, share_l, q_bud,
+                       bud_nodes, bud_leaf):
+        """The year's growth factor, as in LIGNUM (Perttunen et al. 1996):
+        each bud's new shoot is lambda x its Borchert-Honda share of the pool
+        (metamers), and lambda is set so that the wood of the new shoots plus
+        the sapwood rings the pipe model needs equal the net carbon (pool).
+        Rings: every internode keeps huber_value of sapwood per unit of
+        foliage beyond it (this season's leaves plus those of the new shoots,
+        late and early), after sapwood_senescence_per_year of last year's
+        sapwood has stopped conducting.  The new shoots' leaves are paid when
+        they are built, next season (leaf_costs).  Returns lambda and the
+        ring area (m2) of each internode."""
+        sp, T = self.sp, self.tree
+        n0 = len(alive)
+        pm, bf, fw = sp.pipe_model, sp.bud_fate, sp.light.foliage_weight
+        hv = float(sp.hydraulics.huber_value)
+        hv_base = getattr(pm, "huber_value_stem_base", None)
+        if hv_base:
+            # sapwood per unit of foliage rises from the twigs towards the stem
+            # base: between the current-year shoot's value and the stem base's,
+            # with the internode's radius
+            r_base = float(getattr(pm, "huber_base_radius", 0.05))
+            b = math.log(float(hv_base) / hv) / math.log(r_base / float(pm.tip_radius))
+            hv = np.minimum(hv * (np.maximum(T.radius[:n0], float(pm.tip_radius)) / float(pm.tip_radius)) ** b, float(hv_base))
+        keep = np.where(alive, (1.0 - float(pm.sapwood_senescence_per_year)) * T.sap_area[:n0], 0.0)
+        la_now = np.zeros(n0)
+        np.add.at(la_now, bud_nodes, bud_leaf)
+        la_now = T.basipetal(levels, la_now)
+        L = np.where(alive, T.length[:n0], 0.0)
+        L[0] = 0.0
+        unit = float(pm.wood_volume_per_carbon) / g_resp          # m3 of wood built per unit of carbon
+        tip_area = np.pi * float(pm.tip_radius) ** 2
+        starts = np.concatenate([term_nodes, lat_nodes])
+        share = np.concatenate([share_t, share_l])
+        thr = np.concatenate([np.full(len(term_nodes), float(getattr(bf, "min_tip_extension", 1.0))),
+                              np.where(T.lat[lat_nodes] == LAT_SPUR, float(bf.spur_release_threshold),
+                                       float(bf.long_shoot_threshold))])
+        nmax = max(1, int(float(sp.shoot.max_shoot_length) / self.l0))
+        full = self.l0 * self._expansion(starts)
+        size, lma = self.leaf_traits(q_bud)                           # m2 per leaf, g m-2, at each bud's light
+        per_met = float(fw.new_leaf) * size
+        early = float(getattr(fw, "early_leaves", 0.0) or 0.0) * size
+        lc = getattr(sp.resource, "leaf_costs", None)
+        g_per_unit = float(pm.wood_volume_per_carbon) * (float(lc.wood_basic_density_kg_m3) * 1000.0 if lc else 0.0)
+
+        def parts(lam):
+            v = lam * share
+            grow = (v >= thr) & (share > 0.0)
+            vc = np.minimum(v, nmax)
+            shoot_vol = tip_area * float((full * vc)[grow].sum())
+            # the new shoots' leaves (late, one per node, and early) are built
+            # with them; next season they are not built again (_leaf_costs)
+            leaf_area = np.where(grow, np.maximum(np.floor(vc), 1.0) * per_met + early, 0.0)
+            leaf_units = float((leaf_area * lma).sum()) / g_per_unit * g_resp if g_per_unit > 0.0 else 0.0
+            dla = np.zeros(n0)
+            np.add.at(dla, starts, leaf_area)
+            ring = np.maximum(hv * (la_now + T.basipetal(levels, dla)) - keep, 0.0)
+            return (shoot_vol + float((ring * L).sum())) / unit + leaf_units, ring
+
+        c0, r0 = parts(0.0)
+        if c0 >= pool:
+            # the foliage's sapwood alone takes the whole pool: no new shoots,
+            # and only that share of the rings
+            return 0.0, r0 * (pool / c0 if c0 > 0.0 else 0.0)
+        lo, hi = 0.0, 1.0
+        while parts(hi)[0] < pool and hi < 1e7:
+            lo, hi = hi, 2.0 * hi
+        for _ in range(40):
+            mid = 0.5 * (lo + hi)
+            if parts(mid)[0] < pool:
+                lo = mid
+            else:
+                hi = mid
+        return lo, parts(lo)[1]
+
+    def _grow_shoots(self, t, field, g_term, v_term, g_lat, v_lat, q_start=None):
+        sp, T, rng = self.sp, self.tree, self.rng
+        starts = np.concatenate([g_term, g_lat]).astype(np.int64)
+        if q_start is None:
+            q_start = np.ones(len(starts))
+        leaf_size0, lma0 = self.leaf_traits(q_start)
+        if starts.size == 0:
+            return
+        is_lat = np.concatenate([np.zeros(len(g_term), bool), np.ones(len(g_lat), bool)])
+        v = np.concatenate([v_term, v_lat])
+        nmax = max(1, int(float(sp.shoot.max_shoot_length) / self.l0))
+        vc = np.minimum(v, nmax)
+        # at least one internode (a tip below one metamer's worth makes one,
+        # shorter: seg_len below)
+        nmet = np.maximum(np.floor(vc), 1).astype(np.int64)
+        expansion = self._expansion(starts)
         seg_len = self.l0 * vc / nmet * expansion
         D = np.where(is_lat[:, None], T.lat_dir[starts], T.term_dir[starts])
         D = _normalize(D)
@@ -1347,7 +1446,40 @@ class GrowthModel:
         P = T.basipetal(levels, own)
         self._r_pipe = P ** (1.0 / self.gamma)      # radii of the pipes alone (conducting structure)
         pm = self.sp.pipe_model
-        if str(getattr(pm, "growth", "pipe")) == "rings" and leaves is not None:
+        mode = str(getattr(pm, "growth", "pipe"))
+        if mode == "lignum" and leaves is not None:
+            # LIGNUM rings (Perttunen et al. 1996): the ring each internode
+            # needs so that its sapwood carries the foliage beyond it, from the
+            # year's single carbon pool (_growth_factor); last year's sapwood
+            # loses sapwood_senescence_per_year to heartwood.  A new shoot
+            # starts at the tip radius, all sapwood.
+            tip = np.pi * float(pm.tip_radius) ** 2
+            new = alive & (T.wood_area[:n] <= 0.0)
+            T.wood_area[:n] = np.where(new, tip, T.wood_area[:n])
+            T.sap_area[:n] = np.where(new, tip, T.sap_area[:n])
+            ring = getattr(self, "_ring", None)
+            ss = float(pm.sapwood_senescence_per_year)
+            m = min(len(ring), n) if ring is not None else 0
+            old = alive[:m] & ~new[:m]
+            if m:
+                T.sap_area[:m] = np.where(old, (1.0 - ss) * T.sap_area[:m] + ring[:m], T.sap_area[:m])
+                T.wood_area[:m] = np.where(old, T.wood_area[:m] + ring[:m], T.wood_area[:m])
+            self._ring = None
+            sf = getattr(pm, "stress_floor", None)
+            if sf is not None and bool(sf.enabled):
+                # nor thinner than it must be to carry its load at a safe
+                # bending stress (uniform-stress hypothesis); outside the pool
+                need = np.where(alive, np.maximum(self._stress_area(levels, alive, leaves, sf) - T.wood_area[:n], 0.0), 0.0)
+                T.wood_area[:n] += need
+                T.sap_area[:n] += need
+                self._stress_extra = float((need * np.where(alive, T.length[:n], 0.0)).sum())
+            if T.relay:
+                base = np.fromiter(T.relay.keys(), np.int64)
+                first = np.fromiter(T.relay.values(), np.int64)
+                ok = (first < n) & alive[np.minimum(first, n - 1)]
+                T.wood_area[first[ok]] = np.maximum(T.wood_area[first[ok]], T.wood_area[base[ok]])
+            r = np.sqrt(T.wood_area[:n] / np.pi)
+        elif mode == "rings" and leaves is not None:
             # Annual rings: the year's wood volume (a fixed share of the
             # shoot carbon) is laid down as a ring on every living internode,
             # with ring area following the leaf area beyond it (Pressler's

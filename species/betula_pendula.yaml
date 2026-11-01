@@ -537,9 +537,25 @@ pipe_model:
   # were ~40 % thinner than the pipe model's and bent down under their load).
   # "stem_rings" grows only the stem by rings and keeps the pipe model for
   # branches.
-  growth: rings         # pipe | stem_rings | rings
-  # Wood volume laid down per unit of shoot carbon (m3 per model carbon unit,
-  # the resource that builds one metamer).  The model's carbon has no
+  # "lignum" (phase 23): one carbon pool per year for new shoots and rings,
+  # as in LIGNUM (Perttunen et al. 1996, Ann. Bot. 77:87): a single growth
+  # factor scales every bud's shoot (its Borchert-Honda share) so that the
+  # wood of the new shoots (tip_radius cross-section x length) plus the
+  # sapwood rings the pipe model needs (hydraulics.huber_value of sapwood
+  # per unit of foliage beyond, after sapwood senescence) equal the net
+  # shoot carbon.  Before, shoots got the whole pool at one unit per
+  # metamer and the rings the whole pool again.
+  # Not the default yet (phase 23): with the shoot-level Huber value the
+  # trees are far too slender (stand tree H/D 130-230); see KNOWN_ISSUES.
+  growth: rings         # pipe | stem_rings | rings | lignum
+  # Share of sapwood that stops conducting each year (turns to heartwood
+  # and must be replaced by new rings): 0.07 per year in LIGNUM for Scots
+  # pine (Silva Fennica pdf 510, parameter table; Sievanen, Nikinmaa &
+  # Perttunen 1997, Silva Fennica 31).  VERIFY (birch)
+  sapwood_senescence_per_year: 0.07
+  # Wood volume per model carbon unit (m3): the size of the unit (with the
+  # basic density in leaf_costs, 0.64 g dry matter).  In lignum growth it
+  # only converts wood to carbon.  The model's carbon has no
   # published conversion; set when the carbon budget was smaller (open seed 1
   # keeping its pipe-model DBH); with the phase-7 budget it gives stand seed
   # 1 H/D 88 and DBH 30.6 cm at 60. VERIFY (calibrated)
