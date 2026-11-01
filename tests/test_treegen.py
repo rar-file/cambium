@@ -130,12 +130,14 @@ def test_no_nan_or_zero_length_segments(grown):
         n = T.n
         assert np.isfinite(T.pos[:n]).all()
         seg = np.linalg.norm(T.pos[1:n] - T.pos[T.parent[1:n]], axis=1)
-        assert seg.min() > 1e-3, f"shortest internode {seg.min():.2e} m"
         alive = T.death[:n] < 0
         # bending rotates internodes but never stretches them (a shed branch
         # stays where it died while its parent may keep bending, so only
-        # internodes whose parent died in a different year may differ)
+        # internodes whose parent died in a different year may differ, in
+        # either direction: the gap to the parent's current position can be
+        # anything)
         same = alive[1:] | (T.death[1:n] == T.death[T.parent[1:n]])
+        assert seg[same].min() > 1e-3, f"shortest internode {seg[same].min():.2e} m"
         assert np.allclose(seg[same], T.length[1:n][same], rtol=1e-6, atol=1e-9)
         assert np.isfinite(T.radius[:n]).all() and (T.radius[1:n][alive[1:]] > 0).all()
     for h in m.radius_history:

@@ -510,18 +510,30 @@ class RootSystem:
                 Dn = _limit_turn(Dk, Dn, math.radians(float(mt)))
             # stay in the soil: below the surface, above the compact subsoil
             Dn = _clamp_z(Dn, (zbot - P[:, 2]) / L, (ztop - P[:, 2]) / L)
-            # stones: try a few deflections, stop if boxed in
+            # stones: a tip that meets a stone turns sideways along it (a root
+            # tip touching a barrier bends and grows along its surface: Massa
+            # & Gilroy 2003, Plant J. 33:435), by the smallest turn of 30, 60
+            # or 90 deg towards any of 8 sides that clears it; a tip boxed in
+            # on every side stops
             newp = P + L[:, None] * Dn
             blocked = self._stone_at(newp)
-            for amp in (0.3, 0.6, 0.9):
-                if not blocked.any():
-                    break
+            if blocked.any():
                 bi = np.nonzero(blocked)[0]
-                alt = _normalize(Dn[bi] + amp * rng.standard_normal((bi.size, 3)))
-                alt = _clamp_z(alt, (zbot[bi] - P[bi, 2]) / L[bi], (ztop - P[bi, 2]) / L[bi])
-                ok = ~self._stone_at(P[bi] + L[bi, None] * alt)
-                Dn[bi[ok]] = alt[ok]
-                blocked[bi[ok]] = False
+                Db = Dn[bi]
+                e1 = _perpendicular(np.tile([1.0, 0.0, 0.0], (bi.size, 1)), Db)
+                e2 = np.cross(Db, e1)
+                phase = rng.uniform(0.0, 2.0 * np.pi, bi.size)
+                for ang in np.radians([30.0, 60.0, 90.0]):
+                    for j in range(8):
+                        still = blocked[bi]
+                        if not still.any():
+                            break
+                        phi = phase + j * np.pi / 4.0
+                        alt = math.cos(ang) * Db + math.sin(ang) * (np.cos(phi)[:, None] * e1 + np.sin(phi)[:, None] * e2)
+                        alt = _clamp_z(alt, (zbot[bi] - P[bi, 2]) / L[bi], (ztop - P[bi, 2]) / L[bi])
+                        ok = still & ~self._stone_at(P[bi] + L[bi, None] * alt)
+                        Dn[bi[ok]] = alt[ok]
+                        blocked[bi[ok]] = False
             if blocked.any():
                 alive_tip[act[blocked]] = False
                 keep = ~blocked
@@ -613,7 +625,7 @@ class RootSystem:
         alive = T.death[:n] < 0
         absorbing = alive & ((T.birth[:n] >= t - int(p.absorbing_years)) | (T.term[:n] == 1)) & (np.arange(n) > 0)
         if not absorbing.any():
-            self.uptake_conductance = 1e-12
+            self.uptake_conductance = 0.0     # no absorbing root: no water in
             return
         mid = T.pos[:n] - 0.5 * T.length[:n, None] * T.dir[:n]
         a = np.zeros(n)

@@ -77,12 +77,18 @@ def solve(tree, levels, alive, bud_nodes, leaf_area, light, area, K_root, hp, ps
     E = np.zeros(n)
     np.add.at(E, bud_nodes, E1)
     F = tree.basipetal(levels, E)
+    base = psi_soil - RHO_G * np.maximum(z, 0.0)
+    if K_root <= 0.0:
+        # no absorbing root: no water reaches the leaves, which dry to the
+        # potential that closes their stomata (the limit of the equilibrium
+        # below as K_root -> 0): no flow, no carbon
+        psi = np.minimum(base, p_close)
+        return psi, np.zeros(len(bud_nodes)), 0.0, float(min(psi_soil, p_close))
     acc = F * R
     for seg, _, _ in levels[1:]:
         acc[seg] += acc[par[seg]]
     root_drop = F[0] / max(K_root, 1e-12)
     D = root_drop + acc                       # drop at full opening, every node
-    base = psi_soil - RHO_G * np.maximum(z, 0.0)
     wE = E1 / max(float(E1.sum()), 1e-30)
     Db, bb = D[bud_nodes], base[bud_nodes]
 

@@ -32,6 +32,10 @@ import numpy as np
 from .growth import GrowthModel
 from .roots import SharedSoil
 
+# a tree that dies of no carbon within this many years of its own age is
+# logged as "failed to establish" (a label, not a parameter of the model)
+ESTABLISHMENT_YEARS = 5
+
 
 class OffsetField:
     """The plot's light field as seen from one tree (in its own coordinates)."""
@@ -141,8 +145,9 @@ class Plot:
             m.step()
             m._plot_view = m._plot_soil = None
         self.year = t
+        self._starve(active)
         if self.mode == "natural":
-            self._die(active)
+            self._die([k for k in active if k in self.alive])
         else:
             self._thin()
         self.stats.append(self.measure())
@@ -168,6 +173,20 @@ class Plot:
         order = sorted(self.alive, key=self._dbh)
         for k in order[: len(self.alive) - target]:
             self._finish(k, "thinned")
+
+    def _starve(self, active):
+        """Either mode: a tree that fixes no carbon two years running is dead
+        (a seedling that never rooted has neither carbon nor upkeep, so the
+        upkeep rule below never catches it).  In its first years
+        (ESTABLISHMENT_YEARS of its own age, a label only) it failed to
+        establish."""
+        for k in active:
+            c = getattr(self.trees[k], "carbon", None) or {}
+            n = self.info[k].get("years_without_carbon", 0) + 1 if c.get("fixed", 0.0) <= 0.0 else 0
+            self.info[k]["years_without_carbon"] = n
+            if n >= 2:
+                young = self.trees[k].year <= ESTABLISHMENT_YEARS
+                self._finish(k, "failed to establish" if young else "no carbon")
 
     def _die(self, active):
         """Natural mode: a tree whose carbon no longer pays its upkeep dies."""
@@ -213,7 +232,7 @@ class Plot:
         d = np.array([self._dbh(k) * 100 for k in self.alive])
         h = np.array([self.trees[k].stats[-1]["height_m"] for k in self.alive])
         la = sum(self.trees[k].stats[-1]["leaf_area_m2"] for k in self.alive)
-        dead = sum(1 for i in self.info if i.get("cause") == "died")
+        dead = sum(1 for i in self.info if i.get("cause") not in (None, "thinned"))
         return {"year": self.year, "trees": len(self.alive), "stems_per_ha": round(len(self.alive) / self.area * 1e4),
                 "died_total": dead,
                 "dbh_mean_cm": round(float(d.mean()), 2), "dbh_sd_cm": round(float(d.std()), 2),

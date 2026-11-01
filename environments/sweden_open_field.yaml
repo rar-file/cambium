@@ -57,6 +57,15 @@ soil:
   stone_profile: [[0.0, 0.08], [0.3, 0.15], [1.2, 0.30]]
   # Edge of one stone cell (m). VERIFY
   stone_size_m: 0.15
+  # Stone-free organic (mor) layer over the mineral soil (m): "a fairly thin
+  # (4-10 cm) organic mor layer" on mesic till podzols in a boreal Swedish
+  # catchment [Larson et al. 2023, Sci. Rep. 13:14909].  Stones lie below it,
+  # so roots can grow round a buried stone in it.
+  organic_layer_m: 0.06
+  # Share of the ground where a stone or boulder reaches the surface (a seed
+  # landing there cannot root).  No figure found for Swedish forest till.
+  # VERIFY
+  surface_stone_cover: 0.02
   # Bulk density of the root-soil plate (kg/m^3, moist mineral soil with
   # stones). VERIFY
   bulk_density: 1500.0

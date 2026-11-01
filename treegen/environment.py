@@ -160,6 +160,9 @@ class Soil:
     depth, stoniness and bulk density.  Depths are metres below ground (>= 0).
     Stones are a fixed random field of cells, placed by hashing the cell index
     with the seed, so they do not depend on how large a grid looks at them.
+    They lie in the mineral soil, below the stone-free organic layer, except
+    where a stone reaches the surface (a share ``surface_stone_cover`` of the
+    ground: the top cell of that column is stone up to the surface).
     The rootable depth varies over the ground the same way: a smooth random
     field (value noise on a lattice of the correlation length) around the
     mean depth."""
@@ -179,6 +182,8 @@ class Soil:
     herb_height: float = 0.0       # ground vegetation (field layer): height (m)
     herb_lai: float = 0.0          # its leaf area index
     herb_extinction: float = 0.5   # its Beer-Lambert extinction coefficient
+    organic_layer: float = 0.0     # stone-free organic (humus) layer over the mineral soil (m)
+    surface_stone_cover: float = 0.0   # share of the ground where a stone reaches the surface
 
     @classmethod
     def from_params(cls, p) -> "Soil":
@@ -197,6 +202,8 @@ class Soil:
             depth_correlation=float(getattr(s, "depth_correlation_m", 4.0)),
             depth_min=float(getattr(s, "depth_min_m", mean)),
             depth_max=float(getattr(s, "depth_max_m", mean)),
+            organic_layer=float(getattr(s, "organic_layer_m", 0.0) or 0.0),
+            surface_stone_cover=float(getattr(s, "surface_stone_cover", 0.0) or 0.0),
             **_herb(getattr(p, "ground_vegetation", None)),
         )
 
@@ -239,7 +246,11 @@ class Soil:
         h = (h ^ (h >> 13)) * 1274126177
         u = ((h ^ (h >> 16)) & 0xFFFFFF) / float(0x1000000)
         depth = -(c[:, 2] + 0.5) * self.stone_size
-        return (u < self.stone_fraction(depth)) & (depth > 0.0)
+        stone = (u < self.stone_fraction(depth)) & (-pos[:, 2] > self.organic_layer)
+        if self.surface_stone_cover > 0.0:
+            top = (c[:, 2] == -1) & (_hash01(c[:, 0], c[:, 1], int(seed) + 7919) < self.surface_stone_cover)
+            stone |= top
+        return stone
 
 
 def make_soil(params) -> Soil:
