@@ -25,6 +25,19 @@ def _perpendicular(ref: np.ndarray, d: np.ndarray) -> np.ndarray:
     return r / n[:, None]
 
 
+class Levels(list):
+    """``Tree.levels``: per depth (all nodes, main children, laterals), with
+    the flattened node order the compiled passes walk (kernels.py)."""
+
+    @property
+    def down(self) -> np.ndarray:
+        """Nodes below the base, level by level (parents before children)."""
+        d = getattr(self, "_down", None)
+        if d is None:
+            d = self._down = np.concatenate([seg for seg, _, _ in self[1:]]) if len(self) > 1 else np.zeros(0, np.intp)
+        return d
+
+
 class Tree:
     """Struct-of-arrays node store.  Node i is the distal end of internode
     parent[i] -> i; node 0 is the root at ground level."""
@@ -80,14 +93,14 @@ class Tree:
         self.cap = cap
 
     # -- tree passes, vectorised level by level --------------------------
-    def levels(self, mask: np.ndarray) -> list:
+    def levels(self, mask: np.ndarray) -> Levels:
         idx = np.nonzero(mask)[0]
         d = self.depth[idx]
         order = np.argsort(d, kind="stable")
         idx, d = idx[order], d[order]
         bounds = np.searchsorted(d, np.arange(int(d.max()) + 2))
         lat = self.is_lateral[idx]
-        out = []
+        out = Levels()
         for k in range(len(bounds) - 1):
             a, b = bounds[k], bounds[k + 1]
             seg = idx[a:b]

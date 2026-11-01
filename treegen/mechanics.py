@@ -22,13 +22,17 @@ angle that way; thin shoots of a pendulous species do not, which is the
 trait: correction and stiffness of thin side shoots are scaled down by
 s(r) = (r/r_p)^p / (1 + (r/r_p)^p).  The stem is exempt (orthotropic).
 
-Rotations are composed exactly with quaternions.
+Rotations are composed exactly with quaternions.  The passes from the base
+outwards (composing rotations, posture control, positions) run compiled
+(kernels.py), node by node in level order.
 """
 from __future__ import annotations
 
 import math
 
 import numpy as np
+
+from . import kernels
 
 G = 9.81
 
@@ -44,17 +48,6 @@ def _quat(omega: np.ndarray) -> np.ndarray:
     th = np.linalg.norm(omega, axis=-1, keepdims=True)
     k = omega / np.maximum(th, 1e-12)
     return np.concatenate([np.cos(0.5 * th), np.sin(0.5 * th) * k], axis=-1)
-
-
-def _qmul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    aw, ax, ay, az = a[..., 0], a[..., 1], a[..., 2], a[..., 3]
-    bw, bx, by, bz = b[..., 0], b[..., 1], b[..., 2], b[..., 3]
-    return np.stack([
-        aw * bw - ax * bx - ay * by - az * bz,
-        aw * bx + ax * bw + ay * bz - az * by,
-        aw * by - ax * bz + ay * bw + az * bx,
-        aw * bz + ax * by - ay * bx + az * bw,
-    ], axis=-1)
 
 
 def _qrot(q: np.ndarray, v: np.ndarray) -> np.ndarray:
@@ -74,22 +67,7 @@ def setpoint_directions(dirs: np.ndarray, gsa: np.ndarray) -> np.ndarray:
 
 def _update_positions(tree, levels, zmin: float):
     """pos = pos[parent] + length * dir, keeping nodes above the ground."""
-    T = tree
-    par = T.parent
-    for seg, _, _ in levels[1:]:
-        p = T.pos[par[seg]]
-        d = T.dir[seg]
-        L = T.length[seg]
-        low = p[:, 2] + L * d[:, 2] < zmin
-        if low.any():
-            dz = np.clip((zmin - p[low, 2]) / L[low], -1.0, 1.0)
-            h = d[low, :2]
-            hn = np.linalg.norm(h, axis=1, keepdims=True)
-            scale = np.sqrt(np.maximum(1.0 - dz ** 2, 0.0))[:, None] / np.maximum(hn, 1e-12)
-            d[low, :2] = np.where(hn > 1e-9, h * scale, 0.0)
-            d[low, 2] = dz
-            T.dir[seg] = d
-        T.pos[seg] = p + L[:, None] * T.dir[seg]
+    kernels.positions(levels.down, tree.parent, tree.pos, tree.dir, tree.length, float(zmin))
 
 
 def _apply(tree, levels, alive, qtot: np.ndarray, zmin: float):
@@ -150,9 +128,8 @@ def bend_and_correct(tree, levels, alive, mp, leaves_now, leaves_prev, r_prev, s
         omega *= np.minimum(1.0, cap / np.maximum(mag, 1e-12))
         qloc = _quat(omega)
         qtot = ident.copy()
-        for seg, _, _ in levels[1:]:
-            # local bends are defined in this sub-step's frame: ancestors act last
-            qtot[seg] = _qmul(qtot[par[seg]], qloc[seg])
+        # local bends are defined in this sub-step's frame: ancestors act last
+        kernels.compose(levels.down, par, qtot, qloc)
         _apply(T, levels, alive, qtot, zmin)
 
     # 2. posture control towards the set-point, limited by reaction wood,
@@ -162,29 +139,16 @@ def bend_and_correct(tree, levels, alive, mp, leaves_now, leaves_prev, r_prev, s
     budget = np.zeros(n)
     budget[idx] = rate[idx] * L[idx]
     qtot = ident.copy()
-    for seg, _, _ in levels[1:]:
-        qp = qtot[par[seg]]
-        d = _qrot(qp, T.dir[seg])                               # after the ancestors' correction
-        target = setpoint_directions(d, setpoint[seg])
-        if target_dir is not None:
-            # nodes with their own posture target (the stem inside a lopsided
-            # crown leans towards its light)
-            td = target_dir[seg]
-            own = np.isfinite(td[:, 0])
-            target = np.where(own[:, None], np.nan_to_num(td), target)
-        err = np.arccos(np.clip((d * target).sum(1), -1.0, 1.0))
-        axis = np.cross(d, target)
-        an = np.linalg.norm(axis, axis=1, keepdims=True)
-        axis = np.where(an > 1e-9, axis / np.maximum(an, 1e-12), 0.0)
-        # the gravitropic response follows the sine law (Galland 2002; Bastien
-        # et al. 2013): reaction wood asymmetry, and so the correction, scales
-        # with the sine of the deviation, so small leans are corrected slowly
-        # and stems keep some lean and sweep
-        if bool(getattr(mp, "sine_law", False)):
-            sat = math.radians(float(getattr(mp, "sine_law_saturation_deg", 90.0)))
-            gain = np.minimum(1.0, np.sin(err) / math.sin(sat))
-        else:
-            gain = 1.0
-        corr = np.minimum(err, budget[seg] * gain)
-        qtot[seg] = _qmul(_quat(axis * corr[:, None]), qp)
+    # each node turns towards its set-point after its ancestors' correction.
+    # Nodes with their own posture target (target_dir finite: the stem inside
+    # a lopsided crown leans towards its light) turn towards that instead.
+    # The gravitropic response follows the sine law (Galland 2002; Bastien
+    # et al. 2013): reaction wood asymmetry, and so the correction, scales
+    # with the sine of the deviation, so small leans are corrected slowly
+    # and stems keep some lean and sweep
+    sine = bool(getattr(mp, "sine_law", False))
+    sin_sat = math.sin(math.radians(float(getattr(mp, "sine_law_saturation_deg", 90.0))))
+    td = np.zeros((1, 3)) if target_dir is None else np.ascontiguousarray(target_dir, dtype=float)
+    kernels.posture(levels.down, par, T.dir, np.ascontiguousarray(setpoint, dtype=float), td, target_dir is not None,
+                    budget, sine, sin_sat, qtot)
     _apply(T, levels, alive, qtot, zmin)
