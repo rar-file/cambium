@@ -1,17 +1,22 @@
 """Serve the Birch Stem Tracer locally, with its photos and a traces file.
 
     python tools/serve_tracer.py [port]        # then open http://127.0.0.1:8765/
+    python tools/serve_tracer.py --traces reference/stem_traces_reclick.json
+                                               # a separate traces file: the
+                                               # page starts with only its traces
 
 GET  /               the tracer page (tools/birch-stem-tracer.html)
 GET  /api/images     the photos to load: the Gullmarsskogen stand photos in
                      reference/ and the silver-birch whole_tree photos in
                      ../tree-data (read only), as [{url, name, size, group}]
 GET  /img/<g>/<file> one of those photos
-GET  /api/traces     reference/stem_traces.json (empty if not yet written)
-POST /api/traces     replace reference/stem_traces.json (written atomically)
+GET  /api/traces     the traces file, reference/stem_traces.json unless
+                     --traces names another (empty if not yet written)
+POST /api/traces     replace the traces file (written atomically)
 
 Listens on 127.0.0.1 only.
 """
+import argparse
 import json
 import os
 import sys
@@ -91,6 +96,15 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8765
+    ap = argparse.ArgumentParser(description="Serve the Birch Stem Tracer locally.")
+    ap.add_argument("port", nargs="?", type=int, default=8765)
+    ap.add_argument("--traces", default=None,
+                    help="traces file to read and write instead of reference/stem_traces.json (relative to the repo)")
+    args = ap.parse_args()
+    if args.traces:
+        t = Path(args.traces)
+        TRACES = t if t.is_absolute() else ROOT / t
+        TRACES.parent.mkdir(parents=True, exist_ok=True)
+    port = args.port
     print(f"Birch Stem Tracer on http://127.0.0.1:{port}/  ({len(listing())} photos; traces -> {TRACES})", flush=True)
     ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
