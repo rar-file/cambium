@@ -85,6 +85,9 @@ class Plot:
             g = int(rng.choice(np.asarray(pp.germination_years, int), p=np.asarray(pp.germination_weights, float)))
             m = GrowthModel(sp_k, environment, seed * 1000 + k, stand=True, soil=make_soil(),
                             soil_frame=(np.array([pts[k][0], pts[k][1], 0.0]), seed))
+            # the stand grows up on ground bared by the disturbance at plot
+            # year 0 (tree year -g); the field layer grows back over it
+            m.field_layer_exposed = -g
             self.trees.append(m)
             self.info.append({"id": k, "x": float(pts[k][0]), "y": float(pts[k][1]), "germination": g,
                               "vigour": round(vigour, 4), "seed": seed * 1000 + k, "removed": None})
@@ -154,15 +157,21 @@ class Plot:
             q = pts.copy()
             q[:, 2] = np.maximum(q[:, 2], (field.lo[2] + 0.5) * self.light.vs)
             light = np.exp(-field.sample(q) / self.light.C)
-        light = light * self.trees[self.alive[0]]._herb_factor(pts[:, 2])
+        # what a full field layer leaves at 0.1 m (bared mineral soil has none)
+        s = self.trees[self.alive[0]].soil
+        h = float(getattr(s, "herb_height", 0.0) or 0.0)
+        field_layer = math.exp(-float(s.herb_extinction) * float(s.herb_lai) * max(1.0 - 0.1 / h, 0.0)) if h > 0.0 else 1.0
         occupied = np.zeros((R.nc, R.nc), bool)
         i, j = R._cell(np.array([[self.info[k]["x"], self.info[k]["y"]] for k in self.alive]))
         occupied[i, j] = True
-        for x, y in R.step(np.array(xy).reshape(-1, 2), np.array(seeds), light.reshape(R.nc, R.nc), occupied):
-            self._recruit(float(x), float(y))
+        for x, y, mineral in R.step(np.array(xy).reshape(-1, 2), np.array(seeds), light.reshape(R.nc, R.nc),
+                                    field_layer, occupied):
+            self._recruit(float(x), float(y), mineral)
 
-    def _recruit(self, x, y):
-        """A new tree from this year's seed; it germinates next spring."""
+    def _recruit(self, x, y, mineral=True):
+        """A new tree from this year's seed; it germinates next spring, on
+        bared mineral soil (the field layer then grows back over it) or on
+        the undisturbed organic layer under a full field layer."""
         k = len(self.trees)
         sp_k = copy.deepcopy(self.species)
         vigour = float(math.exp(self.regen.rng.normal(0.0, float(self.species.plot.vigour_sd))))
@@ -170,9 +179,10 @@ class Plot:
         s = self.seed * 1_000_000 + k
         m = GrowthModel(sp_k, self.environment, s, stand=True, soil=self.trees[self.alive[0]].soil,
                         soil_frame=(np.array([x, y, 0.0]), self.seed))
+        m.field_layer_exposed = 0 if mineral else None
         self.trees.append(m)
         self.info.append({"id": k, "x": x, "y": y, "germination": self.year, "vigour": round(vigour, 4), "seed": s,
-                          "removed": None, "recruit": True})
+                          "removed": None, "recruit": True, "on_mineral_soil": bool(mineral)})
         self.alive.append(k)
 
     def step(self):

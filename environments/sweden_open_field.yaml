@@ -89,3 +89,11 @@ ground_vegetation:
   height_m: 0.5
   leaf_area_index: 2.5
   extinction: 0.43
+  # Bared mineral soil (where birch mostly establishes) has no field layer at
+  # first; it grows back with this half-life (years).  Field- and bottom-
+  # layer cover in prepared patches was still significantly lower after 4
+  # years and bare patches remained after 14 (Ring & Sikstrom 2024, Silva
+  # Fennica 58:23056, review); after experimental removal in a boreal forest
+  # the cover came back within ~4-5 years.  The same half-life covers the
+  # bared mineral soil of the regeneration grid.  VERIFY (exponential form)
+  recovery_half_life_years: 4.0

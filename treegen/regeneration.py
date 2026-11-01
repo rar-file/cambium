@@ -19,7 +19,10 @@ Each year, on a ground grid of square cells (``cell_m``):
    that lands on a surface stone is lost.
 3. Light.  A germinant whose leaves get less than the light at which birch
    leaves die (``shoot.short_shoot_survival_light``, relative to full light,
-   at 0.1 m above the ground) dies in its first season.
+   at 0.1 m above the ground) dies in its first season.  On the organic
+   layer that light also passes the field layer; bared mineral soil has
+   none (it grows back over the recruit with the soil's recovery
+   half-life, GrowthModel._herb_factor).
 4. Recruitment.  At most one recruit per cell and year, and none in a cell
    where a living tree already stands: more than one seedling per square
    metre adds little because they outcompete each other within a few years.
@@ -27,8 +30,8 @@ Each year, on a ground grid of square cells (``cell_m``):
    established (Poisson), at a random point of the cell off surface stones.
 5. Exposed mineral soil: a share of the ground at the start (the stand grows
    up after a stand-replacing disturbance) and a share newly exposed each
-   year (uprooting, animals, frost heave), covered again by moss and litter
-   with a half-life.
+   year (uprooting, animals, frost heave), covered again with the field
+   layer's recovery half-life (environment ground_vegetation).
 """
 from __future__ import annotations
 
@@ -93,37 +96,51 @@ class Regeneration:
             return 0.0
         return float(p.seeds_ref) * (dbh_m / float(p.dbh_ref_m)) ** float(p.fecundity_exponent)
 
-    def step(self, trees_xy: np.ndarray, seeds: np.ndarray, ground_light: np.ndarray, occupied: np.ndarray):
-        """One year: returns the (x, y) of this year's recruits.
-        ground_light: relative light at 0.1 m in each cell; occupied: cells
-        with a living tree."""
+    def step(self, trees_xy: np.ndarray, seeds: np.ndarray, canopy_light: np.ndarray, field_layer: float,
+             occupied: np.ndarray):
+        """One year: returns this year's recruits as (x, y, on mineral soil).
+        canopy_light: relative light at 0.1 m in each cell under the trees;
+        field_layer: the share of it left under a full field layer (bared
+        mineral soil has none); occupied: cells with a living tree."""
         p = self.p
         rain = self.seed_rain(trees_xy, seeds)
         organic = np.maximum(1.0 - self.mineral - self.surface_stone, 0.0)
-        expected = rain * (self.mineral * float(p.establishment_mineral) + organic * float(p.establishment_organic))
-        lit = ground_light >= self.light_survival
-        chance = np.where(lit & ~occupied, 1.0 - np.exp(-expected), 0.0)
+        lit_m = canopy_light >= self.light_survival
+        lit_o = canopy_light * field_layer >= self.light_survival
+        e_m = rain * self.mineral * float(p.establishment_mineral) * lit_m
+        e_o = rain * organic * float(p.establishment_organic) * lit_o
+        expected = e_m + e_o
+        chance = np.where(~occupied, 1.0 - np.exp(-expected), 0.0)
         hit = np.nonzero(self.rng.random(chance.shape) < chance)
         out = []
         for i, j in zip(*hit):
+            on_mineral = bool(self.rng.random() * expected[i, j] < e_m[i, j])
             for _ in range(8):                      # a point of the cell off surface stones
                 x = self.cx[i, j] + (self.rng.random() - 0.5) * self.cs
                 y = self.cy[i, j] + (self.rng.random() - 0.5) * self.cs
                 if not self._surface_stone(x, y):
-                    out.append((x, y))
+                    out.append((x, y, on_mineral))
                     break
-        # the seedbed for next year: exposed mineral soil is covered again, new soil is exposed
-        keep = 0.5 ** (1.0 / float(p.mineral_half_life_years))
+        # the seedbed for next year: bared mineral soil is covered again (the
+        # field layer's recovery), new soil is bared
+        keep = 0.5 ** (1.0 / self._half_life())
         self.mineral = self.mineral * keep + float(p.mineral_new_per_year) * (1.0 - self.mineral * keep)
-        self.last = {"seed_rain_per_m2": float(rain.sum() / self.L ** 2), "lit_share": float(lit.mean()),
-                     "free_lit_share": float((lit & ~occupied).mean()),
+        self.last = {"seed_rain_per_m2": float(rain.sum() / self.L ** 2), "lit_share": float(lit_m.mean()),
+                     "lit_share_field_layer": float(lit_o.mean()),
                      "expected_per_m2": float(expected.sum() / self.L ** 2), "recruits": len(out),
+                     "recruits_on_mineral": sum(1 for r in out if r[2]),
                      "mineral_share": float(self.mineral.mean())}
-        return np.array(out).reshape(-1, 2)
+        return out
+
+    def _half_life(self) -> float:
+        """Years for bared mineral soil to be half covered again: the field
+        layer's recovery (environment), else regeneration.mineral_half_life_years."""
+        hl = float(getattr(self.soil, "herb_recovery_half_life", 0.0) or 0.0)
+        return hl if hl > 0.0 else float(self.p.mineral_half_life_years)
 
     def equilibrium_mineral(self) -> float:
         """Share of exposed mineral soil where new exposure balances cover."""
-        keep = 0.5 ** (1.0 / float(self.p.mineral_half_life_years))
+        keep = 0.5 ** (1.0 / self._half_life())
         new = float(self.p.mineral_new_per_year)
         return new / (1.0 - keep * (1.0 - new))
 

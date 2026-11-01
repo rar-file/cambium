@@ -669,10 +669,12 @@ regeneration:
   cell_m: 1.0
   # Exposed mineral soil: share of the ground at the start (the stand grows up
   # after a stand-replacing disturbance), share newly exposed each year
-  # (uprooting, animals, frost heave) and half-life of its cover by moss and
-  # litter.  Pit-mound microrelief from uprooting covers 7-12 % of the ground
-  # in all-aged boreal forests [Samonil et al. 2010, Geoderma 157:65, review].
-  # VERIFY (all three)
+  # (uprooting, animals, frost heave) and half-life of its cover.  Pit-mound
+  # microrelief from uprooting covers 7-12 % of the ground in all-aged boreal
+  # forests [Samonil et al. 2010, Geoderma 157:65, review].  The cover comes
+  # back with the field layer's recovery half-life (environment
+  # ground_vegetation.recovery_half_life_years); this half-life is used only
+  # when the environment gives none.  VERIFY (all three)
   mineral_initial: 0.3
   mineral_new_per_year: 0.005
   mineral_half_life_years: 5.0

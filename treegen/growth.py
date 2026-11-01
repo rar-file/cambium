@@ -113,6 +113,9 @@ class GrowthModel:
         self._dmg_rng = np.random.default_rng([self.seed, 104729])
         self._lead_peak = 0.0     # largest yearly resource the leader's bud has received
         self.loss_of_dominance_year = None
+        # the seed germinated on soil bared in this tree year (the field layer
+        # grows back over it); a plot resets it, None = undisturbed ground
+        self.field_layer_exposed = 0
         # soil_frame: (offset, soil seed) of this tree in a plot's shared soil
         self.roots = RootSystem(species.roots, soil, seed, self.light.vs, soil_frame) if soil is not None else None
         if self.stand:
@@ -1032,12 +1035,20 @@ class GrowthModel:
 
     def _herb_factor(self, z: np.ndarray) -> np.ndarray:
         """Light left under the herb layer at height z (Beer-Lambert through
-        the leaf area of the field layer above z)."""
+        the leaf area of the field layer above z).  Where the tree germinated
+        on bared mineral soil (``field_layer_exposed``: the tree year the soil
+        was bared, None for undisturbed ground) the field layer grows back
+        over it with the soil's recovery half-life."""
         s = self.soil
         h = float(getattr(s, "herb_height", 0.0) or 0.0) if s is not None else 0.0
         if h <= 0.0:
             return np.ones(len(z))
-        above = float(s.herb_lai) * np.clip(1.0 - np.asarray(z, float) / h, 0.0, 1.0)
+        lai = float(s.herb_lai)
+        hl = float(getattr(s, "herb_recovery_half_life", 0.0) or 0.0)
+        exposed = getattr(self, "field_layer_exposed", 0)
+        if hl > 0.0 and exposed is not None:
+            lai *= 1.0 - 0.5 ** (max(self.year + 1 - exposed, 0) / hl)
+        above = lai * np.clip(1.0 - np.asarray(z, float) / h, 0.0, 1.0)
         return np.exp(-float(s.herb_extinction) * above)
 
     def _shed(self, t: int, roots: np.ndarray, levels: list):

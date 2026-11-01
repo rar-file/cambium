@@ -145,7 +145,8 @@ def make_environment(params) -> LightEnvironment:
 def _herb(g) -> dict:
     if g is None or not bool(getattr(g, "enabled", True)):
         return {}
-    return {"herb_height": float(g.height_m), "herb_lai": float(g.leaf_area_index), "herb_extinction": float(g.extinction)}
+    return {"herb_height": float(g.height_m), "herb_lai": float(g.leaf_area_index), "herb_extinction": float(g.extinction),
+            "herb_recovery_half_life": float(getattr(g, "recovery_half_life_years", 0.0) or 0.0)}
 
 
 def _hash01(ix, iy, seed):
@@ -182,6 +183,7 @@ class Soil:
     herb_height: float = 0.0       # ground vegetation (field layer): height (m)
     herb_lai: float = 0.0          # its leaf area index
     herb_extinction: float = 0.5   # its Beer-Lambert extinction coefficient
+    herb_recovery_half_life: float = 0.0   # years for the field layer to half cover bared soil (0: always full)
     organic_layer: float = 0.0     # stone-free organic (humus) layer over the mineral soil (m)
     surface_stone_cover: float = 0.0   # share of the ground where a stone reaches the surface
 
