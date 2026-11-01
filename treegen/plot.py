@@ -212,6 +212,7 @@ class Plot:
             m = self.trees[k]
             m._plot_view = OffsetField(field, self._offset(k)) if field is not None else None
             m._plot_soil = self.soil
+            m._plot_spacing = math.sqrt(self.area / max(len(self.alive), 1))
             m.step()
             m._plot_view = m._plot_soil = None
         self.year = t

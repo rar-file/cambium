@@ -1188,6 +1188,37 @@ class GrowthModel:
         WD = T.basipetal(levels, w * d)
         return np.where(W > 0.0, WD / np.maximum(W, 1e-30) - d, 0.0)
 
+    def _wind_load_scale(self, alive: np.ndarray, laz_base: float, wl):
+        """Force per unit leaf area (N m-2) and area coefficient (m2 / (N m)^(2/3))
+        for the ForestGALES roughness-method wind load (Gardiner et al. 1997,
+        2000; Raupach 1994; Hale et al. 2015), distributed over the crown's
+        foliage so the base turning moment equals d * rho * G * u_*^2 * D^2 * DLF."""
+        if wl is None or not bool(getattr(wl, "enabled", False)) or laz_base <= 0.0:
+            return 0.0, 0.0
+        T = self.tree
+        n0 = len(alive)
+        pos = T.pos[:n0][alive]
+        h = float(pos[:, 2].max()) if len(pos) else 0.0
+        if h <= 0.2:
+            return 0.0, 0.0
+        xy = pos[:, :2]
+        bc = max(0.5 * (float(np.ptp(xy[:, 0])) + float(np.ptp(xy[:, 1]))), 0.1) if len(xy) > 1 else 0.1
+        cb = float((self.stats[-1].get("crown_base_height_m") if self.stats else None) or 0.0)
+        dc = max(h - cb, 0.1)
+        D = float(getattr(self, "_plot_spacing", 0.0) or (math.sqrt(10000.0 / self.stems_per_ha(h)) if self.stand else max(bc, h)))
+        u_h = float(wl.wind_speed_m_s)
+        u_s = min(max(u_h, float(wl.streamlining_min_wind_m_s)), float(wl.streamlining_max_wind_m_s))
+        cd = float(wl.streamlining_c) * (u_s ** -float(wl.streamlining_n))
+        lam_c = cd * bc * dc / max(D * D, 1e-6)
+        ustar = u_h * min(math.sqrt(0.003 + 0.15 * lam_c), 0.3)
+        rt = math.sqrt(max(7.5 * lam_c, 1e-12))
+        d_zpd = h * (1.0 - (1.0 - math.exp(-rt)) / rt)
+        r_dh = max(D / h, 1e-4)
+        gust = max(9.0 * max(0.0, -2.1 * r_dh + 0.91) + 1.0611 * math.log(r_dh) + 4.2, 1.0)
+        m_base = d_zpd * float(wl.air_density_kg_m3) * (ustar ** 2) * (D ** 2) * gust * float(wl.deflection_loading_factor)
+        sigma = float(wl.wood_mor_green_mpa) * 1e6 * float(getattr(wl, "knot_factor", 1.0)) / float(wl.safety_factor)
+        return m_base / laz_base, math.pi * (4.0 / (math.pi * sigma)) ** (2.0 / 3.0)
+
     def _growth_factor(self, pool, g_resp, levels, alive, term_nodes, share_t, lat_nodes, share_l, q_bud,
                        bud_nodes, bud_leaf):
         """The year's growth factor, as in LIGNUM (Perttunen et al. 1996):
@@ -1229,6 +1260,13 @@ class GrowthModel:
         la_now = np.zeros(n0)
         np.add.at(la_now, bud_nodes, bud_leaf)
         la_now = T.basipetal(levels, la_now)
+        z_node = T.pos[:n0, 2]
+        z_base = T.pos[np.maximum(T.parent[:n0], 0), 2]
+        laz_now = np.zeros(n0)
+        np.add.at(laz_now, bud_nodes, bud_leaf * z_node[bud_nodes])
+        laz_now = T.basipetal(levels, laz_now)
+        f_wind, a_wind_coef = self._wind_load_scale(alive, float(laz_now[0]), getattr(pm, "wind_load", None))
+        wood_keep = np.where(alive, T.wood_area[:n0], 0.0)
         L = np.where(alive, T.length[:n0], 0.0)
         L[0] = 0.0
         unit = float(pm.wood_volume_per_carbon) / g_resp          # m3 of wood built per unit of carbon
@@ -1257,7 +1295,15 @@ class GrowthModel:
             leaf_units = float((leaf_area * lma).sum()) / g_per_unit * g_resp if g_per_unit > 0.0 else 0.0
             dla = np.zeros(n0)
             np.add.at(dla, starts, leaf_area)
-            ring = np.maximum(hv * (la_now + T.basipetal(levels, dla)) - keep, 0.0)
+            la_tot = la_now + T.basipetal(levels, dla)
+            ring = np.maximum(hv * la_tot - keep, 0.0)
+            if f_wind > 0.0:
+                dlaz = np.zeros(n0)
+                np.add.at(dlaz, starts, leaf_area * z_node[starts])
+                laz_tot = laz_now + T.basipetal(levels, dlaz)
+                m_wind = f_wind * np.maximum(laz_tot - z_base * la_tot, 0.0)
+                a_wind = a_wind_coef * np.cbrt(m_wind) ** 2
+                ring = np.maximum(ring, a_wind - wood_keep)
             return (shoot_vol + float((ring * L).sum())) / unit + leaf_units, ring
 
         c0, r0 = parts(0.0)
