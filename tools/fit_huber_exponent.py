@@ -22,7 +22,8 @@ first (tools/bark.py, Hansen et al. 2023).  Each dataset carries
 equal weight; HV0 = hydraulics.huber_value (1.24e-4) at r_tip =
 pipe_model.tip_radius (1 mm) anchors the curve.
 
-    python tools/fit_huber_exponent.py
+    python tools/fit_huber_exponent.py            # b, pipe_model.huber_radius_exponent
+    python tools/fit_huber_exponent.py --path     # c, pipe_model.huber_path_exponent
 """
 import sys
 from pathlib import Path
@@ -48,10 +49,14 @@ def datasets():
     return {"Konopka et al. 2023 (young)": young, "Repola 2008 Eq. 12 (DBH 11-26 cm)": old}
 
 
+PARAM = "huber_path_exponent" if "--path" in sys.argv else "huber_radius_exponent"
+GRID = np.arange(0.2, 0.91, 0.1) if PARAM == "huber_path_exponent" else np.arange(0.10, 0.551, 0.05)
+
+
 def trajectory(b, seed=1, years=90, dbh_max=27.0):
     """Over-bark DBH (cm) and leaf area (m2) of the stand tree, year by year."""
     sp, _ = cli.load_species("betula_pendula")
-    sp.pipe_model.huber_radius_exponent = float(b)
+    setattr(sp.pipe_model, PARAM, float(b))
     env_p, _ = cli.load_environment("sweden_open_field")
     m = GrowthModel(sp, cli.make_environment(env_p), seed, stand=True, soil=cli.make_soil(env_p))
     D, LA = [], []
@@ -90,11 +95,11 @@ def misfit(b, verbose=False):
 
 
 def main():
-    grid = np.arange(0.10, 0.551, 0.05)
+    grid = GRID
     errs = []
     for b in grid:
         errs.append(misfit(b))
-        print(f"b {b:.2f}: misfit {errs[-1]:.4f}", flush=True)
+        print(f"{PARAM} {b:.2f}: misfit {errs[-1]:.4f}", flush=True)
     k = int(np.nanargmin(errs))
     lo, hi = grid[max(k - 1, 0)], grid[min(k + 1, len(grid) - 1)]
     g = (np.sqrt(5.0) - 1.0) / 2.0
@@ -110,7 +115,7 @@ def main():
             d = lo + g * (hi - lo)
             fd = misfit(d)
     b = 0.5 * (lo + hi)
-    print(f"b = {b:.3f}")
+    print(f"{PARAM} = {b:.3f}")
     misfit(b, verbose=True)
 
 

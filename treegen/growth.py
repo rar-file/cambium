@@ -1172,6 +1172,22 @@ class GrowthModel:
             expansion = np.minimum(expansion, np.clip(1.0 - T.pos[starts, 2] / float(hmax), float(sp.shoot.min_expansion), 1.0))
         return expansion
 
+    def _leaf_path_length(self, levels, alive, bud_nodes, bud_leaf) -> np.ndarray:
+        """Leaf-weighted mean path length (m) from each internode's distal end
+        to the leaves beyond it (0 where it carries none)."""
+        T = self.tree
+        n0 = len(alive)
+        par = T.parent
+        L = T.length[:n0]
+        d = np.zeros(n0)
+        for seg, _, _ in levels[1:]:
+            d[seg] = d[par[seg]] + L[seg]
+        w = np.zeros(n0)
+        np.add.at(w, bud_nodes, bud_leaf)
+        W = T.basipetal(levels, w)
+        WD = T.basipetal(levels, w * d)
+        return np.where(W > 0.0, WD / np.maximum(W, 1e-30) - d, 0.0)
+
     def _growth_factor(self, pool, g_resp, levels, alive, term_nodes, share_t, lat_nodes, share_l, q_bud,
                        bud_nodes, bud_leaf):
         """The year's growth factor, as in LIGNUM (Perttunen et al. 1996):
@@ -1189,7 +1205,15 @@ class GrowthModel:
         pm, bf, fw = sp.pipe_model, sp.bud_fate, sp.light.foliage_weight
         hv = float(sp.hydraulics.huber_value)
         b = float(getattr(pm, "huber_radius_exponent", 0.0) or 0.0)
-        if b:
+        c = float(getattr(pm, "huber_path_exponent", 0.0) or 0.0)
+        if c:
+            # wood per unit of foliage beyond rises from tip to base with the
+            # path length to the leaves it supplies (leaf-weighted mean):
+            # huber_value at a current-year shoot, times (l / l_ref)^c
+            l_ref = float(pm.huber_path_reference_m)
+            ell = self._leaf_path_length(levels, alive, bud_nodes, bud_leaf)
+            hv = hv * (np.maximum(ell, l_ref) / l_ref) ** c
+        elif b:
             # wood per unit of foliage beyond rises from the twigs towards the
             # stem: huber_value at a current-year shoot (tip radius), times
             # (r / r_tip)^b
