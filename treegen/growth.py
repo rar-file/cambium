@@ -946,9 +946,13 @@ class GrowthModel:
             levels = T.levels(alive)
             gsa_o = np.radians(np.asarray(self.sp.tropism.setpoint_angle_deg, dtype=float))
             setpoint = gsa_o[np.minimum(T.order[:n], len(gsa_o) - 1)]
+            # a replacement leader is stem, not limb: upright set-point, and
+            # stiff and posture-corrected as the stem (no pendulous trait)
+            stem = np.isin(T.axis[:n], np.fromiter(self.leader_axes, np.int64))
+            setpoint = np.where(stem, gsa_o[0], setpoint)
             mechanics.bend_and_correct(T, levels, alive, mp, leaves_now, T.leaves[:n].astype(float),
                                        r_prev, setpoint, float(self.sp.shoot.min_height_above_ground),
-                                       self._stem_posture_target(n))
+                                       self._stem_posture_target(n), stem)
         T.leaves[:n] = leaves_now
         if self.keyframe_step > 0 and t % self.keyframe_step == 0:
             self.keyframes[t] = T.pos[:n].astype(np.float32).copy()
