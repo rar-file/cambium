@@ -1,5 +1,67 @@
 # Known issues
 
+## Phase 26: natural plot with turnover, stem chain, short-shoot buds, stem traces per trunk
+
+**Stem chain.** After browsing, the stem followed the first replacement shoot that grew, not the one that won. DBH was measured on a suppressed side stem: 3.7 cm, against 20 cm on the stem that carries the crown, with a crown ratio of 0.97. The chain now takes the main child unless a living lateral or the relay shoot is thicker. Plot tables below are re-measured from the timelines with this rule.
+
+**Short-shoot buds.** A tip that could afford 0.1–1 metamer made a whole node with a dormant lateral bud. After age 30, 31–46 % of order-1/2 internodes on the seed-1 stand tree were under 1 cm, so buds and short shoots stacked at millimetre spacing. Such an increment now carries its leaf for one season and no axillary bud (`bud_fate.axillary_buds_below_one_metamer: false`).
+- Sources: Ishihara & Kikuzawa 2009, Ann. Bot. 104:1195 (*B. grossa*: short shoots carry only their terminal bud); *B. papyrifera*, Can. J. Bot. 1984, doi:10.1139/b84-066 (long-shoot buds form in the axils of late leaves).
+- Seed-1 stand tree: H/D 94 / 87 / 83 / 83 at 30 / 40 / 50 / 60 (was 86 / 76 / 75 / 75), heights 17.7 / 20.3 / 22.0 / 23.4 m.
+- Twig clusters are thinner at 15: 863 order-2+ leafy buds against 1489, local leaf density p90 6.3 against 7.3 m² m⁻³. Survival of order-2 axes born at 7–10 rose from 59 to 70 %.
+- Limbs did not change.
+
+**What limits limbs: the carbon pool, not twig packing.**
+- In the LIGNUM pool, rings take 95–99 % of each year's net shoot carbon (stem 92–98 %). New shoots and their leaves get 1–5 %, and at 30 the year's new internodes are a median 0.3 cm long.
+- At 30 the stand tree's NPP goes about 59 % to stem wood, 1–2 % to branches and new shoots, 13 % to leaves and 27 % to roots.
+- Under the fitted Huber rise, each new 15 cm² leaf commits ~4.7 g of ring wood down to the base, ~50× its own mass.
+- Twig packing at the scale Hagemeier & Leuschner measured (leaf area per crown-envelope volume in 2 m layers, birch maximum ~3 m² m⁻³ at the top) was in range at 0.5–0.85 H in phase 11, and too thin in the top tenth. The 7 m² m⁻³ figure is leaf area within 0.25 m of twig buds, a finer scale without gaps, so the two are not comparable.
+- Only 14–19 % of a twig bud's shade comes from its own 10 cm layer.
+- Turnover and old-wood accumulation apply to limbs as to the stem; `wood_area` never falls, so a limb keeps the wood of twigs it has shed. The shed twig's sapwood still counts as conducting in the limb until it ages out at 1.4 %/yr; disused pipes (Shinozaki; CROBAS crown rise) are not modelled.
+
+**Natural plot, seed 1** (re-measured with the corrected stem rule; turnover, short-shoot buds):
+
+| year | N/ha | DBH (cm) | H mean / top quarter (m) | band | H/D median | BA (m²/ha) | leaf area / tree (m²) |
+|---|---|---|---|---|---|---|---|
+| 30 | 1746 | 13.8 | 18.1 / 19.6 | 13.4–19.7 | 130 | 27.3 | 23.6 |
+| 45 | 1728 | 15.1 | 22.9 / 24.1 | 18.0–24.0 | 151 | 32.4 | 23.9 |
+| 50 | 1710 | 15.5 | 24.3 / 25.4 | 19.2–25.3 | 155 | 33.9 | 23.3 |
+| 60 | 1710 | 16.2 | 26.5 / 27.5 | 21.1–26.9 | 165 | 37.3 | 23.3 |
+
+- Hagemeier & Leuschner: 880/ha, DBH 19 cm, ~25 m²/ha at 45; 420/ha at 67. The run before the bud rule (p25) was within 0.5 m of height and 8 of H/D of this one.
+- **Self-thinning has not come back.** 5 of 100 trees died. Every tree reaches the canopy, all within 0.8× the top-quarter height. Suppressed trees pay about half their fixed carbon in upkeep and never run a deficit.
+  - The rings that replace senescing sapwood are not part of upkeep in the death test. When the pool cannot pay them they are part-paid, with no consequence; hydraulics uses its own pipe area, not `sap_area`.
+  - `pipe_model.sapwood_replacement_is_upkeep` (off, not yet tested) would count them.
+- **Repola A6 does not hold in the plot.** The crown-ratio coefficient of the model's leaf area at given DBH is 0.01–0.10 (p25: −0.14 to −0.02), against 2.819. The trees carry about half the leaf area Eq. 12 gives for their DBH (23 m² against 32–47).
+- CUE 0.48.
+
+**Limbs against the 6 Nordic scans** (scans: 58 limbs > 2 cm, largest limb/stem p90 0.67, 869 m of branch wood ≥ 1 cm):
+
+| | plot year 30, trees 15.5–19.7 m (29) | 50 (36) | 60 (36) |
+|---|---|---|---|
+| limbs > 2 cm | 2 (0–2) | 3 (2–5) | 3 (2–5) |
+| largest limb/stem p90 | 0.92 (0.18–1.00) | 0.33 (0.18–0.94) | 0.92 (0.22–0.99) |
+| branch wood ≥ 1 cm (m) | 9.5 (6–25) | 15 (8–36) | 20 (10–42) |
+
+Medians, with the 10th–90th percentile across trees. Ratios near 1 are browsed trees, where a second replacement leader counts as a limb.
+
+**Stem traces per trunk** (`model_traces_v2.py`, scratch): each tree's stem from one stored keyframe year. Model traces are kept only at the photo trunks' size in the frame, at least 41 % of image height (the Gullmarsskogen 10th percentile). The photo trees' sizes were not measured. Values are median (middle half; 10th–90th percentile) per trunk.
+
+| traces | trunks | off-line % | turning ° | bends | lean ° |
+|---|---|---|---|---|---|
+| photos, all | 144 | 1.60 (1.07–2.70; 0.40–3.79) | 11.4 (4.6–20.5; 0.3–33.7) | 1 (0–2; 0–3) | 2.2 (1.0–4.1; 0.3–7.7) |
+| photos, Gullmarsskogen | 54 | 1.74 (1.25–2.68; 0.70–3.45) | 12.7 (6.6–24.3; 4.8–41.0) | 1 (1–2; 0–4) | 2.1 (1.0–3.7; 0.4–5.7) |
+| model 50, no scatter | 156 | 0.41 (0.20–0.69; 0.07–1.00) | 1.0 (0–1.9; 0–3.4) | 0 | 0.9 (0.4–1.4; 0.1–2.1) |
+| model 50, 0.5× scatter (4.6 px) | 156 | 0.73 (0.41–1.12; 0.14–1.56) | 2.5 (1.0–6.5; 0–12.4) | 0 (0–1; 0–2) | 0.9 (0.4–1.5; 0.2–2.1) |
+| model 50, 1× scatter (9.1 px) | 156 | 1.23 (0.69–1.91; 0.24–2.59) | 6.1 (2.1–14.0; 0–26.5) | 1 (0–2; 0–3) | 1.0 (0.5–1.7; 0.2–2.4) |
+| model 60, no scatter | 190 | 0.34 (0.18–0.49; 0.07–0.70) | 0 (0–1.3; 0–2.1) | 0 | 0.7 (0.4–1.2; 0.1–2.0) |
+| model 60, 0.5× scatter | 190 | 0.67 (0.38–1.03; 0.13–1.39) | 2.2 (0–6.3; 0–12.0) | 0 (0–0; 0–2) | 0.8 (0.4–1.4; 0.2–2.2) |
+| model 60, 1× scatter | 190 | 1.20 (0.67–1.82; 0.24–2.45) | 5.8 (2.0–13.6; 0–25.1) | 1 (0–2; 0–3) | 0.9 (0.4–1.6; 0.2–2.3) |
+
+- Trace lengths: model median 55 % (43–83), Gullmarsskogen 68 % (41–88). Trunk counts are tree copies in the tiled stand (95 trees).
+- Even at the upper-bound scatter, the model's stems are straighter (off-line 1.2 against 1.7 %, turning 6 against 13°) and more upright (lean 0.9 against 2.1°) than the photos.
+- The earlier close match (phase 17: 1.8 % off-line) came from short model traces: unmatched, the model's traces had a median 24–26 % of image height, against 61–68 % in the photos, and scatter weighs more on short traces.
+- The click scatter scale 0.5 is an assumption: half the upper-bound estimate (9.1 px, residual of the 60 traces with 5+ clicks around a quadratic, which also holds real wobble). Measuring it needs the same trunks re-clicked by the same person.
+
 ## Phase 25: sapwood turnover back, b refitted by simulation
 
 **Turnover.** Inner wood stops conducting at `sapwood_senescence_per_year` and is replaced by a new ring outside. The old wood stays in the stem (`wood_area`), and the requirement is on the conducting wood (`sap_area`).
