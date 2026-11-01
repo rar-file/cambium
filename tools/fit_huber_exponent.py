@@ -16,7 +16,9 @@ breast height.
 
 With turnover the old wood depends on each tree's history, so the fit runs
 the model: the seed-1 stand tree is grown for each candidate b and its leaf
-area is read where its DBH passes each data point.  Each dataset carries
+area is read where its DBH passes each data point.  The data's DBH is over
+bark and the model's is wood, so the model's DBH is converted to over bark
+first (tools/bark.py, Hansen et al. 2023).  Each dataset carries
 equal weight; HV0 = hydraulics.huber_value (1.24e-4) at r_tip =
 pipe_model.tip_radius (1 mm) anchors the curve.
 
@@ -31,6 +33,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import cli  # noqa: E402
 from treegen.growth import GrowthModel  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import bark  # noqa: E402
+
 
 def datasets():
     """(DBH cm, leaf area m2) of each dataset."""
@@ -44,7 +49,7 @@ def datasets():
 
 
 def trajectory(b, seed=1, years=90, dbh_max=27.0):
-    """DBH (cm) and leaf area (m2) of the stand tree, year by year."""
+    """Over-bark DBH (cm) and leaf area (m2) of the stand tree, year by year."""
     sp, _ = cli.load_species("betula_pendula")
     sp.pipe_model.huber_radius_exponent = float(b)
     env_p, _ = cli.load_environment("sweden_open_field")
@@ -53,7 +58,7 @@ def trajectory(b, seed=1, years=90, dbh_max=27.0):
     for _ in range(years):
         m.step()
         s = m.stats[-1]
-        D.append(s["dbh_cm"] or 0.0)
+        D.append(float(bark.dbh_over_bark(s["dbh_cm"] or 0.0)))
         LA.append(s["leaf_area_m2"])
         if D[-1] > dbh_max:
             break
