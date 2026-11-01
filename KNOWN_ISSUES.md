@@ -1,5 +1,37 @@
 # Known issues
 
+## Phase 25: sapwood turnover back, b refitted by simulation
+
+**Turnover.** Inner wood stops conducting at `sapwood_senescence_per_year` and is replaced by a new ring outside. The old wood stays in the stem (`wood_area`), and the requirement is on the conducting wood (`sap_area`).
+- No count of conducting rings was found for birch. The rate is 1 / (rings that conduct) in mature diffuse-porous broadleaves whose sapwood is younger than the tree (Gebauer, Horna & Leuschner 2008, Tree Physiol. 28:1821, Table 1).
+  - Those trees conduct through 40–88 rings, median 72, so the rate is 0.014 (0.011–0.025). VERIFY for birch.
+  - Their conducting xylem is 62–85 % of basal area.
+- Sievänen, Nikinmaa & Perttunen (1997, Silva Fennica 31:329) found that turnover at a fixed ring age and turnover controlled by foliage loss fit Scots pine equally well. The second kind is the crown-rise route (CROBAS, Valentine & Mäkelä 2005), not built.
+
+**Refit.** The whole cross-section now depends on each tree's history. `tools/fit_huber_exponent.py` grows the seed-1 stand tree for each b and reads its leaf area where its DBH passes the data points, with equal weight per dataset: b = 0.312. One exponent cannot match both datasets:
+- **Young trees (Konôpka, DBH 2.4–5.4 cm):** the model has 1.4–2.5× their leaf area.
+  - The stand tree carries its crown to the ground when young: at year 5, 4.1 of 7.0 m² of leaf are below 1.3 m.
+  - Its rings lag the requirement while that grows fastest, at years 4–7.
+- **DBH 11 cm (Repola Eq. 12):** the model matches, with 1.15×.
+- **DBH 20–26 cm:** the model has 0.6–0.7× Repola's leaf area, because old wood builds up.
+
+**Seed-1 stand tree** (CLI, `--stand`):
+
+| age | H (m) | DBH (cm) | H/D | leaf area (m²) | CUE |
+|---|---|---|---|---|---|
+| 20 | 13.6 | 15.3 | 89 | 31.7 | 0.51 |
+| 30 | 17.2 | 19.9 | 86 | 52.2 | 0.55 |
+| 45 | 20.2 | 26.8 | 75 | 71.9 | 0.47 |
+| 50 | 21.2 | 28.2 | 75 | 76.5 | 0.46 |
+| 60 | 22.6 | 30.1 | 75 | 77.9 | 0.44 |
+
+Heights are inside the band at 45–60. The rings now take carbon that went into extension before. The natural plot has not been run: memory was short.
+
+**Limbs against the 6 Nordic stand scans** (15.5–19.7 m, median): the scans have 58 limbs over 2 cm, a largest limb/stem ratio of 0.67 at the 90th percentile, and 869 m of branch wood at least 1 cm thick.
+- The stand tree at 17–19 m (ages 30–40) has 0 limbs over 2 cm and 8–16 m of such wood. In phase 12 the same tree had 2 limbs and 18 m at 20.
+- Under the Huber requirement a limb is as thick as its foliage needs. A limb carrying 0.5 m² of leaf is 1.2 cm thick, and one needs ~1.2 m² to pass 2 cm. In phase 12 the model's largest limbs carried 400–900 leaves (0.6–1.4 m²).
+- So the deficit is still in how much each limb grows and carries (phase 12), and LIGNUM removed the counted-pipe floor that had kept limbs thicker.
+
 ## Phase 24: wood per leaf area fitted to Nordic birch; LIGNUM is the default
 
 **What is built.** In LIGNUM growth, the ring requirement is now on the whole wood cross-section (`pipe_model.sapwood: false`). Birch has no distinct heartwood, so there is no sapwood turnover and no wood is counted twice. Wood per unit of leaf area beyond rises with radius: `huber_value` × (r / `tip_radius`)^b.
