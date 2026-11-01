@@ -817,10 +817,12 @@ class GrowthModel:
         bf = sp.bud_fate
         ls = T.lat[lat_nodes]
         is_spur = ls == LAT_SPUR
-        # an axis tip extends by whatever it can afford (>= 1 node); a lateral
+        # an axis tip extends by whatever it can afford, continuously: below
+        # one metamer's worth it makes a single shorter internode (shoot length
+        # follows the resource, l0 * v), down to min_tip_extension; a lateral
         # bud makes a long shoot only above the long-shoot threshold, otherwise
         # it becomes a short shoot
-        g_term_mask = v_term >= 1.0
+        g_term_mask = v_term >= float(getattr(bf, "min_tip_extension", 1.0))
         lat_thr = np.where(is_spur, bf.spur_release_threshold, bf.long_shoot_threshold)
         g_lat_mask = v_lat >= lat_thr
 
@@ -1074,7 +1076,9 @@ class GrowthModel:
         v = np.concatenate([v_term, v_lat])
         nmax = max(1, int(float(sp.shoot.max_shoot_length) / self.l0))
         vc = np.minimum(v, nmax)
-        nmet = np.floor(vc).astype(np.int64)
+        # at least one internode (a tip below one metamer's worth makes one,
+        # shorter: seg_len below)
+        nmet = np.maximum(np.floor(vc), 1).astype(np.int64)
         # Hydraulic limit on expansion (Koch et al. 2004): turgor falls with
         # height, so internodes (and leaves) get smaller while nodes keep forming.
         hmax = getattr(sp.shoot, "max_tree_height", None)

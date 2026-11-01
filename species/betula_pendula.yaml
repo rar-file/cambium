@@ -272,6 +272,12 @@ bud_fate:
   # survival of second-order shoots (99 -> 53 % after 5-8 years), seed 1 at
   # 25 years (phase 15). VERIFY (the value 3)
   long_shoot_threshold: 3.0
+  # Axis tips extend continuously: shoot length is l0 * v, and a tip that
+  # can afford less than one metamer still makes one shorter internode (it
+  # used to stop: seedlings in the field layer, at ~38 % light, could afford
+  # 0.9-1.0 metamers a year and never grew, phase 20).  Below this share of
+  # a metamer (0.1 = 2.8 mm) a tip does not extend.  VERIFY (resolution)
+  min_tip_extension: 0.1
   # Short shoots are cheap and self-financing, so their fate is local and
   # driven by light, not by BH resource: a lateral bud that does not extend
   # forms a short shoot (spur) if its exposure Q reaches short_shoot_light;

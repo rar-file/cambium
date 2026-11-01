@@ -83,6 +83,33 @@ Grams are converted to model units through the wood the unit builds (1.2e-6 m³ 
 
 **Open.** The fix is to re-tune what the roots buy per unit of carbon, for which no source has been found. One option: let water uptake come from the same fine-root mass the tree now pays for (0.48 of leaf mass, via specific root length).
 
+### Step 3: the field layer is on
+
+`ground_vegetation` in the environment: LAI 2.5, height 0.5 m, extinction 0.43. Source: Aubin, Beaudet & Messier 2000, under 70-year white-birch stands.
+- Understory LAI was 2.52, mostly below 50 cm, with k = 0.43 in the 5–50 cm stratum.
+- Its transmission did not depend on the light reaching it.
+- Quebec *Betula papyrifera* stands: VERIFY (transfer).
+
+**Seedlings in the open.** With the field layer, a germinant at ~5 cm gets ~38 % light. Its tip can then afford 0.9–1.0 metamers a year, and under the 1-metamer rule it never grew (5 seeds, 8 years: 0 m). Seven tests failed at this step.
+
+### Step 4: continuous tip extension
+
+An axis tip now extends by l0 × v at any v ≥ `min_tip_extension` (0.1 metamer, 2.8 mm; VERIFY, a resolution floor). Below one metamer it makes a single shorter internode. The 3-metamer gate for lateral buds (long against short shoots) is unchanged. All 20 tests pass.
+
+**Seedlings in the open with the field layer, median of 5 seeds (m):**
+
+| year | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| height | 0.02 | 0.05 | 0.09 | 0.14 | 0.21 | 0.30 | 0.43 | 0.62 | 0.77 | 1.24 |
+
+Without the field layer (step 1) they were 0.08 / 0.22 / 0.45 / 0.82 / 1.39 m at 1–5 years.
+
+**What it should be.** No sourced first-years height curve has been found; `reference.height.years_to_breast_height` = 4 is VERIFY. Dense natural birch regeneration closes its canopy at 4–5 years (Forests 12:599, 2021, citing Hynynen et al. 2010), which needs seedlings well over 1 m by then.
+
+**The plots.** The run (field layer + continuous extension) was stopped by the low-memory guard at year 20–25. The first cohort was ~7 years behind: the tallest tree was 1.7 m at 10 and 12.3 m at 20, against 7.8 m and 18.3 m without the field layer.
+
+**Likely cause.** The field layer is uniform. Birch establishes mainly where the ground was disturbed: bare mineral soil gives 18 % one-year seedlings per seed against 0.3 % on humus (Dahlgren Lidman et al. 2023), and there the field layer is absent at first and grows back. Open, needs a decision: tie the field layer to exposed mineral soil and its recovery.
+
 ## Phase 19: seedlings on stones, the no-carbon death, regeneration (first version)
 
 **The 9 seedlings that never grew** (phase 18) had three causes, now fixed.
