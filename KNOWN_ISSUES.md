@@ -1,5 +1,37 @@
 # Known issues
 
+## Phase 24: wood per leaf area fitted to Nordic birch; LIGNUM is the default
+
+**What is built.** In LIGNUM growth, the ring requirement is now on the whole wood cross-section (`pipe_model.sapwood: false`). Birch has no distinct heartwood, so there is no sapwood turnover and no wood is counted twice. Wood per unit of leaf area beyond rises with radius: `huber_value` × (r / `tip_radius`)^b.
+
+The one free quantity, b = 0.279, is fitted at breast height to two datasets at once, each weighted equally (`tools/fit_huber_exponent.py`):
+- young trees: Konôpka et al. 2023;
+- DBH 11–26 cm: Repola 2008, Eq. 12, at SLA 15 m²/kg.
+
+Marklund 1988 has no birch foliage function. `growth: lignum` is the default, and all 20 tests pass. Two tests changed:
+- radius ≥ counted pipes is now checked only in the ring modes;
+- the chunked-mesh share of moved fillet vertices is 0.22 % for this shape.
+
+**Result: H/D is not met.** Seed-1 stand tree: H/D 113 at 10, 99–104 at 30–45, 110 at 50 and 119 at 60.
+
+Natural plot, seed 1, compared with the previous `rings` run:
+
+| year | p24 (this phase) | c48m5 (rings, phase 22) | Hagemeier & Leuschner / band |
+|---|---|---|---|
+| 30 | 1692/ha, DBH 11.5, H 20.3, H/D 177, BA 18.6 | 990/ha, 15.6, 21.3, 137, 20.0 | band H 13.4–19.7 |
+| 45 | 1566/ha, 12.2, 26.8, 219, 19.3 | 756/ha, 19.0, 30.6, 162, 22.5 | 880/ha, 19, ~25 m²/ha; band 18–24 |
+| 50 | 1566/ha, 12.7, 28.6, 226, 20.5 | 720/ha, 19.9, 32.3, 163, 23.6 | band 19.2–25.3 |
+| 60 | killed for low memory at 52 | 630/ha, 21.9, 34.8, 159, 24.9 | 420/ha at 67; band 21.1–26.9 |
+
+**Cause.** The ring now only follows the foliage. With a fixed requirement, πr² = HV0 (r/r_tip)^b × LA, so r ∝ LA^(1/(2−b)). The stem thickens only while the leaf area beyond it grows.
+- **Per-tree leaf area stays flat.** In the plot it is 22–24 m² from year 15 to 50: LAI stays at ~3.9, and only 13 of 100 trees die by 45, against 58 in c48m5.
+- **Where the carbon goes.** DBH rises 2 cm in 35 years, and the net carbon goes into extension.
+- **The model follows the fit.** The trees' leaf area for their DBH matches Repola Eq. 12 (21.9 m² at DBH 12.2).
+- **Self-thinning nearly stopped.** Why is not yet diagnosed: it needs the checkpoint, about 3 GB to load.
+- **Even at H&L's density, the fit falls short.** At 880/ha and LAI 3.8 it gives DBH ~15 cm, not 19. H&L's stand implies ~6.6e-4 m² of wood per m² of leaf at breast height.
+  - That is what Repola's crown-ratio foliage model gives for short crowns. Eq. A6 is ln(foliage) = −20.856 + 22.320 dS/(dS+2) + 2.819 cr: at DBH 19 cm and cr 0.35 it gives ~36 m² of leaf, so ~7.9e-4.
+  - Eq. 12 averages over the crown ratios in Repola's sample.
+
 ## Phase 23: one carbon pool for shoots and rings (LIGNUM), not yet the default
 
 **What is built.** `pipe_model.growth: lignum`, following LIGNUM (Perttunen et al. 1996). Each year one growth factor λ scales every bud's shoot (λ × its Borchert–Honda share) so that the pool pays for:
