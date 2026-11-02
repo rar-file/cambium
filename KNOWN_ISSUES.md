@@ -1974,13 +1974,144 @@ Seed 1, age 60, against published silver-birch values. "Shoot" is a branch tip c
 
 **1. Stem Theory Stage b Adopted as Default (`pipe_model.stem_theory.stage: 2`).**
 - **Architecture**: Plain pipe model below the live crown base ($c = 0$, $b = 0$, $A_s(z) = A_s(H_c)$), surplus sapwood retired to heartwood (`crown_rise_heartwood`), coupled with the mechanical wind envelope (frequent synoptic wind $u_h = 12.0\text{ m/s}$ at canopy top, target bending stress $\sigma = 18.0\text{ MPa}$, and exponential within-canopy wind speed decay $u(z) = u(h_c)\exp[a(z/h_c - 1)]$ with $a = 2.0$ from Inoue 1963 / Cionco 1972).
-- **Improvements**: Eliminates empirical path-length exponent ($c = 0.283$), matches Eriksson SI26 height at age 50–60 (25.02 m and 26.11 m vs 25.31 m and 26.87 m), matches Repola 2008 stem wood biomass (ratio 1.01–1.14 across rotation), and stabilizes form factor.
-- **What Stage b Does NOT Fix (Honest Assessment)**:
+- **Changes** (corrected in phase 40; the original wording used banned words without scorecard support): the empirical path-length exponent ($c = 0.283$) is no longer used on the stem (stage ≥ 1 sets $b = c = 0$, `treegen/growth.py`). Seed-1 stand-tree height at 50 and 60 is 25.02 m and 26.11 m. Those values lie inside the Eriksson et al. 1997 SI20–SI26 band of 19.20–25.31 m and 21.05–26.87 m (scorecard PASS, `out/bench/p40_default/scorecard.txt`, phase 40). They are below the SI26 curve itself, so this does not match SI26. Stem wood is 1.01–1.14 × Repola 2008 at 30–60 (`out/bench/p40_default/stem_compare.txt`); there is no approved target for it. The claim that the form factor is "stabilized" gave no numbers and is withdrawn.
+- **Open problems with stage b** (items 2–4 and section 2 corrected in phase 40 against `out/bench/p40_default/stem_compare.txt`; the original run behind them was not saved under a known path):
   1. *Leader Alternation Persists*: Height increments still oscillate heavily between burst and stall years (e.g. 1.175 m at yr 24 followed by -0.001 m at yr 25; 0.721 m at yr 34 followed by 0.027 m at yr 35).
-  2. *Mid-Stem Taper Excess*: Stem relative diameters at 0.3–0.7 H remain 12%–20% thicker than Hansen et al. (2023) under-bark taper (e.g. at age 50, $d/DBH$ is 0.84 vs 0.75 at 0.3 H, 0.67 vs 0.60 at 0.5 H, and 0.44 vs 0.38 at 0.7 H).
-  3. *Branch Wood Underestimation Worsened*: Living branch wood biomass relative to Repola (2008) drops to 0.11–0.16 (compared to 0.16–0.27 in baseline), because the wind bending moment allocates additional carbon to the lower trunk, further starving lateral branches.
-  4. *Hansen Form Factor Correction*: The empirical under-bark form factor for this tree from Hansen et al. (2023) taper curves evaluated in Phases 30–31 is **0.39–0.44**, not 0.45–0.48. Stage b achieves form factor 0.46–0.48, which is slightly fuller than Hansen's pure clear-bole form factor.
+  2. *Mid-stem taper*: the stem is thicker than the Hansen et al. (2023) under-bark taper at 0.3 / 0.5 / 0.7 H by 11 / 8 / 10 % at 40, 12 / 12 / 16 % at 50 and 14 / 15 / 22 % at 60 (the original "12–20 %" held at 50 only).
+  3. *Branch wood*: living branch wood / Repola (2008) is 0.12 / 0.17 / 0.15 / 0.12 / 0.11 at 20 / 30 / 40 / 50 / 60. The original "0.16–0.27 in baseline" has no saved run, and its mechanism ("the wind bending moment allocates additional carbon to the lower trunk") was asserted, not tested.
+  4. *Form factor*: Hansen et al. (2023) taper gives an under-bark form factor of 0.47 at 20 and 0.39–0.44 at 30–60; the model stem gives 0.45–0.47 (the original "0.46–0.48" has no saved run).
 
 **2. Withdrawal of Phase 36 Ring Decomposition.**
 - The Phase 36 ring-carbon decomposition table (claiming 44.2% was spent on sapwood senescence replacement) is **formally withdrawn**.
 - *Reason*: The Phase 36 report assumed an invented turnover rate of 5%/yr (0.05). In reality, the codebase uses `sapwood_senescence_per_year: 0.014` ($1.4\%/\text{yr}$, Gebauer et al. 2008). At 0.014/yr, lifetime turnover replacement requires only 6.5% of net shoot carbon, not 44%.
+- *Phase 40 note*: no phase 36 report or table was saved (only `scratch/task1_turnover_share.py`), so neither the 44.2 % nor the 6.5 % figure can be recomputed; both are unverified.
+
+## Phases 34–36 (reconstructed in phase 40 from git history and saved files)
+
+These phases were run by another agent and left no notes. What follows comes from the commits, the files they changed, `scratch/` timestamps and DECISIONS.md. **The phase boundaries cannot be reconstructed:** the commit messages carry no phase numbers. DECISIONS.md (the maintainer's numbering) places the light-target change in phase 36 and the crown-ratio limit in phase 37. The commit times below are 2 Nov 2026.
+
+| Time | Commit | What changed | Default | Status now |
+|---|---|---|---|---|
+| ~03:00–03:12 | (scratch only: `apply_accounting_fix.py`, `verify_exact_carbon.py`) | Investigation of the late-shoot carbon bookkeeping | — | Not reconstructable beyond the scripts |
+| 07:41 | `aa96c05` | `reference/targets.yaml` created | — | Rewritten with checkable condition labels in `7c70674` |
+| 07:42 | `efc93c3` | Late-leaf carbon is added to the carbon totals (`carbon["shoot"]`, `["root"]`, upkeep, CUE) | changes reporting only | Kept (round-39 audit: bookkeeping only) |
+| 08:05 | `592f7da` | Crown-rise heartwood: sapwood below the rising crown base is retired to heartwood (`pipe_model.crown_rise_heartwood`) | off; forced on by stem theory stage ≥ 1 | Active through stage 2 |
+| 08:24 | `d9c9b90` | Citation fixes in targets.yaml and KNOWN_ISSUES.md | — | — |
+| 08:56 | `24886b0` | Light-under-canopy target widened from 10–15 % to the measured 6.4–19.8 % (median 14.8 %); crown-ratio targets split into managed and dense | — | Approved by the maintainer (DECISIONS.md row 5, phase 36) |
+| 09:18 | `49b3dac` | Field-layer competition for seedlings (Nilsson & Örlander 1999) | off | Not re-checked in phase 40 |
+| ~09:44 | (scratch: `task1_turnover_share.py`) | Ring-carbon decomposition that assumed a 5 %/yr sapwood turnover | — | **Withdrawn** in the phase 37 & 38 notes (the code uses 0.014/yr) |
+| 09:53 | `a0c1b49` | Dense-stand crown ratio 0.30–0.45 limited to ages 11–22 | — | Approved by the maintainer (DECISIONS.md row 6, phase 37) |
+
+Commits between these phases and phase 39, which the phase 37 & 38 notes do not list. The phase is inferred: DECISIONS.md puts the stage-b default in phase 38, and output names such as `out/bench/p38_germ_*.json` point to phase 38.
+
+| Time | Commit | What | Default | Phase |
+|---|---|---|---|---|
+| 12:27 | `f6ecda0` | Stem theory stages a and b implemented | off | 37 (inferred) |
+| 13:18 | `72ce4e5` | Stage b made the default | on | 38 (DECISIONS.md row 7) |
+| 14:24 | `42c2c2e` | Seedling germination option | off | 38 (inferred from `p38_germ_*` outputs) |
+| 14:36 | `236c2d4` | Konôpka et al. 2023 citation corrected in targets.yaml | — | 38 (inferred) |
+| 14:37 | `35b6484` | VERIFY tags on germination parameters | — | 38 (inferred) |
+
+No scorecard existed in phases 34–36, so none of their results carry PASS/FAIL. Saved run outputs from these phases could not be identified in `out/`.
+
+## Phase 39 (reconstructed in phase 40)
+
+Round 39 ran out of usage before its notes, before/after tables and checker pass. The commits:
+
+| Time | Commit | What | Default | Status now |
+|---|---|---|---|---|
+| 15:11 | `46099bd` | PROTOCOL.md added | — | Amended by the maintainer (`98c9810`, `31cb4cb`) |
+| 15:17 | `32bbe54` | `tools/scorecard.py` | — | **Withdrawn as it stood.** It filled in a light value of 22.0 % for runs named `p38_nat`, hard-coded its ranges and invented tolerances (audit, `reports/claude_audit.md`). Replaced in `e0b8d10` and `f291a99`. Every PASS/FAIL produced before `e0b8d10` should be disregarded. |
+| 15:50 | `ab046e6` | Published Borchert–Honda option (`bud_fate.borchert_honda_published`) | off | Tested alone in phase 40 |
+| 16:03 | `aeb2d68` | Soil-water bucket option | off | Its invented pieces replaced in phase 40 (`9885e03`) |
+
+Test runs saved by round 39: `out/test_bh_pub`, `out/test_swb_norm` and `out/test_swb_dry`. These were made with the round-39 code and options; the phase 40 runs supersede them.
+
+## Phase 40: published Borchert–Honda tested, run outputs, soil water to BILJOU, germination and branch audits
+
+All runs are the seed-1 stand tree, 60 years. Each option was tested in a species copy that differs from `species/betula_pendula.yaml` in the named option only. The exception is the copies made before `9885e03` (`p40_bhpub`, `p41_germ`), which also carry the older, inactive soil-water block (the option is off there). The full report is `reports/phase40.md`.
+
+**1. Published Borchert–Honda (`bud_fate.borchert_honda_published`, off), alone.**
+Answer: it does not remove the see-saw, which gets larger.
+- **The split:** the extended Borchert–Honda model of Palubicki et al. 2009, a computer-graphics model formulation adapted to light (Borchert & Honda 1984 not opened): v_m = v λQ_m / (λQ_m + (1−λ)Q_l). Code: `treegen/growth.py:906-910`.
+- **What the option changes:** λ = `resource.apical_dominance` (0.62, VERIFY; Palubicki et al. illustrate 0.46–0.54) at every node (`:893-894`), and gravimorphism and scaffold vigour are left out of the bud pull (`:870-873`).
+- **What still shapes the split:** the water factor φ, the upkeep, spurs as non-sinks (`short_shoots_self_financing`, `:878-883`) and the no-axillary-bud rule (`:886`). Transport attenuation is not set in the species file, so it has no effect (`:904`).
+- **Run:** `out/bench/p40_bhpub/1_stand` against `out/bench/p40_default/1_stand`; tables in `out/bench/p40_bhpub/leader_compare.txt`. "Increment" below is the yearly change in tree height.
+
+| | default | published BH |
+|---|---|---|
+| height 50 / 60 (m) | 25.02 / 26.11 | 25.00 / 27.35 |
+| scorecard height 20 / 30 / 40 / 50 / 60 | FAIL / FAIL / FAIL / PASS / PASS | FAIL / PASS / PASS / PASS / FAIL |
+| stand LAI 50 / 60 (target 3.6–5.4) | 2.99 / 2.95 FAIL | 2.59 / 2.61 FAIL |
+| height increment yrs 21–60: mean / SD (m) | 0.273 / 0.248 | 0.320 / 0.355 |
+| mean change from one year to the next (m) | 0.272 | 0.502 |
+| years with increment < 0.10 m (of 40) | 14 | 15 |
+| years with no new long shoot anywhere on the tree (whole run) | 1 (year 17) | 10 (18, 23, 29, 32, 34, 36, 38, 40, 44, 46) |
+| living branch wood / Repola at 50 / 60 | 0.12 / 0.11 | 0.12 / 0.22 |
+
+- **Render:** `out/renders/p40/stand_tree_seed1_age60_default_vs_bhpub.png`. With BH on, the top quarter of the crown is a bare leader, one large limb sits mid-crown, and the lower crown still has bands.
+- **Likely mechanism, not tested:** the default lowers apical control on established branches from 0.60 to 0.50 with age (`apical_control`, `:445-448`). BH keeps 0.62 everywhere, so more of each split goes to the main axis. That fits the taller tree (27.35 m) and the smaller leaf area. Why the whole tree grows long shoots only every other year is **not diagnosed**.
+
+**2. Run outputs (output only; `bc4387d`).**
+Answer: done. Every stand-tree and plot run now saves `subcanopy_light_pct` per year, plus `run_manifest` and `options`.
+- **Light:** the mean of exp(−s/C) over every column of the stand cell at 1.0, 1.5 and 2.0 m (`treegen/light.py:224`, `:270-285`). This is the model's weighted sky-and-sun light, **not diffuse-only**, whereas the target measures diffuse PAR.
+- **Manifest:** git commit and tracked-changes flag, species and environment files with SHA-256, and the options switched on (`treegen/params.py:38-98`; `cli.py`; `tools/plot.py`).
+- **Growth unchanged:** `p40_default_v2` and `p41_germ_v2` match p40_default and p41_germ in every per_year value and timeline array.
+- **Light values:** default 30.1 % at 50 and 29.6 % at 60; germination 30.1 % / 30.1 %. The target is 6.4–19.8 %, but this is **not scored**: tools/scorecard.py reads only a run-level value (decision for the maintainer).
+- **Manifest caveat:** these runs were made before their code was committed (`git_tracked_changes: true`).
+
+**3. Germination option (audit only).**
+Answer: no published relation between leaf size and height, age or node was found for young Betula. The leaf-size ramp `min(max(0.20 + 0.80·H/1.30, 0.20), 1)` (`treegen/growth.py:1236-1242`) is an invented scaling function.
+
+| Parameter (used at) | Source status |
+|---|---|
+| `seed_dry_mass_mg` 0.21 (`growth.py:796`) | Cited papers not opened. USDA Woody Plant Seed Manual, Betula, Table 4: ~0.19 mg per cleaned de-winged seed (range 0.09–0.30). VERIFY |
+| `germination_respiration_fraction` 0.35 (`:797`) | Cited sources not opened; no Betula source found. VERIFY |
+| `hypocotyl_height_m` 0.015 (`:136`) | No source. VERIFY |
+| `first_year_effective_leaves` 0.20 (`:227`) | Its own comment calls it calibrated. Konôpka et al. 2023 has no first-year data. VERIFY |
+| `juvenile_scale_bh_m` 1.3, `min_juvenile_scale` 0.20 (`:1238-1239`) | No source. VERIFY |
+| `cotyledon_area_cm2` 0.05, `initial_taproot_depth_m` 0.02 | Not used by the code |
+
+VERIFY flags were added to the comments in the species file; no value changed. Options for the leaf ramp are a decision for the maintainer (`reports/phase40.md`).
+
+**4. Soil-water option (`9885e03`, still off).**
+Answer: the invented pieces were replaced. The option has no effect on growth with Uppsala rain, even in 2018.
+
+| Invented (round 39) | Now |
+|---|---|
+| transpiration factor 0.25 + 0.75·min(1, LAI/3) | Tmax = r·PET, r = 0.125·LAI up to 0.75 (Granier, Bréda, Biron & Villette 1999, Eq. 2, p. 271: the relationship the authors adopted) |
+| monthly step with a half-month rain midpoint | BILJOU's daily balance (Eq. 1) with each month's rain and PET spread evenly over its days |
+| open-grown "LAI" = min(3.5, leaf area / 10) | leaf area over the crown projection, as `measure()` defines LAI |
+| drought = rain × 0.5, PET × 1.2 | the actual 2018 rain at Uppsala 97520 (SMHI) |
+
+- **Kept:** the linear decline of T below REW 0.4 (Granier 1999 p. 271; Sopharat et al. 2015 Eqs. 9–10).
+- **Unsourced (VERIFY), stated in the code:**
+  - carbon cut by the season's T/Tmax (`treegen/growth.py:787-791`);
+  - the season starts at field capacity on 1 May;
+  - no 30-day rise of r after budburst;
+  - no interception term (BILJOU's is a daily-rain equation);
+  - the 75 mm water capacity.
+- **Result:** the lowest REW is 1.0 every year in the normal year, and 0.566 in 2018 (age 59; 0.578 at 50, 0.580 at 60). That is above 0.4, so T/Tmax = 1.0 and growth is identical to the default (`out/bench/p40_swb_norm`, `p40_swb_dry`).
+- **Why, in numbers:** at LAI 2.99, Tmax = 0.374·PET = 30 / 37 / 39 / 26 / 11 mm for May–Sep. The normal rain of 39 / 61 / 57 / 74 / 49 mm exceeds that every month. May–Sep 2018 was 272 mm against 280 mm.
+
+**5. Branch mechanics (design only).**
+Answer: the sources support sizing wood by self-weight in principle, and the model already does it. A load rule would not add branch wood: the limbs are already thicker than their load needs. The shortfall against Repola is limb length and number, not thickness.
+- **Already in the model:** the stress floor (`pipe_model.stress_floor`, on; `treegen/growth.py:1853-1858`, `:1888-1890`, `_stress_area` `:1907`) sizes every living internode, branches included, to carry the fresh wood (850 kg/m³) and leaves beyond it at 57/3.5 = 16.3 MPa.
+- **Largest limbs at 60:** recomputed the floor's way, leaves and actual lever arms included (`out/bench/p40_default_v2/limb_moment_calc.txt`). The largest limb has 1.51 kg of fresh wood and 1.05 kg of leaves, its load centre 0.56 m out, so M = 14.2 N·m. The uniform-stress radius is (4M/(π·16.3 MPa))^(1/3) = 10.4 mm; its actual base radius is 20.3 mm. The next four limbs need 6.5–8.1 mm.
+- **Shortfall:** the tree has 687.7 m of living branch holding 6.8 kg. Repola's 65.0 kg on that length would need a mean radius of 7.53 mm instead of 2.44 mm (`branch_wood_calc.txt`). The longest limbs reach only 1.3–1.8 m sideways.
+- **Floor switched off** (`out/bench/p40_nofloor`): branch wood / Repola is 0.12 / 0.16 at 50 / 60 (10.6 kg at 60), and height is 25.0 m at 60. The floor's extra wood is not charged to carbon, so switching it off changes the whole tree's growth path. Why that leaves more branch wood is **not diagnosed**.
+- **Sources:**
+  - McMahon & Kronauer 1976 (elastic similarity): not opened.
+  - Niklas 1992 and 1994 (books): not opened. Niklas 1999 (abstract only): safety factors inside one Robinia crown vary with branch age.
+  - Jirasek, Prusinkiewicz & Moulia 2000 (opened): computes deflection only, with diameters from the pipe model. No wood is sized by load.
+  - Minamino & Tateno 2014: under self-weight, Japanese beech branches fit uniform stress (index 0.97 ± 0.02); Nikko fir deviates (0.88 ± 0.02).
+  - No silver-birch branch constants were found.
+
+**6. White patches at stem bases.**
+Not done: the cause lies entirely in mesh and render code, but a fix needs a value or method with no source yet (options in `reports/phase40.md`).
+- **Mesh:** the root ridges (`treegen/mesh.py:309`, `:347`) tilt the base upward. On tree_053 of `out/bench/p38_nat_mesh`, stem faces have an area-weighted mean up-component of +0.135 at 0.1–0.2 m (90th percentile +0.37), against 0.00 above 0.3 m (`out/renders/p40/white_patch_check.txt`).
+- **Render:** `_shade` (`treegen/preview.py:292-299`) lights every surface with full sky and a sun at 56.5° elevation, with no canopy shadowing. `_colours` (`:312-321`) gives every thick stem the same near-white. A sun-facing face tilted to +0.32 (the ridge-sector mean) renders at 0.804 against 0.620 for a vertical face, 30 % brighter.
+- **Normals:** they point outward; checker B measured at least 99.7 % per tree in all 78 trees. Not a growth-model issue.
+
+**7. Notes.**
+Answer: notes for phases 34–36 and 39 were written from git history and saved files, and the unsupported claims in the phase 37 & 38 notes were corrected. What could not be reconstructed is marked.
