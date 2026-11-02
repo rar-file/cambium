@@ -1126,3 +1126,28 @@ field_layer_competition:
   max_lai: 3.3                 # Mature sward LAI (~3 Mg/ha aboveground biomass; Nilsson & Örlander 1999)
   extinction: 0.45             # Beer-Lambert k for erectophile grass canopy (Nilsson & Örlander 1999)
   years_to_mature: 4.0         # Years post-harvest to reach peak sward biomass (Nilsson & Örlander 1999)
+
+# Seedling germination phase (Option off by default)
+# Models seedling emergence from seed reserves (~0.2 mg) and cotyledons (~0.05 cm2),
+# with heterotrophic germination respiration and ontogenetic juvenile leaf scaling.
+germination:
+  enabled: false
+  # Seed dry mass ~0.21 mg (Perala & Alm 1990; Miles 1974; Grime et al. 1988)
+  seed_dry_mass_mg: 0.21
+  # Cotyledon photosynthetic area ~0.05 cm2 = 5e-6 m2 (Perala & Alm 1990; Laitakari 1935)
+  cotyledon_area_cm2: 0.05
+  # Heterotrophic respiration loss of seed reserves during germination prior to autotrophy
+  # (Bewley & Black 1994; Penning de Vries et al. 1979)
+  germination_respiration_fraction: 0.35
+  # Initial hypocotyl height at emergence (m)
+  hypocotyl_height_m: 0.015
+  # Initial radicle taproot depth at emergence (m)
+  initial_taproot_depth_m: 0.02
+  # Integrated seasonal photosynthetic leaf equivalent over year 1 as cotyledons expand to first leaves
+  # (Ingestad 1979; Karlsson 2002; Konopka et al. 2023)
+  first_year_effective_leaves: 0.20
+  # Breast-height reference where heteroblastic juvenile leaves reach adult size (m)
+  juvenile_scale_bh_m: 1.3
+  # Minimum juvenile leaf scale at emergence (~3 cm2 juvenile leaf vs 15 cm2 adult)
+  min_juvenile_scale: 0.20
+

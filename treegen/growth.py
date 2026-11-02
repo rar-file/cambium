@@ -131,7 +131,10 @@ class GrowthModel:
     def _plant_seed(self):
         T = self.tree
         i = T.alloc(1)
-        T.pos[i] = 0.0
+        germ = getattr(self.sp, "germination", None)
+        germ_on = germ is not None and bool(getattr(germ, "enabled", False))
+        h0 = float(getattr(germ, "hypocotyl_height_m", 0.015)) if germ_on else 0.0
+        T.pos[i] = np.array([0.0, 0.0, h0])
         T.dir[i] = UP
         T.ref[i] = np.array([1.0, 0.0, 0.0])
         T.parent[i] = -1
@@ -218,7 +221,13 @@ class GrowthModel:
         # leaves per bud; leaf size shrinks with the same turgor limit that
         # shortens the internode (Koch et al. 2004)
         early = float(getattr(fw, "early_leaves", 0.0) or float(fw.spur))
-        w_term = (float(fw.new_leaf) if n0 == 1 else early) * T.leaf_scale[term_nodes] * self._size_rel(term_nodes)
+        germ = getattr(self.sp, "germination", None)
+        germ_on = germ is not None and bool(getattr(germ, "enabled", False))
+        if n0 == 1 and germ_on:
+            eff = float(getattr(germ, "first_year_effective_leaves", 0.20))
+            w_term = np.full(len(term_nodes), eff) * T.leaf_scale[term_nodes] * self._size_rel(term_nodes)
+        else:
+            w_term = (float(fw.new_leaf) if n0 == 1 else early) * T.leaf_scale[term_nodes] * self._size_rel(term_nodes)
         ls = lat_state[lat_nodes]
         fresh = (T.lat_age[lat_nodes] == 0) & (~T.no_axil[lat_nodes]) & (T.term[lat_nodes] == 0)
         w_lat = T.leaf_scale[lat_nodes] * self._size_rel(lat_nodes) * np.where(
@@ -727,6 +736,16 @@ class GrowthModel:
         # single leaf); alpha is the carbon of one reference leaf in full light
         bud_w = np.concatenate([w_term, w_lat])
         carbon = float(res.alpha) * float((bud_q * phi * bud_w).sum())
+        germ = getattr(sp, "germination", None)
+        if germ is not None and bool(getattr(germ, "enabled", False)) and t == 1:
+            seed_mg = float(getattr(germ, "seed_dry_mass_mg", 0.21))
+            resp_frac = float(getattr(germ, "germination_respiration_fraction", 0.35))
+            lc = getattr(sp.resource, "leaf_costs", None)
+            c_frac = float(getattr(lc, "carbon_fraction", 0.48)) if lc else 0.48
+            dens = float(getattr(lc, "wood_basic_density_kg_m3", 530.0)) if lc else 530.0
+            g_per_unit = float(sp.pipe_model.wood_volume_per_carbon) * dens * 1000.0
+            seed_c = (seed_mg / 1000.0) * (1.0 - resp_frac) * c_frac
+            carbon += seed_c / (g_per_unit * c_frac) if (g_per_unit * c_frac) > 0 else 0.0
         stress = 1.0 - float((bud_q * phi * bud_w).sum()) / max(float((bud_q * bud_w).sum()), 1e-12)
         # functional balance (Brouwer 1963; Thornley 1972): a water-limited
         # tree sends more of its carbon below ground
@@ -1141,6 +1160,13 @@ class GrowthModel:
             return np.full(q.shape, a_ref), np.full(q.shape, float(getattr(ss, "lma_reference_g_m2", 60.8) if ss else 60.8))
         lma = float(ss.lma_shade_g_m2) + float(ss.lma_sun_increase_g_m2) * np.power(q, float(ss.lma_exponent))
         size = a_ref * np.power(float(ss.lma_reference_g_m2) / lma, float(ss.size_lma_exponent))
+        germ = getattr(self.sp, "germination", None)
+        if germ is not None and bool(getattr(germ, "enabled", False)):
+            h = float(self.stats[-1]["height_m"]) if len(self.stats) else 0.015
+            bh_m = float(getattr(germ, "juvenile_scale_bh_m", 1.3))
+            min_s = float(getattr(germ, "min_juvenile_scale", 0.20))
+            scale = min(max(min_s + (1.0 - min_s) * (h / bh_m), min_s), 1.0)
+            size = size * scale
         return size, lma
 
     def _leaf_costs(self, bud_nodes, bud_leaf, g_resp):
