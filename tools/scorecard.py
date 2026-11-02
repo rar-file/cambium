@@ -2,14 +2,14 @@
 
 Reads reference/targets.yaml at the git tag 'targets-approved' and compares
 saved run outputs (plot.json, stats.json) with each target, only within the
-target's stated conditions (age, stand type, scenario).  Every range and value
-comes from the tagged file; the script holds no target numbers of its own and
-adds no tolerances.  A target given as a single value without a range is
-reported as NO RANGE, not PASS/FAIL.  A quantity the run did not save is NOT
-APPLICABLE; nothing is filled in.
+condition labels the target gives (scenario, mode, age, density, options
+required).  Every range and value comes from the tagged file; the script holds
+no target numbers of its own and adds no tolerances.  A target marked
+'scoring: info' is shown as INFO, never PASS/FAIL.  A quantity the run did not
+save is NOT APPLICABLE; nothing is filled in.
 
     python tools/scorecard.py out/bench/p38_nat                # ages 50 and 60
-    python tools/scorecard.py out/bench/p38_nat --age 15 --age 20
+    python tools/scorecard.py out/bench/p38_nat out/1_stand --age 20 --age 60
 """
 from __future__ import annotations
 
@@ -36,48 +36,38 @@ except ImportError:
     else:
         raise
 
+from treegen.reference import eriksson_1997_height  # noqa: E402
+
 TAG = "targets-approved"
 
-# Condition keys in targets.yaml that give a stand age range [lo, hi] in years.
-AGE_KEYS = ("age_range_years", "age_years", "stand_age_years")
+# Condition label for the age range, and older spellings of it.
+AGE_KEYS = ("age_years", "age_range_years", "stand_age_years")
+DENSITY_KEYS = ("density_stems_ha", "density_range_stems_ha")
 
-# How the script reads the free-text part of each target's conditions as a run
-# type it can check in the saved output: (output kind, run mode or None for any
-# mode, stand age range written only in the text or None).  These are readings
-# of the yaml text, not targets; each is printed with its result.  The yaml
-# text quoted on the right is the authority.
-RUN_READINGS: dict[str, tuple[str, str | None, tuple[int, int] | None]] = {
-    # "unthinned / natural self-thinning on fertile abandoned farmland"
-    "stand_canopy.lai_baltic_chronosequence": ("plot", "natural", None),
-    # "mature monospecific Betula pendula stands"
-    "stand_canopy.lai_hagemeier": ("plot", None, None),
-    # "mature closed canopy (age 45-65)"
-    "stand_canopy.subcanopy_light_transmittance": ("plot", None, (45, 65)),
-    # "Managed stands; silvicultural guideline prescribing ... thinning"
-    "stand_canopy.live_crown_ratio.silvicultural_recommendation": ("plot", "managed", None),
-    # "Dense unmanaged natural stands subject to dense lateral shading"
-    "stand_canopy.live_crown_ratio.dense_unmanaged_stand": ("plot", "natural", None),
-    # "Self-thinned mature monospecific stands on sandy plains in Lower Saxony"
-    "stand_canopy.stand_density": ("plot", "natural", None),
-    # "Open-grown, solitary silver birch with unconstrained lateral branch expansion"
-    "tree_allometry.crown_width_open_grown": ("tree", "open", None),
-}
+# Scenario and mode of a single-tree output (stats.json 'mode').  Stand-tree
+# runs follow the thinning programme (managed); runs without --stand are
+# open-grown.
+TREE_MODES = {"stand": ("stand-tree", "managed"), "open": ("single-tree", "open-grown")}
+
+# targets.yaml dominant_height_definition -> the per-tree value that ranks the
+# 100 trees per hectare
+DOMINANT_RANK = {"100_thickest_per_ha": "dbh_cm", "100_tallest_per_ha": "height_m"}
 
 
-def load_approved_targets() -> dict[str, Any]:
-    """Load reference/targets.yaml as it is at the git tag 'targets-approved'.
-    There is no fallback to the working copy: an unapproved file never scores."""
+def load_approved_targets(ref: str = TAG) -> dict[str, Any]:
+    """Load reference/targets.yaml as it is at `ref` (default: the tag
+    'targets-approved').  There is no fallback to the working copy."""
     proc = subprocess.run(
-        ["git", "show", f"{TAG}:reference/targets.yaml"],
+        ["git", "show", f"{ref}:reference/targets.yaml"],
         cwd=str(ROOT), capture_output=True, text=True, encoding="utf-8",
     )
     if proc.returncode != 0:
-        raise RuntimeError(f"cannot read reference/targets.yaml at tag '{TAG}': {proc.stderr.strip()}")
+        raise RuntimeError(f"cannot read reference/targets.yaml at '{ref}': {proc.stderr.strip()}")
     return yaml.safe_load(proc.stdout)
 
 
-def approved_commit() -> str:
-    proc = subprocess.run(["git", "rev-parse", "--short", f"{TAG}^{{commit}}"],
+def commit_of(ref: str = TAG) -> str:
+    proc = subprocess.run(["git", "rev-parse", "--short", f"{ref}^{{commit}}"],
                           cwd=str(ROOT), capture_output=True, text=True)
     return proc.stdout.strip() or "unknown"
 
@@ -166,21 +156,41 @@ def flatten_targets(targets: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]
 
 
 def run_type(run: dict[str, Any] | None) -> tuple[str | None, str | None]:
-    """('plot', 'natural' | 'managed'), ('tree', 'open' | 'stand' | ...),
-    ('seedling', None); mode None when the output does not record it."""
+    """(scenario, mode) of a run as targets.yaml labels them; mode None when
+    the output does not record it."""
     if run is None:
         return None, None
     if run["is_plot"]:
         return "plot", run["plot_data"].get("mode")
     if run["is_tree"]:
-        return "tree", run["tree_stats"].get("mode")
+        m = run["tree_stats"].get("mode")
+        return TREE_MODES.get(m, (f"tree ({m})", None))
     if run["is_seedling"]:
-        return "seedling", None
+        return "single-seedling", run["seedling_data"].get("mode")
     return None, None
 
 
+def run_options(run: dict[str, Any]) -> dict[str, Any] | None:
+    """Species options the run recorded as used ('options' in its output)."""
+    for key in ("plot_data", "tree_stats", "seedling_data"):
+        if run.get(key) and isinstance(run[key].get("options"), dict):
+            return run[key]["options"]
+    return None
+
+
+def conditions_of(item: dict[str, Any]) -> dict[str, Any]:
+    cond = item.get("conditions")
+    if isinstance(cond, str):
+        return {"text": cond}
+    return cond or {}
+
+
 def plot_stat(run: dict[str, Any], age: int) -> dict[str, Any] | None:
-    return next((s for s in run["plot_data"].get("stats", []) if s.get("year") == age), None)
+    return next((s for s in (run.get("plot_data") or {}).get("stats", []) if s.get("year") == age), None)
+
+
+def tree_record(run: dict[str, Any], age: int) -> dict[str, Any] | None:
+    return next((r for r in (run.get("tree_stats") or {}).get("per_year", []) if r.get("year") == age), None)
 
 
 def plot_live_records(run: dict[str, Any], age: int) -> list[dict[str, Any]]:
@@ -201,34 +211,60 @@ def plot_live_records(run: dict[str, Any], age: int) -> list[dict[str, Any]]:
     return recs
 
 
-def applicability(name: str, item: dict[str, Any], run: dict[str, Any] | None,
-                  age: int | None) -> tuple[str | None, list[str]]:
+def dominant_height(records: list[dict[str, Any]], area_m2: float, rank_by: str) -> tuple[float, float]:
+    """Mean height of the 100 trees per hectare ranked first by `rank_by`
+    (dbh_cm: thickest, height_m: tallest).  On a plot of area_m2 that is
+    100 * area_m2 / 1e4 trees; the last one counts with its fractional share.
+    Returns (height, trees counted); with fewer trees than that, all count."""
+    n = 100.0 * area_m2 / 1e4
+    recs = sorted((r for r in records if r.get("height_m") is not None),
+                  key=lambda r: r.get(rank_by) or 0.0, reverse=True)
+    w_sum = h_sum = 0.0
+    for r in recs:
+        w = min(1.0, n - w_sum)
+        if w <= 0.0:
+            break
+        w_sum += w
+        h_sum += w * float(r["height_m"])
+    return (h_sum / w_sum if w_sum > 0 else float("nan")), w_sum
+
+
+def applicability(item: dict[str, Any], run: dict[str, Any] | None, age: int | None) -> tuple[str | None, list[str]]:
     """(reason the target does not apply to this run at this age or None,
     notes on conditions that could not be checked)."""
     notes: list[str] = []
-    kind, mode, text_age = RUN_READINGS.get(name, (None, None, None))
-    rkind, rmode = run_type(run)
-    if run is None or (kind is not None and rkind != kind):
-        return f"needs a {kind or 'matching'} run", notes
-    if mode is not None:
-        if rmode is None:
-            notes.append(f"run mode not in output, condition read as '{mode}' not checked")
-        elif rmode != mode:
-            return f"condition read as {mode} {kind}; run mode is {rmode}", notes
-    cond = item.get("conditions")
-    if isinstance(cond, dict) and age is not None:
+    cond = conditions_of(item)
+    scen, mode = run_type(run)
+    if run is None:
+        return f"needs a {' or '.join(cond.get('scenario', ['matching']))} run", notes
+    if "scenario" in cond and scen not in cond["scenario"]:
+        return f"scenario {scen} not in {cond['scenario']}", notes
+    if "mode" in cond:
+        if mode is None:
+            notes.append(f"run mode not in output, mode {cond['mode']} not checked")
+        elif mode not in cond["mode"]:
+            return f"mode {mode} not in {cond['mode']}", notes
+    if age is not None:
         for key in AGE_KEYS:
             if key in cond:
                 lo, hi = cond[key]
                 if not lo <= age <= hi:
                     return f"age {age} outside {key} [{lo}, {hi}]", notes
-        if "density_range_stems_ha" in cond and rkind == "plot":
-            st = plot_stat(run, age)
-            lo, hi = cond["density_range_stems_ha"]
-            if st is not None and not lo <= st.get("stems_per_ha", 0) <= hi:
-                return f"{st.get('stems_per_ha')} stems/ha outside density_range_stems_ha [{lo}, {hi}]", notes
-    if text_age is not None and age is not None and not text_age[0] <= age <= text_age[1]:
-        return f"age {age} outside {list(text_age)} (read from the condition text)", notes
+    for key in DENSITY_KEYS:
+        if key in cond and age is not None and isinstance(cond[key], (list, tuple)):
+            lo, hi = cond[key]
+            st = plot_stat(run, age) if scen == "plot" else None
+            if st is None:
+                notes.append(f"stand density not checked ({key} [{lo}, {hi}])")
+            elif not lo <= st.get("stems_per_ha", 0) <= hi:
+                return f"{st.get('stems_per_ha')} stems/ha outside {key} [{lo}, {hi}]", notes
+    if cond.get("options_required"):
+        opts = run_options(run)
+        if opts is None:
+            return "options used are not recorded in the run output", notes
+        for k, v in cond["options_required"].items():
+            if opts.get(k) != v:
+                return f"{k} was {opts.get(k)}, needs {v}", notes
     return None, notes
 
 
@@ -237,13 +273,15 @@ def _row(target, model_value, target_range, source, status, notes):
             "source": source, "status": status, "notes": notes}
 
 
-def _in_range(val: float, rng) -> str:
+def _status(item: dict[str, Any], val: float, rng) -> str:
+    if item.get("scoring") == "info":
+        return "INFO"
     lo, hi = rng
     return "PASS" if lo <= val <= hi else "FAIL"
 
 
 def _keyed_ages(item: dict[str, Any], pattern: str) -> list[tuple[int, str]]:
-    """Ages written in keys, e.g. 'unmanaged_natural_45yr' or 'age_2_years_m'."""
+    """Ages written in keys, e.g. 'stems_per_ha_45yr' or 'age_2_years_m'."""
     out = []
     for key in item:
         m = re.search(pattern, key)
@@ -252,20 +290,197 @@ def _keyed_ages(item: dict[str, Any], pattern: str) -> list[tuple[int, str]]:
     return sorted(out)
 
 
+def evaluate_run(name: str, item: dict[str, Any], run: dict[str, Any] | None,
+                 ages: list[int]) -> list[dict[str, Any]]:
+    """Rows for one target and one run (run None: no run of its scenario)."""
+    source = item.get("source", "N/A")
+    rows: list[dict[str, Any]] = []
+    scen, _ = run_type(run)
+
+    def na(label, rng_txt, why):
+        rows.append(_row(label, "N/A", rng_txt, source, "NOT APPLICABLE", why))
+
+    if name in ("stand_canopy.lai_baltic_chronosequence", "stand_canopy.lai_hagemeier"):
+        rng = item["target_range"] if "target_range" in item else item["stand_range"]
+        for age in ages:
+            label = f"{name} (age {age})"
+            why, notes = applicability(item, run, age)
+            if why:
+                na(label, format_val(rng), why)
+                continue
+            if scen == "plot":
+                st = plot_stat(run, age)
+                val, dens = (st["lai"], st.get("stems_per_ha")) if st else (None, None)
+            else:
+                rec = tree_record(run, age)
+                val, dens = (rec.get("lai"), None) if rec else (None, None)
+            if val is None:
+                na(label, format_val(rng), f"age {age} not in output")
+                continue
+            notes.insert(0, f"stand LAI at {dens} stems/ha" if dens else "stand LAI")
+            rows.append(_row(label, f"{float(val):.3f}", format_val(rng), source,
+                             _status(item, float(val), rng), "; ".join(notes)))
+
+    elif name == "stand_canopy.subcanopy_light_transmittance":
+        rng = item["target_range_pct"]
+        for age in ages:
+            label = f"{name} (age {age})"
+            why, notes = applicability(item, run, age)
+            val = (run.get("plot_data") or run.get("tree_stats") or {}).get("subcanopy_light_pct") if not why else None
+            if not why and val is None:
+                why = "subcanopy light not saved in run output"
+            if why:
+                na(label, f"{format_val(rng)} %", why)
+                continue
+            rows.append(_row(label, f"{float(val):.1f} %", f"{format_val(rng)} %", source,
+                             _status(item, float(val), rng), "; ".join(notes + ["run-level value"])))
+
+    elif name.startswith("stand_canopy.live_crown_ratio."):
+        if "min_ratio" in item:
+            rng, rng_txt = (float(item["min_ratio"]), float("inf")), f">= {item['min_ratio']}"
+        elif "target_range" in item:
+            rng, rng_txt = item["target_range"], format_val(item["target_range"])
+        else:
+            rng = item["range"]
+            rng_txt = f"{format_val(rng)} (mean {item.get('mean_ratio')})"
+        for age in ages:
+            label = f"{name} (age {age})"
+            why, notes = applicability(item, run, age)
+            if why:
+                na(label, rng_txt, why)
+                continue
+            if scen == "plot":
+                crs = [r["crown_ratio"] for r in plot_live_records(run, age) if r.get("crown_ratio") is not None]
+                what = f"mean crown ratio of {len(crs)} live trees"
+            else:
+                rec = tree_record(run, age)
+                crs = [rec["crown_ratio"]] if rec and rec.get("crown_ratio") is not None else []
+                what = "crown ratio of the stand tree"
+            if not crs:
+                na(label, rng_txt, f"no live tree records at age {age}")
+                continue
+            val = sum(crs) / len(crs)
+            rows.append(_row(label, f"{val:.2f}", rng_txt, source, _status(item, val, rng),
+                             "; ".join([what] + notes)))
+
+    elif name == "stand_canopy.stand_density":
+        for at, key in _keyed_ages(item, r"_(\d+)yr$"):
+            label = f"{name} (age {at})"
+            why, notes = applicability(item, run, at)
+            st = plot_stat(run, at) if not why else None
+            if not why and st is None:
+                why = f"age {at} not in plot output"
+            if why:
+                na(label, f"{item[key]} stems/ha", why)
+                continue
+            val = float(st["stems_per_ha"])
+            rows.append(_row(label, f"{st['stems_per_ha']} stems/ha", f"{item[key]} stems/ha", source,
+                             _status(item, val, (item[key], item[key])), "; ".join(notes)))
+
+    elif name == "tree_allometry.site_index_curves":
+        p = item["parameters"]
+        lo_si, hi_si = item["swedish_boreal_range_m"]
+        t_ref = float(item["reference_age_years"])
+        ytb = float(item["years_to_breast_height"])
+        definition = item.get("dominant_height_definition", "unconfirmed")
+        for age in ages:
+            label = f"{name} (age {age})"
+            age_bh = age - ytb
+            if age_bh <= 0:
+                na(label, "N/A", f"breast-height age {age_bh:g} <= 0")
+                continue
+            band = (eriksson_1997_height(lo_si, age_bh, p["asi"], p["beta"], p["b2"], t_ref),
+                    eriksson_1997_height(hi_si, age_bh, p["asi"], p["beta"], p["b2"], t_ref))
+            band_txt = f"{band[0]:.2f}-{band[1]:.2f} m (SI{lo_si:g}-SI{hi_si:g}, bh age {age_bh:g})"
+            why, notes = applicability(item, run, age)
+            if why:
+                na(label, band_txt, why)
+                continue
+            if scen == "plot":
+                if definition not in DOMINANT_RANK:
+                    na(label, band_txt, f"dominant_height_definition is '{definition}' in targets.yaml")
+                    continue
+                recs = plot_live_records(run, age)
+                h, counted = dominant_height(recs, float(run["plot_data"]["area_m2"]), DOMINANT_RANK[definition])
+                need = 100.0 * float(run["plot_data"]["area_m2"]) / 1e4
+                what = f"dominant height, {definition}: {counted:.2f} of {need:.2f} trees on the plot"
+            else:
+                rec = tree_record(run, age)
+                h = rec.get("height_m") if rec else None
+                what = "dominant height = the stand tree's height (neighbours are copies of it)"
+            if h is None or h != h:
+                na(label, band_txt, f"no height at age {age}")
+                continue
+            rows.append(_row(label, f"{float(h):.2f} m", band_txt, source,
+                             _status(item, float(h), band), "; ".join([what] + notes)))
+
+    elif name == "tree_allometry.crown_width_open_grown":
+        m = re.search(r"=\s*([-\d.]+)\s*\+\s*([-\d.]+)\s*\*\s*DBH_over_bark_cm", item.get("formula", ""))
+        for age in ages:
+            label = f"{name} (age {age})"
+            why, notes = applicability(item, run, age)
+            rec = tree_record(run, age) if not why else None
+            if not why and m is None:
+                why = "formula in targets.yaml not in the form 'a + b * DBH_over_bark_cm'"
+            if not why and rec is None:
+                why = f"age {age} not in tree output"
+            if why:
+                na(label, item.get("formula", "See yaml"), why)
+                continue
+            from bark import dbh_over_bark
+            dbh_ob = float(dbh_over_bark(float(rec.get("dbh_cm") or 0.0)))
+            expected = float(m.group(1)) + float(m.group(2)) * dbh_ob
+            val = float(rec["crown_width_m"])
+            notes.insert(0, f"DBH over bark {dbh_ob:.1f} cm (tools/bark.py, the bark model named in targets.yaml)")
+            rows.append(_row(label, f"{val:.2f} m", f"{expected:.2f} m (formula)", source,
+                             _status(item, val, (expected, expected)), "; ".join(notes)))
+
+    elif name == "juvenile_establishment.natural_clearcut_heights":
+        for at, key in _keyed_ages(item, r"^age_(\d+)_years_m$"):
+            rng = item[key]
+            label = f"{name} (age {at})"
+            why, notes = applicability(item, run, at)
+            h = None
+            if not why:
+                if scen == "single-seedling":
+                    hs = run["seedling_data"].get("h", {})
+                    h = hs.get(str(at), hs.get(at))
+                elif scen == "plot":
+                    why = "plot seedling heights are not scored yet"
+            if not why and h is None:
+                why = f"age {at} not in output"
+            if why:
+                na(label, f"{format_val(rng)} m", why)
+                continue
+            rows.append(_row(label, f"{float(h):.3f} m", f"{format_val(rng)} m", source,
+                             _status(item, float(h), rng), "; ".join([f"height at age {at}"] + notes)))
+
+    else:
+        why, _ = applicability(item, run, None)
+        reasons = {
+            "stand_canopy.dominant_height_invariance": "needs runs at several densities",
+            "juvenile_establishment.field_layer": "field-layer sward properties not saved in run output",
+        }
+        if why:
+            na(name, "See yaml", why)
+        elif name in reasons:
+            na(name, "See yaml", reasons[name])
+        else:
+            rows.append(_row(name, "N/A", "See yaml", source, "NOT SCORED",
+                             "scorecard.py computes no model value for this target"))
+    return rows
+
+
 def evaluate_targets(
     targets: dict[str, Any], runs: list[dict[str, Any]], target_age: int | None = None,
     ages: list[int] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Evaluate runs against all targets at each age (stand age for plots,
-    tree age for single trees)."""
+    """Evaluate every target on every run whose scenario its conditions allow
+    (age: stand age for plots, tree age for single runs)."""
     if ages is None:
         ages = [target_age] if target_age is not None else default_ages(runs)
     results: list[dict[str, Any]] = []
     unconditioned: list[dict[str, Any]] = []
-
-    plot_run = next((r for r in runs if r["is_plot"]), None)
-    tree_run = next((r for r in runs if r["is_tree"]), None)
-    seedling_run = next((r for r in runs if r["is_seedling"]), None)
 
     for name, item in flatten_targets(targets):
         source = item.get("source", "N/A")
@@ -277,126 +492,15 @@ def evaluate_targets(
                                 "No conditions written in targets.yaml; listed for the maintainer's approval"))
             continue
 
-        if name in ("stand_canopy.lai_baltic_chronosequence", "stand_canopy.lai_hagemeier"):
-            rng = item["target_range"] if "target_range" in item else item["stand_range"]
-            for age in ages:
-                why, notes = applicability(name, item, plot_run, age)
-                st = plot_stat(plot_run, age) if plot_run and not why else None
-                if not why and st is None:
-                    why = f"age {age} not in plot output"
-                if why:
-                    results.append(_row(f"{name} (age {age})", "N/A", format_val(rng), source, "NOT APPLICABLE", why))
-                    continue
-                val = float(st["lai"])
-                notes.insert(0, f"plot LAI at {st.get('stems_per_ha')} stems/ha")
-                results.append(_row(f"{name} (age {age})", f"{val:.3f}", format_val(rng), source,
-                                    _in_range(val, rng), "; ".join(notes)))
-
-        elif name == "stand_canopy.subcanopy_light_transmittance":
-            rng = item["target_range_pct"]
-            for age in ages:
-                why, notes = applicability(name, item, plot_run, age)
-                val = plot_run["plot_data"].get("subcanopy_light_pct") if plot_run and not why else None
-                if not why and val is None:
-                    why = "subcanopy light not saved in plot output"
-                if why:
-                    results.append(_row(f"{name} (age {age})", "N/A", f"{format_val(rng)} %", source, "NOT APPLICABLE", why))
-                    continue
-                results.append(_row(f"{name} (age {age})", f"{float(val):.1f} %", f"{format_val(rng)} %", source,
-                                    _in_range(float(val), rng), "; ".join(notes + ["plot-level value from plot.json"])))
-
-        elif name in ("stand_canopy.live_crown_ratio.silvicultural_recommendation",
-                      "stand_canopy.live_crown_ratio.dense_unmanaged_stand"):
-            if "min_ratio" in item:
-                rng, rng_txt = (float(item["min_ratio"]), float("inf")), f">= {item['min_ratio']}"
-            else:
-                rng, rng_txt = item["target_range"], format_val(item["target_range"])
-            for age in ages:
-                why, notes = applicability(name, item, plot_run, age)
-                recs = plot_live_records(plot_run, age) if plot_run and not why else []
-                crs = [r["crown_ratio"] for r in recs if r.get("crown_ratio") is not None]
-                if not why and not crs:
-                    why = f"no live tree records at age {age}"
-                if why:
-                    results.append(_row(f"{name} (age {age})", "N/A", rng_txt, source, "NOT APPLICABLE", why))
-                    continue
-                val = sum(crs) / len(crs)
-                notes.insert(0, f"mean crown ratio of {len(crs)} live trees")
-                results.append(_row(f"{name} (age {age})", f"{val:.2f}", rng_txt, source,
-                                    _in_range(val, rng), "; ".join(notes)))
-
-        elif name == "stand_canopy.stand_density":
-            for at, key in _keyed_ages(item, r"_(\d+)yr$"):
-                why, notes = applicability(name, item, plot_run, at)
-                st = plot_stat(plot_run, at) if plot_run and not why else None
-                if not why and st is None:
-                    why = f"age {at} not in plot output"
-                if why:
-                    results.append(_row(f"{name} (age {at})", "N/A", f"{item[key]} stems/ha", source, "NOT APPLICABLE", why))
-                    continue
-                results.append(_row(f"{name} (age {at})", f"{st['stems_per_ha']} stems/ha", f"{item[key]} stems/ha",
-                                    source, "NO RANGE", "; ".join(notes + ["single value, no range in targets.yaml"])))
-
-        elif name == "tree_allometry.crown_width_open_grown":
-            m = re.search(r"=\s*([-\d.]+)\s*\+\s*([-\d.]+)\s*\*\s*DBH_over_bark_cm", item.get("formula", ""))
-            for age in ages:
-                why, notes = applicability(name, item, tree_run, age)
-                rec = next((r for r in tree_run["tree_stats"].get("per_year", []) if r.get("year") == age), None) \
-                    if tree_run and not why else None
-                if not why and m is None:
-                    why = "formula in targets.yaml not in the form 'a + b * DBH_over_bark_cm'"
-                if not why and rec is None:
-                    why = f"age {age} not in tree output"
-                if why:
-                    results.append(_row(f"{name} (age {age})", "N/A", item.get("formula", "See yaml"), source, "NOT APPLICABLE", why))
-                    continue
-                from bark import dbh_over_bark
-                dbh_ob = float(dbh_over_bark(float(rec.get("dbh_cm") or 0.0)))
-                expected = float(m.group(1)) + float(m.group(2)) * dbh_ob
-                notes.insert(0, f"DBH over bark {dbh_ob:.1f} cm (tools/bark.py, the bark model named in targets.yaml)")
-                results.append(_row(f"{name} (age {age})", f"{float(rec['crown_width_m']):.2f} m", f"{expected:.2f} m (formula)",
-                                    source, "NO RANGE", "; ".join(notes + ["formula value, no range in targets.yaml"])))
-
-        elif name == "juvenile_establishment.natural_clearcut_heights":
-            # condition: "naturally regenerated ... with typical field-layer
-            # competition"; a run counts only if its output records that
-            # field-layer competition was on
-            srun = seedling_run or tree_run
-            src = (srun or {}).get("seedling_data") or (srun or {}).get("tree_stats") or {}
-            for at, key in _keyed_ages(item, r"^age_(\d+)_years_m$"):
-                rng = item[key]
-                if srun is None:
-                    why = "needs a seedling or single-tree run"
-                elif not src.get("field_layer_competition"):
-                    why = "field-layer competition not recorded as on in the run output"
-                else:
-                    why = None
-                h = None
-                if not why:
-                    if srun.get("seedling_data"):
-                        h = src.get("h", {}).get(str(at), src.get("h", {}).get(at))
-                    else:
-                        rec = next((r for r in src.get("per_year", []) if r.get("year") == at), None)
-                        h = rec.get("height_m") if rec else None
-                    if h is None:
-                        why = f"age {at} not in output"
-                if why:
-                    results.append(_row(f"{name} (age {at})", "N/A", f"{format_val(rng)} m", source, "NOT APPLICABLE", why))
-                    continue
-                results.append(_row(f"{name} (age {at})", f"{float(h):.3f} m", f"{format_val(rng)} m", source,
-                                    _in_range(float(h), rng), f"height at age {at}"))
-
-        elif name == "stand_canopy.dominant_height_invariance":
-            results.append(_row(name, "N/A", "See yaml", source, "NOT APPLICABLE",
-                                "needs runs at several densities; not scored by this script"))
-
-        elif name == "juvenile_establishment.field_layer":
-            results.append(_row(name, "N/A", "See yaml", source, "NOT APPLICABLE",
-                                "field-layer sward properties not saved in run output"))
-
-        else:
-            results.append(_row(name, "N/A", "See yaml", source, "NOT SCORED",
-                                "conditions written but scorecard.py has no evaluator for this target"))
+        scenarios = conditions_of(item).get("scenario")
+        matching = [r for r in runs if scenarios is None or run_type(r)[0] in scenarios]
+        for run in matching or [None]:
+            rows = evaluate_run(name, item, run, ages)
+            if len(runs) > 1 and run is not None:
+                tag = Path(run["path"]).name
+                for r in rows:
+                    r["target"] = f"{r['target']} [{tag}]"
+            results.extend(rows)
 
     return results, unconditioned
 
@@ -426,28 +530,16 @@ def print_scorecard(results: list[dict[str, Any]], unconditioned: list[dict[str,
             f"| `{r['target']}` | {r['model_value']} | {r['target_range']} | **{r['status']}** | {r['source']} | {r['notes']} |"
         )
 
-    if unconditioned:
-        lines.append("")
-        lines.append("### Targets without conditions in targets.yaml (listed for the maintainer's approval)")
-        for u in unconditioned:
-            lines.append(f"- `{u['target']}` (Source: {u['source']}): marked NOT APPLICABLE because no conditions block is defined in `targets.yaml`.")
+    lines.append("")
+    lines.append("### Targets without conditions in targets.yaml (listed for the maintainer's approval)")
+    for u in unconditioned:
+        lines.append(f"- `{u['target']}` (Source: {u['source']}): marked NOT APPLICABLE because no conditions block is defined in `targets.yaml`.")
+    if not unconditioned:
+        lines.append("- none")
 
-    no_range = sorted({r["target"].split(" (")[0] for r in results if r["status"] == "NO RANGE"})
-    if no_range:
-        lines.append("")
-        lines.append("### Targets with a value but no range in targets.yaml (listed for the maintainer's approval)")
-        for t in no_range:
-            lines.append(f"- `{t}`: the model value is shown next to the target value; no PASS/FAIL without an approved range.")
-
-    readings = sorted({r["target"].split(" (")[0] for r in results} & set(RUN_READINGS))
-    if readings:
-        lines.append("")
-        lines.append("### How the written conditions were read (proposed as structured fields for the maintainer's approval)")
-        for t in readings:
-            kind, mode, text_age = RUN_READINGS[t]
-            extra = f", stand age {text_age[0]}-{text_age[1]}" if text_age else ""
-            lines.append(f"- `{t}`: {mode or 'any'} {kind} run{extra}")
-
+    lines.append("")
+    lines.append("INFO: information only (scoring: info in targets.yaml), never PASS/FAIL. "
+                 "NOT SCORED: the script computes no model value for that target.")
     return "\n".join(lines)
 
 
@@ -458,14 +550,18 @@ def main():
     parser.add_argument("paths", nargs="+", help="Paths to run outputs (plot.json, stats.json, or output directories)")
     parser.add_argument("--age", type=int, action="append", default=None,
                         help="Age to evaluate (repeatable); default 50 and 60 where the run reaches them")
+    parser.add_argument("--ref", default=TAG,
+                        help=f"git ref to read reference/targets.yaml from (default: the tag {TAG})")
     args = parser.parse_args()
 
-    targets = load_approved_targets()
+    targets = load_approved_targets(args.ref)
     runs = [load_run_data(p) for p in args.paths]
 
     results, unconditioned = evaluate_targets(targets, runs, ages=args.age)
-    header = (f"Targets: reference/targets.yaml at tag {TAG} (commit {approved_commit()}). "
-              f"Runs: {', '.join(args.paths)}")
+    header = f"Targets: reference/targets.yaml at {args.ref} (commit {commit_of(args.ref)})."
+    if commit_of(args.ref) != commit_of(TAG):
+        header += f" NOT the approved tag {TAG} (commit {commit_of(TAG)}): results are a preview, not approved."
+    header += f" Runs: {', '.join(args.paths)}"
     print(print_scorecard(results, unconditioned, header))
 
 
