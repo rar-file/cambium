@@ -72,6 +72,8 @@ stand_canopy:
       page_table: "Table 2 (p. 238) & Fig. 1 (p. 239); Repola (2008) Table 2 minimum (0.29)"
       measures: "Observed live crown ratio in dense, self-thinned stands. In Niemistö (1995) dense unthinned planted trials (3,000-5,000 stems/ha, aged 11-22 yr), rapid crown lift reduced LCR to 0.35-0.45, with suppressed trees reaching 0.30. In Repola (2008) suppressed trees in denser stands reached a lower bound of 0.29. Reconciled: Managed stands average 0.58 because thinnings release crowns; dense unmanaged stands self-thin to 0.30-0.45 due to intense lateral shading and crown recession."
       conditions:
+        stand_age_years: [11, 22]
+        note: "Applicable specifically to young dense stands (ages 11-22 yr); NOT a target for mature stands (ages 50-60)."
         management: "Dense unmanaged natural stands subject to dense lateral shading and natural self-pruning."
 
   stand_density:
