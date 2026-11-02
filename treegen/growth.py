@@ -752,6 +752,7 @@ class GrowthModel:
         self._root_carbon = root_net
         la_tot = float(bud_leaf.sum())
         npp = float(leaf_build.sum()) / g_resp + (shoot_net + root_net) / g_resp
+        self._npp_base = npp
         self.carbon = {"fixed": carbon, "shoot": shoot_budget, "root": carbon - shoot_budget,
                        "mean_bud_light": float(bud_q.mean()) if bud_q.size else 0.0,
                        "fixed_per_leaf_area": carbon / la_tot if la_tot > 0 else 0.0,
@@ -1428,10 +1429,21 @@ class GrowthModel:
                 late_dm = late_area * lma
                 late_maint = f_late * float(late_dm.sum()) * maint_per_g
                 late_shoot_net = max((1.0 - root_share) * c_late - late_maint, 0.0)
-                late_root_net = max(root_share * c_late - f_late * float(late_dm.sum()) * root_maint_per_g, 0.0)
+                late_root_maint = f_late * float(late_dm.sum()) * root_maint_per_g
+                late_root_net = max(root_share * c_late - late_root_maint, 0.0)
                 self._root_carbon += late_root_net
                 self.carbon["fixed"] += c_late
+                self.carbon["shoot"] += (1.0 - root_share) * c_late
+                self.carbon["root"] += root_share * c_late
+                self.carbon["leaf_maint"] += late_maint
+                self.carbon["fine_root_maint"] += late_root_maint
+                self.carbon["upkeep"] += late_maint + late_root_maint
                 self.carbon["leaf_dm_g"] += float(late_dm.sum())
+                self.carbon["late_shoot_net"] = late_shoot_net
+                self.carbon["late_root_net"] = late_root_net
+                if hasattr(self, "_npp_base") and self.carbon["fixed"] > 0:
+                    npp = self._npp_base + (late_shoot_net + late_root_net) / g_resp
+                    self.carbon["cue"] = npp / self.carbon["fixed"]
                 lam, ring = solve_for(pool + late_shoot_net)
         return lam, ring
 
