@@ -1139,12 +1139,12 @@ germination:
   # Heterotrophic respiration loss of seed reserves during germination prior to autotrophy
   # (Bewley & Black 1994; Penning de Vries et al. 1979)
   germination_respiration_fraction: 0.35
-  # Initial hypocotyl height at emergence (m)
+  # Initial hypocotyl height at emergence (m). VERIFY
   hypocotyl_height_m: 0.015
-  # Initial radicle taproot depth at emergence (m)
+  # Initial radicle taproot depth at emergence (m). VERIFY (not yet hooked to root system)
   initial_taproot_depth_m: 0.02
   # Integrated seasonal photosynthetic leaf equivalent over year 1 as cotyledons expand to first leaves
-  # (Ingestad 1979; Karlsson 2002; Konopka et al. 2023)
+  # (Ingestad 1979; Karlsson 2002; Konopka et al. 2023). VERIFY (effective seasonal calibrated scalar)
   first_year_effective_leaves: 0.20
   # Breast-height reference where heteroblastic juvenile leaves reach adult size (m)
   juvenile_scale_bh_m: 1.3
