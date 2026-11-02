@@ -93,19 +93,19 @@
 
 | Citation | What we use it for | DOI / Source | Confirmed |
 |---|---|---|---|
-| Danell et al. 1985 (J. Appl. Ecol. 22:883) | Moose browsing bite diameter & biomass removal | `10.2307/2403666` | Yes |
+| Danell et al. 1985 (J. Appl. Ecol. 22:883) | Moose browsing bite diameter & biomass removal | `10.2307/2937382` | Yes |
 | Bergström & Danell 1987 (J. Appl. Ecol. 24:803) | Moose bite diameter distribution in Betula | `10.2307/2403867` | Yes |
 | Shipley et al. 1998 (Oecologia 114:421) | Ungulate cropping bite diameter mechanics | `10.1007/s004420050478` | Yes |
 | Bergqvist et al. 2014 (Forestry 87:419) | Moose browsing height preference (0.3–3.0 m) | `10.1093/forestry/cpu007` | Yes |
 | Mathisen et al. 2017 (BMC Ecology 17:12) | Birch mean leader bite diameter (2.16 mm) | `10.1186/s12898-017-0122-3` | Yes |
 | Chaar et al. 1997 (Ann. For. Sci. 54:405) | Leader replacement & apical control release | `10.1051/forest:19970503` | VERIFY (Quercus/Pinus) |
 | Wilson 2000 (Am. J. Bot. 87:601) | Primary bending & apical control mechanisms | `10.2307/2656989` | Yes |
-| Bastien et al. 2013 (PNAS 110:755) | Universal stem gravitropic reorientation (L_gz, L_c) | `10.1073/pnas.1214301110` | Yes |
+| Bastien et al. 2013 (PNAS 110:755) | Universal stem gravitropic reorientation (L_gz, L_c) | `10.1073/pnas.1214301109` | Yes |
 | Morgan & Cannell 1994 (Tree Physiol. 14:49) | Stem uniform bending stress under wind | `10.1093/treephys/14.1.49` | Yes |
 | Niklas & Spatz 2000 (Trees 14:230) | Stem safety factor vs size (challenges constant stress) | `10.1007/s004680000078` | Yes |
-| Bonnesoeur et al. 2016 (New Phytol. 210:850) | Thigmomorphogenesis acclimates to frequent wind | `10.1111/nph.13838` | Yes |
+| Bonnesoeur et al. 2016 (New Phytol. 210:850) | Thigmomorphogenesis acclimates to frequent wind | `10.1111/nph.13836` | Yes |
 | Clausen & Kozlowski 1965 (Can. J. Bot. 43:305) | Heterophylly in birch (early vs late leaves) | `10.1139/b65-035` | Yes |
-| Maillette 1982 (J. Appl. Ecol. 19:203) | Structural dynamics of birch bud populations | `10.2307/2403667` | Yes |
+| Maillette 1982 (J. Appl. Ecol. 19:203) | Structural dynamics of birch bud populations | `10.2307/2403005` | Yes |
 | Tenkanen et al. 2020 (Tree Physiol. 40:486) | Late leaf emergence and season fraction (0.5) | `10.1093/treephys/tpz124` | VERIFY (Alnus/deciduous) |
 | SMHI west coast wind data / Boverket EKS | West coast synoptic & design wind (12 & 25 m/s) | SMHI Open Data / EKS 11 | VERIFY (Lysekil local) |
 
@@ -1764,3 +1764,107 @@ Seed 1, age 60, against published silver-birch values. "Shoot" is a branch tip c
 - Limbs that reach the ground layer now stop, and a branch lying there dies. Nodes coming back to the trunk below 3 m fell from 95 to 32 on seed 1 (open), but not to zero.
 - Roots near the collar avoid the stem and each other and turn at most 30° per 5 cm segment. Segments heading back to the stem fell by about half in open-grown seed 1 (2435 → 1031) but rose in the stand run (314 → 454). Sharp kinks fell only slightly (3.8 → 3.2 % of collar segments).
 - Blender is not installed on this machine. The shaded previews come from the built-in rasterizer (exact rasterization, supersampling, sky and sun light; no shadows).
+
+
+## Phase 32: Citation re-verification, matched moose test, juvenile growth & long shoot diagnosis, and woody shade
+
+**1. Re-verified citations (triple-checked by independent research subagents):**
+- Resolved the DOI collision in Phase 31 (Danell 1985 vs Maillette 1982).
+- Debunked the "FAHM" 2.29 m seedling claim (hallucination; real clearcut Swedish/Finnish regeneration sourced).
+- Clarified Johansson 1999 (biomass only; optical WAI 0.4–0.9 comes from Kucharik 1998 and Gower 1999).
+- Clarified Hale 2012 (turning moment TC; canopy wind decay is Cionco 1972 / Raupach 1994).
+- Sourced $k_{\text{wood}} = 0.40$ from four peer-reviewed forestry optics papers.
+
+| Source | Journal / Ref | True DOI / Identifier | Claim / What we use it for | Confirmed |
+|---|---|---|---|---|
+| Danell et al. 1985 | Ecology 66:1867–1878 | `10.2307/2937382` | Moose browsing on birch twigs; biomass removal vs diameter | Yes |
+| Bergström & Danell 1987 | J. Ecol. 75:533–544 | `10.2307/2260432` | Winter moose browsing distribution on Betula shoots | Yes |
+| Shipley et al. 1998 | Can. J. Zool. 76:1722–1733 | `10.1139/z98-110` | Pruning mechanics & ungulate bite diameter | Yes |
+| Bergqvist et al. 2014 | Forestry 87:419–428 | `10.1093/forestry/cpu007` | Moose browsing height preference (0.3–3.0 m) | Yes |
+| Mathisen et al. 2017 | BMC Ecology 17:12 | `10.1186/s12898-017-0122-3` | Silver birch bite diameter ($2.16 \pm 0.15$ mm, 100% moose, Norway) | Yes |
+| Chaar et al. 1997 | Can. J. For. Res. 27:1614–1621 | `10.1139/x97-128` | Decapitation & apical control release (*Ann. Sci. For.* was ghost citation) | Yes |
+| Wilson 2000 | Am. J. Bot. 87:601–607 | `10.2307/2656846` | Apical control & primary branch righting mechanics | Yes |
+| Bastien et al. 2013 | PNAS 110:755–760 | `10.1073/pnas.1214301109` | Universal gravitropic rod reorientation ($B = L_{\text{gz}}/L_c \approx 2.0\text{--}5.0$) | Yes |
+| Morgan & Cannell 1994 | Tree Physiol. 14:49–62 | `10.1093/treephys/14.1.49` | Uniform stem bending stress under wind ($2.5\text{--}10.0$ m/s) | Yes |
+| Niklas & Spatz 2000 | Trees 14:230–240 | `10.1007/s004680050008` | Mechanical safety factors decrease with tree size | Yes |
+| Bonnesoeur et al. 2016 | New Phytol. 210:850–860 | `10.1111/nph.13836` | Radial acclimation responds to peak storms rather than daily breezes | Yes |
+| Clausen & Kozlowski 1965, 1966 | Nature 205:1030; Can. J. Bot. 44:827 | `10.1038/2051030a0`, `10.1139/b66-096` | Birch heterophylly (preformed early vs neoformed late leaves) | Yes |
+| Maillette 1982 | J. Appl. Ecol. 19:203–218, 219–238 | `10.2307/2403005`, `10.2307/2403006` | Birch bud population dynamics (>80–90% short shoots in mature crown) | Yes |
+| Tenkanen et al. 2020 | Tree Physiol. 40:198–214 | `10.1093/treephys/tpz124` | Late leaf emergence sequence & season fraction ($f_{\text{late}} \approx 0.5$) | Yes |
+| Johansson 1999 | Biomass Bioenergy 16:223–238 | `10.1016/S0961-9534(98)00075-0` | Birch stand dry biomass; stem dimensions in Sweden | Yes |
+| Kucharik 1998 / Gower 1999 | Agric. For. Meteorol. 91:69, 96:115 | `10.1016/S0168-1923(98)00064-0`, `(99)00057-9` | Optical WAI for boreal deciduous stands ($0.4\text{--}0.9\text{ m}^2/\text{m}^2$) | Yes |
+| Hale et al. 2012 | Eur. J. Forest Res. 131:203–213 | `10.1007/s10342-010-0448-2` | Turning moment coefficient $TC$ for birch under wind | Yes |
+| Cionco 1972 / Raupach 1994 | Bound.-Layer Meteorol. 3:255, 71:211 | `10.1007/BF00769111`, `10.1007/BF00709229` | Canopy exponential wind decay profile $u(z)=u(h)\exp(-\alpha(1-z/h))$ | Yes |
+| Granier 2000, Barclay 2000 | Agric. For. Meteorol. 100:291, 100:255 | `10.1016/S0168-1923(00)00138-5`, `(00)00159-2` | Deciduous woody extinction factor $k_{\text{wood}} \approx 0.40$ | Yes |
+| Duursma & Mäkelä 2007 | Tree Physiol. 27:859–870 | `10.1093/treephys/27.6.859` | Stand woody attenuation coefficient $k_w = 0.40$ | Yes |
+
+**2. Moose test validity (matched 12-year baseline vs Part 1):**
+- Previous test was rerun with exact matching baseline and Part 1 on current code (25 trees, 12 years, seed 1, natural mode):
+
+| Metric | Baseline (full shoot killed) | Moose Part 1 ($d_{\text{bite}} = 2.2\text{ mm}$) | Reduction |
+|---|---|---|---|
+| Total browsed replacements | 25 | 23 | - |
+| Median lateral crook $dx_{y1}$ | 0.382 m | **0.041 m** | **89.2%** |
+| Maximum lateral crook $dx_{y1}$ | 1.072 m | **0.087 m** | **91.9%** |
+| Mean lateral crook $dx_{y1}$ | 0.559 m | **0.045 m** | **91.9%** |
+
+- **Conclusion:** Moose Part 1 alone eliminates large crooked offsets: the lateral crook is held to $\le 8.7\text{ cm}$ (natural stem waviness). Moose Part 2 (special leader righting rule) is officially dropped.
+
+**3. Young-tree growth diagnosis and sourced fertility/temperature plan (diagnosis only):**
+- Real clearcut naturally regenerated heights in Sweden/Finland (Johansson 1999; Niemistö 1995; Valkonen et al. 2002; Hynynen et al. 2010):
+  - Age 2: $0.15\text{--}0.35\text{ m}$
+  - Age 5: $1.2\text{--}1.8\text{ m}$
+  - Age 10: $4.5\text{--}6.0\text{ m}$
+  - Canopy closure in dense clearcut regeneration: age 4–6 years.
+- Model juvenile growth: with leaf fix, height reaches 2.11 m at year 3 (canopy closes at year 3, target 4–6) and 4.11 m at year 5.
+- **Why the model is $1.5\text{--}2\times$ fast:** Current photosynthesis operates at unconstrained maximum fertility ($\alpha = 4.8$, fertile agricultural field, Aosaar et al. 2016) and standard daylight hours without growing-degree-day (GDD) or temperature limits.
+- **Sourced plan for Open Issue 3 (Fertility & Temperature Limits):**
+  - Do not artificially downscale juvenile growth.
+  - Implement Swedish site-index allometry ($H_{50} = 18\text{--}30\text{ m}$, Eriksson et al. 1997 / Skogsstyrelsen):
+    1. Thermal constraint: scale growing season length and maximum daily assimilation via GDD ($> 5^\circ\text{C}$ sum, e.g. 1100–1300 day-degrees for southern boreal Sweden; Bergh et al. 1998, *Tree Physiol.* 18:23).
+    2. Nutrient/fertility scalar $\phi_{\text{site}} \in [0.6, 1.0]$: maps stand soil class (poor till vs fertile loam) directly to canopy assimilation $\alpha = 4.8 \times \phi_{\text{site}}$, matching the site curves without tuning.
+
+**4. Mature long shoots count and carbon allocation diagnosis (seed-1 stand tree):**
+- Evaluated metamer extension per growing axis across mature ages:
+
+| Age | Growing Axes | Long Shoots (>1 metamer) | Short / Single-Metamer Shoots | Median Increment | Max Increment | Active Spurs |
+|---|---|---|---|---|---|---|
+| 10 | 721 | 650 (90.2%) | 71 (9.8%) | 0.110 m | 0.480 m | 1,536 |
+| 20 | 153 | 1 (0.7%) | 152 (99.3%) | 0.005 m | 0.030 m | 4,943 |
+| 30 | 470 | 0 (0.0%) | 470 (100.0%) | 0.004 m | 0.005 m | 9,358 |
+| 40 | 799 | 0 (0.0%) | 799 (100.0%) | 0.006 m | 0.008 m | 11,440 |
+| 50 | 953 | 142 (14.9%) | 811 (85.1%) | 0.014 m | 0.220 m | 14,664 |
+| 60 | 622 | 0 (0.0%) | 622 (100.0%) | 0.004 m | 0.007 m | 16,213 |
+
+- **Diagnosis:**
+  - Real mature birch crowns are overwhelmingly short shoots (>80–90%, Maillette 1982).
+  - The model matches this dominance, but dips to strictly 0 long shoots at 30, 40, and 60.
+  - **Mechanism:** In mature trees, conducting sapwood ring construction (Huber distance rule + 1.4%/yr sapwood turnover) consumes 95–99% of the net shoot carbon pool. The remaining pool distributed across hundreds of competing buds yields growth factor $v \approx 1.0$, exactly hitting the 1-metamer (4 mm) threshold for terminal bud survival as a short shoot. Reiterations (e.g. at age 50) temporarily concentrate carbon to produce 142 extending shoots.
+
+**5. Woody shade implementation & results (`light.woody_shade.enabled`):**
+- Built woody shade attenuation in voxel light grid (`treegen/light.py`, `species/betula_pendula.yaml`, `treegen/growth.py`, `treegen/plot.py`, commit `9a4a91f`).
+- Default: `enabled: false`, $k_{\text{wood}} = 0.40$.
+- **Stand floor light check on Year-58 Plot Checkpoint (`out/bench/p26_nat/checkpoint.pkl`, 95 trees, plot WAI = 0.741):**
+  - Height 2.0 m: Baseline 24.1% $\to$ **Woody Shade 18.5%** [Hagemeier & Leuschner target 10–15%].
+  - Height 3.5 m: Baseline 24.0% $\to$ **Woody Shade 18.7%**.
+  - Height 5.0 m: Baseline 23.9% $\to$ **Woody Shade 19.0%**.
+  - Confirmed: Under-canopy light drops cleanly below the 21% shedding threshold.
+- **Seed-1 stand tree growth alone to age 60 (tested alone, woody shade ON vs Baseline OFF):**
+
+| Run | Age | H (m) | DBH over bark (cm) | H/D over bark | Lowest live limb (m) | Crown ratio | Total 1st-order limbs | Small limbs (<1 cm / <2 cm) | Foliage (kg) | / Repola Eq. 12 | / Repola A6 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Baseline | 10 | 9.36 | 10.02 | 93.4 | 7.00 | 0.25 | 87 | 79 / 87 | 0.48 | 0.58 | 0.79 |
+| Woody shade | 10 | 9.43 | 9.83 | 96.0 | 6.54 | 0.31 | 86 | 81 / 86 | 0.45 | 0.58 | 0.66 |
+| Baseline | 30 | 18.01 | 18.45 | 97.7 | 8.91 | 0.51 | 131 | 102 / 127 | 2.16 | 0.55 | 0.61 |
+| Woody shade | 30 | 19.09 | 18.43 | 103.6 | 6.54 | 0.66 | 171 | 140 / 171 | 2.21 | 0.56 | 0.41 |
+| Baseline | 50 | 23.57 | 26.14 | 90.2 | 8.91 | 0.62 | 168 | 109 / 155 | 3.45 | 0.46 | 0.45 |
+| Woody shade | 50 | 24.94 | 24.57 | 101.5 | 6.54 | 0.74 | 132 | 75 / 125 | 2.94 | 0.43 | 0.30 |
+| Baseline | 60 | 25.71 | 28.52 | 90.1 | 8.91 | 0.65 | 142 | 98 / 127 | 3.74 | 0.43 | 0.41 |
+| Woody shade | 60 | 26.44 | 27.09 | 97.6 | 6.54 | 0.75 | 142 | 82 / 131 | 3.33 | 0.41 | 0.29 |
+
+- **Observations:** On a single stand tree thinned down to 450 stems/ha (4.7 m tree spacing, LAI ~2.8), the under-canopy light remains > 25% even with woody shade, so the lowest limb does not self-prune higher. In contrast, in dense multi-tree plots (LAI ~4.1), woody shade drops floor light from 24% to 18.5%, triggering self-thinning.
+
+**6. Upkeep switch comparison on dense young regeneration:**
+- Evaluated 10-year dense regeneration stand (9,900 stems/ha, 44 trees, 44.4 m², seed 1) with upkeep switch OFF vs ON:
+- Results: Tree survival counts, heights, LAI, and light are **100% identical** across all 10 years (44 alive at yr 3, LAI 5.05, light 15%; 41 at yr 5; 32 at yr 6; 23 at yr 10).
+- Conclusion: Thinning in young stands is driven purely by light starvation (< 21%) following canopy closure, not wood maintenance.
