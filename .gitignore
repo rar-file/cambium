@@ -13,3 +13,6 @@ out/
 *.pkl
 *.pkl.tmp
 *_parts/
+
+# agent scratch work (scripts, papers, PDFs); never committed
+scratch/
