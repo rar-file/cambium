@@ -1291,12 +1291,27 @@ class GrowthModel:
         WD = T.basipetal(levels, w * d)
         return np.where(W > 0.0, WD / np.maximum(W, 1e-30) - d, 0.0)
 
-    def _wind_load_scale(self, alive: np.ndarray, laz_base: float, wl):
+    def _stem_theory_stage(self) -> int:
+        """pipe_model.stem_theory.stage: 0 off, 1 stage a (pipe model below
+        the crown base, surplus sapwood to heartwood, no distance rule), 2
+        stage b (stage a plus the wind envelope, sheltered inside a taller
+        canopy)."""
+        st = getattr(self.sp.pipe_model, "stem_theory", None)
+        return int(getattr(st, "stage", 0) or 0) if st is not None else 0
+
+    def _wind_load_scale(self, alive: np.ndarray, laz_base: float, wl, stage_b: bool = False):
         """Force per unit leaf area (N m-2) and area coefficient (m2 / (N m)^(2/3))
         for the ForestGALES roughness-method wind load (Gardiner et al. 1997,
         2000; Raupach 1994; Hale et al. 2015), distributed over the crown's
-        foliage so the base turning moment equals d * rho * G * u_*^2 * D^2 * DLF."""
-        if wl is None or not bool(getattr(wl, "enabled", False)) or laz_base <= 0.0:
+        foliage so the base turning moment equals d * rho * G * u_*^2 * D^2 * DLF.
+        Stem theory stage b switches it on with stem_theory.wind_speed_m_s at
+        the canopy top; a tree below the canopy top (in a plot: the tallest
+        living tree) gets the wind at its own height, u_h exp(a (h / h_c - 1))
+        (exponential within-canopy profile, a =
+        stem_theory.canopy_wind_attenuation)."""
+        if wl is None or laz_base <= 0.0:
+            return 0.0, 0.0
+        if not (bool(getattr(wl, "enabled", False)) or stage_b):
             return 0.0, 0.0
         T = self.tree
         n0 = len(alive)
@@ -1310,6 +1325,12 @@ class GrowthModel:
         dc = max(h - cb, 0.1)
         D = float(getattr(self, "_plot_spacing", 0.0) or (math.sqrt(10000.0 / self.stems_per_ha(h)) if self.stand else max(bc, h)))
         u_h = float(wl.wind_speed_m_s)
+        if stage_b:
+            st = self.sp.pipe_model.stem_theory
+            u_h = float(st.wind_speed_m_s)
+            h_c = float(getattr(self, "_plot_canopy_height", 0.0) or 0.0)
+            if h_c > h:
+                u_h *= math.exp(float(st.canopy_wind_attenuation) * (h / h_c - 1.0))
         u_s = min(max(u_h, float(wl.streamlining_min_wind_m_s)), float(wl.streamlining_max_wind_m_s))
         cd = float(wl.streamlining_c) * (u_s ** -float(wl.streamlining_n))
         lam_c = cd * bc * dc / max(D * D, 1e-6)
@@ -1340,6 +1361,13 @@ class GrowthModel:
         hv = float(sp.hydraulics.huber_value)
         b = float(getattr(pm, "huber_radius_exponent", 0.0) or 0.0)
         c = float(getattr(pm, "huber_path_exponent", 0.0) or 0.0)
+        # stem theory (phase 37) stage a and up: plain pipe model, no rise of
+        # the Huber value with path length or radius; below the crown base
+        # the sapwood is the crown base's and the surplus is retired to
+        # heartwood (crown_rise_heartwood, below)
+        stage = self._stem_theory_stage()
+        if stage >= 1:
+            b = c = 0.0
         if c:
             # wood per unit of foliage beyond rises from tip to base with the
             # path length to the leaves it supplies (leaf-weighted mean):
@@ -1356,7 +1384,7 @@ class GrowthModel:
         la_now = np.zeros(n0)
         np.add.at(la_now, bud_nodes, bud_leaf)
         la_now = T.basipetal(levels, la_now)
-        cr_hw = bool(getattr(pm, "crown_rise_heartwood", False))
+        cr_hw = bool(getattr(pm, "crown_rise_heartwood", False)) or stage >= 1
         if cr_hw and bool(getattr(pm, "sapwood", True)):
             cb = float((self.stats[-1].get("crown_base_height_m") if self.stats else None) or 0.0)
             if cb > 0.0:
@@ -1385,7 +1413,8 @@ class GrowthModel:
         laz_now = np.zeros(n0)
         np.add.at(laz_now, bud_nodes, bud_leaf * z_node[bud_nodes])
         laz_now = T.basipetal(levels, laz_now)
-        f_wind, a_wind_coef = self._wind_load_scale(alive, float(laz_now[0]), getattr(pm, "wind_load", None))
+        f_wind, a_wind_coef = self._wind_load_scale(alive, float(laz_now[0]), getattr(pm, "wind_load", None),
+                                                    stage_b=stage >= 2)
         wood_keep = np.where(alive, T.wood_area[:n0], 0.0)
         L = np.where(alive, T.length[:n0], 0.0)
         L[0] = 0.0

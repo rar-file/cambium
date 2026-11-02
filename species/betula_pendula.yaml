@@ -694,6 +694,28 @@ pipe_model:
     streamlining_min_wind_m_s: 10.0
     streamlining_max_wind_m_s: 20.0
     deflection_loading_factor: 1.136
+  # Stem theory (phase 37), off by default (stage 0).
+  # stage 1 ("a"): plain pipe model - huber_path_exponent and
+  # huber_radius_exponent are not used (c = 0); below the live crown base the
+  # conducting sapwood is that of the crown base, A_s(z) = A_s(H_c)
+  # (Shinozaki et al. 1964, Jpn. J. Ecol. 14:97; Makela 1997, For. Sci.
+  # 43:7, DOI 10.1093/forestscience/43.1.7), and sapwood above that is
+  # retired to heartwood (as crown_rise_heartwood).  No wind.
+  # stage 2 ("b"): stage 1 plus the wind envelope (wind_load above, with its
+  # strength parameters: target stress = wood_mor_green_mpa x knot_factor /
+  # safety_factor = 18 MPa, VERIFY as noted there) at wind_speed_m_s at the
+  # canopy top.  12 m/s was set in the phase-37 brief, not fitted: VERIFY.
+  # Below a taller canopy top (plot mode: the tallest living tree) the wind
+  # at the tree's own height follows the exponential within-canopy profile
+  # u(z) = u_h exp(a (z / h_c - 1)) (Inoue 1963, J. Meteorol. Soc. Jpn.
+  # 41:317).  a = 2.0 is a typical leaf-on broadleaf value from secondary
+  # summaries, not checked in a primary table: VERIFY.  A single stand tree
+  # is the canopy (its neighbours are copies of it), so the profile does not
+  # change it.
+  stem_theory:
+    stage: 0
+    wind_speed_m_s: 12.0
+    canopy_wind_attenuation: 2.0
 
 geometry:
   # Root flare.  "buttress": the stem base rises in ridges over the main

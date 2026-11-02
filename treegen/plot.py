@@ -221,11 +221,14 @@ class Plot:
                 pts.append(q + self._offset(k))
                 ls.append(lq)
             self.soil.update(np.concatenate(pts) if pts else np.zeros((0, 3)), np.concatenate(ls) if ls else np.zeros(0))
+        h_canopy = max((self.trees[k].stats[-1]["height_m"] for k in active if self.trees[k].stats), default=0.0)
         for k in active:
             m = self.trees[k]
             m._plot_view = OffsetField(field, self._offset(k)) if field is not None else None
             m._plot_soil = self.soil
             m._plot_spacing = math.sqrt(self.area / max(len(self.alive), 1))
+            # canopy top for the within-canopy wind profile (stem theory stage b)
+            m._plot_canopy_height = h_canopy
             m.step()
             m._plot_view = m._plot_soil = None
         self.year = t
