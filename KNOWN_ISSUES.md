@@ -1881,7 +1881,7 @@ Seed 1, age 60, against published silver-birch values. "Shoot" is a branch tip c
 |---|---|---|---|---|---|
 | Living Stems ($N/\text{ha}$) | 94 (1,692/ha) | 90 (1,620/ha) | 88 (1,584/ha) | 84 (1,512/ha) | Natural self-thinning |
 | Cumulative Deaths | 6 (5 died, 1 failed) | 10 (9 died, 1 failed) | 12 (11 died, 1 failed) | 16 (15 died, 1 failed) | Woody shade accelerates thinning (+11 vs p26_nat) |
-| DBH under bark (cm) | 12.80 ± 3.68 (0.4–21.8) | 14.82 ± 4.13 (0.5–25.6) | 15.37 ± 4.18 (0.5–26.5) | 16.38 ± 4.52 (0.5–26.9) | Model wood diameter |
+| DBH under bark (cm) | 12.80 ± 3.68 (0.4–21.8) | 14.82 ± 4.13 (0.5–25.6) | 15.37 ± 4.18 (0.5–26.6) | 16.38 ± 4.52 (0.5–26.9) | Model wood diameter |
 | DBH over bark (cm) | 14.00 ± 4.04 (0.4–23.9) | 16.23 ± 4.53 (0.5–28.1) | 16.83 ± 4.59 (0.5–29.1) | 17.93 ± 4.96 (0.5–29.5) | Hansen et al. 2023 over-bark |
 | Height mean (m) | 18.29 | 23.24 | 25.10 | 27.15 | Stand mean |
 | Top 25% Height (m) | 20.09 | 25.09 | 27.32 | 29.94 | Dominant canopy height |
@@ -1899,7 +1899,7 @@ Seed 1, age 60, against published silver-birch values. "Shoot" is a branch tip c
 - **Mortality Diagnosis:**
   - 16 total deaths across 60 years. 1 seedling failed to establish at year 3 (`failed to establish`, Tree 82).
   - 15 trees died from light starvation and negative carbon balance (`died`): Tree 15 (yr 8), Tree 76 (yr 17), Tree 95 (yr 19), Tree 75 (yr 29), Tree 94 (yr 30), Tree 64 (yr 32), Tree 17 (yr 38), Tree 05 (yr 39), Tree 35 (yr 41), Tree 21 (yr 46), Tree 86 (yr 48), Tree 18 (yr 51), Tree 83 (yr 51), Tree 33 (yr 52), Tree 26 (yr 53).
-  - All 15 natural deaths occurred in shaded, suppressed sub-canopy trees (final heights 4.5–23.8 m, DBHs 1.1–12.6 cm) whose live crown ratios fell below 0.15 and whose carbon fixation dropped below maintenance respiration two years running.
+  - All 15 natural deaths occurred in shaded, carbon-starved trees across a range of sizes: 1 juvenile sapling (Tree 15, yr 8, final H 0.30 m, DBH 0.00 cm), 13 sub-canopy suppressed poles (final heights 4.5–23.8 m, DBHs 1.1–12.6 cm), and 1 mature codominant tree (Tree 18, yr 51, final H 25.68 m, DBH 17.91 cm) whose crown thinned in the dense canopy until upkeep exceeded carbon assimilation two years running.
   - Woody shade successfully reduced under-canopy light below the 21% compensation threshold, tripling natural self-thinning mortality (16 deaths in p33_nat vs 5 deaths in p26_nat).
 
 **2. Carbon budget diagnosis (seed-1 stand tree, Task 2):**
