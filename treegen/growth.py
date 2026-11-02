@@ -51,7 +51,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from . import hydraulics, mechanics
-from .light import ShadowPropagation
+from .light import SUBCANOPY_LIGHT_HEIGHTS_M, ShadowPropagation
 from .roots import RootSystem
 from .structure import Tree, _normalize, _perpendicular
 
@@ -658,6 +658,10 @@ class GrowthModel:
         else:
             field = self.light.compute(src, src_w, region, wood_pos=wpos, wood_area=warea, k_wood=k_wood)
         self._field = field   # kept for diagnostics until the next season
+        # output only: light at the target's measurement heights under the
+        # stand canopy (a plot reports it for the whole plot, plot.py)
+        self._subcanopy_light = (field.relative_light_at_heights(SUBCANOPY_LIGHT_HEIGHTS_M)
+                                 if self.stand and getattr(self, "_plot_view", None) is None else None)
         Qterm = np.zeros(n0)
         Qlat = np.zeros(n0)
         own_t = own_l = None
@@ -2114,6 +2118,10 @@ class GrowthModel:
             # projection (open-grown)
             "lai": round(total_leaves * self.light.leaf_area * self.stems_per_ha(height) / 10000.0, 3) if self.stand
             else (round(total_leaves * self.light.leaf_area / max(math.pi * hull_d * hull_d / 4.0, 1e-6), 3) if hull_d > 0 else None),
+            # relative light (%) at 1.0-2.0 m under the stand canopy this
+            # season (light.SUBCANOPY_LIGHT_HEIGHTS_M); stand runs only
+            "subcanopy_light_pct": (round(100.0 * self._subcanopy_light, 2)
+                                    if getattr(self, "_subcanopy_light", None) is not None else None),
             "water": {k: (round(v, 6) if isinstance(v, float) else v) for k, v in self.water.items()},
             # carbon fixed this season, in resource units (alpha x sum of bud
             # light x stomatal opening; one unit builds about one metamer)

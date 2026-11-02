@@ -29,7 +29,7 @@ import numpy as np
 from treegen import export, mesh, preview
 from treegen.environment import make_environment, make_soil
 from treegen.growth import GrowthModel
-from treegen.params import ROOT, load_environment, load_species
+from treegen.params import ROOT, load_environment, load_species, run_manifest
 from treegen.reference import reference_block
 
 CROWN_ATTRS = ["birth_year", "death_year", "branch_order", "radius", "node_id"]
@@ -385,6 +385,7 @@ def main(argv=None) -> int:
         "seed": args.seed,
         "generator": "treegen 0.4 (Palubicki et al. 2009 self-organising model, roots, hydraulics)",
     }
+    meta["run_manifest"], meta["options"] = run_manifest(args.species, args.environment, sp)
     t1 = time.time()
     anchorage = anchorage_numbers(model, sp)
     export.write_timeline(out / "timeline.json", model, meta)

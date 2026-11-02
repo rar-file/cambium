@@ -216,6 +216,14 @@ class ShadowPropagation:
         return LightField(self, S, lo, periodic is not None)
 
 
+# Heights (m) at which the light under the canopy is read for the output
+# (stats per_year / plot stats "subcanopy_light_pct"): the 1.0-2.0 m of the
+# light target in reference/targets.yaml (stand_canopy.subcanopy_light_
+# transmittance, Hagemeier & Leuschner 2019b).  Output only; growth never
+# reads it.
+SUBCANOPY_LIGHT_HEIGHTS_M = (1.0, 1.5, 2.0)
+
+
 class LightField:
     """Shadow values for one growth cycle."""
 
@@ -258,6 +266,23 @@ class LightField:
             out = map_coordinates(self.S, c.T, order=1, mode="grid-wrap")
             return np.where((c[:, 2] < -0.5) | (c[:, 2] > self.S.shape[2] - 0.5), 0.0, out)
         return map_coordinates(self.S, c.T, order=1, mode="constant", cval=0.0)
+
+    def relative_light_at_heights(self, heights) -> float | None:
+        """Mean relative light (exposure / full light, Q / C = exp(-s / C)
+        with no own shade) over every voxel column of a periodic cell at the
+        given heights above ground (m): what light sensors spread over the
+        stand at those heights would read.  None for a field that is not a
+        repeating stand cell, or whose grid does not reach down to the
+        lowest height (the shade there was not computed)."""
+        if not self.periodic:
+            return None
+        if min(heights) / self.p.vs - self.lo[2] - 0.5 < -0.5:
+            return None
+        nx, ny = self.S.shape[:2]
+        ix, iy = np.meshgrid(np.arange(nx), np.arange(ny), indexing="ij")
+        xy = (np.stack([ix.ravel(), iy.ravel()], 1) + self.lo[:2] + 0.5) * self.p.vs
+        vals = [np.exp(-self.sample(np.column_stack([xy, np.full(len(xy), float(h))])) / self.p.C) for h in heights]
+        return float(np.mean(vals))
 
     def optimal_direction(self, pos: np.ndarray, heading: np.ndarray) -> np.ndarray:
         """Direction of least shadow inside the perception cone around ``heading``.

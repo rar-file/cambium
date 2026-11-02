@@ -19,6 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import cli  # noqa: E402
 from treegen import export  # noqa: E402
+from treegen.params import run_manifest  # noqa: E402
 from treegen.plot import Plot  # noqa: E402
 
 
@@ -62,9 +63,15 @@ def main(argv=None):
               f"{', regeneration' if args.regeneration else ''}", flush=True)
     meta_base = {"species": sp.species.scientific_name, "environment": args.environment, "mode": f"plot ({plot.mode})",
                  "plot_seed": args.seed}
+    manifest, options = run_manifest(args.species, args.environment, sp)
+    # --set overrides change the parameters used without changing the file;
+    # a resumed run reports the files as they are now, not as at its start
+    manifest.update({"overrides": args.set, "resumed": bool(args.resume)})
+    meta_base.update({"run_manifest": manifest, "options": options})
 
     def write_plot_json():
         (out / "plot.json").write_text(json.dumps({"area_m2": plot.area, "side_m": plot.L, "mode": plot.mode, "year": plot.year,
+                                                   "run_manifest": manifest, "options": options,
                                                    "trees": plot.info, "stats": plot.stats,
                                                    "runtime_s": round(time.time() - t0), "peak_mb": round(cli.peak_memory_mb())},
                                                   indent=1))
