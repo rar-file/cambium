@@ -1155,17 +1155,34 @@ germination:
   # Minimum juvenile leaf scale at emergence (~3 cm2 juvenile leaf vs 15 cm2 adult)
   min_juvenile_scale: 0.20
 
-# Soil water balance option (monthly bucket model, off by default)
-# Lundin et al. 1999 (Agric. For. Meteorol. 98-99:53); Granier et al. 1999 (Ecol. Modell. 116:269)
+# Soil water balance option (season bucket, off by default): BILJOU, Granier,
+# Breda, Biron & Villette 1999 (Ecol. Modell. 116:269), stepped daily with
+# monthly climate spread evenly over each month (growth.py
+# _run_soil_water_balance).  No rainfall interception: BILJOU's (Aussenac
+# 1968, Granier 1999 Eq. 3) is a daily-rain equation.  How the result cuts
+# carbon has no opened source (VERIFY; KNOWN_ISSUES phase 40).
 soil_water_balance:
   enabled: false
-  # Plant available water capacity in 0.7m rooting till (mm) (Lundin et al. 1999 Table 1; Jansson et al. 1999)
+  # Extractable water of the rooting zone at field capacity, mm (EWM).
+  # Cited as Lundin et al. 1999 (Agric. For. Meteorol. 98-99:53) Table 1
+  # for 0.7 m of till; not opened (paywalled). VERIFY
   awc_mm: 75.0
-  # Critical relative extractable water (REW) threshold for stomatal closure (Granier et al. 1999 Eq. 5)
+  # REW below which transpiration declines linearly: 0.4 (Granier 1999
+  # p. 271 and Table 1; Breda et al. 2006, Ann. For. Sci. 63:625, p. 630)
   rew_threshold: 0.40
-  # Monthly growing-season precipitation normals (May-Sep, mm), SMHI Uppsala (Station 97200, 1991-2020)
-  precipitation_mm: [40.0, 63.0, 60.0, 74.0, 49.0]
-  # Monthly potential evapotranspiration normals (May-Sep, mm), SKB TR-06-45 Table A1-10 (Penman Uppland series)
-  pet_mm: [80.0, 99.0, 103.0, 69.0, 30.0]
-  # Synthetic drought scenario (e.g. 2018 summer: P * 0.5, PET * 1.2)
+  # Maximum transpiration / PET = 0.125 LAI up to LAI 6, then 0.75
+  # (Granier 1999 Eq. 2, p. 271; fitted on oak, beech, spruce, Douglas-fir)
+  transpiration_lai_slope: 0.125
+  transpiration_ratio_max: 0.75
+  # Precipitation May-Sep, mm: SMHI 1991-2020 normals, Uppsala station 97520
+  # (Normal-nbd-1991-2020.xlsx, smhi.se)
+  precipitation_mm: [39.3, 61.2, 57.4, 73.6, 48.6]
+  # Penman (1953) PET May-Sep, mm, computed for Forsmark (coastal north
+  # Uppland) 1970-2004: SKB TR-06-45 (Gustafsson et al. 2006) Table A1-10, p. 45
+  pet_mm: [79.8, 98.9, 103.4, 68.5, 30.1]
+  # drought_scenario: use the 2018 precipitation, Uppsala 97520, SMHI open
+  # data (parameter 23, monthly sums): dry May-June, wet July-August; its
+  # May-Sep total (272 mm) is close to the normal (280 mm).  PET stays the
+  # 1970-2004 Forsmark mean (no 2018 PET opened).
+  dry_year_precipitation_mm: [6.8, 26.5, 89.1, 105.1, 44.6]
   drought_scenario: false

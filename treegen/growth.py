@@ -598,31 +598,38 @@ class GrowthModel:
         leaves += np.where((T.term[:n] == 1) & (T.birth[:n] < t), float(fw.spur), 0.0)
         return np.where(alive, leaves * T.leaf_scale[:n] * self._size_rel(np.arange(n)), 0.0)
 
+    # days in the months of the soil-water season (May-September)
+    SWB_MONTH_DAYS = (31, 30, 31, 31, 30)
+
     def _run_soil_water_balance(self, swb, lai: float) -> tuple[float, float]:
-        """Monthly bucket soil water balance (BILJOU framework: Granier et al. 1999).
-        Returns (min_rew, mean_stomatal_limitation_factor)."""
-        awc = float(getattr(swb, "awc_mm", 75.0))
-        rew_c = float(getattr(swb, "rew_threshold", 0.40))
-        p_list = [float(x) for x in getattr(swb, "precipitation_mm", [40.0, 63.0, 60.0, 74.0, 49.0])]
-        pet_list = [float(x) for x in getattr(swb, "pet_mm", [80.0, 99.0, 103.0, 69.0, 30.0])]
-        if bool(getattr(swb, "drought_scenario", False)):
-            p_list = [p * 0.5 for p in p_list]
-            pet_list = [pet * 1.2 for pet in pet_list]
+        """Season soil-water balance of BILJOU (Granier, Breda, Biron &
+        Villette 1999, Ecol. Modell. 116:269), stepped daily as published
+        (Eq. 1, dW = P - T - D, without interception and understorey terms),
+        each month's rain and PET spread evenly over its days (the model has
+        monthly climate only):
+          REW = W / EWM            (W extractable water above the lower limit;
+                                    Breda et al. 2006 Eq. 2)
+          Tmax = r PET, r = 0.125 LAI for LAI <= 6, 0.75 above (Granier 1999 Eq. 2)
+          T = Tmax if REW > REWc, else Tmax REW / REWc   (linear decline below
+              REWc, Granier 1999 p. 271; Sopharat et al. 2015 Eqs. 9-10)
+          D = W - EWM when W exceeds EWM (drainage above field capacity)
+        Returns (lowest REW of the season, season sum T / sum Tmax)."""
+        awc = float(swb.awc_mm)
+        rew_c = float(swb.rew_threshold)
+        r = min(float(swb.transpiration_lai_slope) * lai, float(swb.transpiration_ratio_max))
+        rain = swb.dry_year_precipitation_mm if bool(getattr(swb, "drought_scenario", False)) else swb.precipitation_mm
         w = awc
-        canopy_factor = 0.25 + 0.75 * min(1.0, max(0.0, lai / 3.0))
-        rews, f_s = [], []
-        for p, pet in zip(p_list, pet_list):
-            w_mid = min(awc, w + 0.5 * p)
-            rew = max(0.0, min(1.0, w_mid / awc))
-            f = min(1.0, rew / rew_c) if rew_c > 0 else 1.0
-            transp = pet * canopy_factor
-            aet = min(w + p, transp * f)
-            w = max(0.0, min(awc, w + p - aet))
-            rews.append(rew)
-            f_s.append(f)
-        min_rew = min(rews) if rews else 1.0
-        mean_f = sum(f_s) / len(f_s) if f_s else 1.0
-        return min_rew, mean_f
+        min_rew, t_sum, tmax_sum = 1.0, 0.0, 0.0
+        for p, pet, days in zip(rain, swb.pet_mm, self.SWB_MONTH_DAYS):
+            for _ in range(days):
+                rew = w / awc
+                min_rew = min(min_rew, rew)
+                tmax = r * float(pet) / days
+                t = tmax if rew > rew_c else tmax * rew / rew_c
+                w = min(max(w + float(p) / days - t, 0.0), awc)
+                t_sum += t
+                tmax_sum += tmax
+        return min_rew, (t_sum / tmax_sum if tmax_sum > 0 else 1.0)
 
     def step(self):
         t = self.year + 1
@@ -764,14 +771,19 @@ class GrowthModel:
         min_rew = None
         f_swb = 1.0
         if swb is not None and bool(getattr(swb, "enabled", False)):
+            # leaf-area index as measure() defines it: over the ground the tree
+            # holds at the stand density, or over its crown projection
             la_tot_est = float(bud_leaf.sum())
             if self.stand:
                 height = float(T.pos[:n0][alive, 2].max()) if alive.any() else 0.0
-                st_dens = self.stems_per_ha(height)
-                stand_lai = la_tot_est * (st_dens / 10000.0)
+                stand_lai = la_tot_est * (self.stems_per_ha(height) / 10000.0)
             else:
-                stand_lai = min(3.5, la_tot_est / 10.0)
+                d_proj = float(self.stats[-1].get("crown_projected_diameter_m") or 0.0) if self.stats else 0.0
+                stand_lai = la_tot_est / (math.pi * d_proj * d_proj / 4.0) if d_proj > 0 else 0.0
             min_rew, f_swb = self._run_soil_water_balance(swb, stand_lai)
+            # carbon is cut in proportion to the season's transpiration cut
+            # (T / Tmax): an assumption with no opened source, on top of the
+            # hydraulic stomatal limit; see KNOWN_ISSUES phase 40. VERIFY
             phi = phi * f_swb
         phi_t, phi_l = phi[: len(term_nodes)], phi[len(term_nodes):]
         # carbon is fixed by leaves: each bud's light times its leaf weight (a
