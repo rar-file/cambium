@@ -1184,6 +1184,23 @@ class GrowthModel:
         on bared mineral soil (``field_layer_exposed``: the tree year the soil
         was bared, None for undisturbed ground) the field layer grows back
         over it with the soil's recovery half-life."""
+        flc = getattr(self.sp, "field_layer_competition", None)
+        if flc is not None and bool(getattr(flc, "enabled", False)):
+            t = self.year + 1
+            exposed = getattr(self, "field_layer_exposed", 0)
+            ytm = float(getattr(flc, "years_to_mature", 4.0))
+            if exposed is not None:
+                a = max(t - exposed, 0)
+                f = min(a / ytm, 1.0) if ytm > 0 else 1.0
+            else:
+                f = 1.0
+            max_h = float(getattr(flc, "max_height_m", 0.45))
+            h = max_h * max(f, 0.25)
+            lai = float(getattr(flc, "max_lai", 3.3)) * f
+            k = float(getattr(flc, "extinction", 0.45))
+            above = lai * np.clip(1.0 - np.asarray(z, float) / max(h, 1e-4), 0.0, 1.0)
+            return np.exp(-k * above)
+
         s = self.soil
         h = float(getattr(s, "herb_height", 0.0) or 0.0) if s is not None else 0.0
         if h <= 0.0:

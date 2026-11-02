@@ -1093,3 +1093,14 @@ anchorage:
   depth_factor_min: 0.5
   depth_factor_max: 1.2
   root_tension_share: 0.5
+
+
+# Field-layer competition on clearcuts (Option A, Nilsson & Örlander 1999).
+# Sourced clear-cut field-layer sward growth and light extinction.
+# Off by default.
+field_layer_competition:
+  enabled: false
+  max_height_m: 0.45           # Mean mature grass sward height (Nilsson & Örlander 1999)
+  max_lai: 3.3                 # Mature sward LAI (~3 Mg/ha aboveground biomass; Nilsson & Örlander 1999)
+  extinction: 0.45             # Beer-Lambert k for erectophile grass canopy (Nilsson & Örlander 1999)
+  years_to_mature: 4.0         # Years post-harvest to reach peak sward biomass (Nilsson & Örlander 1999)
