@@ -264,11 +264,36 @@ class GrowthModel:
                     break
         if not p_loss:
             return
-        # the leader's last annual shoot dies (its nodes born last season)
+        # Moose winter browsing clips the distal shoot down to bite_diameter_m
+        # (Mathisen et al. 2017: 2.16 +- 0.15 mm on B. pendula)
         ax = int(T.axis[tip])
-        k = tip
-        while T.parent[k] > 0 and T.axis[T.parent[k]] == ax and T.birth[T.parent[k]] >= t - 1:
-            k = int(T.parent[k])
+        shoot_nodes = []
+        curr = tip
+        while curr > 0 and T.axis[curr] == ax and T.birth[curr] >= t - 1:
+            shoot_nodes.append(curr)
+            curr = int(T.parent[curr])
+        shoot_nodes = shoot_nodes[::-1]
+        par_of_base = curr
+        if not shoot_nodes:
+            return
+        bite_d = float(getattr(ld, "bite_diameter_m", 0.0) or 0.0)
+        pm = self.sp.pipe_model
+        d_tip = 2.0 * float(pm.tip_radius)
+        if par_of_base >= 0:
+            d_base = 2.0 * max(float(T.radius[par_of_base]), float(pm.tip_radius))
+        else:
+            d_base = d_tip
+        L_shoot = sum(float(T.length[nd]) for nd in shoot_nodes)
+        L_shoot = max(L_shoot, 1e-6)
+        dist_from_tip = 0.0
+        bite_k = shoot_nodes[0]
+        for nd in reversed(shoot_nodes):
+            dist_from_tip += float(T.length[nd])
+            d_nd = d_tip + (d_base - d_tip) * (dist_from_tip / L_shoot)
+            if bite_d > 0.0 and d_nd >= bite_d:
+                bite_k = nd
+                break
+        k = bite_k
         base = int(T.parent[k]) if T.parent[k] >= 0 else k
         if base <= 0:
             return

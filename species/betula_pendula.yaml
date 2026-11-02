@@ -746,6 +746,10 @@ leader_damage:
   enabled: true
   replacement_leaders: 2
   replacement_zone_m: 0.5
+  # Moose winter bite diameter on Betula pendula: mean 2.16 +- 0.15 mm
+  # (Mathisen, Milner, van Beest & Skarpe 2017, BMC Ecology 17:12,
+  # DOI 10.1186/s12898-017-0122-3), removing the distal ~20-35 cm.
+  bite_diameter_m: 0.0022
   events:
     - name: moose browsing
       min_height_m: 0.3
