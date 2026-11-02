@@ -16,7 +16,7 @@ stand_canopy:
       density_range_stems_ha: [305, 100000]
 
   lai_hagemeier:
-    target_mean: 4.59
+    target_mean: 4.59 # unrounded sample bucket mean across stands (paper lists stands 3.6 and 5.4; Table 5 in 10(10):925 lists mean 5.0)
     stand_range: [3.6, 5.4]
     source: "Hagemeier & Leuschner (2019)"
     doi: "10.3390/f10030265"
@@ -32,7 +32,7 @@ stand_canopy:
 
   subcanopy_light_transmittance:
     target_range_pct: [10.0, 15.0]
-    target_mean_pct: 12.6
+    target_mean_pct: 12.6 # Model-derived target (Beer-Lambert exp(-0.37 * 4.59) ~ 18.3% minus ~5.7% wood shading); empirical median in source is 14.8% (range 6.4-19.8%, abstract ~15%)
     source: "Hagemeier & Leuschner (2019)"
     doi: "10.3390/f10100925"
     citation: "Hagemeier, M., & Leuschner, C. (2019). Leaf and Crown Optical Properties of Five Early-, Mid- and Late-Successional Temperate Tree Species and Their Relation to Sapling Light Demand. Forests 10(10):925."
@@ -110,9 +110,9 @@ tree_allometry:
     doi: "10.14214/sf.236"
     citation: "Repola, J. (2008). Biomass equations for birch in Finland. Silva Fennica 42(4):605-624."
     models:
-      eq_12: "ln(foliage_kg) = -3.766 + 1.838 * (DBH / (DBH + 12)) + error (DBH-only)"
-      eq_a6: "Foliage dry mass from DBH, tree height, and live crown ratio"
-    page_table: "Table 4 (p. 614) & Appendix Table A6 (p. 622)"
+      eq_12: "ln(foliage_kg) = -29.566 + 33.372 * (d_s / (d_s + 2)) where d_s = 2 + 1.25 * DBH, var=0.077 (DBH-only model)"
+      eq_a6: "ln(foliage_kg) = -20.856 + 22.320 * (d_s / (d_s + 2)) + 2.819 * cr where d_s = 2 + 1.25 * DBH, cr = crown ratio, var=0.063 (DBH, H, CR model)"
+    page_table: "Table 6 (p. 616, Eq. 12) & Appendix Table A6 (p. 622)"
 
   wood_basic_density:
     value_kg_m3: 530.0

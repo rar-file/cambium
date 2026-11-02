@@ -72,7 +72,7 @@
 | 50 | 24.22 | 25.0 | 73.39 | 73.31 | 0.00 / 0.00 | 1.00× | 68,984 | 0 (0) | 0% |
 | 60 | 25.79 | 26.7 | 75.11 | 76.16 | 0.74 / 0.31 | 1.01× | 73,394 | 874 (1,028) | 1% |
 
-- **LAI and light at 2–5 m height (`out/bench/p26_nat` and `out/bench/p29_path/1_stand`) vs. Hagemeier & Leuschner 2019 (Funct. Ecol. 33:1688):**
+- **LAI and light at 2–5 m height (`out/bench/p26_nat` and `out/bench/p29_path/1_stand`) vs. Hagemeier & Leuschner 2019 (Forests 10(3):265 and Forests 10(10):925):**
   - Hagemeier & Leuschner 2019 measured mature *B. pendula* stands (age ~45–65) with mean LAI = 4.59 m² m⁻² (two stands: 3.6 and 5.4), $k = 0.37$, and under-canopy light 12.6% PAR (10.2–15.0%; pure leaf Beer-Lambert $\exp(-0.37 \times 4.59) = 18.3\%$, plus ~5% wood shading).
 
 | stand | age | stems/ha | total LAI | LAI in 2–5 m | Beer-Lambert light at 5 m / 2 m ($k=0.37$) | 3D voxel light at 5 m / 3.5 m / 2 m | bottom-Q vs top-Q height (m) | bottom-Q vs top-Q bud light |
