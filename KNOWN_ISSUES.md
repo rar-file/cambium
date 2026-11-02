@@ -1781,7 +1781,7 @@ Seed 1, age 60, against published silver-birch values. "Shoot" is a branch tip c
 | Bergström & Danell 1987 | J. Ecol. 75:533–544 | `10.2307/2260432` | Winter moose browsing distribution on Betula shoots | Yes |
 | Shipley et al. 1998 | Can. J. Zool. 76:1722–1733 | `10.1139/z98-110` | Pruning mechanics & ungulate bite diameter | Yes |
 | Bergqvist et al. 2014 | Forestry 87:419–428 | `10.1093/forestry/cpu007` | Moose browsing height preference (0.3–3.0 m) | Yes |
-| Mathisen et al. 2017 | BMC Ecology 17:12 | `10.1186/s12898-017-0122-3` | Silver birch bite diameter ($2.16 \pm 0.15$ mm, 100% moose, Norway) | Yes |
+| Mathisen et al. 2017 | BMC Ecology 17:12 | `10.1186/s12898-017-0122-3` | Moose bite diameter ($2.16 \pm 0.15$ mm, 100% moose on juvenile *B. pubescens* in Norway) | VERIFY (for *B. pendula*) |
 | Chaar et al. 1997 | Can. J. For. Res. 27:1614–1621 | `10.1139/x97-128` | Decapitation & apical control release (*Ann. Sci. For.* was ghost citation) | Yes |
 | Wilson 2000 | Am. J. Bot. 87:601–607 | `10.2307/2656846` | Apical control & primary branch righting mechanics | Yes |
 | Bastien et al. 2013 | PNAS 110:755–760 | `10.1073/pnas.1214301109` | Universal gravitropic rod reorientation ($B = L_{\text{gz}}/L_c \approx 2.0\text{--}5.0$) | Yes |
@@ -1792,10 +1792,10 @@ Seed 1, age 60, against published silver-birch values. "Shoot" is a branch tip c
 | Maillette 1982 | J. Appl. Ecol. 19:203–218, 219–238 | `10.2307/2403005`, `10.2307/2403006` | Birch bud population dynamics (>80–90% short shoots in mature crown) | Yes |
 | Tenkanen et al. 2020 | Tree Physiol. 40:198–214 | `10.1093/treephys/tpz124` | Late leaf emergence sequence & season fraction ($f_{\text{late}} \approx 0.5$) | Yes |
 | Johansson 1999 | Biomass Bioenergy 16:223–238 | `10.1016/S0961-9534(98)00075-0` | Birch stand dry biomass; stem dimensions in Sweden | Yes |
-| Kucharik 1998 / Gower 1999 | Agric. For. Meteorol. 91:69, 96:115 | `10.1016/S0168-1923(98)00064-0`, `(99)00057-9` | Optical WAI for boreal deciduous stands ($0.4\text{--}0.9\text{ m}^2/\text{m}^2$) | Yes |
+| Kucharik 1998 / Gower 1999 | Agric. For. Meteorol. 91:69; Rem. Sens. Env. 70:29 | `10.1016/S0168-1923(98)00064-1`, `10.1016/S0034-4257(99)00056-5` | Optical WAI for boreal deciduous stands ($0.4\text{--}0.9\text{ m}^2/\text{m}^2$) | Yes |
 | Hale et al. 2012 | Eur. J. Forest Res. 131:203–213 | `10.1007/s10342-010-0448-2` | Turning moment coefficient $TC$ for birch under wind | Yes |
-| Cionco 1972 / Raupach 1994 | Bound.-Layer Meteorol. 3:255, 71:211 | `10.1007/BF00769111`, `10.1007/BF00709229` | Canopy exponential wind decay profile $u(z)=u(h)\exp(-\alpha(1-z/h))$ | Yes |
-| Granier 2000, Barclay 2000 | Agric. For. Meteorol. 100:291, 100:255 | `10.1016/S0168-1923(00)00138-5`, `(00)00159-2` | Deciduous woody extinction factor $k_{\text{wood}} \approx 0.40$ | Yes |
+| Cionco 1972 / Raupach 1994 | Bound.-Layer Meteorol. 3:255, 71:211 | `10.1007/BF02033923`, `10.1007/BF00709229` | Canopy exponential wind decay profile $u(z)=u(h)\exp(-\alpha(1-z/h))$ | Yes |
+| Granier 2000, Barclay 2000 | Agric. For. Meteorol. 100:291, 100:255 | `10.1016/S0168-1923(99)00151-3`, `10.1016/S0168-1923(99)00091-X` | Deciduous woody extinction factor $k_{\text{wood}} \approx 0.40$ | Yes |
 | Duursma & Mäkelä 2007 | Tree Physiol. 27:859–870 | `10.1093/treephys/27.6.859` | Stand woody attenuation coefficient $k_w = 0.40$ | Yes |
 
 **2. Moose test validity (matched 12-year baseline vs Part 1):**
@@ -1827,14 +1827,14 @@ Seed 1, age 60, against published silver-birch values. "Shoot" is a branch tip c
 **4. Mature long shoots count and carbon allocation diagnosis (seed-1 stand tree):**
 - Evaluated metamer extension per growing axis across mature ages:
 
-| Age | Growing Axes | Long Shoots (>1 metamer) | Short / Single-Metamer Shoots | Median Increment | Max Increment | Active Spurs |
+| Age | Growing Axes | Long Shoots (>1 metamer) | Short / Single-Metamer Shoots | Median Increment | Max Increment (Tree-Wide) | Active Spurs |
 |---|---|---|---|---|---|---|
-| 10 | 721 | 650 (90.2%) | 71 (9.8%) | 0.110 m | 0.480 m | 1,536 |
-| 20 | 153 | 1 (0.7%) | 152 (99.3%) | 0.005 m | 0.030 m | 4,943 |
-| 30 | 470 | 0 (0.0%) | 470 (100.0%) | 0.004 m | 0.005 m | 9,358 |
-| 40 | 799 | 0 (0.0%) | 799 (100.0%) | 0.006 m | 0.008 m | 11,440 |
-| 50 | 953 | 142 (14.9%) | 811 (85.1%) | 0.014 m | 0.220 m | 14,664 |
-| 60 | 622 | 0 (0.0%) | 622 (100.0%) | 0.004 m | 0.007 m | 16,213 |
+| 10 | 721 | 650 (90.2%) | 71 (9.8%) | 0.110 m | 0.478 m | 1,536 |
+| 20 | 153 | 1 (0.7%) | 152 (99.3%) | 0.005 m | 0.052 m | 4,943 |
+| 30 | 470 | 0 (0.0%) | 470 (100.0%) | 0.004 m | 0.029 m | 9,358 |
+| 40 | 799 | 0 (0.0%) | 799 (100.0%) | 0.006 m | 0.033 m | 11,440 |
+| 50 | 953 | 142 (14.9%) | 811 (85.1%) | 0.014 m | 0.169 m | 14,664 |
+| 60 | 622 | 0 (0.0%) | 622 (100.0%) | 0.004 m | 0.011 m | 16,213 |
 
 - **Diagnosis:**
   - Real mature birch crowns are overwhelmingly short shoots (>80–90%, Maillette 1982).
