@@ -84,7 +84,7 @@ def test_scenario_label():
     run = _tree_run(per_year=[{"year": 15, "crown_ratio": 0.6, "height_m": 9.0}])
     results, _ = evaluate_targets(_targets(), [run], ages=[15])
     assert _row(results, "stand_canopy.live_crown_ratio.dense_unmanaged_stand", 15)["status"] == "NOT APPLICABLE"
-    assert _row(results, "stand_canopy.live_crown_ratio.silvicultural_recommendation", 15)["status"] == "PASS"
+    assert _row(results, "stand_canopy.live_crown_ratio.silvicultural_recommendation", 15)["status"] == "INFO"
 
 
 def test_options_required_label():

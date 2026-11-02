@@ -72,6 +72,7 @@ stand_canopy:
       citation: "Hynynen, J., et al. (2010). Silviculture of birch (Betula pendula Roth and Betula pubescens Ehrh.) in northern Europe. Forestry 83(1):103-119."
       page_table: "Section 'Thinning and pruning' (p. 109, column 2)"
       measures: "Minimum live crown ratio (LCR = crown length / total height) required for crop trees in commercial birch stands."
+      scoring: info # a silvicultural recommendation, not a measurement (the maintainer, 2026-11-02)
       conditions:
         scenario: [plot, stand-tree]
         mode: [managed]
