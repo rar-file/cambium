@@ -410,9 +410,9 @@ light:
   # foliage.  Extinction factor k_wood = 0.40 (Granier et al. 2000, DOI 10.1016/S0168-1923(99)00151-3;
   # Barclay et al. 2000, DOI 10.1016/S0168-1923(99)00091-X; Duursma & Mäkelä 2007,
   # DOI 10.1093/treephys/27.6.859; Chen et al. 1997, DOI 10.1029/97JD01107).
-  # Disabled by default so baseline behavior is unchanged.
+  # Enabled by default (physics, not a scenario setting).
   woody_shade:
-    enabled: false
+    enabled: true
     k_wood: 0.40
 
 shedding:
