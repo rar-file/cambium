@@ -804,8 +804,15 @@ class GrowthModel:
         Glat = np.zeros(n0)
         # a bud's pull also scales with its stomatal opening: water-starved
         # buds (high up, far out on long paths) fix less carbon
-        Gterm[term_nodes] = Qterm[term_nodes] * phi_t * np.maximum(0.05, 1.0 + g_term * T.term_dir[term_nodes, 2]) * self._scaffold_vigour(t, term_nodes)
-        Glat[lat_nodes] = Qlat[lat_nodes] * phi_l * np.maximum(0.05, 1.0 + g_lat * T.lat_dir[lat_nodes, 2]) * self._scaffold_vigour(t, lat_nodes)
+        bh_pub = bool(getattr(sp.bud_fate, "borchert_honda_published", False))
+        if bh_pub:
+            # Published Borchert-Honda (Borchert & Honda 1984; Palubicki et al. 2009):
+            # Pure light capture without gravimorphism or scaffold vigour aging in the split.
+            Gterm[term_nodes] = Qterm[term_nodes] * phi_t
+            Glat[lat_nodes] = Qlat[lat_nodes] * phi_l
+        else:
+            Gterm[term_nodes] = Qterm[term_nodes] * phi_t * np.maximum(0.05, 1.0 + g_term * T.term_dir[term_nodes, 2]) * self._scaffold_vigour(t, term_nodes)
+            Glat[lat_nodes] = Qlat[lat_nodes] * phi_l * np.maximum(0.05, 1.0 + g_lat * T.lat_dir[lat_nodes, 2]) * self._scaffold_vigour(t, lat_nodes)
         if bool(getattr(sp.bud_fate, "short_shoots_self_financing", False)):
             # a short shoot lives on its own leaves and draws nothing from
             # the shoot's resource: its leaves still fix carbon (Q above), but
@@ -821,7 +828,10 @@ class GrowthModel:
         par = T.parent
         # apical dominance over buds vs. apical control over established
         # branches (Brown et al. 1967; Wilson 2000)
-        lam = np.where(lc >= 0, self.apical_control(t), float(sp.resource.apical_dominance))
+        if bh_pub:
+            lam = np.full(n0, float(sp.resource.apical_dominance))
+        else:
+            lam = np.where(lc >= 0, self.apical_control(t), float(sp.resource.apical_dominance))
         # Maintenance respiration of living wood (carbon balance, Perttunen et
         # al. 1996): the tree pays it from its pool before the split (charged
         # along the flow instead, as P09/LIGNUM do, a realistic rate drains

@@ -313,6 +313,10 @@ bud_fate:
   # among the buds that grow.  Without it, buds that became short shoots
   # took 45 % of the resource unused (seed 1, years 15-30; phase 15).
   idle_buds_no_sink: false
+  # Published Borchert-Honda (Borchert & Honda 1984; Palubicki et al. 2009):
+  # Uses constant apical dominance lambda without age-decaying apical control,
+  # and pure basipetal resource sums without gravimorphic or scaffold vigour weighting.
+  borchert_honda_published: false
   # Short-shoot lifespan in years; birch short shoots persist for several
   # years [M82].  null: no fixed lifespan, a short shoot dies only of light
   # (below short_shoot_survival_light); 8 years made the lower limbs of a
