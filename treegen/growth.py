@@ -217,16 +217,14 @@ class GrowthModel:
         fw = self.sp.light.foliage_weight
         # leaves per bud; leaf size shrinks with the same turgor limit that
         # shortens the internode (Koch et al. 2004)
-        w_term = float(fw.new_leaf) * T.leaf_scale[term_nodes] * self._size_rel(term_nodes)
+        early = float(getattr(fw, "early_leaves", 0.0) or float(fw.spur))
+        w_term = (float(fw.new_leaf) if n0 == 1 else early) * T.leaf_scale[term_nodes] * self._size_rel(term_nodes)
         ls = lat_state[lat_nodes]
+        fresh = (T.lat_age[lat_nodes] == 0) & (~T.no_axil[lat_nodes]) & (T.term[lat_nodes] == 0)
         w_lat = T.leaf_scale[lat_nodes] * self._size_rel(lat_nodes) * np.where(
             ls == LAT_SPUR, float(fw.spur),
-            np.where(T.lat_age[lat_nodes] == 0, float(fw.new_leaf), float(fw.dormant)),
+            np.where(fresh, early, float(fw.dormant)),
         )
-        early = float(getattr(fw, "early_leaves", 0.0) or 0.0)
-        if early:
-            # a long shoot also bears its early (preformed) leaves at its base
-            w_lat = w_lat + early * T.leaf_scale[lat_nodes] * self._size_rel(lat_nodes) * self._shoot_base(lat_nodes)
         src = np.concatenate([T.pos[term_nodes], T.pos[lat_nodes]])
         return term_nodes, lat_nodes, w_term, w_lat, src, np.concatenate([w_term, w_lat])
 
@@ -1312,16 +1310,43 @@ class GrowthModel:
             # the foliage's sapwood alone takes the whole pool: no new shoots,
             # and only that share of the rings
             return 0.0, r0 * (pool / c0 if c0 > 0.0 else 0.0)
-        lo, hi = 0.0, 1.0
-        while parts(hi)[0] < pool and hi < 1e7:
-            lo, hi = hi, 2.0 * hi
-        for _ in range(40):
-            mid = 0.5 * (lo + hi)
-            if parts(mid)[0] < pool:
-                lo = mid
-            else:
-                hi = mid
-        return lo, parts(lo)[1]
+
+        def solve_for(target):
+            lo, hi = 0.0, 1.0
+            while parts(hi)[0] < target and hi < 1e7:
+                lo, hi = hi, 2.0 * hi
+            for _ in range(40):
+                mid = 0.5 * (lo + hi)
+                if parts(mid)[0] < target:
+                    lo = mid
+                else:
+                    hi = mid
+            return lo, parts(lo)[1]
+
+        lam, ring = solve_for(pool)
+        f_late = float(getattr(fw, "late_leaf_season_fraction", 0.0) or 0.0)
+        if f_late > 0.0:
+            v = lam * share
+            grow = (v >= thr) & (share > 0.0)
+            vc = np.minimum(v, nmax)
+            late_area = np.where(grow, np.floor(vc) * per_met, 0.0)
+            if float(late_area.sum()) > 0.0:
+                alpha = float(sp.resource.alpha)
+                a_ref = float(self.light.leaf_area)
+                phi_s = self.water.get("stomatal_opening", 1.0) if hasattr(self, "water") and self.water else 1.0
+                root_share = self.water.get("root_share", 0.0) if hasattr(self, "water") and self.water else 0.0
+                maint_per_g = (float(lc.leaf_maintenance_gc_per_g) / float(lc.carbon_fraction) / g_per_unit) if (lc and g_per_unit > 0) else 0.0
+                root_maint_per_g = (float(lc.fine_root_to_leaf_mass) * float(lc.fine_root_maintenance_gc_per_g) / float(lc.carbon_fraction) / g_per_unit) if (lc and g_per_unit > 0) else 0.0
+                c_late = f_late * alpha * float((q_bud * phi_s * (late_area / a_ref)).sum())
+                late_dm = late_area * lma
+                late_maint = f_late * float(late_dm.sum()) * maint_per_g
+                late_shoot_net = max((1.0 - root_share) * c_late - late_maint, 0.0)
+                late_root_net = max(root_share * c_late - f_late * float(late_dm.sum()) * root_maint_per_g, 0.0)
+                self._root_carbon += late_root_net
+                self.carbon["fixed"] += c_late
+                self.carbon["leaf_dm_g"] += float(late_dm.sum())
+                lam, ring = solve_for(pool + late_shoot_net)
+        return lam, ring
 
     def _grow_shoots(self, t, field, g_term, v_term, g_lat, v_lat, q_start=None):
         sp, T, rng = self.sp, self.tree, self.rng

@@ -393,6 +393,12 @@ light:
     spur: 2.5
     dormant: 0.0
     early_leaves: 2.5
+    # Neoformed late leaves on long shoots unfold sequentially over June-July
+    # (Tenkanen et al. 2020, Tree Physiol. 40:198, DOI 10.1093/treephys/tpz124;
+    # Miyazawa & Kikuzawa 2004, Tree Physiol. 24:631, DOI 10.1093/treephys/24.6.631),
+    # photosynthesizing for a fraction of the full growing season.
+    # VERIFY (for exact B. pendula cohort mean)
+    late_leaf_season_fraction: 0.5
   # Perception volume for the optimal growth direction V [P09]: probe
   # distance (m), cone half-angle, number of probe directions, soft-min
   # width (shadow units). VERIFY
