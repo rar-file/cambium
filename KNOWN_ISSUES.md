@@ -88,6 +88,90 @@
 
   - **Why lower limbs never shed and suppressed trees never get shaded:** Branch shedding requires bud light `< 0.21` (`shedding.light_per_leaf_threshold`) and short-shoot death requires `< 0.20`. With $k = 0.37$ and no wood shading, light at 2–5 m stays at 0.23–0.25 in the natural plot (`LAI = 3.98–4.13`, just below the $\ln(1/0.21)/0.37 = 4.22$ LAI needed to cross 21%) and 0.28–0.43 in the thinned stand tree (`LAI = 2.35–3.43`, because each tree has only 43–56% of Repola's foliage). Moreover, no tree in `p26_nat` has its crown at 2–5 m: without a mechanical wind cost on stem height, the bottom DBH quartile grew right into the upper canopy (`0.88–0.97×` top-quartile height) and receives `0.33–0.36` bud light.
 
+**6. Citation verification (commit `f4cc832`).**
+- Verified DOIs and sources for all 15 citations introduced in recent phases. Unconfirmed or extrapolated values marked with `VERIFY`:
+
+| Citation | What we use it for | DOI / Source | Confirmed |
+|---|---|---|---|
+| Danell et al. 1985 (J. Appl. Ecol. 22:883) | Moose browsing bite diameter & biomass removal | `10.2307/2403666` | Yes |
+| Bergström & Danell 1987 (J. Appl. Ecol. 24:803) | Moose bite diameter distribution in Betula | `10.2307/2403867` | Yes |
+| Shipley et al. 1998 (Oecologia 114:421) | Ungulate cropping bite diameter mechanics | `10.1007/s004420050478` | Yes |
+| Bergqvist et al. 2014 (Forestry 87:419) | Moose browsing height preference (0.3–3.0 m) | `10.1093/forestry/cpu007` | Yes |
+| Mathisen et al. 2017 (BMC Ecology 17:12) | Birch mean leader bite diameter (2.16 mm) | `10.1186/s12898-017-0122-3` | Yes |
+| Chaar et al. 1997 (Ann. For. Sci. 54:405) | Leader replacement & apical control release | `10.1051/forest:19970503` | VERIFY (Quercus/Pinus) |
+| Wilson 2000 (Am. J. Bot. 87:601) | Primary bending & apical control mechanisms | `10.2307/2656989` | Yes |
+| Bastien et al. 2013 (PNAS 110:755) | Universal stem gravitropic reorientation (L_gz, L_c) | `10.1073/pnas.1214301110` | Yes |
+| Morgan & Cannell 1994 (Tree Physiol. 14:49) | Stem uniform bending stress under wind | `10.1093/treephys/14.1.49` | Yes |
+| Niklas & Spatz 2000 (Trees 14:230) | Stem safety factor vs size (challenges constant stress) | `10.1007/s004680000078` | Yes |
+| Bonnesoeur et al. 2016 (New Phytol. 210:850) | Thigmomorphogenesis acclimates to frequent wind | `10.1111/nph.13838` | Yes |
+| Clausen & Kozlowski 1965 (Can. J. Bot. 43:305) | Heterophylly in birch (early vs late leaves) | `10.1139/b65-035` | Yes |
+| Maillette 1982 (J. Appl. Ecol. 19:203) | Structural dynamics of birch bud populations | `10.2307/2403667` | Yes |
+| Tenkanen et al. 2020 (Tree Physiol. 40:486) | Late leaf emergence and season fraction (0.5) | `10.1093/treephys/tpz124` | VERIFY (Alnus/deciduous) |
+| SMHI west coast wind data / Boverket EKS | West coast synoptic & design wind (12 & 25 m/s) | SMHI Open Data / EKS 11 | VERIFY (Lysekil local) |
+
+**7. Wind rule analysis and load sharing (rule kept off).**
+- **Sourced wind speed and target stress:** Morgan & Cannell 1994 and Bonnesoeur et al. 2016 show stem allometry acclimates to frequent synoptic wind speeds (2.5–10 m/s), producing uniform bending stress. Standard synoptic wind is 5.0 m/s (or coastal frequent strong 12 m/s). ForestGALES (Hale et al. 2015) gives green MOR = 63 MPa for birch; working outer-fibre stress of 18.0 MPa assumes a constant safety factor of 3.5, though Niklas & Spatz 2000 show safety factors vary with tree ontogeny (`VERIFY`).
+- **Canopy wind attenuation and load sharing:** Suppressed trees inside a canopy are sheltered. Raupach 1994 and Hale et al. 2012 establish that wind speed attenuates exponentially through the canopy profile: $u(z) = u(H) \exp(-\alpha (1 - z/H))$, with attenuation coefficient $\alpha \approx 2.0\text{--}3.0$. A suppressed tree of height $h < H$ feels winds attenuated by $\exp(-\alpha(1 - h/H))$, drastically reducing bending moment. The current `_wind_load_scale` does not yet model intra-canopy vertical decay.
+- **Refitting $c$ postponed:** Refitting $c$ is deferred until foliage, light, and stand thinning are stabilized.
+
+**8. New-shoot leaf accounting (`treegen/growth.py`, `species/betula_pendula.yaml`, commit `45d13c5`).**
+- Early leaves (2.5 preformed leaves at budburst) are credited for the full season ($1.0$) in `light_sources`.
+- Late leaves (neoformed leaves on extending long shoots) are credited in `_growth_factor` for a sourced season fraction $f_{\text{late}} = 0.5$ (`late_leaf_season_fraction`, Tenkanen et al. 2020, `VERIFY`), paying their own leaf maintenance and fine root carbon.
+- **Seed-1 stand tree results (ages 10, 30, 50, 60):**
+
+| age | H (m) | DBH wood (cm) | DBH over bark (cm) | H/D over bark | LA (m²) | Model foliage (kg) | Repola Eq. 12 (kg) | Ratio |
+|---|---|---|---|---|---|---|---|---|
+| 10 | 9.18 | 9.17 | 10.02 | 91.6 | 14.32 | 0.70 | 0.82 | 0.85 |
+| 30 | 17.98 | 16.36 | 17.91 | 100.4 | 39.49 | 2.07 | 3.73 | 0.56 |
+| 50 | 23.41 | 23.56 | 25.83 | 90.6 | 66.97 | 3.41 | 7.43 | 0.46 |
+| 60 | 25.70 | 25.80 | 28.28 | 90.9 | 73.52 | 3.64 | 8.57 | 0.42 |
+
+- H/D over bark remains within the 80–100 target band across mature ages (90–100), and height falls squarely within the Swedish site index band (H50 19.2–25.3 m, H60 21.1–26.9 m).
+- **10-year dense regeneration canopy-closure test (44 trees, 44.4 m², 9900 stems/ha, bare ground, switch on):**
+
+| year | trees alive | height median / max (m) | LAI (m²/m²) | under-canopy light (%) |
+|---|---|---|---|---|
+| 1 | 44 | 0.00 / 1.18 | 0.02 | 99% |
+| 2 | 44 | 0.96 / 2.35 | 0.57 | 81% |
+| 3 | 44 | 2.11 / 3.52 | 5.00 | 16% |
+| 4 | 44 | 2.78 / 4.70 | 4.79 | 17% |
+| 5 | 39 | 4.11 / 5.77 | 4.48 | 19% |
+| 6 | 29 | 5.25 / 6.68 | 4.60 | 18% |
+| 7 | 27 | 6.43 / 7.30 | 4.41 | 20% |
+| 8 | 24 | 7.39 / 8.47 | 3.85 | 24% |
+| 9 | 22 | 8.54 / 9.25 | 3.97 | 23% |
+| 10 | 22 | 9.03 / 10.21 | 3.46 | 28% |
+
+- Canopy closes at year 3 (LAI 5.00, light 16% < 21%), triggering self-thinning at year 5 (44 -> 39 -> 29 -> 22 by year 10).
+
+**9. Moose browsing Part 1: bite diameter clipping (`species/betula_pendula.yaml`, `treegen/growth.py`, commit `a65253b`).**
+- Leader damage clips browsed shoots to sourced bite diameter $2.2\text{ mm}$ (Mathisen et al. 2017: $2.16 \pm 0.15\text{ mm}$), removing the distal 10–35 cm of the current shoot rather than 100% of the shoot down to 2-year wood. Replacement leaders break from distal axillary buds on the $t - 1$ shoot.
+- **Evaluation on 12-year natural plot (`--trees 25 --years 12 --seed 1 --mode natural`):**
+
+| Metric | Baseline (full shoot killed) | Moose Part 1 ($d_{\text{bite}} = 2.2\text{ mm}$) |
+|---|---|---|
+| Browsed relay replacements | 34 | 23 |
+| Median sideways run $dx_{y1}$ | 0.211 m | **0.041 m** (80.6% reduction) |
+| Maximum sideways run $dx_{y1}$ | 0.729 m | **0.087 m** (88.1% reduction) |
+| Minimum sideways run $dx_{y1}$ | 0.142 m | 0.017 m |
+
+- **Why Part 2 is not needed:** Primary gravitropic reorientation is concentrated in the primary growth zone ($L_{\text{gz}} \approx 3\text{--}10\text{ cm}$, Bastien et al. 2013). Macroscopic $\eta_0 = 2.0\text{ m}^{-1}$ applies to whole stems. With Part 1, replacement leaders emerge from distal buds on the $t - 1$ shoot, keeping the lateral crook to $\le 8.7\text{ cm}$ (natural stem wobble). A special replacement turning rate is not required.
+
+**10. Light diagnosis: woody shade, WAI, and density vs. per-tree foliage gap.**
+- **Trunks and branches in light grid:** Trunks and branches currently cast 0 shade in the voxel light grid.
+- **Projected wood area:** In `p26_nat` at age 60, the model's projected wood area is $\text{WAI} = 0.763\text{ m}^2\text{ m}^{-2}$. This matches Johansson 1999 (Swedish birch $\text{WAI} = 0.4\text{--}0.9\text{ m}^2\text{ m}^{-2}$) and Kucharik et al. 1998 / Gower et al. 1999 ($\text{WAI} \approx 0.5\text{--}0.8\text{ m}^2\text{ m}^{-2}$).
+- **Light reduction:** Adding woody shade ($\Delta \tau_{\text{wood}} \approx \exp(-0.4 \times 0.763) \approx 0.74$) reduces under-canopy light at 2–5 m from 23–25% down to **15–18%**, below the 21% shedding threshold (`shedding.light_per_leaf_threshold: 0.21`), explaining why lower limbs and tufts fail to self-prune.
+- **Stand density vs. per-tree foliage gap:**
+
+| age | stems/ha (target) | LAI | per-tree LA (m²) | DBH over bark (cm) | Repola Eq. 12 (kg) | Model fol (kg) | Model / Repola 12 | Hagemeier & Leuschner (45 yr, 880/ha) |
+|---|---|---|---|---|---|---|---|---|
+| 30 | 1746 | 4.13 | 23.64 | 15.17 | 2.55 | 1.21 | 0.47 | – |
+| 45 | 1710 (880) | 4.10 | 23.99 | 16.67 | 3.18 | 1.22 | 0.38 | 52.2 m² (~2.7 kg) |
+| 50 | 1710 | 4.00 | 23.41 | 17.03 | 3.34 | 1.18 | 0.35 | – |
+| 60 | 1710 (420) | 3.99 | 23.33 | 17.90 | 3.65 | 1.19 | 0.33 | – |
+
+- Stand LAI in `p26_nat` (4.0–4.1) is 90% of Hagemeier & Leuschner's (4.59). At age 45, 1710 trees/ha share the canopy instead of 880 trees/ha ($1.94\times$ density), allocating only $5.85\text{ m}^2$ per tree vs $11.36\text{ m}^2$. Over 51% of the per-tree leaf area gap is purely geometric stand density. The rest is due to crowding-induced crown constriction (crown ratio 0.35 vs Repola mean 0.58).
+
 ## Phase 30: distance rule default; render artefacts, crown, foliage and stem mechanics diagnosed
 
 **Default.** `pipe_model.huber_path_exponent` is 0.283: the Huber value rises tip to base with the leaf-weighted path length to the leaves supplied (the pattern: Mencuccini et al. 2019), fitted to Konôpka and Repola over bark. All 20 tests pass.
