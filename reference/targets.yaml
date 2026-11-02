@@ -31,19 +31,19 @@ stand_canopy:
       density_stems_ha: 880
 
   subcanopy_light_transmittance:
-    target_range_pct: [10.0, 15.0]
-    target_mean_pct: 12.6 # Model-derived target (Beer-Lambert exp(-0.37 * 4.59) ~ 18.3% minus ~5.7% wood shading); empirical median in source is 14.8% (range 6.4-19.8%, abstract ~15%)
-    source: "Hagemeier & Leuschner (2019)"
+    target_median_pct: 14.8
+    target_range_pct: [6.4, 19.8]
+    source: "Hagemeier & Leuschner (2019b)"
     doi: "10.3390/f10100925"
     citation: "Hagemeier, M., & Leuschner, C. (2019). Leaf and Crown Optical Properties of Five Early-, Mid- and Late-Successional Temperate Tree Species and Their Relation to Sapling Light Demand. Forests 10(10):925."
-    page_table: "Table 5 (p. 14)"
-    measures: "Relative diffuse photosynthetically active radiation (PAR) transmittance (T_PAR, %) reaching the understory beneath closed mature birch canopy at 1.0-2.0 m height."
+    page_table: "Table 5 (p. 14) & Section 3"
+    measures: "Relative diffuse photosynthetically active radiation (PAR) transmittance (T_PAR, %) reaching the understory beneath closed mature birch canopy at 1.0-2.0 m height. Measured median 14.8%, empirical range across sample positions 6.4% to 19.8% (abstract ~15%). (Model-derived 12.6% removed)."
     optical_parameters:
       k_par: 0.37 # canopy extinction coefficient for PAR under diffuse light
       foliage_clumping_index: 0.41 # Omega
     conditions:
       age_definition: "mature closed canopy (age 45-65)"
-      status: "Values above 15% indicate insufficient crown leaf/wood shading; 21-29% in unclosed stands is excessive light penetration."
+      status: "Values above 20% indicate insufficient crown leaf/wood shading; 21-29% in unclosed stands is excessive light penetration."
 
   live_crown_ratio:
     silvicultural_recommendation:
@@ -55,13 +55,22 @@ stand_canopy:
       measures: "Minimum live crown ratio (LCR = crown length / total height) required for crop trees in commercial birch stands."
       conditions:
         management: "Managed stands; silvicultural guideline prescribing early pre-commercial thinning (PCT at dominant height 5-7 m) and commercial thinning to prevent crown recession below 0.50 and maintain rapid stem diameter growth."
-    natural_unmanaged_stand:
+    managed_stand_empirical:
+      mean_ratio: 0.58
+      range: [0.29, 0.96]
+      std: 0.14
+      source: "Repola (2008)"
+      doi: "10.14214/sf.236"
+      citation: "Repola, J. (2008). Biomass equations for birch in Finland. Silva Fennica 42(4):605-624."
+      page_table: "Table 2 (p. 609)"
+      measures: "Live crown ratio of 127 sample trees from 24 managed stands on mineral soil across Finland (mean DBH 16.5 cm, mean H 17.1 m)."
+    dense_unmanaged_stand:
       target_range: [0.30, 0.45]
       source: "Niemistö (1995, Paper 1); Repola (2008)"
       doi: "10.1080/02827589509382889"
       citation: "Niemistö, P. (1995). Crown and branch properties and taper of silver birch (Betula pendula). Scand. J. For. Res. 10:235-244."
-      page_table: "Table 2 (p. 238); Repola (2008) sample means"
-      measures: "Observed live crown ratio in dense, self-thinned stands. Note: Niemistö (1995) studied planted stands aged 11-22 years (densities 400-5,000 stems/ha); Repola (2008, p. 609 Table 2) reports mean 0.58 +/- 0.14 in managed stands. Natural unmanaged stands self-thin to 0.30-0.45."
+      page_table: "Table 2 (p. 238) & Fig. 1 (p. 239); Repola (2008) Table 2 minimum (0.29)"
+      measures: "Observed live crown ratio in dense, self-thinned stands. In Niemistö (1995) dense unthinned planted trials (3,000-5,000 stems/ha, aged 11-22 yr), rapid crown lift reduced LCR to 0.35-0.45, with suppressed trees reaching 0.30. In Repola (2008) suppressed trees in denser stands reached a lower bound of 0.29. Reconciled: Managed stands average 0.58 because thinnings release crowns; dense unmanaged stands self-thin to 0.30-0.45 due to intense lateral shading and crown recession."
       conditions:
         management: "Dense unmanaged natural stands subject to dense lateral shading and natural self-pruning."
 
