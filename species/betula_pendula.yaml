@@ -1136,12 +1136,16 @@ field_layer_competition:
 # with heterotrophic germination respiration and ontogenetic juvenile leaf scaling.
 germination:
   enabled: false
-  # Seed dry mass ~0.21 mg (Perala & Alm 1990; Miles 1974; Grime et al. 1988)
+  # Seed dry mass ~0.21 mg (Perala & Alm 1990; Miles 1974; Grime et al. 1988:
+  # none opened).  USDA Woody Plant Seed Manual, Betula, Table 4: ~0.19 mg per
+  # cleaned de-winged B. pendula seed (range 0.09-0.30). VERIFY
   seed_dry_mass_mg: 0.21
-  # Cotyledon photosynthetic area ~0.05 cm2 = 5e-6 m2 (Perala & Alm 1990; Laitakari 1935)
+  # Cotyledon photosynthetic area ~0.05 cm2 = 5e-6 m2 (Perala & Alm 1990;
+  # Laitakari 1935: not opened).  Not used by the code. VERIFY
   cotyledon_area_cm2: 0.05
   # Heterotrophic respiration loss of seed reserves during germination prior to autotrophy
-  # (Bewley & Black 1994; Penning de Vries et al. 1979)
+  # (Bewley & Black 1994; Penning de Vries et al. 1979: not opened; no Betula
+  # source found, phase 40). VERIFY
   germination_respiration_fraction: 0.35
   # Initial hypocotyl height at emergence (m). VERIFY
   hypocotyl_height_m: 0.015
@@ -1150,9 +1154,12 @@ germination:
   # Integrated seasonal photosynthetic leaf equivalent over year 1 as cotyledons expand to first leaves
   # (Ingestad 1979; Karlsson 2002; Konopka et al. 2023). VERIFY (effective seasonal calibrated scalar)
   first_year_effective_leaves: 0.20
-  # Breast-height reference where heteroblastic juvenile leaves reach adult size (m)
+  # Breast-height reference where heteroblastic juvenile leaves reach adult size (m).
+  # No source: no published leaf-size vs height relation for young Betula found
+  # (phase 40); the linear ramp in growth.py is invented. VERIFY
   juvenile_scale_bh_m: 1.3
-  # Minimum juvenile leaf scale at emergence (~3 cm2 juvenile leaf vs 15 cm2 adult)
+  # Minimum juvenile leaf scale at emergence (~3 cm2 juvenile leaf vs 15 cm2 adult;
+  # neither value has a source, phase 40). VERIFY
   min_juvenile_scale: 0.20
 
 # Soil water balance option (season bucket, off by default): BILJOU, Granier,
@@ -1171,14 +1178,15 @@ soil_water_balance:
   # p. 271 and Table 1; Breda et al. 2006, Ann. For. Sci. 63:625, p. 630)
   rew_threshold: 0.40
   # Maximum transpiration / PET = 0.125 LAI up to LAI 6, then 0.75
-  # (Granier 1999 Eq. 2, p. 271; fitted on oak, beech, spruce, Douglas-fir)
+  # (Granier 1999 Eq. 2, p. 271: the relationship the authors adopted; their
+  # fitted curve, Fig. 1, is quadratic, over several forest types, no birch)
   transpiration_lai_slope: 0.125
   transpiration_ratio_max: 0.75
   # Precipitation May-Sep, mm: SMHI 1991-2020 normals, Uppsala station 97520
   # (Normal-nbd-1991-2020.xlsx, smhi.se)
   precipitation_mm: [39.3, 61.2, 57.4, 73.6, 48.6]
   # Penman (1953) PET May-Sep, mm, computed for Forsmark (coastal north
-  # Uppland) 1970-2004: SKB TR-06-45 (Gustafsson et al. 2006) Table A1-10, p. 45
+  # Uppland) 1970-2004: SKB TR-06-45 (Gustafsson et al. 2006) Table A1-10, p. 44
   pet_mm: [79.8, 98.9, 103.4, 68.5, 30.1]
   # drought_scenario: use the 2018 precipitation, Uppsala 97520, SMHI open
   # data (parameter 23, monthly sums): dry May-June, wet July-August; its

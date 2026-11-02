@@ -613,6 +613,10 @@ class GrowthModel:
           T = Tmax if REW > REWc, else Tmax REW / REWc   (linear decline below
               REWc, Granier 1999 p. 271; Sopharat et al. 2015 Eqs. 9-10)
           D = W - EWM when W exceeds EWM (drainage above field capacity)
+        Assumptions without a source (VERIFY): the season starts at field
+        capacity on 1 May every year (Granier 1999 gives no initial state),
+        and r is at its full value from 1 May (BILJOU raises r linearly over
+        the 30 days after budburst, Granier 1999 p. 272; not applied here).
         Returns (lowest REW of the season, season sum T / sum Tmax)."""
         awc = float(swb.awc_mm)
         rew_c = float(swb.rew_threshold)
