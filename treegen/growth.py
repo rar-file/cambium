@@ -228,6 +228,40 @@ class GrowthModel:
         src = np.concatenate([T.pos[term_nodes], T.pos[lat_nodes]])
         return term_nodes, lat_nodes, w_term, w_lat, src, np.concatenate([w_term, w_lat])
 
+    def wood_sources(self) -> tuple[np.ndarray, np.ndarray]:
+        """Living woody internodes sampled along their axis and their projected area (m^2)."""
+        T = self.tree
+        n0 = T.n
+        alive = T.death[:n0] < 0
+        par = T.parent[:n0]
+        seg_idx = np.nonzero(alive & (par >= 0))[0]
+        if len(seg_idx) == 0:
+            return np.zeros((0, 3)), np.zeros(0)
+        p_idx = par[seg_idx]
+        p0 = T.pos[p_idx]
+        p1 = T.pos[seg_idx]
+        r = T.radius[seg_idx]
+        dp = p1 - p0
+        lens = np.linalg.norm(dp, axis=1)
+        valid = lens > 0
+        if not valid.all():
+            seg_idx, p0, p1, r, dp, lens = seg_idx[valid], p0[valid], p1[valid], r[valid], dp[valid], lens[valid]
+        if len(seg_idx) == 0:
+            return np.zeros((0, 3)), np.zeros(0)
+        vs = self.light.vs
+        long_mask = lens > vs
+        short_mask = ~long_mask
+        pts = [0.5 * (p0[short_mask] + p1[short_mask])]
+        areas = [2.0 * r[short_mask] * lens[short_mask]]
+        if long_mask.any():
+            for p0_i, dp_i, r_i, l_i in zip(p0[long_mask], dp[long_mask], r[long_mask], lens[long_mask]):
+                n_samp = max(1, int(np.ceil(l_i / vs)))
+                step_l = l_i / n_samp
+                t_vals = (np.arange(n_samp) + 0.5) / n_samp
+                pts.append(p0_i[None, :] + t_vals[:, None] * dp_i[None, :])
+                areas.append(np.full(n_samp, 2.0 * r_i * step_l))
+        return np.concatenate(pts), np.concatenate(areas)
+
     def _shoot_base(self, nodes: np.ndarray) -> np.ndarray:
         """True for nodes of the last growth season that start a shoot (the
         first node of a lateral, or of an axis tip's extension): where a
@@ -443,7 +477,8 @@ class GrowthModel:
             out.append((float(q[0] - 0.5), float(q[1] - 0.5), float(rng.uniform(0, 2 * np.pi)), size))
         return out
 
-    def _stand_cell(self, pos: np.ndarray, w: np.ndarray, height: float):
+    def _stand_cell(self, pos: np.ndarray, w: np.ndarray, height: float,
+                    wood_pos: np.ndarray | None = None, wood_w: np.ndarray | None = None):
         """Neighbour trees as shadow volumes: one periodic cell of the
         hexagonal stand lattice, ``cell_trees`` trees across, every lattice
         point a copy of the focal crown turned by its own fixed random angle.
@@ -451,6 +486,7 @@ class GrowthModel:
         st = self.sp.stand
         vs = self.light.vs
         nxt = int(st.cell_trees)
+        has_w = wood_pos is not None and wood_w is not None and len(wood_pos) > 0
         if getattr(self, "_stand_map", None) is not None:
             # random layout: a square cell holding cell_trees^2 trees at the
             # stem density of this height; neighbours are scaled copies
@@ -458,6 +494,8 @@ class GrowthModel:
             nx = max(1, int(round(side / vs)))
             side = nx * vs
             out_p, out_w = [pos], [w]
+            out_wp = [wood_pos] if has_w else None
+            out_ww = [wood_w] if has_w else None
             transforms = []
             for u, v, a, size in self._stand_map:
                 off_x, off_y = u * side, v * side
@@ -468,8 +506,16 @@ class GrowthModel:
                 transforms.append((a, off_x, off_y))
                 out_p.append(p)
                 out_w.append(w * size * size)
+                if has_w:
+                    wp = wood_pos.copy() * size
+                    wp[:, 0] = size * (c * wood_pos[:, 0] - sn * wood_pos[:, 1]) + off_x
+                    wp[:, 1] = size * (sn * wood_pos[:, 0] + c * wood_pos[:, 1]) + off_y
+                    out_wp.append(wp)
+                    out_ww.append(wood_w * size * size)
             self._stand_transforms = transforms
-            return np.concatenate(out_p), np.concatenate(out_w), (-0.5 * side, -0.5 * side, nx, nx)
+            c_wp = np.concatenate(out_wp) if has_w else None
+            c_ww = np.concatenate(out_ww) if has_w else None
+            return np.concatenate(out_p), np.concatenate(out_w), (-0.5 * side, -0.5 * side, nx, nx), c_wp, c_ww
         s = self.stand_spacing(height)
         nx = max(1, int(round(nxt * s / vs)))
         s = nx * vs / nxt                                     # snap to the voxel grid
@@ -478,6 +524,8 @@ class GrowthModel:
         dy = ny * vs / rows
         i0, j0 = nxt // 2, rows // 2
         out_p, out_w = [pos], [w]
+        out_wp = [wood_pos] if has_w else None
+        out_ww = [wood_w] if has_w else None
         transforms = []
         for j in range(rows):
             for i in range(nxt):
@@ -493,10 +541,18 @@ class GrowthModel:
                 p[:, 1] = sn * pos[:, 0] + c * pos[:, 1] + off_y
                 out_p.append(p)
                 out_w.append(w)
+                if has_w:
+                    wp = wood_pos.copy()
+                    wp[:, 0] = c * wood_pos[:, 0] - sn * wood_pos[:, 1] + off_x
+                    wp[:, 1] = sn * wood_pos[:, 0] + c * wood_pos[:, 1] + off_y
+                    out_wp.append(wp)
+                    out_ww.append(wood_w)
         x0 = -0.5 * nx * vs
         y0 = -0.5 * ny * vs
         self._stand_transforms = transforms
-        return np.concatenate(out_p), np.concatenate(out_w), (x0, y0, nx, ny)
+        c_wp = np.concatenate(out_wp) if has_w else None
+        c_ww = np.concatenate(out_ww) if has_w else None
+        return np.concatenate(out_p), np.concatenate(out_w), (x0, y0, nx, ny), c_wp, c_ww
 
     # ------------------------------------------------------------------
     def run(self, years: int, callback=None, verbose: bool = False):
@@ -549,17 +605,23 @@ class GrowthModel:
             self._shoot_carbon = 0.0   # nothing fixed, no new wood
             self._finish_year(t)
             return
-        region = np.stack([src.min(0), src.max(0)])
+        woody_cfg = bool(getattr(getattr(sp.light, "woody_shade", None), "enabled", False))
+        k_wood = float(getattr(sp.light.woody_shade, "k_wood", 0.40)) if woody_cfg else 0.40
+        wpos = warea = None
+        if woody_cfg:
+            wpos, warea = self.wood_sources()
+        all_pts = src if wpos is None or len(wpos) == 0 else np.concatenate([src, wpos])
+        region = np.stack([all_pts.min(0), all_pts.max(0)])
         cell = None
         if getattr(self, "_plot_view", None) is not None:
             # in a plot: one light field shared by all trees, seen from here
             field = self._plot_view
         elif self.stand:
             height = float(T.pos[:n0][alive, 2].max())
-            cpos, cw, cell = self._stand_cell(src, src_w, height)
-            field = self.light.compute(cpos, cw, region, periodic=cell)
+            cpos, cw, cell, c_wpos, c_warea = self._stand_cell(src, src_w, height, wpos, warea)
+            field = self.light.compute(cpos, cw, region, periodic=cell, wood_pos=c_wpos, wood_area=c_warea, k_wood=k_wood)
         else:
-            field = self.light.compute(src, src_w, region)
+            field = self.light.compute(src, src_w, region, wood_pos=wpos, wood_area=warea, k_wood=k_wood)
         self._field = field   # kept for diagnostics until the next season
         Qterm = np.zeros(n0)
         Qlat = np.zeros(n0)

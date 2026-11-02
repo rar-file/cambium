@@ -196,10 +196,23 @@ class Plot:
             if len(src):
                 srcs.append(src + self._offset(k))
                 ws.append(w)
+        woody_cfg = bool(getattr(getattr(self.species.light, "woody_shade", None), "enabled", False))
+        k_wood = float(getattr(self.species.light.woody_shade, "k_wood", 0.40)) if woody_cfg else 0.40
+        wood_pts, wood_areas = [], []
+        if woody_cfg:
+            for k in active:
+                wpos, warea = self.trees[k].wood_sources()
+                if len(wpos):
+                    wood_pts.append(wpos + self._offset(k))
+                    wood_areas.append(warea)
+        all_wpos = np.concatenate(wood_pts) if wood_pts else None
+        all_warea = np.concatenate(wood_areas) if wood_areas else None
         field = None
         if srcs:
             allp = np.concatenate(srcs)
-            field = self.light.compute(allp, np.concatenate(ws), np.stack([allp.min(0), allp.max(0)]), periodic=self.cell)
+            pts_for_region = allp if all_wpos is None or len(all_wpos) == 0 else np.concatenate([allp, all_wpos])
+            field = self.light.compute(allp, np.concatenate(ws), np.stack([pts_for_region.min(0), pts_for_region.max(0)]),
+                                       periodic=self.cell, wood_pos=all_wpos, wood_area=all_warea, k_wood=k_wood)
         if self.soil is not None:
             # every tree's absorbing roots at the start of its season, in one field
             pts, ls = [], []

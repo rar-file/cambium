@@ -406,6 +406,14 @@ light:
   perception_cone_deg: 80
   perception_samples: 64
   perception_softmin: 0.05
+  # Woody shade attenuation.  Trunks and branches cast shade in addition to
+  # foliage.  Extinction factor k_wood = 0.40 (Granier et al. 2000, DOI 10.1016/S0168-1923(00)00138-5;
+  # Barclay et al. 2000, DOI 10.1016/S0168-1923(00)00159-2; Duursma & Mäkelä 2007,
+  # DOI 10.1093/treephys/27.6.859; Chen et al. 1997, DOI 10.1029/97JD01105).
+  # Disabled by default so baseline behavior is unchanged.
+  woody_shade:
+    enabled: false
+    k_wood: 0.40
 
 shedding:
   # A lateral branch is shed when the leaf-weighted mean light exposure of

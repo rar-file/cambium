@@ -142,7 +142,9 @@ class ShadowPropagation:
         return out
 
     def compute(self, src_pos: np.ndarray, src_w: np.ndarray, region: np.ndarray | None = None,
-                periodic: tuple | None = None) -> "LightField":
+                periodic: tuple | None = None,
+                wood_pos: np.ndarray | None = None, wood_area: np.ndarray | None = None,
+                k_wood: float = 0.40) -> "LightField":
         """Shadow field from weighted sources.
 
         ``region`` (2, 3) bounds the part of the grid that must be accurate
@@ -153,8 +155,14 @@ class ShadowPropagation:
         away from the crown.
         """
         vs = self.vs
-        hi = np.floor(src_pos.max(0) / vs).astype(int)
-        lo = np.floor(src_pos.min(0) / vs).astype(int)
+        has_wood = wood_pos is not None and wood_area is not None and len(wood_pos) > 0
+        if has_wood:
+            all_pts = np.concatenate([src_pos, wood_pos])
+            hi = np.floor(all_pts.max(0) / vs).astype(int)
+            lo = np.floor(all_pts.min(0) / vs).astype(int)
+        else:
+            hi = np.floor(src_pos.max(0) / vs).astype(int)
+            lo = np.floor(src_pos.min(0) / vs).astype(int)
         lo[2] = max(lo[2] - 1, -1)
         hi[2] += 2
         if periodic is not None:
@@ -174,6 +182,18 @@ class ShadowPropagation:
         shape = (int(nx), int(ny), int(nz))
         D = np.zeros(shape, dtype=np.float32)
         np.add.at(D, (idx[:, 0], idx[:, 1], idx[:, 2]), (self.a * src_w).astype(np.float32))
+        if has_wood:
+            idx_wood = np.floor(wood_pos / vs).astype(int) - lo
+            if periodic is not None:
+                idx_wood[:, 0] %= nx
+                idx_wood[:, 1] %= ny
+                ok_w = (idx_wood[:, 2] >= 0) & (idx_wood[:, 2] < nz)
+            else:
+                ok_w = (idx_wood[:, 0] >= 0) & (idx_wood[:, 0] < nx) &                        (idx_wood[:, 1] >= 0) & (idx_wood[:, 1] < ny) &                        (idx_wood[:, 2] >= 0) & (idx_wood[:, 2] < nz)
+            if ok_w.any():
+                iw = idx_wood[ok_w]
+                wood_d = (float(k_wood) * wood_area[ok_w] / (vs ** 2)).astype(np.float32)
+                np.add.at(D, (iw[:, 0], iw[:, 1], iw[:, 2]), wood_d)
         if self.leaf_sigma > 0:
             mode = ("wrap", "wrap", "constant") if periodic is not None else "constant"
             D = gaussian_filter(D, self.leaf_sigma, mode=mode, truncate=3.0)
@@ -182,6 +202,8 @@ class ShadowPropagation:
         S = np.zeros(shape, dtype=np.float32)
         B = np.zeros(tf.shape, dtype=np.complex64)
         occupied = np.nonzero(D.reshape(-1, nz).any(0))[0]
+        if len(occupied) == 0:
+            return LightField(self, S, lo, periodic is not None)
         top = int(occupied.max())
         bottom = 0 if region is None else max(0, int(math.floor(region[0, 2] / vs)) - lo[2] - 1)
         for z in range(top, bottom - 1, -1):
