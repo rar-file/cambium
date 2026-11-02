@@ -1,5 +1,21 @@
 # Acceptance targets for silver birch (Betula pendula) growth model benchmarks.
 # Every figure quoted as a target in reports and comparison tools must originate here.
+#
+# Conditions are labels that tools/scorecard.py checks against the saved run
+# output.  A label left out puts no limit on that condition.
+#   scenario: list of  plot          tools/plot.py (plot.json)
+#                      stand-tree    cli.py --stand (stats.json, mode "stand")
+#                      single-tree   cli.py without --stand (stats.json, mode "open")
+#                      single-seedling   a seedling run
+#   mode:     list of  natural | managed | open-grown
+#             (plot: as saved in plot.json; stand-tree runs follow the thinning
+#             programme, so they are managed; single-tree runs are open-grown)
+#   age_years: [lo, hi]   stand age (plot), tree age (single runs), years
+#   density_stems_ha: [lo, hi]
+#   options_required: {species option: value} that must have been on in the run
+#   text: the source's own description of where it applies (not checked)
+# scoring: info  ->  information only: the model value is shown next to the
+#   target as INFO, never PASS/FAIL (the source gives no range or spread).
 
 stand_canopy:
   lai_baltic_chronosequence:
@@ -10,10 +26,12 @@ stand_canopy:
     page_table: "Table 1 (p. 119) & Table 4 (p. 122)"
     measures: "Leaf area index (LAI, m2 m-2) of monospecific silver birch stands on fertile abandoned agricultural land in Estonia across an age chronosequence (ages 6 to 60)."
     conditions:
-      age_range_years: [6, 60]
+      scenario: [plot]
+      mode: [natural]
+      age_years: [6, 60]
+      density_stems_ha: [305, 100000]
       age_definition: "total age from establishment"
-      management: "unthinned / natural self-thinning on fertile abandoned farmland"
-      density_range_stems_ha: [305, 100000]
+      text: "unthinned / natural self-thinning on fertile abandoned farmland"
 
   lai_hagemeier:
     target_mean: 4.59 # unrounded sample bucket mean across stands (paper lists stands 3.6 and 5.4; Table 5 in 10(10):925 lists mean 5.0)
@@ -23,12 +41,12 @@ stand_canopy:
     citation: "Hagemeier, M., & Leuschner, C. (2019). Functional Crown Architecture of Five Temperate Broadleaf Tree Species: Vertical Gradients in Leaf Morphology, Leaf Angle, and Leaf Area Density. Forests 10(3):265."
     page_table: "Figure 7 & Section 3.3 (p. 11)"
     measures: "Stand leaf area index (LAI, m2 m-2) measured using circular litter collection buckets over two consecutive autumns (1998 and 1999)."
+    source_stands: "Two birch stands (Table 3): site 1 aged 45 yr, 880 stems/ha; site 2 aged 67 yr, 420 stems/ha. Lehrer Wald and Lappwald, Helmstedt county, Lower Saxony, Germany (Table 2). Management is not stated in the paper."
     conditions:
+      scenario: [plot, stand-tree]
       age_years: [45, 65]
       age_definition: "stand total age"
-      management: "mature monospecific Betula pendula stands"
-      location: "Unterlüss, Lower Saxony, Germany"
-      density_stems_ha: 880
+      text: "mature monospecific Betula pendula stands"
 
   subcanopy_light_transmittance:
     target_median_pct: 14.8
@@ -42,8 +60,9 @@ stand_canopy:
       k_par: 0.37 # canopy extinction coefficient for PAR under diffuse light
       foliage_clumping_index: 0.41 # Omega
     conditions:
-      age_definition: "mature closed canopy (age 45-65)"
-      status: "Values above 20% indicate insufficient crown leaf/wood shading; 21-29% in unclosed stands is excessive light penetration."
+      scenario: [plot, stand-tree]
+      age_years: [45, 65]
+      text: "mature closed canopy (age 45-65). Values above 20% indicate insufficient crown leaf/wood shading; 21-29% in unclosed stands is excessive light penetration."
 
   live_crown_ratio:
     silvicultural_recommendation:
@@ -54,7 +73,9 @@ stand_canopy:
       page_table: "Section 'Thinning and pruning' (p. 109, column 2)"
       measures: "Minimum live crown ratio (LCR = crown length / total height) required for crop trees in commercial birch stands."
       conditions:
-        management: "Managed stands; silvicultural guideline prescribing early pre-commercial thinning (PCT at dominant height 5-7 m) and commercial thinning to prevent crown recession below 0.50 and maintain rapid stem diameter growth."
+        scenario: [plot, stand-tree]
+        mode: [managed]
+        text: "Managed stands; silvicultural guideline prescribing early pre-commercial thinning (PCT at dominant height 5-7 m) and commercial thinning to prevent crown recession below 0.50 and maintain rapid stem diameter growth."
     managed_stand_empirical:
       mean_ratio: 0.58
       range: [0.29, 0.96]
@@ -64,6 +85,11 @@ stand_canopy:
       citation: "Repola, J. (2008). Biomass equations for birch in Finland. Silva Fennica 42(4):605-624."
       page_table: "Table 2 (p. 609)"
       measures: "Live crown ratio of 127 sample trees from 24 managed stands on mineral soil across Finland (mean DBH 16.5 cm, mean H 17.1 m)."
+      scoring: info # the range is the spread of single sample trees, not of stand means; no stand age given
+      conditions:
+        scenario: [plot, stand-tree]
+        mode: [managed]
+        text: "24 managed stands on mineral soil across Finland"
     dense_unmanaged_stand:
       target_range: [0.30, 0.45]
       source: "Niemistö (1995, Paper 1); Repola (2008)"
@@ -72,21 +98,31 @@ stand_canopy:
       page_table: "Table 2 (p. 238) & Fig. 1 (p. 239); Repola (2008) Table 2 minimum (0.29)"
       measures: "Observed live crown ratio in dense, self-thinned stands. In Niemistö (1995) dense unthinned planted trials (3,000-5,000 stems/ha, aged 11-22 yr), rapid crown lift reduced LCR to 0.35-0.45, with suppressed trees reaching 0.30. In Repola (2008) suppressed trees in denser stands reached a lower bound of 0.29. Reconciled: Managed stands average 0.58 because thinnings release crowns; dense unmanaged stands self-thin to 0.30-0.45 due to intense lateral shading and crown recession."
       conditions:
-        stand_age_years: [11, 22]
-        note: "Applicable specifically to young dense stands (ages 11-22 yr); NOT a target for mature stands (ages 50-60)."
-        management: "Dense unmanaged natural stands subject to dense lateral shading and natural self-pruning."
+        scenario: [plot]
+        mode: [natural]
+        age_years: [11, 22]
+        text: "Dense unmanaged natural stands subject to dense lateral shading and natural self-pruning. Applicable specifically to young dense stands (ages 11-22 yr); NOT a target for mature stands (ages 50-60)."
 
   stand_density:
-    unmanaged_natural_45yr: 880
-    unmanaged_natural_67yr: 420
+    stems_per_ha_45yr: 880
+    stems_per_ha_67yr: 420
     source: "Hagemeier & Leuschner (2019, Forests 10(3):265)"
-    conditions: "Self-thinned mature monospecific stands on sandy plains in Lower Saxony."
+    doi: "10.3390/f10030265"
+    page_table: "Table 3 (Betula pendula sites 1 and 2)"
+    measures: "Stem density of one birch stand at each age. Table 3, B. pendula: site 1, 45 yr, 880 stems/ha (85 % of stems birch, mean height 20 +- 3 m, mean dbh 19 +- 6 cm); site 2, 67 yr, 420 stems/ha (98 %, 25 +- 3 m, 25 +- 3 cm)."
+    scoring: info # one stand per age; Table 3 gives no range or spread for stem density
+    conditions:
+      scenario: [plot]
+      text: "Closed-canopy (> 0.9) birch stands on loamy sand, Helmstedt county, Lower Saxony, Germany (Tables 2-3). The paper does not state whether the stands were managed or self-thinned."
 
   dominant_height_invariance:
     rule: "Dominant height (mean height of the 100 largest trees/ha) is invariant to stand density (400-3,100 stems/ha) during the juvenile phase (ages 2-15) and normal forestry stocking (1,000-2,500 stems/ha) across the rotation."
     source: "Niemistö (1995, Scand. J. For. Res. 10:245-255); Hynynen et al. (2010, Forestry 83:103)"
     doi: "10.1080/02827589509382890"
-    conditions: "Holds across typical plantation and clearcut spacings. Stagnation occurs only in extremely dense unthinned stands (>3,500 stems/ha) after dominant height exceeds 15 m; minor height reduction occurs at very low density (<400 stems/ha) due to heavy branch allocation."
+    scoring: info # a rule across several runs, not a single value
+    conditions:
+      scenario: [plot]
+      text: "Holds across typical plantation and clearcut spacings. Stagnation occurs only in extremely dense unthinned stands (>3,500 stems/ha) after dominant height exceeds 15 m; minor height reduction occurs at very low density (<400 stems/ha) due to heavy branch allocation."
 
 tree_allometry:
   site_index_curves:
@@ -94,10 +130,28 @@ tree_allometry:
     source: "Eriksson, Johansson & Kiviste (1997)"
     doi: "10.1080/02827589709355396"
     citation: "Eriksson, H., Johansson, U., & Kiviste, A. (1997). A site-index model for pure and mixed stands of Betula pendula and Betula pubescens in Sweden. Scand. J. For. Res. 12:149-156."
-    page_table: "Table 3 & Equation 4 (p. 152)"
+    page_table: "Table 3 & Equation 4 (p. 152); VERIFY: the full text is paywalled and was not opened on 2026-11-02"
+    equation: "H2 = (H1 - 1.3 + d + r) / (2 + 4 beta T2^(-b2) / (H1 - 1.3 - d + r)) + 1.3, d = beta / asi^b2, r = sqrt((H1 - 1.3 - d)^2 + 4 beta (H1 - 1.3) / T1^b2); H1 = site index (m) at breast-height age T1 = reference_age_years, H2 = height (m) at breast-height age T2"
+    parameters:
+      asi: 7
+      beta: 394
+      b2: 1.387
+    parameters_source: "Model values from the R package forester (github.com/Silviculturalist/forester, R/Eriksson_1997_height_trajectory_Sweden_BIrch.R), an implementation of this paper; not yet checked against the paper's table. VERIFY"
     age_definition: "Breast-height age (T_1.3) where H(T_1.3 = 0) = 1.3 m. Total age = T_1.3 + years_to_breast_height (standard 4 years in Sweden)."
     reference_age_years: 50 # at breast-height age 50 (total age 54)
+    years_to_breast_height: 4
     swedish_boreal_range_m: [20.0, 26.0] # SI20 to SI26
+    height_measure: "dominant height"
+    # 100_thickest_per_ha | 100_tallest_per_ha | unconfirmed.  The paper's own
+    # definition has not been seen (full text paywalled); its abstract speaks
+    # of "top-height trees" only.  Plot runs are not scored while unconfirmed.
+    dominant_height_definition: unconfirmed
+    conditions:
+      scenario: [plot, stand-tree]
+      mode: [natural, managed]
+      age_years: [20, 60]
+      age_definition: "total age = breast-height age + years_to_breast_height"
+      text: "Pure and mixed birch stands throughout Sweden (abstract). Stand-tree runs: dominant height is the tree's own height, its lattice neighbours being copies of it."
 
   bark_thickness:
     model_dbh: "under bark (wood only)"
@@ -107,6 +161,10 @@ tree_allometry:
     citation: "Hansen, E.H., Rahlf, J., Astrup, R., & Gobakken, T. (2023). Taper, volume, and bark thickness models for spruce, pine, and birch in Norway. Scand. J. For. Res. 38(6):413-428 (correction: Scand. J. For. Res. 39(4):254, DOI: 10.1080/02827581.2024.2358467)."
     implementation: "tools/bark.py (taperNOR R package 0.2.1 model)"
     formula: "double bark thickness (mm) = -0.48552367 + 0.04957885 * DBH_ob + 0.84676248 * d_ob"
+    scoring: info # a conversion between model (under-bark) and field (over-bark) diameters, not a target
+    conditions:
+      scenario: [plot, stand-tree, single-tree]
+      text: "Birch (B. pendula and B. pubescens) in Norwegian NFI plots."
 
   crown_width_open_grown:
     source: "Hemery, Savill & Pryor (2005)"
@@ -114,7 +172,11 @@ tree_allometry:
     citation: "Hemery, G.E., Savill, P.S., & Pryor, S.N. (2005). Applications of the crown diameter-stem diameter relationship for different species of broadleaved trees. Forest Ecology and Management 215:285-294."
     page_table: "Table 1 (p. 287)"
     formula: "Crown diameter (m) = 0.932 + 0.177 * DBH_over_bark_cm"
-    conditions: "Open-grown, solitary silver birch with unconstrained lateral branch expansion."
+    scoring: info # paper paywalled, not opened on 2026-11-02: no range or spread seen, none added
+    conditions:
+      scenario: [single-tree]
+      mode: [open-grown]
+      text: "Open-grown, solitary silver birch with unconstrained lateral branch expansion."
 
   foliage_biomass:
     source: "Repola (2008)"
@@ -124,6 +186,11 @@ tree_allometry:
       eq_12: "ln(foliage_kg) = -29.566 + 33.372 * (d_s / (d_s + 2)) where d_s = 2 + 1.25 * DBH, var=0.077 (DBH-only model)"
       eq_a6: "ln(foliage_kg) = -20.856 + 22.320 * (d_s / (d_s + 2)) + 2.819 * cr where d_s = 2 + 1.25 * DBH, cr = crown ratio, var=0.063 (DBH, H, CR model)"
     page_table: "Table 6 (p. 616, Eq. 12) & Appendix Table A6 (p. 622)"
+    scoring: info # an equation; no pass range written
+    conditions:
+      scenario: [plot, stand-tree]
+      mode: [managed]
+      text: "Sample trees from managed stands on mineral soil across Finland (same data as live_crown_ratio.managed_stand_empirical)."
 
   wood_basic_density:
     value_kg_m3: 530.0
@@ -132,6 +199,11 @@ tree_allometry:
     citation: "Aosaar, J., et al. (2016). Biomass production and nitrogen accumulation dynamics in a silver birch (Betula pendula Roth) chronosequence. Silva Fennica 50(4):1628."
     page_table: "Table 4 (p. 9)"
     measures: "Stemwood basic density (dry mass / fresh volume, g cm-3 or kg m-3) for 17-year-old silver birch stand."
+    scoring: info # a single value; also a model input
+    conditions:
+      scenario: [plot, stand-tree]
+      age_years: [17, 17]
+      text: "17-year-old silver birch stand, Estonia."
 
   carbon_fraction:
     value: 0.48
@@ -140,6 +212,10 @@ tree_allometry:
     citation: "Thomas, S.C., & Martin, A.R. (2012). Carbon content of tree tissues: a synthesis. Forests 3(2):332-345."
     page_table: "Table 1 (p. 336)"
     measures: "Carbon concentration in wood dry matter of temperate/boreal angiosperms (48.0% +/- 1.2%)."
+    scoring: info # a model input, not a model output
+    conditions:
+      scenario: [plot, stand-tree, single-tree, single-seedling]
+      text: "Wood of temperate/boreal angiosperms."
 
   critical_turning_moment:
     value_knm_per_m3: 101.0
@@ -148,13 +224,21 @@ tree_allometry:
     citation: "Krišāns, O., Čakša, L., Matisons, R., Rust, S., Elferts, D., Seipulis, A., & Jansons, Ā. (2022). A Static Pulling Test Is a Suitable Method for Comparison of the Loading Resistance of Silver Birch (Betula pendula Roth.) between Urban and Peri-Urban Forests. Forests 13(1):127."
     page_table: "Tables 1-2 (pp. 4-6)"
     measures: "Empirical regression of tree winching / pulling critical turning moment on stem volume (M_crit = C_reg * V_stem)."
+    scoring: info # a regression coefficient; no pass range written
+    conditions:
+      scenario: [plot, stand-tree, single-tree]
+      text: "Silver birch in urban and peri-urban forests, Latvia."
 
 juvenile_establishment:
   natural_clearcut_heights:
     age_2_years_m: [0.15, 0.35]
     age_5_years_m: [1.2, 1.8]
     source: "Johansson (1999); Niemistö (1995); Valkonen et al. (2002); Hynynen et al. (2010)"
-    conditions: "Naturally regenerated birch seedlings on Nordic clearcuts with typical field-layer competition."
+    conditions:
+      scenario: [single-seedling, plot]
+      options_required:
+        field_layer_competition.enabled: true
+      text: "Naturally regenerated birch seedlings on Nordic clearcuts with typical field-layer competition."
 
   field_layer:
     dominant_species: ["Vaccinium myrtillus", "Vaccinium vitis-idaea", "Deschampsia flexuosa"]
@@ -162,7 +246,11 @@ juvenile_establishment:
     lai_range: [0.4, 2.0]
     ground_light_transmittance_pct: [20.0, 40.0]
     source: "Aubin, Beaudet & Messier (2000, Can. J. For. Res. 30:168); SMEAR II Hyytiälä data; Ring & Sikström (2024, Silva Fennica 58:23056)"
-    conditions: "Established dwarf shrub and grass sward on boreal forest floor."
+    conditions:
+      scenario: [single-seedling, plot]
+      options_required:
+        field_layer_competition.enabled: true
+      text: "Established dwarf shrub and grass sward on boreal forest floor."
 
   seedling_root_shoot_ratio:
     age_1_to_3_years: [0.25, 0.50]
@@ -170,3 +258,7 @@ juvenile_establishment:
     source: "Konôpka et al. (2023, Plants 12:1607); Laitakari (1935, Acta For. Fenn. 41)"
     doi: "10.3390/plants12081607"
     measures: "Ratio of belowground root dry mass to aboveground shoot dry mass in juvenile silver birch (height 0.4-1.5 m)."
+    conditions:
+      scenario: [single-seedling]
+      age_years: [1, 3]
+      text: "Juvenile silver birch, height 0.4-1.5 m."
