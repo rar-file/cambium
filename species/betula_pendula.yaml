@@ -583,6 +583,12 @@ pipe_model:
   # true: the requirement is on the conducting wood, with
   # sapwood_senescence_per_year; false: on the whole wood, no turnover.
   sapwood: true
+  # Crown-rise heartwood retirement (Mäkelä 1997, Sievänen et al. 1997):
+  # for internodes below the live crown base, pipe requirement only serves
+  # the active crown above (A_su); any old sapwood exceeding A_su is
+  # converted to heartwood, eliminating the need to lay down replacement
+  # rings for retired crown layers.
+  crown_rise_heartwood: false
   # Count the rings that keep this season's foliage supplied (replacing
   # sapwood that stopped conducting, plus the foliage added) as upkeep in
   # the natural-mode death test, like rebuilding the leaves.  In the pipe

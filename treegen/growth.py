@@ -1336,6 +1336,26 @@ class GrowthModel:
             # (r / r_tip)^b
             r_tip = float(pm.tip_radius)
             hv = hv * (np.maximum(T.radius[:n0], r_tip) / r_tip) ** b
+        la_now = np.zeros(n0)
+        np.add.at(la_now, bud_nodes, bud_leaf)
+        la_now = T.basipetal(levels, la_now)
+        cr_hw = bool(getattr(pm, "crown_rise_heartwood", False))
+        if cr_hw and bool(getattr(pm, "sapwood", True)):
+            cb = float((self.stats[-1].get("crown_base_height_m") if self.stats else None) or 0.0)
+            if cb > 0.0:
+                below = alive & (T.pos[:n0, 2] < cb)
+                if below.any():
+                    trunk = T.trunk_chain(self.leader_axes)
+                    above_cb = trunk[T.pos[trunk, 2] >= cb]
+                    if len(above_cb) > 0:
+                        cb_node = int(above_cb[0])
+                        if isinstance(hv, np.ndarray):
+                            hv = hv.copy()
+                            hv[below] = hv[cb_node]
+                        a_su = (hv[cb_node] if isinstance(hv, np.ndarray) else hv) * la_now[cb_node]
+                        excess = below & (T.sap_area[:n0] > a_su)
+                        if excess.any():
+                            T.sap_area[:n0] = np.where(excess, a_su, T.sap_area[:n0])
         if bool(getattr(pm, "sapwood", True)):
             # sapwood only, after a share of last year's turned to heartwood
             keep = np.where(alive, (1.0 - float(pm.sapwood_senescence_per_year)) * T.sap_area[:n0], 0.0)
@@ -1343,9 +1363,6 @@ class GrowthModel:
             # no distinct heartwood (birch): the requirement is on the whole
             # wood cross-section, so no wood is counted twice
             keep = np.where(alive, T.wood_area[:n0], 0.0)
-        la_now = np.zeros(n0)
-        np.add.at(la_now, bud_nodes, bud_leaf)
-        la_now = T.basipetal(levels, la_now)
         z_node = T.pos[:n0, 2]
         z_base = T.pos[np.maximum(T.parent[:n0], 0), 2]
         laz_now = np.zeros(n0)
