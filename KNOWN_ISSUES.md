@@ -1968,3 +1968,19 @@ Seed 1, age 60, against published silver-birch values. "Shoot" is a branch tip c
   - Frequent synoptic storms / gusts (10–14 m/s, return period 1 week to 1 year) exceed the MES threshold, triggering cambial stimulation (+79% growth rate, +76% to +156% radial wood).
   - Designing stems to maintain working stress $\sigma_{\text{target}} \approx 18\text{ MPa}$ under recurring 12 m/s winds automatically provides safety factor $SF \approx 1.5$ against a 25 m/s storm.
   - Canopy wind load sharing: wind decays exponentially inside the canopy ($u(z) = u(h_c) e^{-\alpha(1-z/h_c)}$). A suppressed tree with $z/h_c = 0.5$ receives $<10\%$ of the aerodynamic drag force of a canopy-dominant tree, sheltering suppressed stems until thinning.
+
+
+## Phase 37 & 38: Stem Theory Stage b Default, Taper, Leader Alternations, and Carbon Accounting Corrections
+
+**1. Stem Theory Stage b Adopted as Default (`pipe_model.stem_theory.stage: 2`).**
+- **Architecture**: Plain pipe model below the live crown base ($c = 0$, $b = 0$, $A_s(z) = A_s(H_c)$), surplus sapwood retired to heartwood (`crown_rise_heartwood`), coupled with the mechanical wind envelope (frequent synoptic wind $u_h = 12.0\text{ m/s}$ at canopy top, target bending stress $\sigma = 18.0\text{ MPa}$, and exponential within-canopy wind speed decay $u(z) = u(h_c)\exp[a(z/h_c - 1)]$ with $a = 2.0$ from Inoue 1963 / Cionco 1972).
+- **Improvements**: Eliminates empirical path-length exponent ($c = 0.283$), matches Eriksson SI26 height at age 50–60 (25.02 m and 26.11 m vs 25.31 m and 26.87 m), matches Repola 2008 stem wood biomass (ratio 1.01–1.14 across rotation), and stabilizes form factor.
+- **What Stage b Does NOT Fix (Honest Assessment)**:
+  1. *Leader Alternation Persists*: Height increments still oscillate heavily between burst and stall years (e.g. 1.175 m at yr 24 followed by -0.001 m at yr 25; 0.721 m at yr 34 followed by 0.027 m at yr 35).
+  2. *Mid-Stem Taper Excess*: Stem relative diameters at 0.3–0.7 H remain 12%–20% thicker than Hansen et al. (2023) under-bark taper (e.g. at age 50, $d/DBH$ is 0.84 vs 0.75 at 0.3 H, 0.67 vs 0.60 at 0.5 H, and 0.44 vs 0.38 at 0.7 H).
+  3. *Branch Wood Underestimation Worsened*: Living branch wood biomass relative to Repola (2008) drops to 0.11–0.16 (compared to 0.16–0.27 in baseline), because the wind bending moment allocates additional carbon to the lower trunk, further starving lateral branches.
+  4. *Hansen Form Factor Correction*: The empirical under-bark form factor for this tree from Hansen et al. (2023) taper curves evaluated in Phases 30–31 is **0.39–0.44**, not 0.45–0.48. Stage b achieves form factor 0.46–0.48, which is slightly fuller than Hansen's pure clear-bole form factor.
+
+**2. Withdrawal of Phase 36 Ring Decomposition.**
+- The Phase 36 ring-carbon decomposition table (claiming 44.2% was spent on sapwood senescence replacement) is **formally withdrawn**.
+- *Reason*: The Phase 36 report assumed an invented turnover rate of 5%/yr (0.05). In reality, the codebase uses `sapwood_senescence_per_year: 0.014` ($1.4\%/\text{yr}$, Gebauer et al. 2008). At 0.014/yr, lifetime turnover replacement requires only 6.5% of net shoot carbon, not 44%.

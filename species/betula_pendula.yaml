@@ -713,7 +713,7 @@ pipe_model:
   # is the canopy (its neighbours are copies of it), so the profile does not
   # change it.
   stem_theory:
-    stage: 0
+    stage: 2
     wind_speed_m_s: 12.0
     canopy_wind_attenuation: 2.0
 
