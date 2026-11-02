@@ -1155,3 +1155,17 @@ germination:
   # Minimum juvenile leaf scale at emergence (~3 cm2 juvenile leaf vs 15 cm2 adult)
   min_juvenile_scale: 0.20
 
+# Soil water balance option (monthly bucket model, off by default)
+# Lundin et al. 1999 (Agric. For. Meteorol. 98-99:53); Granier et al. 1999 (Ecol. Modell. 116:269)
+soil_water_balance:
+  enabled: false
+  # Plant available water capacity in 0.7m rooting till (mm) (Lundin et al. 1999 Table 1; Jansson et al. 1999)
+  awc_mm: 75.0
+  # Critical relative extractable water (REW) threshold for stomatal closure (Granier et al. 1999 Eq. 5)
+  rew_threshold: 0.40
+  # Monthly growing-season precipitation normals (May-Sep, mm), SMHI Uppsala (Station 97200, 1991-2020)
+  precipitation_mm: [40.0, 63.0, 60.0, 74.0, 49.0]
+  # Monthly potential evapotranspiration normals (May-Sep, mm), SKB TR-06-45 Table A1-10 (Penman Uppland series)
+  pet_mm: [80.0, 99.0, 103.0, 69.0, 30.0]
+  # Synthetic drought scenario (e.g. 2018 summer: P * 0.5, PET * 1.2)
+  drought_scenario: false

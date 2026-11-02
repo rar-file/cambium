@@ -598,6 +598,32 @@ class GrowthModel:
         leaves += np.where((T.term[:n] == 1) & (T.birth[:n] < t), float(fw.spur), 0.0)
         return np.where(alive, leaves * T.leaf_scale[:n] * self._size_rel(np.arange(n)), 0.0)
 
+    def _run_soil_water_balance(self, swb, lai: float) -> tuple[float, float]:
+        """Monthly bucket soil water balance (BILJOU framework: Granier et al. 1999).
+        Returns (min_rew, mean_stomatal_limitation_factor)."""
+        awc = float(getattr(swb, "awc_mm", 75.0))
+        rew_c = float(getattr(swb, "rew_threshold", 0.40))
+        p_list = [float(x) for x in getattr(swb, "precipitation_mm", [40.0, 63.0, 60.0, 74.0, 49.0])]
+        pet_list = [float(x) for x in getattr(swb, "pet_mm", [80.0, 99.0, 103.0, 69.0, 30.0])]
+        if bool(getattr(swb, "drought_scenario", False)):
+            p_list = [p * 0.5 for p in p_list]
+            pet_list = [pet * 1.2 for pet in pet_list]
+        w = awc
+        canopy_factor = 0.25 + 0.75 * min(1.0, max(0.0, lai / 3.0))
+        rews, f_s = [], []
+        for p, pet in zip(p_list, pet_list):
+            w_mid = min(awc, w + 0.5 * p)
+            rew = max(0.0, min(1.0, w_mid / awc))
+            f = min(1.0, rew / rew_c) if rew_c > 0 else 1.0
+            transp = pet * canopy_factor
+            aet = min(w + p, transp * f)
+            w = max(0.0, min(awc, w + p - aet))
+            rews.append(rew)
+            f_s.append(f)
+        min_rew = min(rews) if rews else 1.0
+        mean_f = sum(f_s) / len(f_s) if f_s else 1.0
+        return min_rew, mean_f
+
     def step(self):
         t = self.year + 1
         self._leader_damage(t)
@@ -730,6 +756,19 @@ class GrowthModel:
         else:
             phi = np.ones(len(bud_nodes))
             flow, collar = 0.0, 0.0
+        swb = getattr(sp, "soil_water_balance", None)
+        min_rew = None
+        f_swb = 1.0
+        if swb is not None and bool(getattr(swb, "enabled", False)):
+            la_tot_est = float(bud_leaf.sum())
+            if self.stand:
+                height = float(T.pos[:n0][alive, 2].max()) if alive.any() else 0.0
+                st_dens = self.stems_per_ha(height)
+                stand_lai = la_tot_est * (st_dens / 10000.0)
+            else:
+                stand_lai = min(3.5, la_tot_est / 10.0)
+            min_rew, f_swb = self._run_soil_water_balance(swb, stand_lai)
+            phi = phi * f_swb
         phi_t, phi_l = phi[: len(term_nodes)], phi[len(term_nodes):]
         # carbon is fixed by leaves: each bud's light times its leaf weight (a
         # leafless dormant bud fixes none, a short shoot's cluster 2.5 times a
@@ -787,6 +826,9 @@ class GrowthModel:
         self.water = {"transpiration_kg_s": flow, "psi_collar_mpa": collar, "stomatal_opening": 1.0 - stress,
                       "root_share": root_share,
                       "psi_top_mpa": float(psi[bud_nodes].min()) if self.roots is not None and len(bud_nodes) else 0.0}
+        if min_rew is not None:
+            self.water["yearly_min_rew"] = float(min_rew)
+            self.water["stomatal_limitation"] = float(f_swb)
 
         # 4. Borchert-Honda resource allocation --------------------------
         # Gravimorphism (Wareing & Nasr 1961): a bud's pull on resources
