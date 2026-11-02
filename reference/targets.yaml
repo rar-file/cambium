@@ -167,6 +167,6 @@ juvenile_establishment:
   seedling_root_shoot_ratio:
     age_1_to_3_years: [0.25, 0.50]
     root_dry_mass_share: [0.20, 0.35]
-    source: "Konôpka et al. (2023, Forests 14:817); Laitakari (1935, Acta For. Fenn. 41)"
-    doi: "10.3390/f14040817"
+    source: "Konôpka et al. (2023, Plants 12:1607); Laitakari (1935, Acta For. Fenn. 41)"
+    doi: "10.3390/plants12081607"
     measures: "Ratio of belowground root dry mass to aboveground shoot dry mass in juvenile silver birch (height 0.4-1.5 m)."
