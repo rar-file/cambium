@@ -131,16 +131,21 @@ tree_allometry:
     source: "Eriksson, Johansson & Kiviste (1997)"
     doi: "10.1080/02827589709355396"
     citation: "Eriksson, H., Johansson, U., & Kiviste, A. (1997). A site-index model for pure and mixed stands of Betula pendula and Betula pubescens in Sweden. Scand. J. For. Res. 12:149-156."
-    page_table: "Table 3 & Equation 4 (p. 152); VERIFY: the full text is paywalled and was not opened on 2026-11-02"
+    page_table: "Table 3 & Equation 4 (p. 152); VERIFY: the full text is paywalled and was not opened on 2026-11-02. Curve, parameters and variable definitions as reported by Elfving (2010), Growth modelling in the Heureka system, Appendix 9, p. 58, opened 2026-11-05"
     equation: "H2 = (H1 - 1.3 + d + r) / (2 + 4 beta T2^(-b2) / (H1 - 1.3 - d + r)) + 1.3, d = beta / asi^b2, r = sqrt((H1 - 1.3 - d)^2 + 4 beta (H1 - 1.3) / T1^b2); H1 = site index (m) at breast-height age T1 = reference_age_years, H2 = height (m) at breast-height age T2"
     parameters:
       asi: 7
       beta: 394
       b2: 1.387
-    parameters_source: "Model values from the R package forester (github.com/Silviculturalist/forester, R/Eriksson_1997_height_trajectory_Sweden_BIrch.R), an implementation of this paper; not yet checked against the paper's table. VERIFY"
-    age_definition: "Breast-height age (T_1.3) where H(T_1.3 = 0) = 1.3 m. Total age = T_1.3 + years_to_breast_height (standard 4 years in Sweden)."
-    reference_age_years: 50 # at breast-height age 50 (total age 54)
-    years_to_breast_height: 4
+    parameters_source: "Elfving (2010), Appendix 9, Table 1, p. 58: asi 7, beta 394, b2 -1.3870 (Elfving writes d = beta * asi^b2 with b2 negative; the equation above writes b2 positive). The same values are in the R package forester (github.com/Silviculturalist/forester, R/Eriksson_1997_height_trajectory_Sweden_BIrch.R). Eriksson et al.'s own table is still not opened. VERIFY"
+    age_definition: "Breast-height age (T_1.3) where H(T_1.3 = 0) = 1.3 m. Elfving (2010) p. 58: 'For birch the equation gives height development above breast height as function of age at breast height.' Total age = T_1.3 + T13 (time_to_breast_height)."
+    reference_age_years: 50 # breast-height age
+    time_to_breast_height:
+      rule: "T13 = 150/SIS"
+      source: "Elfving (2010), Appendix 7, p. 56: 'For other broad-leaves (birch, aspen etc.) the following relation is applied: T13 = 150/SIS'. SIS is 'site index according to site factors, given as top height at age 100, m' (p. 55)."
+      numerator: 150
+      sis_total_age_years: 100
+      sis_reading: "Elfving sets SIS from site factors for a site-indicative species (pp. 20, 38) and prints no conversion from birch site index (height at breast-height age 50) to SIS. Here SIS is this curve's own top height at total age 100, solved together with T13: SI20 25.08 m, 5.98 yr; SI26 29.93 m, 5.01 yr. VERIFY"
     swedish_boreal_range_m: [20.0, 26.0] # SI20 to SI26
     height_measure: "dominant height"
     # 100_thickest_per_ha | 100_tallest_per_ha | unconfirmed.  The paper's own
@@ -151,7 +156,7 @@ tree_allometry:
       scenario: [plot, stand-tree]
       mode: [natural, managed]
       age_years: [20, 60]
-      age_definition: "total age = breast-height age + years_to_breast_height"
+      age_definition: "total age = breast-height age + T13 (time_to_breast_height)"
       text: "Pure and mixed birch stands throughout Sweden (abstract). Stand-tree runs: dominant height is the tree's own height, its lattice neighbours being copies of it."
 
   bark_thickness:

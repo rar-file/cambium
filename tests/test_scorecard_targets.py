@@ -142,8 +142,8 @@ def test_height_band_and_definition():
     targets = copy.deepcopy(_targets())
     si = targets["tree_allometry"]["site_index_curves"]
     p = si["parameters"]
-    lo = eriksson_1997_height(20.0, 56.0, p["asi"], p["beta"], p["b2"])
-    hi = eriksson_1997_height(26.0, 56.0, p["asi"], p["beta"], p["b2"])
+    lo = eriksson_1997_height(20.0, 60.0 - t13_years(si, 20.0), p["asi"], p["beta"], p["b2"])
+    hi = eriksson_1997_height(26.0, 60.0 - t13_years(si, 26.0), p["asi"], p["beta"], p["b2"])
     # stand-tree run: the tree's own height against the band at total age 60
     run = _tree_run(per_year=[{"year": 60, "height_m": (lo + hi) / 2}])
     results, _ = evaluate_targets(targets, [run], ages=[60])
