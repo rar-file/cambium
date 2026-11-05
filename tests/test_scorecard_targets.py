@@ -183,3 +183,29 @@ def test_time_to_breast_height_rule():
 def test_fixed_time_to_breast_height_still_read():
     """A targets file from before the rule (an older git ref) keeps its number."""
     assert t13_years({"years_to_breast_height": 4}, 20.0) == 4.0
+
+
+def test_light_is_read_for_each_year_and_only_as_diffuse():
+    targets = _targets()
+    name = "stand_canopy.subcanopy_light_transmittance"
+    # stand tree: each age has its own value
+    py = [{"year": 50, "subcanopy_diffuse_light_pct": 15.0, "subcanopy_light_pct": 25.0},
+          {"year": 60, "subcanopy_diffuse_light_pct": 30.0, "subcanopy_light_pct": 40.0}]
+    results, _ = evaluate_targets(targets, [_tree_run(per_year=py)], ages=[50, 60])
+    assert _row(results, name, 50)["status"] == "PASS"
+    assert _row(results, name, 50)["model_value"] == "15.0 %"
+    assert _row(results, name, 60)["status"] == "FAIL"
+    # plot: from the plot's yearly stats
+    plot = _plot_run(mode="natural", year=50, extra={})
+    plot["plot_data"]["stats"][0]["subcanopy_diffuse_light_pct"] = 12.0
+    results, _ = evaluate_targets(targets, [plot], ages=[50])
+    assert _row(results, name, 50)["status"] == "PASS"
+    # only the sky-and-sun value: shown, never scored
+    results, _ = evaluate_targets(targets, [_tree_run(per_year=[{"year": 50, "subcanopy_light_pct": 15.0}])], ages=[50])
+    r = _row(results, name, 50)
+    assert r["status"] == "NOT APPLICABLE"
+    assert r["model_value"] == "N/A"
+    assert "15.0 %" in r["notes"]
+    # a value at the run level is not read
+    results, _ = evaluate_targets(targets, [_tree_run(per_year=[{"year": 50}], extra={"subcanopy_diffuse_light_pct": 15.0})], ages=[50])
+    assert _row(results, name, 50)["status"] == "NOT APPLICABLE"

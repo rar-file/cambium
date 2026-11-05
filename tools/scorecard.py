@@ -346,14 +346,22 @@ def evaluate_run(name: str, item: dict[str, Any], run: dict[str, Any] | None,
         for age in ages:
             label = f"{name} (age {age})"
             why, notes = applicability(item, run, age)
-            val = (run.get("plot_data") or run.get("tree_stats") or {}).get("subcanopy_light_pct") if not why else None
+            yearly = None
+            if not why:
+                yearly = plot_stat(run, age) if scen == "plot" else tree_record(run, age)
+            val = yearly.get("subcanopy_diffuse_light_pct") if yearly else None
             if not why and val is None:
-                why = "subcanopy light not saved in run output"
+                # the target measures diffuse light; the sky-and-sun value is
+                # not the same measure, so it is shown but never scored
+                weighted = yearly.get("subcanopy_light_pct") if yearly else None
+                why = "diffuse subcanopy light not saved in run output"
+                if weighted is not None:
+                    why += f" (sky-and-sun light {float(weighted):.1f} %, not scored: not the target's measure)"
             if why:
                 na(label, f"{format_val(rng)} %", why)
                 continue
             rows.append(_row(label, f"{float(val):.1f} %", f"{format_val(rng)} %", source,
-                             _status(item, float(val), rng), "; ".join(notes + ["run-level value"])))
+                             _status(item, float(val), rng), "; ".join(notes + ["diffuse light at 1.0-2.0 m, this year"])))
 
     elif name.startswith("stand_canopy.live_crown_ratio."):
         if "min_ratio" in item:
