@@ -134,6 +134,15 @@ class SkySunEnvironment:
         w = np.concatenate([f * sky_w, (1.0 - f) * sun_w])
         return d, w / w.sum()
 
+    def diffuse_weights(self) -> np.ndarray:
+        """Weights of the sky alone, aligned with ``light_directions()``: the
+        sky samples sum to 1 and the sun samples are 0.  Output only."""
+        _, sky_w = self.sky_samples()
+        if self.diffuse_fraction >= 1.0:
+            return sky_w
+        sun_d, _ = self.sun_samples()
+        return np.concatenate([sky_w, np.zeros(len(sun_d))])
+
 
 def make_environment(params) -> LightEnvironment:
     kind = getattr(params, "type", "sky_sun")

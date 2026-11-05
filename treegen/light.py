@@ -66,6 +66,9 @@ class ShadowPropagation:
         dirs, w = environment.light_directions()
         self.light_dirs = dirs.astype(np.float64)
         self.light_w = w.astype(np.float64)
+        # the sky alone, for the diffuse light output; growth never reads it
+        dw = getattr(environment, "diffuse_weights", None)
+        self.diffuse_w = None if dw is None else np.asarray(dw(), np.float64)
         self.probe_dirs = _fibonacci_sphere(int(lp.perception_samples))
         self._tf_cache: dict = {}
         self._impulse = None
@@ -144,7 +147,7 @@ class ShadowPropagation:
     def compute(self, src_pos: np.ndarray, src_w: np.ndarray, region: np.ndarray | None = None,
                 periodic: tuple | None = None,
                 wood_pos: np.ndarray | None = None, wood_area: np.ndarray | None = None,
-                k_wood: float = 0.40) -> "LightField":
+                k_wood: float = 0.40, diffuse_heights: tuple | None = None) -> "LightField":
         """Shadow field from weighted sources.
 
         ``region`` (2, 3) bounds the part of the grid that must be accurate
@@ -152,7 +155,9 @@ class ShadowPropagation:
         horizontally repeating cell of nx * ny voxels starting at (x0, y0):
         sources wrap into it and the FFT's periodic boundary continues it
         without end (a stand with no edge).  Otherwise a margin keeps the wrap
-        away from the crown.
+        away from the crown.  ``diffuse_heights`` also keeps the shade of the
+        sky alone in the layers around those heights (output only; the field
+        used by growth is the same with or without it).
         """
         vs = self.vs
         has_wood = wood_pos is not None and wood_area is not None and len(wood_pos) > 0
@@ -206,14 +211,26 @@ class ShadowPropagation:
             return LightField(self, S, lo, periodic is not None)
         top = int(occupied.max())
         bottom = 0 if region is None else max(0, int(math.floor(region[0, 2] / vs)) - lo[2] - 1)
+        diffuse_w = getattr(self, "diffuse_w", None)
+        diffuse: dict | None = None
+        if diffuse_heights is not None and periodic is not None and diffuse_w is not None:
+            diffuse = {}
+            for h in diffuse_heights:
+                z0 = int(math.floor(h / vs - lo[2] - 0.5))
+                diffuse.update({z: None for z in (z0, z0 + 1)})
+            wd = diffuse_w.astype(np.float32)
         for z in range(top, bottom - 1, -1):
             B *= tf
             layer = D[:, :, z]
             if layer.any():
                 B += np.fft.rfft2(layer)[None]
             S[:, :, z] = np.fft.irfft2(np.tensordot(wk, B, axes=1), s=(nx, ny))
+            if diffuse is not None and z in diffuse:
+                diffuse[z] = np.maximum(np.fft.irfft2(np.tensordot(wd, B, axes=1), s=(nx, ny)), 0.0)
         np.maximum(S, 0.0, out=S)
-        return LightField(self, S, lo, periodic is not None)
+        field = LightField(self, S, lo, periodic is not None)
+        field.diffuse_layers = diffuse
+        return field
 
 
 # Heights (m) at which the light under the canopy is read for the output
@@ -232,6 +249,7 @@ class LightField:
         self.S = S
         self.lo = lo
         self.periodic = periodic   # horizontally repeating (a stand or plot cell)
+        self.diffuse_layers = None   # sky-only shade in some layers (output only)
 
     def shadow_at_voxel(self, pos: np.ndarray) -> np.ndarray:
         idx = np.floor(pos / self.p.vs).astype(int) - self.lo
@@ -282,6 +300,22 @@ class LightField:
         ix, iy = np.meshgrid(np.arange(nx), np.arange(ny), indexing="ij")
         xy = (np.stack([ix.ravel(), iy.ravel()], 1) + self.lo[:2] + 0.5) * self.p.vs
         vals = [np.exp(-self.sample(np.column_stack([xy, np.full(len(xy), float(h))])) / self.p.C) for h in heights]
+        return float(np.mean(vals))
+
+    def diffuse_light_at_heights(self, heights) -> float | None:
+        """As relative_light_at_heights, for the sky alone: the light under an
+        overcast sky, which is what a diffuse-light measurement reads.  None
+        where the field did not keep those layers."""
+        if not self.periodic or self.diffuse_layers is None:
+            return None
+        vals = []
+        for h in heights:
+            c = float(h) / self.p.vs - self.lo[2] - 0.5
+            z0 = int(math.floor(c))
+            a, b = self.diffuse_layers.get(z0), self.diffuse_layers.get(z0 + 1)
+            if a is None or b is None:
+                return None
+            vals.append(np.exp(-((1.0 - (c - z0)) * a + (c - z0) * b) / self.p.C))
         return float(np.mean(vals))
 
     def optimal_direction(self, pos: np.ndarray, heading: np.ndarray) -> np.ndarray:

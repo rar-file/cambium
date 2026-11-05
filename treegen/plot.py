@@ -213,9 +213,11 @@ class Plot:
             allp = np.concatenate(srcs)
             pts_for_region = allp if all_wpos is None or len(all_wpos) == 0 else np.concatenate([allp, all_wpos])
             field = self.light.compute(allp, np.concatenate(ws), np.stack([pts_for_region.min(0), pts_for_region.max(0)]),
-                                       periodic=self.cell, wood_pos=all_wpos, wood_area=all_warea, k_wood=k_wood)
+                                       periodic=self.cell, wood_pos=all_wpos, wood_area=all_warea, k_wood=k_wood,
+                                       diffuse_heights=SUBCANOPY_LIGHT_HEIGHTS_M)
         # output only: light at the target's measurement heights under the canopy
         self._subcanopy_light = field.relative_light_at_heights(SUBCANOPY_LIGHT_HEIGHTS_M) if field is not None else None
+        self._subcanopy_diffuse_light = field.diffuse_light_at_heights(SUBCANOPY_LIGHT_HEIGHTS_M) if field is not None else None
         if self.soil is not None:
             # every tree's absorbing roots at the start of its season, in one field
             pts, ls = [], []
@@ -343,7 +345,10 @@ class Plot:
                # relative light (%) at 1.0-2.0 m under the canopy this season
                # (light.SUBCANOPY_LIGHT_HEIGHTS_M)
                "subcanopy_light_pct": (round(100.0 * self._subcanopy_light, 2)
-                                       if getattr(self, "_subcanopy_light", None) is not None else None)}
+                                       if getattr(self, "_subcanopy_light", None) is not None else None),
+               # the same under the sky alone (overcast), the light target's measure
+               "subcanopy_diffuse_light_pct": (round(100.0 * self._subcanopy_diffuse_light, 2)
+                                               if getattr(self, "_subcanopy_diffuse_light", None) is not None else None)}
         if getattr(self, "regen", None) is not None:
             # everything above counts the recruits too
             row["recruits_alive"] = sum(1 for k in self.alive if self.info[k].get("recruit"))

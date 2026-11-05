@@ -665,7 +665,8 @@ class GrowthModel:
         elif self.stand:
             height = float(T.pos[:n0][alive, 2].max())
             cpos, cw, cell, c_wpos, c_warea = self._stand_cell(src, src_w, height, wpos, warea)
-            field = self.light.compute(cpos, cw, region, periodic=cell, wood_pos=c_wpos, wood_area=c_warea, k_wood=k_wood)
+            field = self.light.compute(cpos, cw, region, periodic=cell, wood_pos=c_wpos, wood_area=c_warea, k_wood=k_wood,
+                                       diffuse_heights=SUBCANOPY_LIGHT_HEIGHTS_M)
         else:
             field = self.light.compute(src, src_w, region, wood_pos=wpos, wood_area=warea, k_wood=k_wood)
         self._field = field   # kept for diagnostics until the next season
@@ -673,6 +674,8 @@ class GrowthModel:
         # stand canopy (a plot reports it for the whole plot, plot.py)
         self._subcanopy_light = (field.relative_light_at_heights(SUBCANOPY_LIGHT_HEIGHTS_M)
                                  if self.stand and getattr(self, "_plot_view", None) is None else None)
+        self._subcanopy_diffuse_light = (field.diffuse_light_at_heights(SUBCANOPY_LIGHT_HEIGHTS_M)
+                                         if self.stand and getattr(self, "_plot_view", None) is None else None)
         Qterm = np.zeros(n0)
         Qlat = np.zeros(n0)
         own_t = own_l = None
@@ -2138,6 +2141,9 @@ class GrowthModel:
             # season (light.SUBCANOPY_LIGHT_HEIGHTS_M); stand runs only
             "subcanopy_light_pct": (round(100.0 * self._subcanopy_light, 2)
                                     if getattr(self, "_subcanopy_light", None) is not None else None),
+            # the same under the sky alone (overcast), the light target's measure
+            "subcanopy_diffuse_light_pct": (round(100.0 * self._subcanopy_diffuse_light, 2)
+                                            if getattr(self, "_subcanopy_diffuse_light", None) is not None else None),
             "water": {k: (round(v, 6) if isinstance(v, float) else v) for k, v in self.water.items()},
             # carbon fixed this season, in resource units (alpha x sum of bud
             # light x stomatal opening; one unit builds about one metamer)
