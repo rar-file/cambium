@@ -1894,13 +1894,13 @@ Seed 1, age 60, against published silver-birch values. "Shoot" is a branch tip c
 | Mean Foliage dry mass (kg) | 1.08 | 1.14 | 0.89 | 1.17 | Model leaf dry mass / tree |
 | Foliage vs Repola Eq. 12 | 0.47x | 0.36x | 0.26x | 0.30x | Repola 2008 Eq. 12 (DBH only) |
 | Foliage vs Repola A6 | 0.36x | 0.41x | 0.32x | 0.41x | Repola 2008 A6 (DBH + Crown Ratio) |
-| Sub-canopy Light (2.0–5.0 m) | 24.1% – 24.5% | 22.8% – 23.2% | 28.9% – 29.3% | 21.2% – 21.8% | Hagemeier 10–15% (approaching target) |
+| Sub-canopy Light (2.0–5.0 m) | 24.1% – 24.5% | 22.8% – 23.2% | 28.9% – 29.3% | 21.2% – 21.8% | Hagemeier & Leuschner 2019b: 6.4–19.8 %, diffuse light at 1.0–2.0 m. Not the same heights or the same light as this row, and every value here is above that range. (Corrected in campaign M1d; this cell said "Hagemeier 10–15% (approaching target)".) |
 
 - **Mortality Diagnosis:**
   - 16 total deaths across 60 years. 1 seedling failed to establish at year 3 (`failed to establish`, Tree 82).
   - 15 trees died from light starvation and negative carbon balance (`died`): Tree 15 (yr 8), Tree 76 (yr 17), Tree 95 (yr 19), Tree 75 (yr 29), Tree 94 (yr 30), Tree 64 (yr 32), Tree 17 (yr 38), Tree 05 (yr 39), Tree 35 (yr 41), Tree 21 (yr 46), Tree 86 (yr 48), Tree 18 (yr 51), Tree 83 (yr 51), Tree 33 (yr 52), Tree 26 (yr 53).
   - All 15 natural deaths occurred in shaded, carbon-starved trees across a range of sizes: 1 juvenile sapling (Tree 15, yr 8, final H 0.30 m, DBH 0.00 cm), 13 sub-canopy suppressed poles (final heights 4.5–23.8 m, DBHs 1.1–12.6 cm), and 1 mature codominant tree (Tree 18, yr 51, final H 25.68 m, DBH 17.91 cm) whose crown thinned in the dense canopy until upkeep exceeded carbon assimilation two years running.
-  - Woody shade successfully reduced under-canopy light below the 21% compensation threshold, tripling natural self-thinning mortality (16 deaths in p33_nat vs 5 deaths in p26_nat).
+  - Deaths rose from 5 in p26_nat to 16 in p33_nat. p33_nat changed several things at once (it combines the leaf fix, moose browsing and woody shade, on later code than p26_nat), so the rise can't be credited to woody shade alone. Light at 2–5 m stayed above 21 % at all four ages in the table above (21.2–29.3 %). (Corrected in campaign M1d; this line said woody shade "successfully reduced under-canopy light below the 21% compensation threshold, tripling natural self-thinning mortality".)
 
 **2. Carbon budget diagnosis (seed-1 stand tree, Task 2):**
 - Annual carbon balance evaluated on seed-1 stand tree with woody shade enabled to age 60:
@@ -1920,7 +1920,7 @@ Seed 1, age 60, against published silver-birch values. "Shoot" is a branch tip c
   - New leaf sapwood demand is negligible (**~0.6%–1.4%**, 51–291 units).
   - Stem vs Branch partitioning: **95.4%–98.9%** of all ring carbon is deposited in the main stem; branches receive only **1.1%–4.6%**. Combined with ring priority over shoot elongation, branch tips are starved of carbon, explaining why mature branches produce 0 long shoots and stop expanding.
 - **Pulsatile Leader Growth:**
-  - Solved the leader growth paradox: height growth does not advance at a steady 0.28 m/yr. It advances via intermittent mast flushes: Yr 23 = 0.845 m (33 metamers), Yr 27 = 1.175 m (47 metamers), Yr 29 = 0.790 m, Yr 31 = 0.675 m, Yr 35 = 0.855 m, Yr 38 = 0.693 m, Yr 43 = 0.505 m, interspersed with resting single-metamer short-shoot years (0–4 mm).
+  - Observed, not explained: height growth does not advance at a steady 0.28 m/yr. It advances via intermittent flushes (phase 40: why the whole tree grows long shoots only every other year is not diagnosed; corrected in campaign M1d, this line began "Solved the leader growth paradox"): Yr 23 = 0.845 m (33 metamers), Yr 27 = 1.175 m (47 metamers), Yr 29 = 0.790 m, Yr 31 = 0.675 m, Yr 35 = 0.855 m, Yr 38 = 0.693 m, Yr 43 = 0.505 m, interspersed with resting single-metamer short-shoot years (0–4 mm).
 - **Lowest Live Limb Persistence (6.54 m):**
   - Axis 4279 (born year 8) survives to year 60 (age 52) with 133 internodes and 229 leaves.
   - In a managed stand thinned to 450 stems/ha (4.7 m tree spacing), lower canopy light remains at 78%–161% of open sky, far above the 21% shedding threshold. The limb fixes surplus carbon annually and never starves.
@@ -2026,7 +2026,7 @@ Round 39 ran out of usage before its notes, before/after tables and checker pass
 | 16:03 | `aeb2d68` | Soil-water bucket option | off | Its invented pieces replaced in phase 40 (`9885e03`) |
 
 Test runs saved by round 39: `out/test_bh_pub`, `out/test_swb_norm` and `out/test_swb_dry`. These were made with the round-39 code and options; the phase 40 runs supersede them.
-
+
 ## Phase 40: published Borchert–Honda tested, run outputs, soil water to BILJOU, germination and branch audits
 
 All runs are the seed-1 stand tree, 60 years. Each option was tested in a species copy that differs from `species/betula_pendula.yaml` in the named option only. The exception is the copies made before `9885e03` (`p40_bhpub`, `p41_germ`), which also carry the older, inactive soil-water block (the option is off there). The full report is `reports/phase40.md`.
