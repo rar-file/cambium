@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from tools.scorecard import dominant_height, evaluate_targets
+from tools.scorecard import dominant_height, evaluate_targets, t13_years
 from treegen.reference import eriksson_1997_height
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -166,3 +166,20 @@ def test_height_band_and_definition():
     si["dominant_height_definition"] = "100_thickest_per_ha"
     results, _ = evaluate_targets(targets, [plot], ages=[60])
     assert _row(results, "tree_allometry.site_index_curves", 60)["status"] == "PASS"
+
+
+def test_time_to_breast_height_rule():
+    """T13 = 150 / SIS (Elfving 2010 p. 56), SIS the curve's own top height at
+    total age 100; numbers worked out separately from the same curve."""
+    item = {"parameters": {"asi": 7, "beta": 394, "b2": 1.387}, "reference_age_years": 50,
+            "time_to_breast_height": {"numerator": 150, "sis_total_age_years": 100}}
+    for si, t13, sis in ((20.0, 5.98, 25.08), (26.0, 5.01, 29.93)):
+        t = t13_years(item, si)
+        assert t == pytest.approx(t13, abs=0.01)
+        assert eriksson_1997_height(si, 100.0 - t, 7, 394, 1.387) == pytest.approx(sis, abs=0.01)
+        assert t * sis == pytest.approx(150.0, abs=0.2)
+
+
+def test_fixed_time_to_breast_height_still_read():
+    """A targets file from before the rule (an older git ref) keeps its number."""
+    assert t13_years({"years_to_breast_height": 4}, 20.0) == 4.0

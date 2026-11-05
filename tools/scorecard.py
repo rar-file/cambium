@@ -280,6 +280,26 @@ def _status(item: dict[str, Any], val: float, rng) -> str:
     return "PASS" if lo <= val <= hi else "FAIL"
 
 
+def t13_years(item: dict[str, Any], si: float) -> float:
+    """Years to breast height at site index si.  With a 'time_to_breast_height'
+    rule in the target, T13 = numerator / SIS, SIS being the top height at
+    sis_total_age_years on this site's own curve, so T13 and SIS are solved
+    together.  A targets file from before that rule gives a fixed number."""
+    rule = item.get("time_to_breast_height")
+    if rule is None:
+        return float(item["years_to_breast_height"])
+    p = item["parameters"]
+    t_ref = float(item["reference_age_years"])
+    num, sis_age = float(rule["numerator"]), float(rule["sis_total_age_years"])
+    t = num / si
+    for _ in range(200):
+        t_new = num / eriksson_1997_height(si, sis_age - t, p["asi"], p["beta"], p["b2"], t_ref)
+        if abs(t_new - t) < 1e-10:
+            return t_new
+        t = t_new
+    return t
+
+
 def _keyed_ages(item: dict[str, Any], pattern: str) -> list[tuple[int, str]]:
     """Ages written in keys, e.g. 'stems_per_ha_45yr' or 'age_2_years_m'."""
     out = []
@@ -381,17 +401,18 @@ def evaluate_run(name: str, item: dict[str, Any], run: dict[str, Any] | None,
         p = item["parameters"]
         lo_si, hi_si = item["swedish_boreal_range_m"]
         t_ref = float(item["reference_age_years"])
-        ytb = float(item["years_to_breast_height"])
+        t_lo, t_hi = t13_years(item, lo_si), t13_years(item, hi_si)
         definition = item.get("dominant_height_definition", "unconfirmed")
         for age in ages:
             label = f"{name} (age {age})"
-            age_bh = age - ytb
-            if age_bh <= 0:
-                na(label, "N/A", f"breast-height age {age_bh:g} <= 0")
+            age_lo, age_hi = age - t_lo, age - t_hi
+            if min(age_lo, age_hi) <= 0:
+                na(label, "N/A", f"breast-height age {min(age_lo, age_hi):g} <= 0")
                 continue
-            band = (eriksson_1997_height(lo_si, age_bh, p["asi"], p["beta"], p["b2"], t_ref),
-                    eriksson_1997_height(hi_si, age_bh, p["asi"], p["beta"], p["b2"], t_ref))
-            band_txt = f"{band[0]:.2f}-{band[1]:.2f} m (SI{lo_si:g}-SI{hi_si:g}, bh age {age_bh:g})"
+            band = (eriksson_1997_height(lo_si, age_lo, p["asi"], p["beta"], p["b2"], t_ref),
+                    eriksson_1997_height(hi_si, age_hi, p["asi"], p["beta"], p["b2"], t_ref))
+            ages_txt = f"{age_lo:g}" if t_lo == t_hi else f"{age_lo:.1f}-{age_hi:.1f}"
+            band_txt = f"{band[0]:.2f}-{band[1]:.2f} m (SI{lo_si:g}-SI{hi_si:g}, bh age {ages_txt})"
             why, notes = applicability(item, run, age)
             if why:
                 na(label, band_txt, why)
