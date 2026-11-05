@@ -52,11 +52,42 @@ def option_values(obj: Any, prefix: str = "") -> dict[str, Any]:
     return out
 
 
+def uncommitted_fingerprint(root: Path = ROOT) -> dict:
+    """A fingerprint of the code changes not yet committed, so a run made before
+    its commit can still be identified: SHA-256 of `git diff HEAD` plus the names
+    and contents of untracked files, and the list of those files.  Ignored files
+    (run outputs, scratch work) don't count.  A clean tree gives None."""
+    import hashlib
+    import subprocess
+
+    def git(*a) -> bytes | None:
+        p = subprocess.run(["git", *a], cwd=str(root), capture_output=True)
+        return p.stdout if p.returncode == 0 else None
+
+    diff = git("diff", "HEAD", "--binary")
+    changed = git("diff", "HEAD", "--name-only")
+    untracked = git("ls-files", "--others", "--exclude-standard")
+    if diff is None or changed is None or untracked is None:
+        return {"uncommitted_sha256": None, "uncommitted_files": None}
+    new_files = sorted(untracked.decode("utf-8", "replace").split("\n")[:-1]) if untracked else []
+    files = sorted(set(changed.decode("utf-8", "replace").split("\n")[:-1]) | set(new_files))
+    if not files:
+        return {"uncommitted_sha256": None, "uncommitted_files": []}
+    h = hashlib.sha256(diff)
+    for name in new_files:
+        h.update(name.encode("utf-8"))
+        p = Path(root) / name
+        if p.is_file():
+            h.update(p.read_bytes())
+    return {"uncommitted_sha256": h.hexdigest(), "uncommitted_files": files}
+
+
 def run_manifest(species: str | Path, environment: str | Path, sp: SimpleNamespace) -> tuple[dict, dict]:
     """What a run was made from: git commit (and whether tracked files had
-    uncommitted changes), the species and environment files with their
-    SHA-256, and every option switched on.  Returns (manifest, options),
-    options being option_values(sp) of the parameters actually used."""
+    uncommitted changes, with a fingerprint of those changes), the species and
+    environment files with their SHA-256, and every option switched on.  Returns
+    (manifest, options), options being option_values(sp) of the parameters
+    actually used."""
     import hashlib
     import subprocess
 
@@ -79,6 +110,7 @@ def run_manifest(species: str | Path, environment: str | Path, sp: SimpleNamespa
     manifest = {
         "git_commit": git("rev-parse", "HEAD"),
         "git_tracked_changes": None if status is None else bool(status),
+        **uncommitted_fingerprint(),
         "species_file": sp_file,
         "species_sha256": sp_hash,
         "environment_file": env_file,

@@ -3,6 +3,7 @@ canopy at the target's measurement heights (output only)."""
 from __future__ import annotations
 
 import math
+import subprocess
 from types import SimpleNamespace
 
 import numpy as np
@@ -10,7 +11,7 @@ import pytest
 
 from treegen.environment import make_environment
 from treegen.light import SUBCANOPY_LIGHT_HEIGHTS_M, LightField, ShadowPropagation
-from treegen.params import load_environment, load_species, option_values, run_manifest
+from treegen.params import load_environment, load_species, option_values, run_manifest, uncommitted_fingerprint
 
 
 def test_option_values_lists_switches_and_stages():
@@ -111,3 +112,39 @@ def test_environment_diffuse_weights_are_the_sky_alone():
     n_sky = len(env.sky_samples()[0])
     assert (dw[n_sky:] == 0.0).all()
     assert dw[:n_sky] == pytest.approx(env.sky_samples()[1])
+
+
+def test_uncommitted_fingerprint(tmp_path):
+    def git(*a):
+        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid", *a],
+                       cwd=str(tmp_path), check=True, capture_output=True)
+
+    git("init")
+    (tmp_path / "a.py").write_text("x = 1\n")
+    (tmp_path / ".gitignore").write_text("out/\n")
+    git("add", "."), git("commit", "-m", "first")
+    assert uncommitted_fingerprint(tmp_path) == {"uncommitted_sha256": None, "uncommitted_files": []}
+    # ignored files don't count
+    (tmp_path / "out").mkdir()
+    (tmp_path / "out" / "run.txt").write_text("output\n")
+    assert uncommitted_fingerprint(tmp_path)["uncommitted_files"] == []
+    # a change to a tracked file: fingerprinted, and a different change differs
+    (tmp_path / "a.py").write_text("x = 2\n")
+    first = uncommitted_fingerprint(tmp_path)
+    assert first["uncommitted_files"] == ["a.py"]
+    assert len(first["uncommitted_sha256"]) == 64
+    (tmp_path / "a.py").write_text("x = 3\n")
+    assert uncommitted_fingerprint(tmp_path)["uncommitted_sha256"] != first["uncommitted_sha256"]
+    # a new file counts, by name and by content
+    (tmp_path / "a.py").write_text("x = 1\n")
+    (tmp_path / "b.py").write_text("y = 1\n")
+    second = uncommitted_fingerprint(tmp_path)
+    assert second["uncommitted_files"] == ["b.py"]
+    (tmp_path / "b.py").write_text("y = 2\n")
+    assert uncommitted_fingerprint(tmp_path)["uncommitted_sha256"] != second["uncommitted_sha256"]
+
+
+def test_run_manifest_carries_the_fingerprint():
+    sp, _ = load_species("betula_pendula")
+    manifest, _ = run_manifest("betula_pendula", "sweden_open_field", sp)
+    assert "uncommitted_sha256" in manifest and "uncommitted_files" in manifest
