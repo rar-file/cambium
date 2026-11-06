@@ -264,7 +264,7 @@ def test_top_height_on_elfvings_curve():
 
 def test_height_band_at_60_is_pinned():
     """The band itself, written out, so a change to the years to breast height in targets.yaml
-    can't pass unnoticed.  Both edges: the fixed-age test this replaced pinned neither low edge."""
+    can't pass unnoticed.  Both edges: the test this strengthens had no FAIL below the low edge."""
     targets = _targets()
     name = "tree_allometry.site_index_curves"
     results, _ = evaluate_targets(targets, [_tree_run(per_year=[{"year": 60, "height_m": 24.0}])], ages=[60])

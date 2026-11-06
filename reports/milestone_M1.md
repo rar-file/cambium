@@ -1,6 +1,6 @@
 # Milestone M1: Foundations
 
-Protocol hash at the start of the campaign: `0e58497`. Date: 2026-11-06. Machine for every verdict: the node. Code: `68782d9`.
+Protocol hash at the start of the campaign: `0e58497`. Date: 2026-11-06. Machine for every verdict: the node. Code for those runs: `68782d9`. Line references in this report are at master, where they differ.
 
 ## 1. Summary
 - Alpha 4.8 is traceable, but it's a one-point model calibration, not a published value. It carries VERIFY.
@@ -285,7 +285,7 @@ The knowledge base is right that 4.8 isn't in Aosaar and that the paper has no l
 
 **How much depends on it.**
 - **All carbon.** Fixed carbon is alpha × Σ(light × stomatal opening × leaf weight) (`treegen/growth.py:807`). The same alpha sets each branch's carbon balance, so it also drives branch death (`:943`, `:979`), and it pays the late leaves (`:1593-1599`). Plot trees multiply it by their vigour (`treegen/plot.py:108-109`, `:202-203`).
-- **One value still in use was set with alpha at 4.8:** `maintenance_per_internode` 0.5, in the same commit, to reach a plot CUE of 0.42. `huber_path_exponent` 0.283 was also fitted at 4.8, but stem theory stage 2 switches it off (`treegen/growth.py:1469-1471`). Full list: `out/bench/m1/species_changes_since_alpha.txt`.
+- **One value still in use was set with alpha at 4.8:** `maintenance_per_internode` 0.5, in the same commit, to reach a plot CUE of 0.42. `huber_path_exponent` 0.283 was also fitted at 4.8, but stem theory stage 2 switches it off (`treegen/growth.py:1477-1478`). Full list: `out/bench/m1/species_changes_since_alpha.txt`.
 - **Every scorecard verdict on a model output** rests on it.
 - **Older calibrations were made at other alphas and never redone,** such as `wood_volume_per_carbon` and the phase 16 gravitropism fit. Their dependence on alpha is not calculated.
 
@@ -479,7 +479,7 @@ No option was adopted, and nothing went through the adoption gate. **No model ca
 | `cddc9eb`, `85f32d1`; scorecard `7ce8118`, `eb9c984` | Plot top height: 100 thickest, then the height curve (the maintainer) | Target, preview | Not scored at the tag; FAIL at master |
 | `68782d9` | Scorecard: ensemble verdicts (the maintainer, row 28) | Scorecard | Verdict is the mean against the band |
 | `eb9c984` | Scorecard: distance from the light median (the maintainer, Q10) | Scorecard | Band unchanged |
-| `4df1c63`, `85f32d1` | Light target's text matches the source | Target, preview | Band unchanged |
+| `4df1c63`, `85f32d1` | Light target's text follows the source | Target, preview | Band unchanged |
 | `b4b6df3`, `347d924`, `740031a` | Comments and citations in the species file | Values unchanged | - |
 | `7d3db8e` | Diffuse-only light output | Output only | Yearly values identical |
 | `be7c4ef` | Scorecard reads yearly diffuse light | Scorecard | Was never scored |
@@ -532,7 +532,7 @@ Three fresh checkers ran once, at the end of M1, as the maintainer asked. Full r
 | B, numbers | All scorecards and counts reproduce. Two rounded distances; "rank 8 of 160"; summary wording that went further than the numbers; a stale rescore; alpha's origin not reproduced; an unapproved scorecard footer | Corrected; `tools/m1_figures.py` saves the worked figures; reverted the footer | Alpha's origin stays unreproduced, and is said so |
 | C, rules | The test edit wasn't no looser; a test deleted; "Not done" missing from M1c; five stale line references; rows missing; `f45928e` and `eb9c984` unapproved | Added the pin and restored the test; corrected the rest | Q12 |
 
-**Moved after checker A's recheck:** see DECISIONS.md, the row for the tag.
+**The tag moves after checker A's recheck,** with its own row in DECISIONS.md.
 
 ## 7. Corrections to earlier reports
 - **Distance rule, my error (KNOWN_ISSUES.md:177, :297; species comment).** I credited its pattern to Mencuccini et al. 2019. The paper says the Huber value stays about constant from twig to trunk. Corrected. It isn't active at the default stage.
