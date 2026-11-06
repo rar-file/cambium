@@ -74,7 +74,7 @@ From each screen's `runs.csv`. Runs at once is the time-weighted mean over each 
 
 ## The PC's golden runs
 
-Recorded twice at master `bc723ee`, one at a time, one maths thread, kernel `Haswell`. **All 225 files were identical between the two recordings** (`out/bench/golden/pc_base`, `pc_base_rerun`). Peak memory is each run's own record; `hashes.json` for these two says 4.5 MB, which was the venv's launcher, now fixed (`tools/golden.py`, `peak_of_run`).
+Recorded twice at master `bc723ee`, one at a time, one maths thread, kernel `Haswell`. **All 225 files were identical between the two recordings** (`out/bench/golden/pc_base`, `pc_base_rerun`). Peak memory is each run's own record; `hashes.json` for these two says 4.5 MB, which was the venv's launcher; `tools/golden.py` now reads each run's own figure (`peak_of_run`).
 
 | Run | Seconds, first / second | Peak MB, first / second | Files |
 |---|---|---|---|
@@ -180,9 +180,9 @@ From `reports/reviews/2026-11-06_node_disk_report.md`.
 |---|---|
 | Plots 3, 4, 5, stopped run against fresh run, to age 30-35, 100 trees, 20 dead between them | Every yearly value identical (`tools/route_check.py years`) |
 | Seed 1, resumed at 35 against straight, to 60 | 302 of 302 files identical |
-| Seed 2, resumed at 35 against straight, to 60 | Every model number identical; 94 trees' `plot_seed` label wrong in the resumed run, now fixed |
-| Peak memory, 100 trees to 60, no save files | 6.1-6.7 GB a plot; lowest free memory on the node 64.8 GB (`~/origin/usage.log`) |
-| Time, no save files, sharing the node | 2,515-2,678 s a plot |
+| Seed 2, resumed at 35 against straight, to 60 | Every model number identical; 94 trees' `plot_seed` label wrong in the resumed run, since changed in `tools/plot.py` (`out/bench/node/disk_step/evidence/`) |
+| Peak memory, 100 trees to 60, no save files | 6.1-6.7 GB a plot; lowest free memory on the node 64.8 GB (`out/bench/node/disk_step/evidence/usage.log`) |
+| Time, no save files, sharing the node | 2,515-2,680 s a plot |
 | Disk, finished plot with no save files | about 0.3 GB, against 2.7-3.7 GB with them |
 
 ## Found so far on the PC

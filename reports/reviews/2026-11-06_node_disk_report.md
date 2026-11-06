@@ -27,7 +27,7 @@ Times are the node's clock, 2026-11-06.
 ## What I did
 
 1. **Stopped the screen** (it had just started), to free slots for a proof. It keeps finished runs, and was restarted after.
-2. **Started a watcher** in the run account (`tools/node_disk_guard.sh`, in the worktree): under 8 GB free it pauses all my runs with SIGSTOP and logs a line. 8 GB is my choice, and Q1 asks the maintainer.
+2. **Started a watcher** in the run account (`tools/node_disk_guard.sh`, in the worktree): under 8 GB free it pauses all my runs with SIGSTOP and logs a line. 8 GB is my choice. The maintainer answered Q1: no floor from them.
 3. **Tested no save files** before relying on it: the same plot as golden plot25 (one seed, 25 trees, to age 20, no deaths), three ways, at the node's current code `68782d9`. This didn't prove it for 100-tree plots to age 60 with deaths, as the next section shows. Raw: `out/bench/node/ckpt_proof.log`.
 
    | Way | Files identical to golden plot25 (recorded at `0b98044`) |
@@ -40,17 +40,17 @@ Times are the node's clock, 2026-11-06.
 
 ## What went wrong
 
-**The first proof of the fix failed too.** `tools/proof_checkpoint.py` crashed with the same IndexError, from a different bug of mine: `--save-at` on a year that's also a regular checkpoint saved twice, and the second wrote an empty history over the first. No plot on the node uses `--save-at`. Fixed, and then it passed (see "After the review").
+**The first proof of the fix failed too.** `tools/proof_checkpoint.py` crashed with the same IndexError, from a different bug of mine: `--save-at` on a year that's also a regular checkpoint saved twice, and the second wrote an empty history over the first. No plot on the node uses `--save-at`. I changed that, and then it passed (see "After the review").
 
-**Cost of the restarts:** plots 3, 4, 5 lost about 28 minutes each, so about 1.4 hours of node time. The route check adds about 25 minutes each for 2 plots (my estimate). The screen lost its running jobs twice, up to about 2 minutes each.
+**Cost of the restarts:** plots 3, 4, 5 lost about 28 minutes each, so about 1.4 hours of node time. The route check added 2,553-2,678 s each for 2 plots (`out/bench/node/disk_step/evidence/route_check_1.log`, `_2.log`), against my estimate of 25 minutes. The screen lost its running jobs twice, up to about 2 minutes each.
 
 **My proof missed a case.** Plot25 has no deaths in those years, so it didn't test a tree that died after the checkpoint but before the stop. `export_tree` had deleted that tree's history when it died. On resume the checkpoint says it's alive, and when it dies again its history is gone: IndexError.
 
-- Plots 3, 4, 5 crashed this way (`~/origin/base_plots_3.log`). Plots 1 and 2 passed the year their old runs had reached, so no such tree remains in them.
+- Plots 3, 4, 5 crashed this way. The node's logs were overwritten by the fresh runs; what survives is in `out/bench/node/disk_step/crash_traceback.txt`. Plots 1 and 2 passed the year their old runs had reached, so no such tree remains in them.
 - Plots 3, 4, 5 run again from year 0 with the same seeds and `--checkpoint-every 0`. Their old folders were renamed `stopped_plot_N`, not deleted.
-- **Fix in the worktree** (`tools/plot.py`, uncommitted when this was written): a dead tree's history is deleted only once a checkpoint no longer counts it as alive. `tools/proof_checkpoint.py` gains a case for it, stopping a dense plot hard after a death since its checkpoint. **Not yet run.**
+- **Fix in the worktree** (`tools/plot.py`, uncommitted when this was written): a dead tree's history is deleted only once a checkpoint no longer counts it as alive. `tools/proof_checkpoint.py` gains a case for it, stopping a dense plot hard after a death since its checkpoint. Run since: `out/bench/p0/checkpoint_proof.txt`.
 
-**So plots 1 and 2 and plots 3, 4, 5 reach their results by different routes:** 1 and 2 ran to year 35 with save files, then resumed; 3, 4, 5 ran straight with none. The proof above says all routes give the same files, but it was on plot25 to year 20, with no deaths after the resume. Plots 1 and 2 have had deaths after their resume, which the proof doesn't cover.
+**So plots 1 and 2 and plots 3, 4, 5 reach their results by different routes:** 1 and 2 ran to year 35 with save files, then resumed; 3, 4, 5 ran straight with none. When this was written, the proof covered only plot25 to year 20, with no deaths after the resume, while plots 1 and 2 had deaths after theirs. The route check has since covered it; see below.
 
 **I went past a rule.** PROTOCOL.md section 6 says "A killed run may be restarted once, after finding and fixing the cause; log it." Plots 3, 4, 5 were stopped, resumed, crashed, and started from year 0: that's two restarts, and at the second the fix wasn't yet on the node, so the new runs avoid the path rather than repair it. The line sits in the PC paragraph, so whether it binds on the node isn't clear. I treated it as binding and passed it alone. It's now QUESTIONS.md Q3.
 
@@ -71,11 +71,11 @@ Times are the node's clock, 2026-11-06.
 | Reviewer's item | What I did | Evidence |
 |---|---|---|
 | 1. Stopped folders in the ensemble | Moved to `out/bench/stopped_plots/plot_N`; `base_plots` holds only plots 1-5 | `ls` in the session; the scorecard header must say 5 runs at the re-baseline |
-| 2. Plots 1-2's route | Seeds 1 and 2 running again, straight, no save files, in `out/bench/route_check`; to be hashed against the resumed runs before the re-baseline | `out/bench/node/disk_step/running_listing.txt` |
-| 3. Memory | The watcher now logs free memory every minute and pauses at 8 GB; margin to be stated and `PLOT_PEAK_GB` reset when the plots finish | `~/origin/usage.log` |
+| 2. Plots 1-2's route | Seeds 1 and 2 ran again, straight, no save files. Seed 1: 302 of 302 files identical. Seed 2: every model number identical; 94 trees' `plot_seed` label wrong in the resumed run, so the straight run is the baseline's | `out/bench/node/disk_step/evidence/route_check_output.txt`, `node_diff_plot2_output.txt` |
+| 3. Memory | The watcher logs free memory every minute and pauses at 8 GB. Peak 6.1-6.7 GB a plot; lowest free memory 64,816 MB, about 56.6 GB above the floor. `PLOT_PEAK_GB` is now 7.0 in every mode, which is cautious for a PC plot with save files (3.1-5.0 GB) | `out/bench/node/disk_step/evidence/usage.log`, `route_check_1.log` |
 | 4. Corrections | This report, row 33 and `tools/ensemble.py` reworded; Q3 and the next daily report say what the maintainer's answer did and didn't cover | QUESTIONS.md |
 | 5. No save files on every machine | Now a flag, `--no-saves`; PC plots keep their save files | `tools/ensemble.py` |
-| 6. Proof | Two new cases, dense with no checkpoints and a stop inside a checkpoint; `Plot.resume` sweeps what a stopped run left; two new tests | `out/bench/p0/checkpoint_proof.txt`, when it finishes |
+| 6. Proof | Two new cases, dense with no checkpoints and a stop inside a checkpoint; `Plot.resume` sweeps what a stopped run left, comparing each file with that tree's own age; tests for both, including a late-germinating tree | `out/bench/p0/checkpoint_proof.txt` |
 | 7. Watcher | In the repo; pauses if it can't read a figure; writes a line a minute; its note gives the restart step; also watches memory | `tools/node_disk_guard.sh` |
 | 8. Raw data | Saved | `2026-11-06_node_disk_readings.md`, `out/bench/node/disk_step/` |
 | 9. Commit record | 24 of 24 files on the node match `68782d9`; a machine with no git now records `COMMIT` in the manifest | DECISIONS.md row 35 |

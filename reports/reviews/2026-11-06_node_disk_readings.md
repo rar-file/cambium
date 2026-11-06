@@ -30,9 +30,11 @@ Copied from command output in the session, 2026-11-06, node clock. Commands: `df
 
 **Memory at the node, `free -g`:** 03:00:54: 94 total, 16 used, 77 available. 03:13:31: 22 used, 71 available. 03:16:55: 16 used, 77 available. 03:49:48 (`free -m`): 21,741 MB used, 74,611 MB available.
 
-**Plots' peak memory, from their logs (`out/bench/node/disk_step/base_plots_N.log`):** plot 1, 5,622 MB and plot 2, 5,397 MB, each counting only the part after its resume at year 35. Plots 3, 4, 5 with no save files: 4,998, 4,639, 4,716 MB at year 40, still rising.
+**Plots' peak memory, from their logs (`out/bench/node/disk_step/base_plots_N.log`, `evidence/route_check_N.log`):** the resumed plots 1 and 2, 5,622 and 5,397 MB, counting only the part after the resume at year 35. With no save files, to age 60: 6,470, 6,124, 6,411 MB (plots 3, 4, 5), 6,700, 6,128 MB (route checks of seeds 1, 2).
 
-**Proof's peak memory (`out/bench/node/ckpt_proof.log`):** plain 988 MB, none 990 MB, resumed 962 MB (plot25, 25 trees, to year 20). No difference there.
+**Two screens at once, row 42:** the node's process listing in the session at about 04:50 showed one parent with 8 workers and another with 8 workers, launched 128 s before. No file was saved at the time. The second was launched to run up to 8, and the first up to 9, so up to 17 at once.
+
+**Proof's peak memory (`out/bench/node/disk_step/evidence/plain.log`, `none.log`, `resumed_part2.log`):** plain 988 MB, none 990 MB, resumed 962 MB (plot25, 25 trees, to year 20). No difference there.
 
 **Scripts as run:** `out/bench/node/disk_step/node_ckpt_proof.sh`, `node_plots_nockpt.sh`, `node_plots_fresh.sh`, `node_cleanup.sh`. The proof's "stopped" run was killed as soon as a poll every 2 seconds saw `plot.json` at year 10 or later.
 
