@@ -148,10 +148,14 @@ tree_allometry:
       sis_reading: "Elfving sets SIS from site factors for a site-indicative species (pp. 20, 38) and prints no conversion from birch site index (height at breast-height age 50) to SIS. Here SIS is this curve's own top height at total age 100, solved together with T13: SI20 25.08 m, 5.98 yr; SI26 29.93 m, 5.01 yr. VERIFY"
     swedish_boreal_range_m: [20.0, 26.0] # SI20 to SI26
     height_measure: "dominant height"
-    # 100_thickest_per_ha | 100_tallest_per_ha | unconfirmed.  The paper's own
-    # definition has not been seen (full text paywalled); its abstract speaks
-    # of "top-height trees" only.  Plot runs are not scored while unconfirmed.
-    dominant_height_definition: unconfirmed
+    # 100_thickest_per_ha | 100_tallest_per_ha | unconfirmed.  Elfving (2010) p. 58:
+    # "Top height is defined as the height according to the height curve at the
+    # mean diameter of the 100 by diameter largest trees per hectare."  The report
+    # names no curve, so plots are scored by those trees' mean height (the maintainer,
+    # 2026-11-06).  A stand-tree ensemble is scored by the mean of its seeds: a stand
+    # tree's neighbours are copies of it, so it's never suppressed, and the spread
+    # between seeds is chance, not dominance.
+    dominant_height_definition: 100_thickest_per_ha
     conditions:
       scenario: [plot, stand-tree]
       mode: [natural, managed]
