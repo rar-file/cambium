@@ -34,16 +34,23 @@ ROWS = (
 
 
 def cell(base, option, seeds, metric, age):
+    # a value can be missing (no light reading under a canopy shorter than the sampling heights)
+    seeds = [s for s in seeds if base[s][age][metric] is not None and option[s][age][metric] is not None]
     a = [base[s][age][metric] for s in seeds]
     b = [option[s][age][metric] for s in seeds]
     r = paired_difference(a, b)
+    if r is None:
+        return float("nan"), float("nan"), "too few seeds"
     flag = "**" if r["ratio"] > 2 else ""
     return statistics.fmean(a), statistics.fmean(b), f"{flag}{r['mean']:+.3g} +- {r['se']:.2g}{flag}"
 
 
 def implied_k(rows, seeds, age):
+    seeds = [s for s in seeds if rows[s][age]["subcanopy_diffuse_light_pct"] is not None]
     lai = [rows[s][age]["lai"] for s in seeds]
     light = [rows[s][age]["subcanopy_diffuse_light_pct"] for s in seeds]
+    if not seeds:
+        return float("nan")
     return sum(x * -math.log(y / 100.0) for x, y in zip(lai, light)) / sum(x * x for x in lai)
 
 

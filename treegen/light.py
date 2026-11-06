@@ -170,6 +170,13 @@ class ShadowPropagation:
             lo = np.floor(src_pos.min(0) / vs).astype(int)
         lo[2] = max(lo[2] - 1, -1)
         hi[2] += 2
+        # output only: the grid must reach the heights the light is read at.  Wood reaches the
+        # ground, so with wood shade on this changes nothing; without it the grid stopped at the
+        # lowest leaf and the reading came back empty
+        read_low = None
+        if diffuse_heights is not None and periodic is not None:
+            read_low = int(math.floor(min(diffuse_heights) / vs)) - 1
+            lo[2] = min(lo[2], read_low)
         if periodic is not None:
             x0, y0, nx, ny = periodic
             lo[0] = int(round(x0 / vs))
@@ -211,6 +218,8 @@ class ShadowPropagation:
             return LightField(self, S, lo, periodic is not None)
         top = int(occupied.max())
         bottom = 0 if region is None else max(0, int(math.floor(region[0, 2] / vs)) - lo[2] - 1)
+        if read_low is not None:
+            bottom = min(bottom, max(0, read_low - lo[2]))
         diffuse_w = getattr(self, "diffuse_w", None)
         diffuse: dict | None = None
         if diffuse_heights is not None and periodic is not None and diffuse_w is not None:
