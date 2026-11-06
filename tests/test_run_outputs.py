@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import subprocess
+import sys
 from types import SimpleNamespace
 
 import numpy as np
@@ -148,3 +149,26 @@ def test_run_manifest_carries_the_fingerprint():
     sp, _ = load_species("betula_pendula")
     manifest, _ = run_manifest("betula_pendula", "sweden_open_field", sp)
     assert "uncommitted_sha256" in manifest and "uncommitted_files" in manifest
+
+
+def test_one_maths_thread_after_importing_treegen():
+    """Standard setting (DECISIONS.md row 26), read back from the libraries."""
+    from treegen import threads
+    for package, count in threads.actual_threads().items():
+        if count is not None:
+            assert count == 1, package
+
+
+def test_one_maths_thread_when_numpy_was_imported_first():
+    """A script that imports numpy before treegen still ends up with one thread."""
+    code = ("import numpy\nimport treegen\nfrom treegen import threads\n"
+            "print(threads.actual_threads()['numpy_openblas'])\n")
+    done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert done.stdout.strip() in ("1", "None")
+
+
+def test_run_manifest_records_threads_and_library_versions():
+    sp, _ = load_species("betula_pendula")
+    manifest, _ = run_manifest("betula_pendula", "sweden_open_field", sp)
+    assert set(manifest["math_threads"]) == {"numpy_openblas", "scipy_openblas"}
+    assert {"numpy", "scipy", "numba", "numpy_blas", "scipy_blas"} <= set(manifest["math_libraries"])

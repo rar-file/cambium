@@ -30,7 +30,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from batch import Job, run_batch  # noqa: E402
 
-RUN_PEAK_GB = 0.65  # seed-1 stand tree, no meshes (out/bench/p40_default_v3: 584 MB)
+RUN_PEAK_GB = 0.55  # measured: 464-532 MB in the screen's growth-only runs (peak_mb in the results)
 AGES = (30, 50, 60)
 METRICS = ("height_m", "dbh_cm", "leaf_area_m2", "fixed")
 

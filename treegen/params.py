@@ -12,6 +12,8 @@ from typing import Any
 
 import yaml
 
+from . import threads
+
 ROOT = Path(__file__).resolve().parent.parent
 SPECIES_DIR = ROOT / "species"
 ENVIRONMENT_DIR = ROOT / "environments"
@@ -111,6 +113,8 @@ def run_manifest(species: str | Path, environment: str | Path, sp: SimpleNamespa
         "git_commit": git("rev-parse", "HEAD"),
         "git_tracked_changes": None if status is None else bool(status),
         **uncommitted_fingerprint(),
+        "math_threads": threads.actual_threads(),
+        "math_libraries": threads.library_versions(),
         "species_file": sp_file,
         "species_sha256": sp_hash,
         "environment_file": env_file,
