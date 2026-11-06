@@ -88,7 +88,7 @@ class Tree:
     def alloc(self, k: int) -> np.ndarray:
         need = self.n + k
         if need > self.cap:
-            new_cap = max(need, 2 * self.cap)
+            new_cap = max(need, self.cap + self.cap // 4)   # 1.25x: doubling left up to half the arrays unused
             for name in list(self.VEC) + list(self.SCALAR):
                 a = getattr(self, name)
                 b = np.zeros((new_cap,) + a.shape[1:], dtype=a.dtype)
