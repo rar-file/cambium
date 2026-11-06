@@ -6,6 +6,7 @@ applies (QUESTIONS.md Q17), so those columns are information, never a verdict.  
 reads saved outputs and the approved equation.
 
     python tools/m2_shape.py > out/bench/ensemble/m2_shape.txt
+    python tools/m2_shape.py 0.48=pc_base 1.44=pc_fineroot_1.44         # any ensembles, by name=folder
 """
 from __future__ import annotations
 
@@ -63,6 +64,7 @@ def mean_height(folder: Path, age: int) -> float:
 def main() -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
+    chosen = dict(a.split("=", 1) for a in sys.argv[1:]) or SWEEP
     item = load_approved_targets("targets-approved")["tree_allometry"]["site_index_curves"]
     print("**The curves themselves, height (m) by total age, approved equation and T13 rule:**\n")
     print("| SI | " + " | ".join(str(a) for a in AGES) + " |\n|---|" + "---|" * len(AGES))
@@ -71,14 +73,14 @@ def main() -> int:
     print("| Ratio SI 32 to SI 22 | " + " | ".join(
         "-" if curve(item, 22, a) is None or curve(item, 32, a) is None else f"{curve(item, 32, a) / curve(item, 22, a):.2f}" for a in AGES) + " |")
     heights = {}
-    for name, folder in SWEEP.items():
+    for name, folder in chosen.items():
         if (E / folder).exists() and len(list((E / folder).glob("*_stand"))) == 20:
             heights[name] = {a: mean_height(E / folder, a) for a in AGES}
     print("\n**Model's mean height (m), stand trees, 20 seeds:**\n")
     print("| Alpha | " + " | ".join(str(a) for a in AGES) + " |\n|---|" + "---|" * len(AGES))
     for name, h in heights.items():
         print(f"| {name} | " + " | ".join(f"{h[a]:.2f}" for a in AGES) + " |")
-    first, last = "3.5", "6.8"
+    first, last = ("3.5", "6.8") if chosen is SWEEP else (list(heights)[-1], list(heights)[0])
     print(f"| Ratio {last} to {first} | " + " | ".join(f"{heights[last][a] / heights[first][a]:.2f}" for a in AGES) + " |")
     print("\n**The site index that height reads as at each age. On one curve, a row would be level. Ages under 20: information only.**\n")
     print("| Alpha | " + " | ".join(str(a) for a in AGES) + " |\n|---|" + "---|" * len(AGES))
