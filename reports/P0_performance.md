@@ -6,10 +6,10 @@ Started and finished 2026-11-06. Everything below keeps outputs bit-for-bit iden
 
 | Goal | Result |
 |---|---|
-| About 10x campaign throughput | **About 4.9x:** 77 runs an hour on this PC one at a time, 380 on the node at 14. Not 10x. |
+| About 10x campaign throughput | **About 4.9x, not 10x:** 77 runs an hour on this PC one at a time at the start (full outputs, mixed parameters), 380 on the node at 14 (lean, seed 1). Lean against lean: 85 and 380, about 4.5x |
 | Outputs identical | Yes, on the four golden runs, at every model-touching merge |
-| 100-tree, 60-year plot under 2 GB | **Not met:** 3.1-5.0 GB with save files on this PC's older runs, 6.1-6.7 GB with none on the node. See "What's left" |
-| Stop when every remaining idea gains under 10 % | Done: see "What's left". These are estimates |
+| 100-tree, 60-year plot under 2 GB | **Not met:** 3.84 and 5.01 GB with save files on this PC's older runs (`p38_nat`, `p33_nat`), 6.1-6.7 GB with none on the node. See "What's left" |
+| Stop when every remaining idea gains under 10 % | On trees, yes as I've split the ideas; on plots, not shown and probably not. Estimates from one profile; no speed idea was tried. QUESTIONS.md Q11 |
 
 
 ## The node
@@ -155,7 +155,7 @@ The maintainer asked which of these explains it: memory bandwidth, disk, paging,
 
 **What would fix it:**
 - **For now, at no cost:** at most 3 at once on this PC. Batch work is on the node anyway.
-- **A second stick: an estimate, not a measurement.** It would double memory bandwidth. If that makes n runs behave like n/2 do today: 3 at once, 216 runs an hour (mean of the 1 and 2 rows, 50.2 s); 4 at once, 248; 6 at once, 278 (the 3 row, 77.7 s). That assumes all the slowdown is bandwidth and none is the shared cache, so these are upper limits: up to about 2x. The maintainer's second slot doesn't work at the moment, so it may need more than a stick. The campaign doesn't need it: the node does 262 at 8 and 380 at 14.
+- **A second stick: an estimate, not a measurement.** It would double memory bandwidth. If that makes n runs behave like n/2 do today: 3 at once, 215 runs an hour (mean of the 1 and 2 rows, 50.2 s); 4 at once, 248; 6 at once, 278 (the 3 row, 77.7 s). That assumes all the slowdown is bandwidth and none is the shared cache, so these are upper limits: up to about 2x. The maintainer's second slot doesn't work at the moment, so it may need more than a stick. The campaign doesn't need it: the node does 262 at 8 and 380 at 14.
 
 **Power mode:** Balanced, not Best performance (`powercfg`, and the overlay setting is empty). The clock figures above show it costs nothing measurable, so I'd leave it.
 
@@ -175,8 +175,9 @@ The maintainer asked which of these explains it: memory bandwidth, disk, paging,
 | `b64f75a` | Resume after any stop | yes | 98 pass | identical |
 | `95233fc` | Node tools, golden memory | yes | 102 pass | identical |
 | `d205edd` | A resumed plot's seed label; plots' memory figure | yes | 107 pass | identical |
-| `63e2491`, `eb9c984` | Resume by each tree's own age; gate, scorecard | yes | 110 pass | identical |
-| Tree arrays grow by 1.25x | Lossless memory | yes | all pass | identical |
+| `63e2491` | Resume by each tree's own age | yes | 107 pass | identical |
+| `eb9c984` | Gate, scorecard | yes | 110 pass | identical |
+| `e23821f` | Tree arrays grow by 1.25x | yes | 110 pass | identical |
 | 12 others | Tools and reports only | no | not run for each; each covered by the next checked commit | not run for each (DECISIONS.md row 45) |
 
 **None of these makes a default run faster:** on an otherwise idle PC, tree60 43-47.5 s against 45.7 s, and plot25 68-70 s against 71.6 s, within what a run moves. During the two merges that ran beside the PC's ensemble, tree60 took 77 s and plot25 89 s, so those two say nothing about speed. **Their gain is in how they're used:**
@@ -185,10 +186,10 @@ The maintainer asked which of these explains it: memory bandwidth, disk, paging,
 |---|---|---|
 | Lean mode | No time gain beyond the noise: lean took 42.9, 44.2 and 45.4 s across three tests, and full 43.1-47.5 s. Peak memory 440 MB against 581 MB | scale tables; golden |
 | Lean scores the same | 3 pairs of 61-year runs, 23 scored keys: 0 values differ | `out/bench/p0/lean_proof.txt` |
-| Parallel runs on the PC | 141 against 81 runs an hour at 3 at once | scale table |
+| Parallel runs on the PC | 139 against 85 runs an hour at 3 at once | repeats |
 | Node at 14 | 380 runs an hour on lean trees, against the PC's best of 139 | above |
 | Tree arrays grow by 1.25x | plot25 peak 737 MB against 783; tree60 577 against 581; no slower | `out/bench/p0/mem125_hashes.json` |
-| Result cache and finished runs | The screen's restarts lost only runs in progress: 58 already done at one, 408 at the last | `out/bench/node/disk_step/screen5.log`, and the session for the last |
+| Result cache and finished runs | The screen's restarts lost only runs in progress: 58 already done at one, 408 at the last | `out/bench/node/disk_step/screen5.log`; `out/bench/node/screen5/screen5.log` |
 
 ## Plots with no save files, on the node
 
@@ -205,7 +206,7 @@ From `reports/reviews/2026-11-06_node_disk_report.md`.
 
 ## What's left, and why P0 stops here
 
-The rule for P0: stop once every remaining idea gains less than 10 %. From the profiles (`out/bench/p0/profile_tree.md`, `_plot.md`, `_mesh.md`; one run each, on the worktree). **The gains here are estimates from those shares, not measurements.**
+The rule for P0: stop once every remaining idea gains less than 10 %. **Every gain here is an estimate from one profile run under cProfile, with its working shown; no speed idea was tried.** Profiles: `out/bench/p0/profile_tree.md`, `_plot.md`, `_mesh.md`. The plot's is 25 trees to age 20, one run; a 100-tree, 60-year plot hasn't been profiled.
 
 | Run | Largest shares of its time |
 |---|---|
@@ -213,20 +214,30 @@ The rule for P0: stop once every remaining idea gains less than 10 %. From the p
 | Plot, 25 trees, 20 years | Carbon solve 25 %, mechanics 23 %, light 21 %, shoot growth 10 % |
 | Mesh, 30 years | Light 33 %, mesh export 32 % |
 
-| Idea | Estimated gain on a tree | Why I'm stopping |
-|---|---|---|
-| Inverse FFT only for light layers something reads | About 7 %: about 30 % of layers, on about a quarter of the time | Under 10 % |
-| A faster FFT library | Up to about 8 % of a run, if it stays bit-identical, which isn't known | Under 10 % |
-| Faster carbon solve in compiled code | At most about 9 %, if it took no time at all, and only if arithmetic order holds | Under 10 % |
-| Mechanics in compiled code | At most about 5 % of the time it owns | Under 10 % |
+| Idea | Estimated gain on a tree | On a plot | Working |
+|---|---|---|---|
+| Compile the carbon solve's Python part | At most about 9 % | About 16 % | `parts`, 4.7 s of 51 s on the tree, so 9 of the 14 points; the same fraction of the plot's 25 points. Only if arithmetic order holds |
+| Compile mechanics' Python part | At most about 5 % | About 11 % | `bend_and_correct`, `_apply`, `_quat`: 2.6 s of 51 s, so 5 of the 11 points; the same fraction of the plot's 23 |
+| Inverse FFT and weighting only for light layers something reads | At most about 9 % | About 3 % | My guess is 30 % of layers go unread, from a crown ratio near 0.7, not measured. They'd cost about 30 % of the tree's time: `_raw_fft` 6.9 s and most of `compute`'s own 9.1 s |
+| A faster FFT library | About 7 %, if twice as fast, which is a guess | About 3 % | `_raw_fft` is 13.5 % of the tree's time. May not stay bit-identical |
 
-Together they might give 15-25 %, against 380 runs an hour already. That's little beside the M2 work waiting.
+**So on a tree each is under 10 % as I've split them, though compiling both is one item in the maintainer's brief, at about 14 %. On a plot, two look over 10 %.** That's QUESTIONS.md Q11. I've stopped meanwhile, because M2 runs single trees and the node does 380 an hour.
+
+| Other ideas in the brief | State |
+|---|---|
+| Stop each run at its last scored age (A2) | In effect: the ensembles run to 60, the last scored age |
+| Reuse unchanged results between years; remove repeated passes | Not estimated |
+| Smaller integer types | Not estimated; the arrays are already int16 and int32, and bool |
+| Store only occupied light-grid cells | Not estimated. `_field.S` is 41.6 MB of the tree's 539 MB peak |
+| Free dead or shed parts | Not estimated. Timelines read them at the end |
+| Build and write meshes part by part | Already so: a mesh export traces 31.4 MB at its peak |
+| Stream history to disk | Already so with save files; without the pickle, not measured |
 
 **Memory:** the 2 GB target isn't met, and I'm not chasing it now. The node has 94 GB and no plot needs more than 6.7 GB. Lossless steps left: writing history to disk without the pickle (the pickle was 78 % of a plot's disk at year 30), with no measured gain yet. **Largest plot in 6 GB, an estimate:** a plot's peak is about 0.4 GB plus an amount in proportion to trees; at 5.0 GB for 100 trees, 6 GB fits about 120 trees with save files. With no save files, a 100-tree plot already goes over, at 6.1-6.7 GB.
 
 **Plots parallel within a year (B8): not done.** On a 5-plot ensemble the node already runs one plot per core, so its limit of 14 could gain at most 14/5 = 2.8x, in theory, with more memory. Trees in a plot share the light field, so it needs a real rewrite. Worth another look if M4's 1,000 m2 plots turn out too slow.
 
-**A rewrite in C++ or Rust (E11), an estimate only.** Most of a run is already compiled code: FFT, the maths library and numpy. If all the rest took no time, the gain is about 1.5x. It'd take weeks, couldn't be bit-identical, and so would need a new baseline.
+**A rewrite in C++ or Rust (E11), an estimate only, for a tree.** About 52 % of the tree's profiled time is already compiled code: FFT, the maths library, ndimage and ufuncs, 26.5 s of 51 s. If all the rest took no time, the gain would be 2.1x, and I'd guess about 1.5x in practice. Plots spend more in Python, so likely more there: not calculated. It'd take weeks (7,060 lines in `treegen/`), couldn't be bit-identical, and so would need a new baseline.
 
 **A GPU (E12), an estimate only.** Only light's FFT and matrix work could move, about 35 % of a tree, so at most about 1.5x. The node has none. It'd change rounding, so it isn't lossless, and the grids are small enough that moving data would eat into it.
 

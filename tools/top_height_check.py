@@ -2,10 +2,10 @@
 
 Elfving 2010 p. 58: "Top height is defined as the height according to the height curve at
 the mean diameter of the 100 by diameter largest trees per hectare."  The report names no
-curve, so the scorecard uses those trees' mean height.  This fits a Naslund curve to each
-plot at each age, h = 1.3 + d^2 / (a + b d)^2, as a straight line of d / sqrt(h - 1.3) on d,
-and reads it at those trees' mean diameter.  If the difference is under 0.3 m, the simple
-version stays.
+curve.  This fits a Naslund curve to each plot at each age, h = 1.3 + d^2 / (a + b d)^2, as a
+straight line of d / sqrt(h - 1.3) on d, and reads it at those trees' mean diameter, against
+those trees' mean height.  It came out over the maintainer's 0.3 m limit, so the scorecard now uses the
+curve too (DECISIONS.md row 44); this tool shows the difference.
 
     python tools/top_height_check.py out/bench/ensemble/base_plots
 """

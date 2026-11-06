@@ -100,3 +100,10 @@ def test_like_for_like_passes_and_refuses():
     with pytest.raises(Refused, match="no commit"):
         check_like_for_like(nulls, base, (NAMES, NAMES), "option", None, None)
     assert check_like_for_like(nulls, base, (NAMES, NAMES), "option", "abc", None)
+
+
+def test_a_stated_commit_cant_overwrite_a_real_one():
+    base = [_run(commit="abc") for _ in NAMES]
+    option = [_run(commit="def") for _ in NAMES]
+    with pytest.raises(Refused, match="already name a commit"):
+        check_like_for_like(base, option, (NAMES, NAMES), "option", "def", None)

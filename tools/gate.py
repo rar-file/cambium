@@ -76,6 +76,9 @@ def check_like_for_like(base: list, option: list, names: tuple, kind: str, base_
     if len(codes_base) != 1 or len(codes_option) != 1:
         raise Refused(f"more than one code version inside an ensemble: {codes_base} {codes_option}")
     a, b = next(iter(codes_base)), next(iter(codes_option))
+    for stated, side, name in ((base_code, a, "baseline"), (option_code, b, "option")):
+        if stated and side[0] is not None:
+            raise Refused(f"the {name}'s manifests already name a commit, {side[0]}: --{'base' if name == 'baseline' else name}-code is only for a manifest with none")
     if base_code:
         a = (base_code, a[1])
     if option_code:

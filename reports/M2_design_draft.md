@@ -1,6 +1,6 @@
 # M2 design (draft, written before any M2 run)
 
-Status: a draft on the `p0-perf` branch. It waits for the screen's ranking, and the numbers it can't yet have say "not set". The cut rule's numbers go into DECISIONS.md before any run.
+Status: a draft, in use. The screen's ranking is in (`out/bench/node/screen20/ranking.csv`), and the numbers it can't yet have say "not set". The cut rule's numbers go into DECISIONS.md before any run.
 
 Every source below is a research subagent's reading (`reports/research_notes.md`). Each must be opened again before it's cited in a change or a target.
 
@@ -44,9 +44,9 @@ Values on the audit's unsupported list that may turn out influential: `maintenan
 
 ## 4. Method
 
-1. **Every candidate is judged on seed averages,** never on one seed (PROTOCOL.md section 2). The model is chaotic: a change of a few parts in a million moves height by up to 6 % and leaf area by up to 28 %. Seed spread, measured on the node at 30 seeds: height SD 0.42 m at 15, 0.70 m at 30, 0.76 m at 60; LAI varies by about 30 % at 15 and 11 % at 60. Number of seeds per candidate at each stage: not set.
+1. **Every candidate is judged on seed averages,** never on one seed (PROTOCOL.md section 2). The model is chaotic: a change of a few parts in a million moves height by up to 6 % and leaf area by up to 28 %. Seed spread, measured on the node at 30 seeds: height SD 0.42 m at 15, 0.70 m at 30, 0.76 m at 60; LAI varies by about 30 % at 15 and 11 % at 60. Seeds per candidate: 10 at every stage, 20 for finalists.
 2. **Sample:** a Latin hypercube over the parameters in section 2, inside their bounds, with a fixed, recorded seed. Size: not set, it depends on how many parameters survive.
-3. **Successive halving:** every candidate to 15; those whose seed average isn't clearly failing continue to 30; then to 60.
+3. **Stages:** every candidate runs to 15 and on to 30, because stage 15 cuts nothing (section 5). Those not cut at 30 continue to 60.
 4. **Continue, don't restart:** a survivor resumes from its saved state at 15 or 30 (P0 A4), only once the hash proof has passed. Lean mode, the result cache and parallel light runs apply throughout.
 5. **Finalists:** rerun at 20 seeds on the same machine as the rest of M2 (the node), paired with the baseline; an effect only counts above 2 standard errors. Judge them with the gate in PROTOCOL.md section 9 (`paired.band_move`): no target further from its band by more than 2 standard errors, and at least one closer.
 6. **Label** the result "calibrated" in the species file, with the fit and the validation.
@@ -58,7 +58,7 @@ Values on the audit's unsupported list that may turn out influential: `maintenan
 - A candidate is cut only on its seed average, never on one seed, and only if that average is far outside its target band: outside by more than a margin, which is well above the standard error of that average.
 - **No cut on height alone (the maintainer, 2026-11-06).** The height band applies from age 20 and the stand-tree leaf-area band only from 45, so:
   - **Stage 15 cuts nothing.** No approved band applies there.
-  - **Stage 30** can cut only if height's average is far outside its band and leaf area's average isn't above the baseline's at 30 by more than 2 standard errors: too tall, and no sign of more leaves. The leaf-area half is against the baseline, because no band applies at 30.
+  - **Stage 30** can cut only if height's average is far outside its band and leaf area's average is no higher than the baseline's at 30: too tall, and no sign of more leaves. That leaf-area test is on the mean alone, on 10 seeds a candidate: with too few seeds or a 2-standard-error test it would nearly always hold, and the cut would drift back to height alone. The leaf-area half is against the baseline, because no band applies at 30.
   - **Stage 60** judges height and leaf area together, against their bands.
 - At these sizes a cut saves little: a lean 60-year tree takes about 2 minutes on the node, and it does 262-380 an hour. So the cut only matters if the sample runs to hundreds of candidates.
 - Nothing is cut for being merely in the wrong half of the sample: "successive halving" here means cutting clear failures, not a fixed half.
@@ -77,4 +77,3 @@ Not designed yet. The readable form is PRELES f_S (Peltoniemi et al. 2015, p. 15
 
 - The screen may rank few parameters as influential, which makes a small sample enough, or many, which makes the emulator question arrive sooner.
 - The profile may show early years are cheap, so stage 15 costs little (not measured yet).
-- The second PC's golden hashes decide whether it can carry runs that count, or only exploration.
