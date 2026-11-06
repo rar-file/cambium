@@ -2,13 +2,15 @@
 
 Grows the seed-1 stand tree once with the defaults and once per parameter with
 that value changed by a factor, and ranks the parameters by the largest relative
-change in height, DBH, leaf area or carbon fixed at ages 30, 50 and 60.  One run
-at a time, each in its own process.  Before every launch it reads free memory and
-stops if the run would leave less than the PROTOCOL.md section 6 floor.  It can be
-stopped and started again: finished runs are kept.
+change in height, DBH, leaf area or carbon fixed at ages 30, 50 and 60.  Each run
+is its own process; several run at once within the free-memory floor (tools/batch.py,
+PROTOCOL.md section 6).  It can be stopped and started again: finished runs are
+kept.  Each new result carries a SHA-256 of the run's whole output (yearly stats and
+the final tree), so a run can be shown to be the same however it was launched.
 
     python tools/sensitivity_screen.py --out out/bench/m1/screen
     python tools/sensitivity_screen.py --out out/bench/m1/screen --factor 0.75
+    python tools/sensitivity_screen.py --out DIR --only resource.alpha,baseline --jobs 1
     python tools/sensitivity_screen.py --rank out/bench/m1/screen
 """
 from __future__ import annotations
@@ -16,18 +18,18 @@ from __future__ import annotations
 import argparse
 import copy
 import csv
-import ctypes
+import hashlib
 import json
-import subprocess
 import sys
-import time
 from pathlib import Path
 from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "tools"))
 
-FLOOR_GB = 4.0      # PROTOCOL.md section 6
+from batch import Job, run_batch  # noqa: E402
+
 RUN_PEAK_GB = 0.65  # seed-1 stand tree, no meshes (out/bench/p40_default_v3: 584 MB)
 AGES = (30, 50, 60)
 METRICS = ("height_m", "dbh_cm", "leaf_area_m2", "fixed")
@@ -52,19 +54,6 @@ SKIP_PATHS = {
     "shoot.short_shoot_internode_length": "not read by any code",
     "pipe_model.wind_load.wind_speed_m_s": "not used at stem_theory stage 2, which has its own wind speed",
 }
-
-
-def free_gb() -> float:
-    class M(ctypes.Structure):
-        _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
-                    ("ullTotalPhys", ctypes.c_ulonglong), ("ullAvailPhys", ctypes.c_ulonglong),
-                    ("ullTotalPageFile", ctypes.c_ulonglong), ("ullAvailPageFile", ctypes.c_ulonglong),
-                    ("ullTotalVirtual", ctypes.c_ulonglong), ("ullAvailVirtual", ctypes.c_ulonglong),
-                    ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
-    m = M()
-    m.dwLength = ctypes.sizeof(M)
-    ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m))
-    return m.ullAvailPhys / 1024 ** 3
 
 
 def numeric_paths(o, p=""):
@@ -115,6 +104,16 @@ def apply_change(sp, path, factor):
     setattr(obj, parts[-1], scaled(getattr(obj, parts[-1]), factor))
 
 
+def output_digest(m) -> str:
+    """SHA-256 of what the run produced: every year's stats and the final tree."""
+    h = hashlib.sha256()
+    h.update(json.dumps(m.stats, sort_keys=True, default=lambda o: o.tolist() if hasattr(o, "tolist") else str(o)).encode())
+    T = m.tree
+    for name in ("pos", "radius", "parent", "death"):
+        h.update(getattr(T, name)[:T.n].tobytes())
+    return h.hexdigest()
+
+
 def one_run(path: str | None, factor: float, years: int) -> dict:
     """Grow the tree once in this process and return what the ranking needs."""
     import cli
@@ -135,6 +134,8 @@ def one_run(path: str | None, factor: float, years: int) -> dict:
                 "lai": s["lai"], "crown_ratio": s.get("crown_ratio"), "fixed": s["carbon"].get("fixed"),
                 "cue": s["carbon"].get("cue"), "diffuse_light_pct": s.get("subcanopy_diffuse_light_pct"),
             }
+    out["digest"] = output_digest(m)
+    out["peak_mb"] = cli.peak_memory_mb()
     return out
 
 
@@ -142,24 +143,10 @@ def result_name(path, factor):
     return "baseline.json" if path is None else f"{path}__x{factor:g}.json"
 
 
-def launch(out: Path, path, factor, years, py) -> bool:
-    target = out / result_name(path, factor)
-    if target.exists():
-        return True
-    free = free_gb()
-    if free - RUN_PEAK_GB < FLOOR_GB:
-        print(f"STOP: {free:.2f} GB free; a run needs {FLOOR_GB + RUN_PEAK_GB:.2f} GB free "
-              f"(PROTOCOL.md section 6). Finished runs are kept.", flush=True)
-        return False
-    t0 = time.time()
-    cmd = [py, str(Path(__file__).resolve()), "--one", path or "", "--factor", str(factor), "--years", str(years),
-           "--result", str(target)]
-    done = subprocess.run(cmd, cwd=str(ROOT))
-    print(f"{path or 'baseline'} x{factor:g}: {'ok' if done.returncode == 0 else 'FAILED'} "
-          f"in {time.time() - t0:.0f} s, {free:.2f} GB free at launch", flush=True)
-    if done.returncode != 0:
-        (out / (result_name(path, factor) + ".failed")).write_text(f"exit {done.returncode}\n")
-    return True
+def job_for(out: Path, path, factor, years) -> Job:
+    cmd = [sys.executable, str(Path(__file__).resolve()), "--one", path or "", "--factor", str(1.0 if path is None else factor),
+           "--years", str(years), "--result", str(out / result_name(path, factor))]
+    return Job(f"{path or 'baseline'} x{1.0 if path is None else factor:g}", cmd, out / result_name(path, factor))
 
 
 def rank(out: Path):
@@ -209,6 +196,8 @@ def main():
     ap.add_argument("--result", default=None, help="internal: where --one writes")
     ap.add_argument("--rank", default=None, help="rank the finished runs in this folder, no runs")
     ap.add_argument("--list", action="store_true", help="print what would be screened, no runs")
+    ap.add_argument("--jobs", type=int, default=None, help="runs at once (default: CPU cores - 1, within the memory floor)")
+    ap.add_argument("--only", default=None, help="comma-separated parameters, 'baseline' for the baseline: run just these")
     a = ap.parse_args()
 
     if a.one is not None:
@@ -230,13 +219,20 @@ def main():
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     (out / "skipped.json").write_text(json.dumps(skipped, indent=1))
-    py = sys.executable
-    if not launch(out, None, 1.0, a.years, py):
-        sys.exit(3)
-    for path in keep:
-        if not launch(out, path, a.factor, a.years, py):
-            sys.exit(3)
-    rank(out)
+    if a.only:
+        chosen = [x.strip() for x in a.only.split(",") if x.strip()]
+        unknown = [c for c in chosen if c != "baseline" and c not in keep]
+        if unknown:
+            sys.exit(f"not screened parameters: {unknown}")
+        cases = [None if c == "baseline" else c for c in chosen]
+    else:
+        cases = [None] + keep
+    jobs = [job_for(out, c, a.factor, a.years) for c in cases]
+    code = run_batch(jobs, RUN_PEAK_GB, workers=a.jobs, log=out / "runs.csv")
+    if code:
+        sys.exit(code)
+    if not a.only:
+        rank(out)
 
 
 if __name__ == "__main__":
