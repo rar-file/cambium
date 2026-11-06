@@ -34,12 +34,12 @@ stand_canopy:
       text: "unthinned / natural self-thinning on fertile abandoned farmland"
 
   lai_hagemeier:
-    target_mean: 4.59 # unrounded sample bucket mean across stands (paper lists stands 3.6 and 5.4; Table 5 in 10(10):925 lists mean 5.0)
+    target_mean: 4.5 # mean of the two stands the paper lists, 3.6 and 5.4; no mean is printed. Was 4.59, not found in the paper (M1c). Not used in scoring
     stand_range: [3.6, 5.4]
     source: "Hagemeier & Leuschner (2019)"
     doi: "10.3390/f10030265"
     citation: "Hagemeier, M., & Leuschner, C. (2019). Functional Crown Architecture of Five Temperate Broadleaf Tree Species: Vertical Gradients in Leaf Morphology, Leaf Angle, and Leaf Area Density. Forests 10(3):265."
-    page_table: "Figure 7 & Section 3.3 (p. 11)"
+    page_table: "Section 3.2 (p. 9): 'leaf area index increased from Betula (3.6 and 5.4)'; Figure 7 (p. 11)"
     measures: "Stand leaf area index (LAI, m2 m-2) measured using circular litter collection buckets over two consecutive autumns (1998 and 1999)."
     source_stands: "Two birch stands (Table 3): site 1 aged 45 yr, 880 stems/ha; site 2 aged 67 yr, 420 stems/ha. Lehrer Wald and Lappwald, Helmstedt county, Lower Saxony, Germany (Table 2). Management is not stated in the paper."
     conditions:
@@ -84,7 +84,7 @@ stand_canopy:
       source: "Repola (2008)"
       doi: "10.14214/sf.236"
       citation: "Repola, J. (2008). Biomass equations for birch in Finland. Silva Fennica 42(4):605-624."
-      page_table: "Table 2 (p. 609)"
+      page_table: "Table 2 (p. 608)"
       measures: "Live crown ratio of 127 sample trees from 24 managed stands on mineral soil across Finland (mean DBH 16.5 cm, mean H 17.1 m)."
       scoring: info # the range is the spread of single sample trees, not of stand means; no stand age given
       conditions:
@@ -191,7 +191,7 @@ tree_allometry:
     models:
       eq_12: "ln(foliage_kg) = -29.566 + 33.372 * (d_s / (d_s + 2)) where d_s = 2 + 1.25 * DBH, var=0.077 (DBH-only model)"
       eq_a6: "ln(foliage_kg) = -20.856 + 22.320 * (d_s / (d_s + 2)) + 2.819 * cr where d_s = 2 + 1.25 * DBH, cr = crown ratio, var=0.063 (DBH, H, CR model)"
-    page_table: "Table 6 (p. 616, Eq. 12) & Appendix Table A6 (p. 622)"
+    page_table: "Eq. 12 (p. 612), parameters Table 4 (p. 613), valid only for DBH 11-26 cm, N = 21 (p. 617); Eq. A6 (p. 621), parameters Table A1 (p. 623)"
     scoring: info # an equation; no pass range written
     conditions:
       scenario: [plot, stand-tree]
@@ -202,9 +202,9 @@ tree_allometry:
     value_kg_m3: 530.0
     source: "Aosaar et al. (2016)"
     doi: "10.14214/sf.1628"
-    citation: "Aosaar, J., et al. (2016). Biomass production and nitrogen accumulation dynamics in a silver birch (Betula pendula Roth) chronosequence. Silva Fennica 50(4):1628."
-    page_table: "Table 4 (p. 9)"
-    measures: "Stemwood basic density (dry mass / fresh volume, g cm-3 or kg m-3) for 17-year-old silver birch stand."
+    citation: "Aosaar, J., et al. (2016). Biomass production and nitrogen balance of naturally afforested silver birch (Betula pendula Roth) stand in Estonia. Silva Fennica 50(4):1628."
+    page_table: "Section 3.1 (p. 7): 'standing stem volume 161 m3 ha-1 (stemwood density 0.53 g cm-3)'; method p. 4"
+    measures: "Stemwood density (dry mass / water-displacement volume, g cm-3 or kg m-3) for 17-year-old silver birch stand."
     scoring: info # a single value; also a model input
     conditions:
       scenario: [plot, stand-tree]
@@ -216,8 +216,8 @@ tree_allometry:
     source: "Thomas & Martin (2012)"
     doi: "10.3390/f3020332"
     citation: "Thomas, S.C., & Martin, A.R. (2012). Carbon content of tree tissues: a synthesis. Forests 3(2):332-345."
-    page_table: "Table 1 (p. 336)"
-    measures: "Carbon concentration in wood dry matter of temperate/boreal angiosperms (48.0% +/- 1.2%)."
+    page_table: "Table 2 (p. 337)"
+    measures: "Carbon concentration in wood dry matter of temperate/boreal angiosperms: 48.8 +/- 0.6 % observed; 48 +/- 2 % is the IPCC value the table reprints."
     scoring: info # a model input, not a model output
     conditions:
       scenario: [plot, stand-tree, single-tree, single-seedling]

@@ -174,7 +174,7 @@
 
 ## Phase 30: distance rule default; render artefacts, crown, foliage and stem mechanics diagnosed
 
-**Default.** `pipe_model.huber_path_exponent` is 0.283: the Huber value rises tip to base with the leaf-weighted path length to the leaves supplied (the pattern: Mencuccini et al. 2019), fitted to Konôpka and Repola over bark. All 20 tests pass.
+**Default.** `pipe_model.huber_path_exponent` is 0.283: the Huber value rises tip to base with the leaf-weighted path length to the leaves supplied (corrected in campaign M1c: this credited the pattern to Mencuccini et al. 2019, which says the Huber value stays "relatively constant from twig to trunk base"; the pattern has no stem-level source), fitted to Konôpka and Repola over bark. All 20 tests pass.
 
 **A. Hooks, loops and cones in the plot render** (p26 natural plot at 60). No model change.
 - **All 29 living browsed trees continue their stem on a lateral replacement leader.** Its first internode leaves at a median 45° from vertical (34–50°).
@@ -294,7 +294,7 @@ Over bark, stem wood is 1.18–1.35× Repola's (stand tree) and 1.35–1.54× (p
 - **Mäkelä 2002 (Tree Physiol. 22:891)** derives birch-free stem taper from the pipe model with pipe reuse controlled by foliage dynamics, and later work in that line has pipes outlast their foliage and be reused. Immediate retirement of all a shed branch's pipes is not what that theory uses.
 
 **Fix tested alone: Huber value by path length** (`pipe_model.huber_path_exponent`, off).
-- The Huber value rises tip to base with the leaf-weighted path length l to the leaves each internode supplies: huber_value × (l / 0.14 m)^c. Sapwood per leaf area beyond rising tip to base is from Mencuccini et al. 2019, New Phytol. 224:1544. The 0.14 m is half the 27.9 cm current-year shoots the twig value was measured on [OP22].
+- The Huber value rises tip to base with the leaf-weighted path length l to the leaves each internode supplies: huber_value × (l / 0.14 m)^c. (Corrected in campaign M1c: this said the rise is from Mencuccini et al. 2019, New Phytol. 224:1544. That paper says the opposite, "Hv tend to remain relatively constant from twig to trunk base". The only birch support found is within the crown, Sellin & Kupper 2006.) The 0.14 m is half the 27.9 cm current-year shoots the twig value was measured on [OP22].
 - Fitted to Konôpka and Repola over bark: c = 0.283. The same structured misfit as the radius rule remains: young trees have 2.3–1.6× Konôpka's leaf area, DBH 20–26 cm trees 0.7–0.6× Repola's.
 
 | seed-1 stand tree | 30 | 45 | 50 | 60 |

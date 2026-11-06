@@ -132,7 +132,9 @@ resource:
   # McAlpine & Kormanik 1967, Am. J. Bot. 54:153; Wilson 2000, Am. J. Bot.
   # 87:601).  P09 uses a single lambda for both.
   # Apical dominance, used where the lateral is still a bud or spur.  Strong
-  # in birch: most lateral buds stay short shoots [M82]. VERIFY
+  # in birch: most lateral buds stay short shoots [M82]. VERIFY: no source gives
+  # this value; [P09] Sec. 4.2 illustrates lambda 0.46-0.54 only, on synthetic
+  # trees (M1c).
   apical_dominance: 0.62
   # Apical control, used where the lateral is a branch.  Strong when young
   # (excurrent leader, conical crown), weaker when old (rounder, more open
@@ -222,7 +224,9 @@ resource:
     # 17-year-old Estonian silver-birch stand [Aosaar et al. 2016, Silva
     # Fennica 50(4):1628] 0.64 g dry matter.
     wood_basic_density_kg_m3: 530.0
-    # Carbon in dry matter, ~0.48 (Thomas & Martin 2012, Forests 3:332).
+    # Carbon in dry matter, ~0.48 (Thomas & Martin 2012, Forests 3:332, Table 2,
+    # p. 337: temperate/boreal angiosperm wood 48.8 +- 0.6 observed; 48 +- 2 is
+    # the IPCC column they reprint).  Wood, not leaves.
     carbon_fraction: 0.48
     # Leaf maintenance respiration, g C per g leaf dry mass per year:
     # ~8 nmol CO2 g-1 s-1 in Betula pendula leaves [Oleksyn et al. 2000,
@@ -349,6 +353,10 @@ light:
   # stems and branches: wood casts no shade of its own in the model (it would
   # be counted twice).  The model's ground light follows exp(-0.37 LAI)
   # within ~2 points (phase 20).
+  # VERIFY: light.woody_shade below is now on and adds wood shade to this k,
+  # which contradicts the lines above.  Whether it double-counts turns on how
+  # K_PAR was computed; Forests 10:925 could not be opened in M1c.  Forests
+  # 10:265 p. 5 confirms the LAI is leaves only.
   extinction_coefficient: 0.37
   # One-sided area of a silver-birch leaf (m^2): blades 3-7.5 cm long and
   # 1.5-6 cm wide (Flora of NSW; NC State Extension plant toolbox).  Current-
@@ -421,6 +429,8 @@ light:
   # Barclay et al. 2000, DOI 10.1016/S0168-1923(99)00091-X; Duursma & Mäkelä 2007,
   # DOI 10.1093/treephys/27.6.859; Chen et al. 1997, DOI 10.1029/97JD01107).
   # Enabled by default (physics, not a scenario setting).
+  # VERIFY: in M1c no opened page gave 0.40 for wood, in any form (Granier and
+  # Barclay not reached; Duursma and Chen abstracts only).
   woody_shade:
     enabled: true
     k_wood: 0.40
@@ -518,7 +528,9 @@ mechanics:
   # Bending under load and posture control ([J00], [AF09]; mechanics.py).
   enabled: true
   # Fresh wood density (kg/m^3): silver-birch basic density ~0.5 g/cm^3 at
-  # ~70-80 % moisture content. VERIFY
+  # ~70-80 % moisture content. VERIFY: Tomczak et al. 2021 (doi 10.14214/sf.10545,
+  # Table 3) measured green density 0.887-1.032 g/cm^3, moisture 62 %; ForestGALES
+  # uses 900.
   wood_density: 850.0
   # Fresh mass of one leaf (kg): 12 cm^2 at ~70 g/m^2 dry mass and ~65 %
   # water. VERIFY
@@ -626,9 +638,13 @@ pipe_model:
   huber_radius_exponent: 0.312
   # In use (phase 30): the Huber value rises from tip to base with the
   # leaf-weighted path length l from each internode to the leaves it
-  # supplies, huber_value x (l / l_ref)^c, instead of with its radius.  The
-  # pattern, sapwood per leaf area beyond rising tip to base: Mencuccini et
-  # al. 2019, New Phytol. 224:1544.  l_ref: the leaves of the current-year
+  # supplies, huber_value x (l / l_ref)^c, instead of with its radius.
+  # VERIFY: the pattern has no stem-level source.  This comment used to credit
+  # Mencuccini et al. 2019, New Phytol. 224:1544; that paper says the opposite,
+  # "Hv tend to remain relatively constant from twig to trunk base" (accepted
+  # manuscript p. 19; corrected in M1c).  The only birch support found is within
+  # the crown: "HV increased basipetally within a crown" (Sellin & Kupper 2006,
+  # Trees 20:311, abstract).  l_ref: the leaves of the current-year
   # shoots huber_value was measured on sit on average half their 27.9 cm
   # beyond the shoot base [OP22].  c = 0.283 is fitted to Konopka et al.
   # 2023 and Repola 2008 Eq. 12 together, at breast height over bark
@@ -678,8 +694,9 @@ pipe_model:
   # 2015), crown streamlining C = 1.9627 and N = 0.881 clamped to 10-20 m/s
   # (Mayhead 1973, Agric. Meteorol. 12:123, DOI 10.1016/0002-1571(73)90013-7;
   # Vollsinger et al. 2005, Can. J. For. Res. 35:1238, DOI 10.1139/x05-051),
-  # air density 1.22 kg m-3, deflection loading factor 1.136 (Gardiner et al.
-  # 2000).
+  # air density 1.22 kg m-3, deflection loading factor 1.136 (Hale et al. 2015,
+  # Eqs. 11-12, p. 32, for its turning-moment equations; this comment used to
+  # credit Gardiner et al. 2000).  These are ForestGALES (fgr) model values.
   # Target stress = wood_mor_green_mpa * knot_factor / safety_factor.
   # safety_factor 3.5 -> 18.0 MPa (from Univ. Tokyo branch study above; note
   # Niklas & Spatz 2000, Trees 14:230, DOI 10.1007/s004680050008 argue against
@@ -909,8 +926,10 @@ stats:
 hydraulics:
   # Pipe-model water transport (hydraulics.py) [S64, K04].
   # Transpiration of a fully lit leaf at midday (kg m^-2 s^-1).  Branch sap
-  # flow in the upper crown of silver birch averages 59 g m^-2 h^-1 over the
-  # day (1.6e-5); midday is about twice that (PMC4602113 and Sellin et al.).
+  # flow in the upper crown of silver birch averages 59 g m^-2 h^-1 in daytime
+  # (1.6e-5; Sellin & Lubenets 2010, doi 10.1002/eco.133, abstract; this comment
+  # used to cite PMC4602113, which doesn't have it); midday about twice that was
+  # not seen in a source.
   # VERIFY
   transpiration_max: 3.0e-5
   # Xylem-specific conductivity of stem and branch wood (kg m^-1 s^-1
@@ -919,7 +938,9 @@ hydraulics:
   # the top leaves of a well-watered tree reached -2.0 MPa, at the branch
   # P50 (-1.8 to -2.0 MPa [K18]; PMC6025199) and where birch only goes in
   # severe drought (-1.9 to -2.1 MPa; well-watered -1.0 to -1.3, Sellin et
-  # al., PMC3976162); doubled within the published range. VERIFY
+  # al., PMC3976162); doubled within the published range. VERIFY (calibrated:
+  # P50 is a different trait from conductivity, and no opened source gives 4.0;
+  # PMC6025199 is Zhang et al. 2018, not Klepsch)
   xylem_conductivity: 4.0
   # Xylem area per unit leaf area served (Huber value, m2 m-2): 1.24e-4 at
   # the base of current-year birch shoots ([OP22] Table 1; xylem
@@ -945,7 +966,8 @@ hydraulics:
   psi_stomata_open: -1.0
   psi_stomata_closed: -2.0
   # Expansion is full above psi_full_expansion and stops at the turgor-loss
-  # point (MPa) [K04]. VERIFY
+  # point (MPa) [K04]. VERIFY: Hannus et al. 2021 (doi 10.1007/s00468-020-02059-7)
+  # measured a mean of -2.47 in B. pendula, -2.32 to -2.94 in subsp. pendula.
   psi_full_expansion: -0.9
   psi_turgor_loss: -2.1
   # Which water potential drives expansion: "predawn" (soil water potential
@@ -1027,7 +1049,7 @@ roots:
   absorbing_years: 3
   # Uptake conductance per metre of absorbing structural root in fully
   # available soil (kg s^-1 MPa^-1 m^-1).  Calibrated against 5-year-old
-  # silver birch saplings (Sellin et al., Tree Physiol., PMC3976162):
+  # silver birch saplings (Sellin et al. 2014, BMC Plant Biol. 14:72, PMC3976162):
   # soil-to-branch conductance 2.28 mmol m-2 s-1 MPa-1 of leaf area; at
   # 1e-5 the model's roots alone gave 1.4 and took 85-93 % of the sapling's
   # water-potential drop.  Used only when fine_root_uptake is off.
@@ -1037,7 +1059,9 @@ roots:
   # leaf_costs: 0.48 g fine root per g leaf), so their cost and their uptake
   # are one quantity.  Their length is mass x specific root length (short,
   # absorbing roots of silver birch 80-97 m g-1 across site qualities;
-  # Ostonen et al. 2007, Plant Biosyst. 141:426), spread over this year's
+  # Ostonen et al. 2007, Plant Biosyst. 141:426; VERIFY: 87-97 appears in the
+  # abstract of a different paper, Ostonen et al. 2007, Tree Physiol. 27:1627,
+  # and 80 was not found), spread over this year's
   # absorbing roots in proportion to their length.  Conductance per metre:
   # the root-system conductance of 3-4-year-old silver birches, 4.33e-4 kg
   # m-2 s-1 MPa-1 per leaf area, with 0.46 g fine root (< 2 mm) per g leaf in
