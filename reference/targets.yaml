@@ -34,7 +34,7 @@ stand_canopy:
       text: "unthinned / natural self-thinning on fertile abandoned farmland"
 
   lai_hagemeier:
-    target_mean: 4.6 # Forests 10:925 Table 5, printed as the mean of the two birch stands. Forests 10:265 lists the stands, 3.6 and 5.4, whose mean is 4.5. Not used in scoring
+    target_mean: 4.5 # mean of the two stands this source lists, 3.6 and 5.4; it prints no mean. Forests 10:925 Table 5 prints 4.6 for the same stands (reports/hagemeier2019b_publisher_reading.md). Not used in scoring
     stand_range: [3.6, 5.4]
     source: "Hagemeier & Leuschner (2019)"
     doi: "10.3390/f10030265"
@@ -44,7 +44,7 @@ stand_canopy:
     source_stands: "Two birch stands (Table 3): site 1 aged 45 yr, 880 stems/ha; site 2 aged 67 yr, 420 stems/ha. Lehrer Wald and Lappwald, Helmstedt county, Lower Saxony, Germany (Table 2). Management is not stated in the paper."
     conditions:
       scenario: [plot, stand-tree]
-      age_years: [45, 65]
+      age_years: [45, 67]
       age_definition: "stand total age"
       text: "mature monospecific Betula pendula stands"
 
@@ -61,8 +61,8 @@ stand_canopy:
       foliage_clumping_index: 0.41 # Omega; Results text 0.41, Table 5 0.42
     conditions:
       scenario: [plot, stand-tree]
-      age_years: [45, 65]
-      text: "mature closed canopy (age 45-65). Values above 20% indicate insufficient crown leaf/wood shading; 21-29% in unclosed stands is excessive light penetration."
+      age_years: [45, 67]
+      text: "mature closed canopy (stands aged 45 and 67, Table 2 of Forests 10:925). Values above 20% indicate insufficient crown leaf/wood shading; 21-29% in unclosed stands is excessive light penetration."
 
   live_crown_ratio:
     silvicultural_recommendation:
@@ -148,14 +148,15 @@ tree_allometry:
       sis_reading: "Elfving sets SIS from site factors for a site-indicative species (pp. 20, 38) and prints no conversion from birch site index (height at breast-height age 50) to SIS. Here SIS is this curve's own top height at total age 100, solved together with T13: SI20 25.08 m, 5.98 yr; SI26 29.93 m, 5.01 yr. VERIFY"
     swedish_boreal_range_m: [20.0, 26.0] # SI20 to SI26
     height_measure: "dominant height"
-    # 100_thickest_per_ha | 100_tallest_per_ha | unconfirmed.  Elfving (2010) p. 58:
-    # "Top height is defined as the height according to the height curve at the
-    # mean diameter of the 100 by diameter largest trees per hectare."  The report
-    # names no curve, so plots are scored by those trees' mean height (the maintainer,
+    # height_curve_at_100_thickest_per_ha | 100_thickest_per_ha | 100_tallest_per_ha | unconfirmed.
+    # Elfving (2010) p. 58: "Top height is defined as the height according to the height
+    # curve at the mean diameter of the 100 by diameter largest trees per hectare."  The
+    # report names no curve, so a Naslund curve fitted to each plot, the form the maintainer chose
+    # for the cross-check; the same trees' mean height is shown beside it (the maintainer,
     # 2026-11-06).  A stand-tree ensemble is scored by the mean of its seeds: a stand
     # tree's neighbours are copies of it, so it's never suppressed, and the spread
     # between seeds is chance, not dominance.
-    dominant_height_definition: 100_thickest_per_ha
+    dominant_height_definition: height_curve_at_100_thickest_per_ha
     conditions:
       scenario: [plot, stand-tree]
       mode: [natural, managed]
