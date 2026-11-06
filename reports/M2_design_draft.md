@@ -14,7 +14,7 @@ Every source below is a research subagent's reading (`reports/research_notes.md`
 
 - Every fit scores height and leaf area at once, and no candidate is chosen on height alone.
 - If no alpha fits both, M2 reports that the problem is how carbon is shared out, which is M3's work, and doesn't force the fit.
-- Light isn't counted as a third failure. It follows leaf area (`tools/light_lai_link.py`), so the two are reported as linked.
+- **Light stays a reported row, and isn't scored away.** On stand trees it follows leaf area: fitted k 0.367-0.393 by age, correlation within an age 0.705-0.892 (`out/bench/ensemble/light_lai_link.txt`), so those two failures are reported as linked. On plots they part: LAI 3.76 passes and light 22.3 % fails. By Beer-Lambert, LAI 3.6 gives 26.4 % at k = 0.37, and 19.8 % needs LAI 4.38 at k = 0.37, or about 4.06 at the plots' own k of about 0.399. So the lower part of the LAI band can't pass the light band, and a plot needs about 4.1-4.4 to pass both. Arithmetic, not a model run.
 
 ## 2. What gets calibrated
 
@@ -30,6 +30,7 @@ Values on the audit's unsupported list that may turn out influential: `maintenan
 
 | Fit against | Conditions to respect |
 |---|---|
+| Leaf area, always with height. Stand tree: `lai_hagemeier`, 3.6-5.4, which applies at 45-67 only. Plot: `lai_baltic_chronosequence`, 2.5-4.5, ages 6-60 | No stand-tree leaf-area band applies before 45, so a stand-tree candidate can't be judged on both until then |
 | Eriksson height curve, shape across site indices (Elfving 2010 p. 58, height above breast height on breast-height age, T13 as in targets.yaml) | Ratio of SI 32 to SI 22 heights falling with age: about 2.28 at 10, 1.65 at 30, 1.45 at 50, 1.40 at 60 (to recheck) |
 | Liziniewicz 2022 MAI ladder, Table 6, p. 13: 6.0, 7.9, 10.5, 12.8 at SI 22, 25, 28, 32 | Their simulation's output, not a measurement. Planted improved stock, thinned, no mortality, rotations 60, 51, 45, 31 years. SI 32 is outside their data. Their site index may not be on Eriksson's scale (Johansson 2013 unread) |
 | Repola 2008 stem wood, Eq. 7 at over-bark DBH | Finnish, 34 % downy birch; bias-corrected |
@@ -55,8 +56,11 @@ Values on the audit's unsupported list that may turn out influential: `maintenan
 **Written in DECISIONS.md before running. Its numbers aren't set until the ranking and the seed spread are in.**
 
 - A candidate is cut only on its seed average, never on one seed, and only if that average is far outside its target band: outside by more than a margin, which is well above the standard error of that average.
-- Early ages are noisy (LAI varies about 30 % at 15), so at stage 15 only height counts for cutting.
-- Height is the only metric with a band at all three stages. The approved target applies from age 20, so a band at 15 would be the same curve extended, not an approved target; it's used for cutting only, and only with the wider margin.
+- **No cut on height alone (the maintainer, 2026-11-06).** The height band applies from age 20 and the stand-tree leaf-area band only from 45, so:
+  - **Stage 15 cuts nothing.** No approved band applies there.
+  - **Stage 30** can cut only if height's average is far outside its band and leaf area's average isn't above the baseline's at 30 by more than 2 standard errors: too tall, and no sign of more leaves. The leaf-area half is against the baseline, because no band applies at 30.
+  - **Stage 60** judges height and leaf area together, against their bands.
+- At these sizes a cut saves little: a lean 60-year tree takes about 2 minutes on the node, and it does 262-380 an hour. So the cut only matters if the sample runs to hundreds of candidates.
 - Nothing is cut for being merely in the wrong half of the sample: "successive halving" here means cutting clear failures, not a fixed half.
 - **Check on the rule:** a small random sample of cut candidates still runs to 60, to see whether any would have passed. Sample size: not set.
 - Report how many were cut at each stage, and the check's result.

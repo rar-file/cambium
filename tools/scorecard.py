@@ -58,6 +58,7 @@ TREE_MODES = {"stand": ("stand-tree", "managed"), "open": ("single-tree", "open-
 # targets.yaml dominant_height_definition -> the per-tree value that ranks the
 # 100 trees per hectare
 DOMINANT_RANK = {"100_thickest_per_ha": "dbh_cm", "100_tallest_per_ha": "height_m"}
+ELFVING_CURVE = "height_curve_at_100_thickest_per_ha"
 
 
 def load_approved_targets(ref: str = TAG) -> dict[str, Any]:
@@ -197,6 +198,34 @@ def plot_stat(run: dict[str, Any], age: int) -> dict[str, Any] | None:
 
 def tree_record(run: dict[str, Any], age: int) -> dict[str, Any] | None:
     return next((r for r in (run.get("tree_stats") or {}).get("per_year", []) if r.get("year") == age), None)
+
+
+def naslund_top_height(records: list[dict[str, Any]], area_m2: float) -> tuple[float, float, float]:
+    """Elfving 2010 p. 58: "Top height is defined as the height according to the height curve at
+    the mean diameter of the 100 by diameter largest trees per hectare."  The report names no
+    curve, so a Naslund curve, the form the maintainer chose for the cross-check: h = 1.3 + d^2 / (a + b d)^2,
+    fitted to the plot's live trees as a straight line of d / sqrt(h - 1.3) on d, and read at those
+    trees' mean diameter.  The last tree counts with its fractional share.  Returns (height on the
+    curve, trees counted, those trees' mean height); nan if too few trees to fit."""
+    import numpy as np
+
+    rows = [(float(r["dbh_cm"]), float(r["height_m"])) for r in records if r.get("dbh_cm") and r.get("height_m")]
+    n = 100.0 * area_m2 / 1e4
+    usable = [(d, h) for d, h in rows if h > 1.3]
+    if len(usable) < 3:
+        return float("nan"), 0.0, float("nan")
+    d_all, h_all = np.array([x[0] for x in usable]), np.array([x[1] for x in usable])
+    b, a = np.polyfit(d_all, d_all / np.sqrt(h_all - 1.3), 1)
+    w_sum = d_sum = h_sum = 0.0
+    for d, h in sorted(rows, key=lambda x: x[0], reverse=True):
+        w = min(1.0, n - w_sum)
+        if w <= 0.0:
+            break
+        w_sum += w
+        d_sum += w * d
+        h_sum += w * h
+    mean_d = d_sum / w_sum
+    return 1.3 + mean_d * mean_d / (a + b * mean_d) ** 2, w_sum, h_sum / w_sum
 
 
 def plot_live_records(run: dict[str, Any], age: int) -> list[dict[str, Any]]:
@@ -434,13 +463,18 @@ def evaluate_run(name: str, item: dict[str, Any], run: dict[str, Any] | None,
                 na(label, band_txt, why)
                 continue
             if scen == "plot":
-                if definition not in DOMINANT_RANK:
+                if definition != ELFVING_CURVE and definition not in DOMINANT_RANK:
                     na(label, band_txt, f"dominant_height_definition is '{definition}' in targets.yaml")
                     continue
                 recs = plot_live_records(run, age)
-                h, counted = dominant_height(recs, float(run["plot_data"]["area_m2"]), DOMINANT_RANK[definition])
                 need = 100.0 * float(run["plot_data"]["area_m2"]) / 1e4
-                what = f"dominant height, {definition}: {counted:.2f} of {need:.2f} trees on the plot"
+                if definition == ELFVING_CURVE:
+                    h, counted, simple = naslund_top_height(recs, float(run["plot_data"]["area_m2"]))
+                    what = (f"top height on a Naslund curve at the mean diameter of {counted:.2f} of {need:.2f} trees on the plot; "
+                            f"those trees' mean height {simple:.2f} m")
+                else:
+                    h, counted = dominant_height(recs, float(run["plot_data"]["area_m2"]), DOMINANT_RANK[definition])
+                    what = f"dominant height, {definition}: {counted:.2f} of {need:.2f} trees on the plot"
                 if counted < 10.0:   # the maintainer, 2026-11-06: say so, the figure gets noisy
                     what += "; fewer than 10 such trees, so this is noisy"
             else:
@@ -576,9 +610,15 @@ def evaluate_ensemble(targets: dict[str, Any], runs: list[dict[str, Any]], ages:
         inside = sum(1 for r in scored if r["band"][0] <= r["value"] <= r["band"][1])
         info = any(r["status"] == "INFO" for r in scored)
         status = "INFO" if info else ("PASS" if lo <= mean <= hi else "FAIL")
+        notes = scored[0]["notes"]
+        if "subcanopy_light_transmittance" in name:
+            # the band is the range of single readings, so show how far the mean is from their median too (the maintainer, 2026-11-06)
+            median = targets.get("stand_canopy", {}).get("subcanopy_light_transmittance", {}).get("target_median_pct")
+            if median is not None:
+                notes = f"{mean - float(median):+.1f} points from the paper's median of {float(median):g} %; {notes}"
         out.append({"target": name, "mean": mean, "sd": statistics.stdev(values) if len(values) > 1 else 0.0,
                     "seeds": len(values), "target_range": scored[0]["target_range"], "status": status,
-                    "share": inside / len(values), "source": first["source"], "notes": scored[0]["notes"]})
+                    "share": inside / len(values), "source": first["source"], "notes": notes})
     return out
 
 

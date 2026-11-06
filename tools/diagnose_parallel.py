@@ -262,6 +262,7 @@ def main():
     ap.add_argument("--micro-only", action="store_true")
     ap.add_argument("--scale", default=None, help="comma-separated runs at once, e.g. 1,8,14: find the fastest number")
     ap.add_argument("--pinned", action="store_true", help="with --scale: each run on its own physical core")
+    ap.add_argument("--no-micro", action="store_true", help="skip the benchmark")
     ap.add_argument("--micro-copies", default="1,2,4", help="benchmark copies at once")
     ap.add_argument("--micro-child", nargs=2, default=None, help="internal")
     a = ap.parse_args()
@@ -304,7 +305,7 @@ def main():
                 print(f"  {doc['trees'][label]['seconds']} s", flush=True)
         all_hashes = {h for g in doc["trees"].values() for h in g["hashes"]}
         doc["hashes_same"] = "all the same" if len(all_hashes) == 1 else f"DIFFERENT: {len(all_hashes)} distinct, so this test is void"
-    for label, size in MICRO.items():
+    for label, size in ({} if a.no_micro else MICRO).items():
         print(f"benchmark, {label}...", flush=True)
         doc["micro"][label] = {c: micro_group(size, int(c)) for c in a.micro_copies.split(",")}
     text = report(doc)

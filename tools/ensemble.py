@@ -60,8 +60,9 @@ def run_plots(label: str, seeds: int, years: int, mode: str, trees: int, values:
 
 
 def median_seed(rows: dict, age: int = 60) -> int:
-    """The seed closest to the ensemble's median: smallest summed distance from each
-    metric's median, in that metric's standard deviations."""
+    """The seed closest to the ensemble's median: smallest summed distance from each metric's
+    median, in that metric's standard deviations.  Height, DBH, LAI and crown ratio at 60.
+    This rule is my own, for choosing the example tree; no source sets it."""
     score = {s: 0.0 for s in rows}
     for k in MEDIAN_METRICS:
         v = {s: r[k] for s, r in rows.items() if r.get(k) is not None}

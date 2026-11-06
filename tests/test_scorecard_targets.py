@@ -237,3 +237,26 @@ def test_ensemble_keeps_info_and_not_applicable():
     assert rows["stand_canopy.live_crown_ratio.managed_stand_empirical (age 60)"]["status"] == "INFO"
     assert rows["stand_canopy.subcanopy_light_transmittance (age 60)"]["status"] == "NOT APPLICABLE"
     assert rows["stand_canopy.subcanopy_light_transmittance (age 60)"]["mean"] is None
+
+
+def test_top_height_on_elfvings_curve():
+    """Trees exactly on a Naslund curve: the curve read at the 100 thickest's mean diameter gives
+    the height of a tree of that diameter, which is above the mean height of those trees."""
+    from scorecard import naslund_top_height
+
+    a, b = 1.2, 0.17
+
+    def h_of(d):
+        return 1.3 + d * d / (a + b * d) ** 2
+
+    ds = [8.0 + 2.0 * i for i in range(12)]
+    recs = [{"dbh_cm": d, "height_m": h_of(d)} for d in ds]
+    h, counted, simple = naslund_top_height(recs, 200.0)   # 2 trees on 200 m2
+    mean_d = (ds[-1] + ds[-2]) / 2.0
+    assert counted == pytest.approx(2.0)
+    assert h == pytest.approx(h_of(mean_d), abs=1e-6)
+    assert simple == pytest.approx((h_of(ds[-1]) + h_of(ds[-2])) / 2.0)
+    assert h > simple
+    # too few trees to fit
+    h, counted, _ = naslund_top_height(recs[:2], 200.0)
+    assert h != h and counted == 0.0
