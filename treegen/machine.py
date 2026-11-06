@@ -6,6 +6,7 @@ from __future__ import annotations
 import ctypes
 import os
 import platform
+import subprocess
 import sys
 
 from . import threads
@@ -19,12 +20,21 @@ def _cpu_name() -> str:
                 return str(winreg.QueryValueEx(k, "ProcessorNameString")[0]).strip()
         except OSError:
             pass
-    return platform.processor() or "unknown"
+    try:
+        for line in subprocess.run(["lscpu"], capture_output=True, text=True, check=True).stdout.splitlines():
+            if line.startswith("Model name"):
+                return line.split(":", 1)[1].strip()
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return platform.processor() or platform.machine() or "unknown"
 
 
 def _memory_gb() -> float | None:
     if sys.platform != "win32":
-        return None
+        try:
+            return round(os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 1024 ** 3, 1)
+        except (OSError, ValueError):
+            return None
 
     class M(ctypes.Structure):
         _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
@@ -64,6 +74,7 @@ def describe_machine() -> dict:
         "cpu_threads": os.cpu_count(),
         "memory_gb": _memory_gb(),
         "os": platform.platform(),
+        "architecture": platform.machine(),
         "math_threads": threads.actual_threads(),
         "math_libraries": threads.library_versions(),
         **_openblas_kernels(),

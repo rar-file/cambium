@@ -1,9 +1,10 @@
 """Run independent light runs in parallel (campaign P0, step 3).
 
 Each job is a separate, unchanged process: nothing is shared between them, and
-this file only decides when to start them.  PROTOCOL.md section 6: light runs
-(single trees, under 1 GB each) may run in parallel within the free-memory floor.
-Heavy runs (plots, mesh exports) stay one at a time, so don't send them here.
+this file only decides when to start them.  PROTOCOL.md section 6: on the main PC
+light runs (single trees, under 1 GB each) may run in parallel within the free-memory
+floor, and heavy runs (plots, mesh exports) stay one at a time, so don't send them
+here.  On the node, ORIGIN_FLOOR_GB and ORIGIN_MAX_WORKERS set its limits.
 
 Before every launch it reads free memory, allows for what the jobs already running
 may still grow to, and doesn't launch if that would break the floor.  If nothing is
@@ -15,7 +16,6 @@ from __future__ import annotations
 
 import csv
 import ctypes
-import ctypes.wintypes as wt
 import os
 import subprocess
 import sys
@@ -26,7 +26,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-FLOOR_GB = 4.0  # PROTOCOL.md section 6
+FLOOR_GB = float(os.environ.get("ORIGIN_FLOOR_GB", 4.0))  # PROTOCOL.md section 6
 
 
 @dataclass
@@ -37,7 +37,13 @@ class Job:
 
 
 def free_gb() -> float:
-    """Physical memory available now (GB): what Windows reports as available."""
+    """Physical memory available now (GB): what the system reports as available."""
+    if sys.platform != "win32":
+        for line in Path("/proc/meminfo").read_text().splitlines():
+            if line.startswith("MemAvailable:"):
+                return int(line.split()[1]) / 1024 ** 2
+        raise OSError("no MemAvailable in /proc/meminfo")
+
     class M(ctypes.Structure):
         _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
                     ("ullTotalPhys", ctypes.c_ulonglong), ("ullAvailPhys", ctypes.c_ulonglong),
@@ -50,28 +56,45 @@ def free_gb() -> float:
     return m.ullAvailPhys / 1024 ** 3
 
 
-class _PMC(ctypes.Structure):
-    _fields_ = [("cb", wt.DWORD), ("PageFaultCount", wt.DWORD), ("PeakWorkingSetSize", ctypes.c_size_t),
-                ("WorkingSetSize", ctypes.c_size_t), ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
-                ("QuotaPagedPoolUsage", ctypes.c_size_t), ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
-                ("QuotaNonPagedPoolUsage", ctypes.c_size_t), ("PagefileUsage", ctypes.c_size_t),
-                ("PeakPagefileUsage", ctypes.c_size_t)]
+def process_memory_gb(proc: subprocess.Popen, peak: bool = False) -> float | None:
+    """Memory a running child holds now, or its peak so far (GB); None if unreadable."""
+    if sys.platform != "win32":
+        try:
+            key = "VmHWM:" if peak else "VmRSS:"
+            for line in Path(f"/proc/{proc.pid}/status").read_text().splitlines():
+                if line.startswith(key):
+                    return int(line.split()[1]) / 1024 ** 2
+        except OSError:
+            pass
+        return None
+    import ctypes.wintypes as wt
+
+    class PMC(ctypes.Structure):
+        _fields_ = [("cb", wt.DWORD), ("PageFaultCount", wt.DWORD), ("PeakWorkingSetSize", ctypes.c_size_t),
+                    ("WorkingSetSize", ctypes.c_size_t), ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPagedPoolUsage", ctypes.c_size_t), ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaNonPagedPoolUsage", ctypes.c_size_t), ("PagefileUsage", ctypes.c_size_t),
+                    ("PeakPagefileUsage", ctypes.c_size_t)]
+    f = ctypes.WinDLL("kernel32").K32GetProcessMemoryInfo
+    f.argtypes = [wt.HANDLE, ctypes.POINTER(PMC), wt.DWORD]
+    f.restype = wt.BOOL
+    c = PMC()
+    c.cb = ctypes.sizeof(PMC)
+    if not f(wt.HANDLE(int(proc._handle)), ctypes.byref(c), c.cb):
+        return None
+    return (c.PeakWorkingSetSize if peak else c.WorkingSetSize) / 1024 ** 3
 
 
 def working_set_gb(proc: subprocess.Popen) -> float:
     """Memory a running child holds now (GB); 0 if it can't be read."""
-    f = ctypes.WinDLL("kernel32").K32GetProcessMemoryInfo
-    f.argtypes = [wt.HANDLE, ctypes.POINTER(_PMC), wt.DWORD]
-    f.restype = wt.BOOL
-    c = _PMC()
-    c.cb = ctypes.sizeof(_PMC)
-    if not f(wt.HANDLE(int(proc._handle)), ctypes.byref(c), c.cb):
-        return 0.0
-    return c.WorkingSetSize / 1024 ** 3
+    return process_memory_gb(proc) or 0.0
 
 
 def default_workers() -> int:
-    """CPU cores minus one.  os.cpu_count() counts threads, two per core here."""
+    """CPU cores minus one; os.cpu_count() counts threads, two per core on the main
+    PC.  ORIGIN_MAX_WORKERS replaces this on the node."""
+    if os.environ.get("ORIGIN_MAX_WORKERS"):
+        return int(os.environ["ORIGIN_MAX_WORKERS"])
     return max(1, (os.cpu_count() or 2) // 2 - 1)
 
 

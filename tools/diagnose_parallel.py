@@ -11,8 +11,9 @@ memory one doesn't, memory bandwidth is the limit, not the cores or the clock.
 
     python tools/diagnose_parallel.py                 # all of it, about 10 minutes
     python tools/diagnose_parallel.py --micro-only    # the benchmark, about 2 minutes
+    python tools/diagnose_parallel.py --scale 1,8,14  # how many at once is fastest
 
-Light runs only (PROTOCOL.md section 6).  It checks the 4 GB floor before each group.
+Light runs only (PROTOCOL.md section 6).  It checks the free-memory floor before each group.
 Results: out/bench/p0/parallel_diagnosis.md and .json.
 """
 from __future__ import annotations
@@ -20,7 +21,6 @@ from __future__ import annotations
 import argparse
 import csv
 import ctypes
-import ctypes.wintypes as wt
 import json
 import statistics
 import subprocess
@@ -33,7 +33,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 
-from batch import FLOOR_GB, free_gb  # noqa: E402
+from batch import FLOOR_GB, free_gb, process_memory_gb  # noqa: E402
+from treegen.machine import describe_machine  # noqa: E402
 
 OUT = ROOT / "out" / "bench" / "p0"
 SCREEN = ROOT / "tools" / "sensitivity_screen.py"
@@ -50,6 +51,8 @@ COUNTERS = {
 
 def physical_core_masks() -> list:
     """One affinity mask per physical core (its two threads), from Windows."""
+    import ctypes.wintypes as wt
+
     class Info(ctypes.Structure):
         _fields_ = [("mask", ctypes.c_size_t), ("relation", ctypes.c_int), ("pad", ctypes.c_byte * 16)]
 
@@ -68,6 +71,8 @@ def core_masks_from(entries) -> list:
 
 
 def pin(proc, mask: int) -> None:
+    import ctypes.wintypes as wt
+
     k32 = ctypes.WinDLL("kernel32")
     k32.SetProcessAffinityMask.argtypes = [wt.HANDLE, ctypes.c_size_t]
     k32.SetProcessAffinityMask.restype = wt.BOOL
@@ -75,20 +80,44 @@ def pin(proc, mask: int) -> None:
         raise OSError("SetProcessAffinityMask failed")
 
 
+def _proc_snapshot() -> dict:
+    """Linux: running totals of hard faults and disk writes, and the time."""
+    out = {"t": time.time(), "hard_faults": 0, "written_mb": 0.0}
+    for line in Path("/proc/vmstat").read_text().splitlines():
+        if line.startswith("pgmajfault "):
+            out["hard_faults"] = int(line.split()[1])
+    for line in Path("/proc/diskstats").read_text().splitlines():
+        p = line.split()
+        if len(p) > 9 and p[2].rstrip("0123456789") == p[2] and not p[2].startswith(("loop", "ram")):
+            out["written_mb"] += int(p[9]) * 512 / 2 ** 20
+    return out
+
+
 class Sampler:
-    """typeperf in the background for the life of a group of runs."""
+    """typeperf in the background for the life of a group of runs (Windows), or the
+    change in the system's running totals across it (Linux; no clock figure there)."""
 
     def __enter__(self):
+        if sys.platform != "win32":
+            self.start = _proc_snapshot()
+            return self
         self.file = Path(tempfile.mkdtemp()) / "counters.csv"
         cmd = ["typeperf", *COUNTERS.values(), "-si", "2", "-f", "CSV", "-o", str(self.file), "-y"]
         self.proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return self
 
     def __exit__(self, *exc):
+        if sys.platform != "win32":
+            self.end = _proc_snapshot()
+            return
         self.proc.terminate()
         self.proc.wait()
 
     def means(self) -> dict:
+        if sys.platform != "win32":
+            dt = max(self.end["t"] - self.start["t"], 1e-6)
+            return {"disk_write_mb_s": round((self.end["written_mb"] - self.start["written_mb"]) / dt, 2),
+                    "hard_faults_s": round((self.end["hard_faults"] - self.start["hard_faults"]) / dt, 2)}
         return means_from_csv(self.file)
 
 
@@ -139,13 +168,18 @@ def tree_group(n: int, lean: bool, pinned: bool, years: int, work: Path) -> dict
                 # cores 2, 4, ...: core 0 is where Windows keeps much of its own work
                 pin(p, masks[(2 + 2 * i) % len(masks)])
             procs.append((p, result, time.time()))
-        secs = []
-        for p, _, t0 in procs:
-            if p.wait() != 0:
-                sys.exit("a run failed")
-            secs.append(time.time() - t0)
-    hashes = [json.loads(r.read_text())["scored_digest"] for _, r, _ in procs]
+        secs = [None] * n
+        while any(s is None for s in secs):
+            for i, (p, _, t0) in enumerate(procs):
+                if secs[i] is None and p.poll() is not None:
+                    if p.returncode != 0:
+                        sys.exit("a run failed")
+                    secs[i] = time.time() - t0
+            time.sleep(0.1)
+    results = [json.loads(r.read_text()) for _, r, _ in procs]
+    hashes = [r["scored_digest"] for r in results]
     return {"runs": n, "lean": lean, "pinned": pinned, "seconds": [round(s, 1) for s in secs],
+            "peak_mb": max(r.get("peak_mb") or 0 for r in results),
             "mean_s": round(statistics.fmean(secs), 1), "hashes": hashes, "counters": sampler.means()}
 
 
@@ -178,6 +212,16 @@ def micro_group(size: int, n: int, seconds: float = 12.0) -> float:
 
 def report(doc: dict) -> str:
     lines = ["# Parallel slowdown: measurements", ""]
+    if doc.get("scale"):
+        one = doc["scale"][0]["mean_s"]
+        lines += [f"Machine: {doc.get('machine', {}).get('cpu')}, {doc.get('machine', {}).get('cpu_threads')} threads.", "",
+                  "| Runs at once | Mean run time (s) | Slowdown against 1 | Runs per hour | Peak memory, one run (MB) | Disk write (MB/s) | Hard faults (/s) |",
+                  "|---|---|---|---|---|---|---|"]
+        for g in doc["scale"]:
+            c = g["counters"]
+            lines.append(f"| {g['runs']} | {g['mean_s']} | {g['mean_s'] / one:.2f}x | {3600.0 * g['runs'] / g['mean_s']:.0f} | "
+                         f"{g.get('peak_mb', '-')} | {c.get('disk_write_mb_s', '-')} | {c.get('hard_faults_s', '-')} |")
+        lines += ["", f"Hashes: {doc['hashes_same']}", ""]
     if doc.get("trees"):
         lines += ["| Case | Runs at once | Mean run time (s) | Slowdown against 1 alone | Disk write (MB/s) | Hard faults (/s) | Clock (MHz) | CPU busy (%) |",
                   "|---|---|---|---|---|---|---|---|"]
@@ -189,9 +233,10 @@ def report(doc: dict) -> str:
         lines += ["", f"Hashes: {doc['hashes_same']}", ""]
     if doc.get("micro"):
         lines += ["**Benchmark that isn't the model: speed of each copy, against 1 alone:**", "",
-                  "| Workload | 1 alone (GB/s) | 2 at once | 4 at once |", "|---|---|---|---|"]
+                  "| Workload | Copies at once | GB/s per copy | Against 1 alone |", "|---|---|---|---|"]
         for label, m in doc["micro"].items():
-            lines.append(f"| {label} | {m['1']} | {m['2']} ({m['2'] / m['1']:.2f}x) | {m['4']} ({m['4'] / m['1']:.2f}x) |")
+            for c, rate in m.items():
+                lines.append(f"| {label} | {c} | {rate} | {rate / m['1']:.2f}x |")
     return "\n".join(lines) + "\n"
 
 
@@ -201,14 +246,26 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--years", type=int, default=60)
     ap.add_argument("--micro-only", action="store_true")
+    ap.add_argument("--scale", default=None, help="comma-separated runs at once, e.g. 1,8,14: find the fastest number")
+    ap.add_argument("--micro-copies", default="1,2,4", help="benchmark copies at once")
     ap.add_argument("--micro-child", nargs=2, default=None, help="internal")
     a = ap.parse_args()
     if a.micro_child:
         micro_child(int(a.micro_child[0]), float(a.micro_child[1]))
         return
 
-    doc = {"trees": {}, "micro": {}}
-    if not a.micro_only:
+    doc = {"trees": {}, "micro": {}, "machine": describe_machine()}
+    if a.scale:
+        doc["scale"] = []
+        with tempfile.TemporaryDirectory() as tmp:
+            for n in (int(x) for x in a.scale.split(",")):
+                print(f"{n} at once...", flush=True)
+                g = tree_group(n, True, False, a.years, Path(tmp))
+                doc["scale"].append(g)
+                print(f"  mean {g['mean_s']} s, {3600.0 * n / g['mean_s']:.0f} runs per hour", flush=True)
+        hashes = {h for g in doc["scale"] for h in g["hashes"]}
+        doc["hashes_same"] = "all the same" if len(hashes) == 1 else f"DIFFERENT: {len(hashes)} distinct, so this test is void"
+    elif not a.micro_only:
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp)
             for label, n, lean, pinned in (("full, 1 alone", 1, False, False), ("full, 2 at once", 2, False, False),
@@ -221,7 +278,7 @@ def main():
         doc["hashes_same"] = "all the same" if len(all_hashes) == 1 else f"DIFFERENT: {len(all_hashes)} distinct, so this test is void"
     for label, size in MICRO.items():
         print(f"benchmark, {label}...", flush=True)
-        doc["micro"][label] = {str(n): micro_group(size, n) for n in (1, 2, 4)}
+        doc["micro"][label] = {c: micro_group(size, int(c)) for c in a.micro_copies.split(",")}
     text = report(doc)
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "parallel_diagnosis.md").write_text(text, encoding="utf-8")

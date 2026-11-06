@@ -12,7 +12,7 @@ from typing import Any
 
 import yaml
 
-from . import threads
+from . import machine, threads
 
 ROOT = Path(__file__).resolve().parent.parent
 SPECIES_DIR = ROOT / "species"
@@ -119,6 +119,8 @@ def run_manifest(species: str | Path, environment: str | Path, sp: SimpleNamespa
         "git_commit": git("rev-parse", "HEAD"),
         "git_tracked_changes": None if status is None else bool(status),
         **uncommitted_fingerprint(),
+        # every comparison runs entirely on one machine (PROTOCOL.md section 6)
+        "machine": machine.describe_machine(),
         "math_threads": threads.actual_threads(),
         "math_libraries": threads.library_versions(),
         "species_file": sp_file,

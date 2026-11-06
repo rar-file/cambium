@@ -30,13 +30,14 @@ OPENBLAS = {"numpy": ("scipy_openblas_set_num_threads64_", "scipy_openblas_get_n
 
 def _library(package: str):
     """The package's bundled OpenBLAS, without importing the package; None if there isn't one here."""
-    if sys.platform != "win32":
-        return None
     spec = importlib.util.find_spec(package)
     if spec is None or spec.origin is None:
         return None
-    files = glob.glob(str(Path(spec.origin).parent.parent / f"{package}.libs" / "*openblas*.dll"))
-    return ctypes.WinDLL(files[0]) if files else None
+    windows = sys.platform == "win32"
+    files = glob.glob(str(Path(spec.origin).parent.parent / f"{package}.libs" / ("*openblas*.dll" if windows else "*openblas*.so*")))
+    if not files:
+        return None
+    return (ctypes.WinDLL if windows else ctypes.CDLL)(files[0])
 
 
 def set_threads() -> None:
