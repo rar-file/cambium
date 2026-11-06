@@ -104,22 +104,13 @@ def instrument(clock: Clock):
 
 
 def working_set_mb() -> float:
-    import cli
     if sys.platform != "win32":
-        return cli.peak_memory_mb()
-    import ctypes
-    import ctypes.wintypes as wt
-
-    from batch import _PMC
-    k32 = ctypes.WinDLL("kernel32")
-    k32.GetCurrentProcess.restype = wt.HANDLE
-    f = k32.K32GetProcessMemoryInfo
-    f.argtypes = [wt.HANDLE, ctypes.POINTER(_PMC), wt.DWORD]
-    f.restype = wt.BOOL
-    c = _PMC()
-    c.cb = ctypes.sizeof(_PMC)
-    f(k32.GetCurrentProcess(), ctypes.byref(c), c.cb)
-    return c.WorkingSetSize / 2 ** 20
+        for line in Path("/proc/self/status").read_text().splitlines():
+            if line.startswith("VmRSS:"):
+                return int(line.split()[1]) / 1024
+        return 0.0
+    import cli
+    return cli.peak_memory_mb()
 
 
 def memory_by_attribute(root, name: str) -> dict:

@@ -32,7 +32,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 
-from batch import FLOOR_GB, free_gb  # noqa: E402
+from batch import FLOOR_GB, free_gb, process_memory_gb  # noqa: E402
 from run_cache import code_version  # noqa: E402
 from treegen.machine import describe_machine  # noqa: E402
 
@@ -111,21 +111,9 @@ def hash_tree(folder: Path) -> dict:
 
 
 def peak_of_child(proc) -> float | None:
-    """Peak memory of a child process (MB), read before its handle is closed."""
-    if sys.platform != "win32":
-        return None
-    import ctypes
-    import ctypes.wintypes as wt
-
-    from batch import _PMC
-    f = ctypes.WinDLL("kernel32").K32GetProcessMemoryInfo
-    f.argtypes = [wt.HANDLE, ctypes.POINTER(_PMC), wt.DWORD]
-    f.restype = wt.BOOL
-    c = _PMC()
-    c.cb = ctypes.sizeof(_PMC)
-    if not f(wt.HANDLE(int(proc._handle)), ctypes.byref(c), c.cb):
-        return None
-    return round(c.PeakWorkingSetSize / 2 ** 20, 1)
+    """Peak memory of a child process (MB), while it can still be read."""
+    gb = process_memory_gb(proc, peak=True)
+    return None if gb is None else round(gb * 1024, 1)
 
 
 def run_one(name: str, folder: Path) -> dict:
