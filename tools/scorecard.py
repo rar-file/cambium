@@ -8,7 +8,12 @@ no target numbers of its own and adds no tolerances.  A target marked
 'scoring: info' is shown as INFO, never PASS/FAIL.  A quantity the run did not
 save is NOT APPLICABLE; nothing is filled in.
 
-    python tools/scorecard.py out/bench/p38_nat                # ages 50 and 60
+Verdicts come from an ensemble of seeds on one machine (PROTOCOL.md section 2): the
+ensemble mean against the target band, with the spread and the share of seeds inside
+the band.  One run alone is shown as before, but isn't a verdict.
+
+    python tools/scorecard.py --ensemble out/bench/ensemble/base
+    python tools/scorecard.py --ensemble out/bench/ensemble/base --age 20 --age 60
     python tools/scorecard.py out/bench/p38_nat out/1_stand --age 20 --age 60
 """
 from __future__ import annotations
@@ -16,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import statistics
 import subprocess
 import sys
 from pathlib import Path
@@ -268,9 +274,10 @@ def applicability(item: dict[str, Any], run: dict[str, Any] | None, age: int | N
     return None, notes
 
 
-def _row(target, model_value, target_range, source, status, notes):
+def _row(target, model_value, target_range, source, status, notes, value=None, band=None):
+    """value and band are the numbers behind the text, for an ensemble's mean."""
     return {"target": target, "model_value": model_value, "target_range": target_range,
-            "source": source, "status": status, "notes": notes}
+            "source": source, "status": status, "notes": notes, "value": value, "band": band}
 
 
 def _status(item: dict[str, Any], val: float, rng) -> str:
@@ -339,7 +346,7 @@ def evaluate_run(name: str, item: dict[str, Any], run: dict[str, Any] | None,
                 continue
             notes.insert(0, f"stand LAI at {dens} stems/ha" if dens else "stand LAI")
             rows.append(_row(label, f"{float(val):.3f}", format_val(rng), source,
-                             _status(item, float(val), rng), "; ".join(notes)))
+                             _status(item, float(val), rng), "; ".join(notes), float(val), rng))
 
     elif name == "stand_canopy.subcanopy_light_transmittance":
         rng = item["target_range_pct"]
@@ -361,7 +368,8 @@ def evaluate_run(name: str, item: dict[str, Any], run: dict[str, Any] | None,
                 na(label, f"{format_val(rng)} %", why)
                 continue
             rows.append(_row(label, f"{float(val):.1f} %", f"{format_val(rng)} %", source,
-                             _status(item, float(val), rng), "; ".join(notes + ["diffuse light at 1.0-2.0 m, this year"])))
+                             _status(item, float(val), rng), "; ".join(notes + ["diffuse light at 1.0-2.0 m, this year"]),
+                             float(val), rng))
 
     elif name.startswith("stand_canopy.live_crown_ratio."):
         if "min_ratio" in item:
@@ -389,7 +397,7 @@ def evaluate_run(name: str, item: dict[str, Any], run: dict[str, Any] | None,
                 continue
             val = sum(crs) / len(crs)
             rows.append(_row(label, f"{val:.2f}", rng_txt, source, _status(item, val, rng),
-                             "; ".join([what] + notes)))
+                             "; ".join([what] + notes), val, rng))
 
     elif name == "stand_canopy.stand_density":
         for at, key in _keyed_ages(item, r"_(\d+)yr$"):
@@ -403,7 +411,7 @@ def evaluate_run(name: str, item: dict[str, Any], run: dict[str, Any] | None,
                 continue
             val = float(st["stems_per_ha"])
             rows.append(_row(label, f"{st['stems_per_ha']} stems/ha", f"{item[key]} stems/ha", source,
-                             _status(item, val, (item[key], item[key])), "; ".join(notes)))
+                             _status(item, val, (item[key], item[key])), "; ".join(notes), val, (item[key], item[key])))
 
     elif name == "tree_allometry.site_index_curves":
         p = item["parameters"]
@@ -441,7 +449,7 @@ def evaluate_run(name: str, item: dict[str, Any], run: dict[str, Any] | None,
                 na(label, band_txt, f"no height at age {age}")
                 continue
             rows.append(_row(label, f"{float(h):.2f} m", band_txt, source,
-                             _status(item, float(h), band), "; ".join([what] + notes)))
+                             _status(item, float(h), band), "; ".join([what] + notes), float(h), band))
 
     elif name == "tree_allometry.crown_width_open_grown":
         m = re.search(r"=\s*([-\d.]+)\s*\+\s*([-\d.]+)\s*\*\s*DBH_over_bark_cm", item.get("formula", ""))
@@ -462,7 +470,7 @@ def evaluate_run(name: str, item: dict[str, Any], run: dict[str, Any] | None,
             val = float(rec["crown_width_m"])
             notes.insert(0, f"DBH over bark {dbh_ob:.1f} cm (tools/bark.py, the bark model named in targets.yaml)")
             rows.append(_row(label, f"{val:.2f} m", f"{expected:.2f} m (formula)", source,
-                             _status(item, val, (expected, expected)), "; ".join(notes)))
+                             _status(item, val, (expected, expected)), "; ".join(notes), val, (expected, expected)))
 
     elif name == "juvenile_establishment.natural_clearcut_heights":
         for at, key in _keyed_ages(item, r"^age_(\d+)_years_m$"):
@@ -482,7 +490,7 @@ def evaluate_run(name: str, item: dict[str, Any], run: dict[str, Any] | None,
                 na(label, f"{format_val(rng)} m", why)
                 continue
             rows.append(_row(label, f"{float(h):.3f} m", f"{format_val(rng)} m", source,
-                             _status(item, float(h), rng), "; ".join([f"height at age {at}"] + notes)))
+                             _status(item, float(h), rng), "; ".join([f"height at age {at}"] + notes), float(h), rng))
 
     else:
         why, _ = applicability(item, run, None)
@@ -534,6 +542,58 @@ def evaluate_targets(
     return results, unconditioned
 
 
+def ensemble_folders(folder: Path) -> list[Path]:
+    """The runs of an ensemble: each folder directly inside it with a stats.json or plot.json."""
+    return sorted((d for d in Path(folder).iterdir() if d.is_dir() and ((d / "stats.json").exists() or (d / "plot.json").exists())),
+                  key=lambda d: d.name)
+
+
+def evaluate_ensemble(targets: dict[str, Any], runs: list[dict[str, Any]], ages: list[int]) -> list[dict[str, Any]]:
+    """One row per target and age: the ensemble mean against the band is the verdict;
+    the spread and the share of seeds inside the band go next to it."""
+    per_run = [evaluate_targets(targets, [r], ages=ages)[0] for r in runs]
+    order, grouped = [], {}
+    for rows in per_run:
+        for r in rows:
+            if r["target"] not in grouped:
+                order.append(r["target"])
+                grouped[r["target"]] = []
+            grouped[r["target"]].append(r)
+    out = []
+    for name in order:
+        rows = grouped[name]
+        scored = [r for r in rows if r.get("value") is not None]
+        first = rows[0]
+        if not scored:
+            out.append({"target": name, "mean": None, "sd": None, "seeds": 0, "target_range": first["target_range"],
+                        "status": first["status"], "share": None, "source": first["source"], "notes": first["notes"]})
+            continue
+        values = [r["value"] for r in scored]
+        mean = statistics.fmean(values)
+        lo, hi = scored[0]["band"]
+        inside = sum(1 for r in scored if r["band"][0] <= r["value"] <= r["band"][1])
+        info = any(r["status"] == "INFO" for r in scored)
+        status = "INFO" if info else ("PASS" if lo <= mean <= hi else "FAIL")
+        out.append({"target": name, "mean": mean, "sd": statistics.stdev(values) if len(values) > 1 else 0.0,
+                    "seeds": len(values), "target_range": scored[0]["target_range"], "status": status,
+                    "share": inside / len(values), "source": first["source"], "notes": scored[0]["notes"]})
+    return out
+
+
+def print_ensemble(rows: list[dict[str, Any]], header: str) -> str:
+    lines = [header, "", "| Target | Ensemble mean | SD | Seeds | Target Range / Value | Status | Share of seeds inside | Source | Notes |",
+             "|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|---|"]
+    for r in rows:
+        if r["mean"] is None:
+            lines.append(f"| `{r['target']}` | N/A | N/A | 0 | {r['target_range']} | **{r['status']}** | N/A | {r['source']} | {r['notes']} |")
+        else:
+            lines.append(f"| `{r['target']}` | {r['mean']:.3f} | {r['sd']:.3f} | {r['seeds']} | {r['target_range']} | **{r['status']}** | "
+                         f"{100 * r['share']:.0f} % | {r['source']} | {r['notes']} |")
+    lines += ["", "The verdict is the ensemble mean against the band. The band shown is the first seed's where it depends on the seed.",
+              "INFO: information only (scoring: info in targets.yaml), never PASS/FAIL."]
+    return "\n".join(lines)
+
+
 def default_ages(runs: list[dict[str, Any]]) -> list[int]:
     """Ages 50 and 60 where the runs reach them, else the last saved year."""
     years: set[int] = set()
@@ -576,7 +636,8 @@ def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="Evaluate simulation outputs against approved targets.")
-    parser.add_argument("paths", nargs="+", help="Paths to run outputs (plot.json, stats.json, or output directories)")
+    parser.add_argument("paths", nargs="*", help="Paths to run outputs (plot.json, stats.json, or output directories)")
+    parser.add_argument("--ensemble", default=None, help="a folder holding one run per seed: the verdict is the ensemble mean")
     parser.add_argument("--age", type=int, action="append", default=None,
                         help="Age to evaluate (repeatable); default 50 and 60 where the run reaches them")
     parser.add_argument("--ref", default=TAG,
@@ -584,6 +645,20 @@ def main():
     args = parser.parse_args()
 
     targets = load_approved_targets(args.ref)
+    if args.ensemble:
+        folders = ensemble_folders(Path(args.ensemble))
+        if not folders:
+            parser.error(f"no runs in {args.ensemble}")
+        runs = [load_run_data(str(d)) for d in folders]
+        ages = args.age or default_ages(runs)
+        header = f"Targets: reference/targets.yaml at {args.ref} (commit {commit_of(args.ref)})."
+        if commit_of(args.ref) != commit_of(TAG):
+            header += f" NOT the approved tag {TAG} (commit {commit_of(TAG)}): results are a preview, not approved."
+        header += f" Ensemble: {args.ensemble}, {len(runs)} runs."
+        print(print_ensemble(evaluate_ensemble(targets, runs, ages), header))
+        return
+    if not args.paths:
+        parser.error("give run paths or --ensemble")
     runs = [load_run_data(p) for p in args.paths]
 
     results, unconditioned = evaluate_targets(targets, runs, ages=args.age)

@@ -37,18 +37,19 @@ Values on the audit's unsupported list that may turn out influential: `maintenan
 
 ## 4. Method
 
-1. **Measure seed-to-seed spread first:** the baseline at several seeds. Calibrating on seed 1 alone would fit that one tree, and the cut rule's margin has to exceed this spread. The rounding noise of about 0.03 % at age 60 is far smaller, so it doesn't set the margin. Number of seeds: not set.
+1. **Every candidate is judged on seed averages,** never on one seed (PROTOCOL.md section 2). The model is chaotic: a change of a few parts in a million moves height by up to 6 % and leaf area by up to 28 %. Seed spread, measured on the node at 30 seeds: height SD 0.42 m at 15, 0.70 m at 30, 0.76 m at 60; LAI varies by about 30 % at 15 and 11 % at 60. Number of seeds per candidate at each stage: not set.
 2. **Sample:** a Latin hypercube over the parameters in section 2, inside their bounds, with a fixed, recorded seed. Size: not set, it depends on how many parameters survive.
-3. **Successive halving:** every candidate to 15; those not clearly failing continue to 30; then to 60.
+3. **Successive halving:** every candidate to 15; those whose seed average isn't clearly failing continue to 30; then to 60.
 4. **Continue, don't restart:** a survivor resumes from its saved state at 15 or 30 (P0 A4), only once the hash proof has passed. Lean mode, the result cache and parallel light runs apply throughout.
-5. **Finalists:** rerun at several seeds, with the full (not lean) output for the scorecard, on the main PC.
+5. **Finalists:** rerun at 20 seeds on the same machine as the rest of M2 (the node), paired with the baseline; an effect only counts above 2 standard errors.
 6. **Label** the result "calibrated" in the species file, with the fit and the validation.
 
 ## 5. The cut rule
 
 **Written in DECISIONS.md before running. Its numbers aren't set until the ranking and the seed spread are in.**
 
-- A candidate is cut only if it's far outside its target band: outside by more than a margin, which is at least the seed-to-seed spread.
+- A candidate is cut only on its seed average, never on one seed, and only if that average is far outside its target band: outside by more than a margin, which is well above the standard error of that average.
+- Early ages are noisy (LAI varies about 30 % at 15), so at stage 15 only height counts for cutting.
 - Height is the only metric with a band at all three stages. The approved target applies from age 20, so a band at 15 would be the same curve extended, not an approved target; it's used for cutting only, and only with the wider margin.
 - Nothing is cut for being merely in the wrong half of the sample: "successive halving" here means cutting clear failures, not a fixed half.
 - **Check on the rule:** a small random sample of cut candidates still runs to 60, to see whether any would have passed. Sample size: not set.

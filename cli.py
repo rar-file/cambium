@@ -74,6 +74,7 @@ def grow(species: str, seed: int, years: int, environment: str, stand: bool = Fa
         checkpoint.set_values(sp, scenario)
     else:
         sp, _ = load_species(species)
+        checkpoint.set_values(sp, scenario)   # an option under test, from the start of the run
         env_p, _ = load_environment(environment)
         model = GrowthModel(sp, make_environment(env_p), seed, stand=stand, soil=make_soil(env_p), lean=lean)
     # stepped year by year: run() adds a keyframe at its end, so calling it in
@@ -385,7 +386,7 @@ def main(argv=None) -> int:
     ap.add_argument("--quiet", action="store_true")
     ap.add_argument("--save-at", default="", help="comma-separated ages: save the whole state there, in <out>/states")
     ap.add_argument("--resume-state", default=None, help="carry on from a saved state file, to --years")
-    ap.add_argument("--set", action="append", default=[], metavar="KEY=JSON", help="scenario: change a value after --resume-state")
+    ap.add_argument("--set", action="append", default=[], metavar="KEY=JSON", help="change a value: from the start of the run, or after --resume-state")
     ap.add_argument("--lean", action="store_true",
                     help="for screens and calibration: stats.json only, with the scored outputs; no meshes, previews or timeline")
     args = ap.parse_args(argv)

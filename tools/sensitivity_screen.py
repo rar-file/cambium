@@ -20,6 +20,7 @@ import argparse
 import copy
 import csv
 import json
+import statistics
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -105,7 +106,7 @@ def apply_change(sp, path, factor):
     setattr(obj, parts[-1], scaled(getattr(obj, parts[-1]), factor))
 
 
-def one_run(path: str | None, factor: float, years: int, lean: bool = True) -> dict:
+def one_run(path: str | None, factor: float, years: int, lean: bool = True, seed: int = 1) -> dict:
     """Grow the tree once in this process and return what the ranking needs."""
     import cli
     from treegen.growth import GrowthModel
@@ -115,7 +116,7 @@ def one_run(path: str | None, factor: float, years: int, lean: bool = True) -> d
     if path:
         apply_change(sp, path, factor)
     env_p, _ = cli.load_environment("sweden_open_field")
-    m = GrowthModel(sp, cli.make_environment(env_p), 1, stand=True, soil=cli.make_soil(env_p), lean=lean)
+    m = GrowthModel(sp, cli.make_environment(env_p), seed, stand=True, soil=cli.make_soil(env_p), lean=lean)
     for _ in range(years):
         m.step()
     out = {}
@@ -131,23 +132,25 @@ def one_run(path: str | None, factor: float, years: int, lean: bool = True) -> d
     return out
 
 
-def result_name(path, factor):
-    return "baseline.json" if path is None else f"{path}__x{factor:g}.json"
+def result_name(path, factor, seed=None):
+    tail = "" if seed is None else f"__s{seed}"
+    return f"baseline{tail}.json" if path is None else f"{path}__x{factor:g}{tail}.json"
 
 
-def key_for(sp, env, path, factor, years, full, code, machine) -> str:
+def key_for(sp, env, path, factor, years, full, code, machine, seed=1) -> str:
     changed = copy.deepcopy(sp)
     if path:
         apply_change(changed, path, factor)
-    return case_key("screen", changed, plain(env), 1, years, not full, code=code, machine=machine)
+    return case_key("screen", changed, plain(env), seed, years, not full, code=code, machine=machine)
 
 
-def job_for(out: Path, path, factor, years, full=False, key=None) -> Job:
+def job_for(out: Path, path, factor, years, full=False, key=None, seed=None) -> Job:
     cmd = [sys.executable, str(Path(__file__).resolve()), "--one", path or "", "--factor", str(1.0 if path is None else factor),
-           "--years", str(years), "--result", str(out / result_name(path, factor))] + (["--full"] if full else [])
+           "--years", str(years), "--seed", str(seed or 1), "--result", str(out / result_name(path, factor, seed))] + (["--full"] if full else [])
     if key:
         cmd += ["--cache-key", key]
-    return Job(f"{path or 'baseline'} x{1.0 if path is None else factor:g}", cmd, out / result_name(path, factor))
+    seen = "" if seed is None else f" seed {seed}"
+    return Job(f"{path or 'baseline'} x{1.0 if path is None else factor:g}{seen}", cmd, out / result_name(path, factor, seed))
 
 
 def rank(out: Path):
@@ -188,11 +191,60 @@ def rank(out: Path):
         print(f"{i:3d} {r['path']:55s} x{r['factor']:g} {r['change_pct']:+7.1f} %  {r['where']}")
 
 
+def rank_paired(out: Path, seeds: int):
+    """ranking.csv from several seeds per value, each paired with the baseline on the same
+    seed.  Effect: the mean paired change in %.  Noise: its standard error; with few seeds
+    one value's own standard error can be small by chance, so the larger of that and the
+    typical standard error for that metric and age across all values is used.  A value
+    is ranked by its largest effect / noise over METRICS at AGES, and flagged as within the
+    noise if that's 2 or less.  With 12 comparisons per value, a lone pass can be chance:
+    the top values get rerun at more seeds."""
+    base = {s: json.loads((out / result_name(None, 1.0, s)).read_text()) for s in range(1, seeds + 1)}
+    moves = {}
+    for f in out.glob("*__x*__s*.json"):
+        stem, seed = f.stem.rsplit("__s", 1)
+        path, factor = stem.split("__x")
+        res = json.loads(f.read_text())
+        s = int(seed)
+        for age in AGES:
+            a, b = base[s].get(str(age)), res.get(str(age))
+            for k in METRICS:
+                if a and b and a.get(k) and b.get(k) is not None:
+                    moves.setdefault((path, float(factor), age, k), []).append(100.0 * (b[k] / a[k] - 1.0))
+    per_slot = {}
+    for (path, factor, age, k), v in moves.items():
+        if len(v) >= 2:
+            per_slot.setdefault((age, k), []).append(statistics.stdev(v) / len(v) ** 0.5)
+    typical = {slot: statistics.median(v) for slot, v in per_slot.items()}
+    best = {}
+    for (path, factor, age, k), v in moves.items():
+        if len(v) < 2:
+            continue
+        mean = statistics.fmean(v)
+        se = max(statistics.stdev(v) / len(v) ** 0.5, typical[(age, k)])
+        ratio = abs(mean) / se if se > 0 else 0.0
+        if path not in best or ratio > best[path]["ratio"]:
+            best[path] = {"path": path, "factor": factor, "effect": mean, "se": se, "ratio": ratio, "where": f"{k} at {age}", "seeds": len(v)}
+    ordered = sorted(best.values(), key=lambda r: -r["ratio"])
+    with open(out / "ranking.csv", "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, ["rank", "path", "factor", "max_change_pct", "se_pct", "effect_over_noise", "within_noise", "where", "seeds"])
+        w.writeheader()
+        for i, r in enumerate(ordered, 1):
+            w.writerow({"rank": i, "path": r["path"], "factor": r["factor"], "max_change_pct": f"{r['effect']:.2f}", "se_pct": f"{r['se']:.2f}",
+                        "effect_over_noise": f"{r['ratio']:.2f}", "within_noise": "yes" if r["ratio"] <= 2.0 else "no", "where": r["where"], "seeds": r["seeds"]})
+    inside = sum(1 for r in ordered if r["ratio"] <= 2.0)
+    print(f"{len(ordered)} values ranked, {inside} within the noise: {out / 'ranking.csv'}")
+    for i, r in enumerate(ordered[:25], 1):
+        print(f"{i:3d} {r['path']:52s} {r['effect']:+7.2f} % +- {r['se']:.2f}, ratio {r['ratio']:5.1f}  {r['where']}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--out", default="out/bench/m1/screen")
     ap.add_argument("--factor", type=float, default=1.25)
     ap.add_argument("--years", type=int, default=60)
+    ap.add_argument("--seed", type=int, default=1, help="internal: the seed of one run")
+    ap.add_argument("--seeds", type=int, default=None, help="several seeds per value, paired with the baseline on the same seed")
     ap.add_argument("--one", default=None, help="internal: one run of this parameter (empty: the baseline)")
     ap.add_argument("--result", default=None, help="internal: where --one writes")
     ap.add_argument("--rank", default=None, help="rank the finished runs in this folder, no runs")
@@ -205,13 +257,13 @@ def main():
     a = ap.parse_args()
 
     if a.one is not None:
-        res = one_run(a.one or None, a.factor, a.years, lean=not a.full)
+        res = one_run(a.one or None, a.factor, a.years, lean=not a.full, seed=a.seed)
         Path(a.result).write_text(json.dumps(res))
         if a.cache_key:
             Cache().put(a.cache_key, res)
         return
     if a.rank:
-        rank(Path(a.rank))
+        rank_paired(Path(a.rank), a.seeds) if a.seeds else rank(Path(a.rank))
         return
 
     import cli
@@ -237,22 +289,28 @@ def main():
     cache, reused = Cache(), 0
     env_raw, _ = cli.load_environment("sweden_open_field")
     code, machine = code_version(), settings()
+    seed_list = list(range(1, a.seeds + 1)) if a.seeds else [None]
+    if a.seeds and None not in cases:
+        cases = [None] + cases   # every value is paired with the baseline on the same seed
     for c in cases:
-        target = out / result_name(c, a.factor)
-        key = None
-        if not a.no_cache:
-            key = key_for(sp, env_raw, c, 1.0 if c is None else a.factor, a.years, a.full, code, machine)
-            hit = cache.get(key)
-            if hit is not None and not target.exists():
-                target.write_text(json.dumps(hit))
-                reused += 1
-        jobs.append(job_for(out, c, a.factor, a.years, a.full, key))
+        for seed in seed_list:
+            target = out / result_name(c, a.factor, seed)
+            key = None
+            if not a.no_cache:
+                key = key_for(sp, env_raw, c, 1.0 if c is None else a.factor, a.years, a.full, code, machine, seed or 1)
+                hit = cache.get(key)
+                if hit is not None and not target.exists():
+                    target.write_text(json.dumps(hit))
+                    reused += 1
+            jobs.append(job_for(out, c, a.factor, a.years, a.full, key, seed))
     if reused:
         print(f"{reused} cases reused from out/cache, not rerun", flush=True)
     code = run_batch(jobs, RUN_PEAK_GB, workers=a.jobs, log=out / "runs.csv")
     if code:
         sys.exit(code)
-    if not a.only:
+    if a.seeds:
+        rank_paired(out, a.seeds)
+    elif not a.only:
         rank(out)
 
 
