@@ -140,7 +140,8 @@ def test_the_mean_tree_uproots_about_a_third_of_the_time(sp):
 
 
 def test_slender_trees_snap_and_stout_or_shallow_rooted_ones_uproot(sp):
-    """Zubizarreta-Gerendiain et al. 2012 pp. 187, 193: uprooted trees have the lower H/D; shallow soils uproot."""
+    """Zubizarreta-Gerendiain et al. 2012 pp. 187, 193: uprooted Scots pines have the lower H/D (too few
+    birches to compare); shallow soils uproot."""
     slender = damage.uproot_probability(mean_tree(sp, height_m=25.0), 0.0, sp)
     stout = damage.uproot_probability(mean_tree(sp, height_m=12.0), 0.0, sp)
     assert slender < stout
@@ -215,6 +216,18 @@ def test_a_thin_stem_that_cant_carry_it_fails_and_a_stand_tree_doesnt(sp):
     assert damage.snow_failure_probability(thin, 60.0, sp)[0] == 1.0
     stand = TreeState(60, 26.0, 29.0, crown_base_m=7.0, crown_width_m=3.5, crown_wood_kg=120.0)
     assert damage.snow_failure_probability(stand, 60.0, sp)[0] < 0.01
+
+
+def test_the_thinnest_stems_bend_and_dont_break(sp):
+    """Nykanen p. 195: small stems bend.  A stem that can't stand the load at 1 cm bends; at 3 cm it can break."""
+    snow = Weather(False, 0.0, 60.0)
+    sp.damage.old_age.enabled = False
+    thin = TreeState(5, 4.0, 1.0, crown_base_m=1.0, crown_width_m=1.5, crown_wood_kg=0.5)
+    assert damage.snow_failure_probability(thin, 60.0, sp)[0] == 1.0
+    assert damage.assess_year(thin, snow, sp, np.random.default_rng(1)).cause == "snow bend"
+    broken = TreeState(5, 9.0, 3.0, crown_base_m=3.0, crown_width_m=2.0, crown_wood_kg=2.0)
+    assert damage.snow_failure_probability(broken, 60.0, sp)[0] == 1.0
+    assert damage.assess_year(broken, snow, sp, np.random.default_rng(1)).cause in ("snow snap", "snow uproot")
 
 
 # -- pit and mound -------------------------------------------------------------

@@ -19,8 +19,8 @@ What each part rests on (full sources and labels: reference/<species>/labels.yam
 * How a hit tree fails.  Whichever gives first, the stem (MOR x pi D^3 / 32,
   Nykanen et al. 1997 p. 198) or the roots (the critical turning moment of
   roots.py, Krisans et al. 2022), with scatter, set to give Kitenberga's 31-35 %
-  uprooted on her mean tree.  Slender trees snap, stout ones uproot, as in
-  Zubizarreta-Gerendiain et al. 2012 Table 3.
+  uprooted on her mean tree.  So slender trees snap and stout ones uproot, as
+  Zubizarreta-Gerendiain et al. 2012 Table 3 found in Scots pine (too few birches).
 * Where it snaps.  Kitenberga Table 3 for the mean, her Fig. 4 for the spread.  A
   stem broken below the living crown dies; broken within it, it lives on with a
   new leader (Nykanen p. 195).
@@ -312,7 +312,8 @@ def assess_year(state: TreeState, weather: Weather, sp, rng, load_anchorage=None
 
     if state.dbh_cm and weather.snow_load_kg_m2 > 0.0:
         p, buckling = snow_failure_probability(state, weather.snow_load_kg_m2, sp)
-        if rng.random() < p:
+        # the thinnest stems bend whatever the load (Nykanen p. 195)
+        if float(state.dbh_cm) >= float(dp.snow.min_break_dbh_cm) and rng.random() < p:
             return fail("snow")
         if buckling < float(dp.snow.bend_buckling_factor) and float(state.dbh_cm) < float(dp.snow.bend_max_dbh_cm):
             return Event("snow bend", False)

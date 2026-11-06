@@ -298,6 +298,7 @@ _n("damage.snow.lever_fraction", "-", 0.0, 1.0, "the load's offset from the stem
 _n("damage.snow.spread", "-", 0.01, 10.0, "width of the break")
 _n("damage.snow.bend_buckling_factor", "-", 0.0, 1000.0, "stems below this buckling factor bend")
 _n("damage.snow.bend_max_dbh_cm", "cm", 0.0, 500.0, "only stems under this DBH bend")
+_n("damage.snow.min_break_dbh_cm", "cm", 0.0, 500.0, "stems under this DBH bend and don't break")
 _n("damage.uproot.mound_radius_factor", "-", 0.1, 10.0, "mound radius per plate radius")
 _n("damage.uproot.mound_distance_factor", "-", 0.0, 10.0, "mound's distance past the hinge per plate radius")
 _n("damage.uproot.relief_half_life_years", "years", 0.1, 5000.0, "how fast pit and mound fade")

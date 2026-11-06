@@ -226,11 +226,12 @@ damage.snow.load_range_kg_m2:
   value: [20.0, 60.0]
   source: 'Zubizarreta-Gerendiain et al. 2012 p. 192: 20-40 kg/m2; Solantie 1994 in Nykanen et al. 1997 Fig. 1: over 60 mm is severe'
   checked: page
-damage.snow.crown_catch_fraction: {status: TUNED, value: 0.1, against: 'a 12 m birch at taper 1:120 stands 60 kg/m2 (Nykanen 1997 Fig. 2); about 2 % of a young stand broken in one severe event (Donis 2024, in KNOWN_ISSUES.md, not reopened); saved plots base_plots ages 8-15 give 2-7 %'}
+damage.snow.crown_catch_fraction: {status: TUNED, value: 0.1, against: 'a 12 m birch at taper 1:120 stands 60 kg/m2 (Nykanen 1997 Fig. 2); about 2 % of a young stand broken in one severe event (Donis 2024, in KNOWN_ISSUES.md, not reopened); saved plots base_plots ages 8-15 give 1-4 %'}
 damage.snow.lever_fraction: {status: TUNED, value: 0.02, against: 'the same as crown_catch_fraction; barely matters, since most failures are buckling'}
 damage.snow.spread: {status: TUNED, value: 0.5, against: 'the same as crown_catch_fraction; barely matters, since most failures are buckling'}
 damage.snow.bend_buckling_factor: {status: TUNED, value: 6.0, against: 'about 29 % of a young stand bent in one severe event (Donis 2024, in KNOWN_ISSUES.md, not reopened); saved plots base_plots ages 8-15 give 18-39 %'}
 damage.snow.bend_max_dbh_cm: {status: TUNED, value: 10.0, against: the same; bending is a trait of small stems (Nykanen 1997 p. 195)}
+damage.snow.min_break_dbh_cm: {status: TUNED, value: 2.0, against: 'the same as crown_catch_fraction: without it stems under 2 cm, too tall for their age in this model, are most of the failures'}
 damage.uproot.mound_radius_factor: {status: TUNED, value: 1.0, against: 'no target, looks only'}
 damage.uproot.mound_distance_factor: {status: TUNED, value: 1.0, against: 'no target, looks only'}
 damage.uproot.relief_half_life_years: {status: TUNED, value: 20.0, against: 'no target, looks only'}

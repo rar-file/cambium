@@ -483,6 +483,8 @@ damage:
     bend_buckling_factor: 6.0
     # only stems under this DBH bend; 0 to 500 cm
     bend_max_dbh_cm: 10.0
+    # stems under this DBH bend and don't break; 0 to 500 cm
+    min_break_dbh_cm: 2.0
   uproot:
     # mound radius per plate radius; 0.1 to 10
     mound_radius_factor: 1.0

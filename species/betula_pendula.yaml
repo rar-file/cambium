@@ -940,15 +940,17 @@ damage:
     # TUNED against three things together, on the saved plots' trees (base_plots):
     # a 12 m birch of taper 1:120 stands 60 kg/m2 (Nykanen Fig. 2, Peltola 1997);
     # one severe event breaks or uproots about 2 % of a young stand (Donis et al.
-    # 2024, in KNOWN_ISSUES; here 2-7 % at ages 8-15) and bends about 29 % (here
+    # 2024, in KNOWN_ISSUES; here 1-4 % at ages 8-15) and bends about 29 % (here
     # 18-39 %).  Share of the crown's projected area that holds the load, the
     # stem's lean under it as a share of height, the width of the break, and the
-    # stems that bend instead: buckling factor under this, DBH under this.
+    # stems that bend instead: buckling factor under this, DBH under this.  Stems
+    # under min_break_dbh_cm only bend.
     crown_catch_fraction: 0.10
     lever_fraction: 0.02
     spread: 0.5
     bend_buckling_factor: 6.0
     bend_max_dbh_cm: 10.0
+    min_break_dbh_cm: 2.0
   uproot:
     # TUNED, no target, looks only: mound radius per plate radius, the mound's
     # distance past the hinge per plate radius, and how fast the relief fades.

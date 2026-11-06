@@ -68,7 +68,7 @@ Birch's targets stay in `reference/targets.yaml`, and `reference/betula_pendula/
    python tools/species_report.py --species quercus_robur --ensemble out/bench/ensemble/oak_1
    ```
    The last line is the species' accuracy in a sentence. For birch, today:
-   > `betula_pendula: 0 of 3 scored targets pass at ages 50 and 60, over 20 runs; 0 of 6 age checks pass; 78 of 295 values sourced, 22 tuned, 195 unchecked.`
+   > `betula_pendula: 0 of 3 scored targets pass at ages 50 and 60, over 20 runs; 0 of 6 age checks pass; 78 of 296 values sourced, 23 tuned, 195 unchecked.`
 
 ## Blocks a species can leave out
 
