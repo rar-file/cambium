@@ -278,7 +278,7 @@ ENGINE_NOTES = {
     "optional_extension": "KHR_materials_diffuse_transmission on leaves gives light through them. Not required: without it the base colour alone holds the brightness of a leaf lit from both sides.",
     "extras": "bark materials name a height map in extras.heightTexture, range in metres in extras.heightRange_m, for parallax or displacement if the engine has it. Not a glTF core slot, so an importer ignores it.",
     "custom_attributes": "_NODE_ID (same id for the same part at every age), _RADIUS, _LEAF_SUN, _LEAF_TURN (days later or earlier than the tree's average to colour). Optional.",
-    "levels": "one file per level; wire them to the engine's LOD group by file name. lod2 is alpha test on one-sided sheets back to back; meant for distance, because close up its crossed cards show.",
+    "levels": "one file per level; wire them to the engine's LOD group by file name. lod2 is alpha test on one-sided sheets back to back; meant for distance, because close up its crossed cards show. Don't let lod2 cast shadows from its cards: they fall on each other. Use lod1's, or a blob.",
     "stages": "same tree at each age, same origin, same ids. Swap at a distance or cross-fade (dither) between stages.",
 }
 
@@ -376,6 +376,9 @@ def _image_of(path: Path, name: str) -> np.ndarray:
 
 
 def _whole_tree(prims: list, H: float, res: int, label: str) -> np.ndarray:
+    for p in prims:
+        if p.name == "far_cards":      # crossed cards would throw their shadows on each other
+            p.no_cast = True
     scene = prims + [lr.make_ground(4.0 * H)]
     lights = lr.Lights(scene, sun_for_camera(), res=4096, sky_res=640, sky_dirs=8)
     tgt = np.array([0.0, 0.0, 0.5 * H])

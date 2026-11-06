@@ -314,7 +314,7 @@ class Lights:
     def __init__(self, prims: list, sun_dir, res=2048, sky_res=768, sky_dirs=10, focus=None):
         """``focus``: (centre, radius) to keep the depth maps to, for a close view."""
         self.sun_dir = np.asarray(sun_dir, float) / np.linalg.norm(sun_dir)
-        V = np.concatenate([p.V for p in prims if not getattr(p, "no_cast", False)])
+        V = np.concatenate([p.V for p in prims if not getattr(p, "no_cast", False)] or [p.V for p in prims])
         lo, hi = V.min(0), V.max(0)
         self.centre = 0.5 * (lo + hi)
         self.radius = float(np.linalg.norm(hi - lo)) * 0.55 + 0.1
@@ -428,7 +428,8 @@ def _shade_primitive(p: Primitive, idx: np.ndarray, gb: GBuffer, view: View, lig
     # for a bake: the normal as it is on the part, not turned to the viewer, so the far card from one
     # side lights the same as the card from another
     if albedo_out is not None:
-        albedo_out[idx] = col
+        # a bake keeps the crown's own soft shade, the one thing a card can't get from the lights
+        albedo_out[idx] = col if lights is None else col * (0.35 + 0.65 * lights.sky_visible(P + N * 0.015, 0.05))[:, None]
     if normal_out is not None:
         normal_out[idx] = Ns.astype(np.float32)
     if out_rgb is None:
@@ -511,9 +512,9 @@ def render(prims: list, view: View, lights: Lights, ss: int = 2, sky: bool = Tru
     return (srgb_encode(img) * 255.0 + 0.5).astype(np.uint8)
 
 
-def bake_views(prims: list, view: View, ss: int = 3) -> dict:
-    """Albedo, normal and coverage of a view with no lighting, for far cards.  Each pixel is the
-    average of the samples that hit something."""
+def bake_views(prims: list, view: View, ss: int = 3, lights: Lights | None = None) -> dict:
+    """Albedo, normal and coverage of a view with no sun in it, for far cards.  Each pixel is the
+    average of the samples that hit something.  With ``lights``, colour carries the sky occlusion."""
     v = View(view.eye, view.target, view.W * ss, view.H * ss, ortho_half_h=view.ortho)
     v.scale = view.scale * ss
     gb = GBuffer(v.W, v.H)
@@ -523,7 +524,7 @@ def bake_views(prims: list, view: View, ss: int = 3) -> dict:
     for i, p in enumerate(prims):
         idx = np.nonzero(gb.p == i)[0]
         if idx.size:
-            _shade_primitive(p, idx, gb, v, None, None, alb, nrm)
+            _shade_primitive(p, idx, gb, v, lights, None, alb, nrm)
     hit = (gb.p >= 0).astype(np.float32).reshape(v.H, v.W, 1)
     a = hit.reshape(view.H, ss, view.W, ss, 1).sum((1, 3))
     col = (alb.reshape(v.H, v.W, 3) * hit).reshape(view.H, ss, view.W, ss, 3).sum((1, 3)) / np.maximum(a, 1e-6)

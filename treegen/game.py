@@ -17,7 +17,7 @@ from . import appearance as ap
 from . import mesh as meshlib
 from . import textures as tx
 from .export import GameGLB, encode_image, validate_glb
-from .look_render import View, bake_views, load_glb_primitives
+from .look_render import Lights, View, bake_views, load_glb_primitives
 
 
 def join_meshes(parts):
@@ -507,11 +507,12 @@ def far_cards(look: dict, near_path, cfg: dict, glb: GameGLB, jpeg: int) -> None
     nrm_sheet = np.zeros((px, cell_w * views, 3), np.float32)
     a_sheet = np.zeros((px, cell_w * views), np.float32)
     verts, norms, faces, uvs, tans = [], [], [], [], []
+    shade = Lights(prims, (0.0, 0.0, 1.0), res=16, sky_res=512, sky_dirs=6)
     for k in range(views):
         az = np.pi * k / cards
         d = np.array([np.cos(az), np.sin(az), 0.0])
         view = View(centre + d * 100.0, centre, cell_w, px, ortho_half_h=frame_h)
-        b = bake_views(prims, view)
+        b = bake_views(prims, view, lights=shade)
         cov = b["coverage"]
         alpha = np.clip(cov ** 0.6 * 1.25, 0.0, 1.0)
         col = _dilate(b["albedo"], cov)
