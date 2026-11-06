@@ -5,12 +5,14 @@
 
 Each setting goes to out/bench/ensemble/<label>_<value>, and finished seeds are kept, so a stopped
 sweep can be started again.  'table' prints the means, with spread and share inside the band, at
-each age: it reads only saved outputs, at the targets of --ref.
+each age: it reads only saved outputs, at the targets of --ref, the approved tag unless you say.
+Height also shows its position in the band, 0 % at the bottom and 100 % at the top, because
+"inside the band" says nothing about whether a run stays on one curve (tools/m2_shape.py does).
 """
 from __future__ import annotations
 
 import argparse
-import statistics
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -60,14 +62,27 @@ def table(values: list, label: str, base: str | None, base_value: str | None, re
             cells = []
             for n in names:
                 r = rows.get((v, n))
-                cells.append("-" if not r or r["mean"] is None else f"{r['mean']:.2f} +- {r['sd']:.2f}, {r['status']}, {100 * r['share']:.0f} %")
+                if not r or r["mean"] is None:
+                    cells.append("-")
+                    continue
+                where = position_in_band(r) if key == "site_index_curves" else ""
+                cells.append(f"{r['mean']:.2f} +- {r['sd']:.2f}, {r['status']}, {100 * r['share']:.0f} %{where}")
             print(f"| {v} | " + " | ".join(cells) + " |")
         print()
     print("Band: " + "; ".join(sorted({rows[k]['target_range'] for k in rows if key_in(k[1])})))
 
 
 def key_in(name: str) -> bool:
-    return "lai_hagemeier" in name or "subcanopy" in name
+    return any(key in name for key, _ in ROWS)
+
+
+def position_in_band(row: dict) -> str:
+    """Where the mean sits in a height band written as 'lo-hi m (...)'."""
+    found = re.match(r"([\d.]+)-([\d.]+) m", row["target_range"])
+    if not found:
+        return ""
+    lo, hi = float(found.group(1)), float(found.group(2))
+    return f", at {100 * (row['mean'] - lo) / (hi - lo):.0f} % of the band"
 
 
 def main(argv=None) -> int:
@@ -82,7 +97,7 @@ def main(argv=None) -> int:
     ap.add_argument("--no-saves", action="store_true")
     ap.add_argument("--base", default=None, help="table: the baseline's ensemble folder name")
     ap.add_argument("--base-value", default=None)
-    ap.add_argument("--ref", default="master")
+    ap.add_argument("--ref", default="targets-approved")
     ap.add_argument("--age", action="append", type=int, default=None)
     a = ap.parse_args(argv)
     values = a.values.split(",")
