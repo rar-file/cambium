@@ -54,6 +54,24 @@ Sources: `out/bench/m1/screen/runs.csv` (91 runs when read) and `out/bench/node/
 - **The node's memory benchmark:** a workload in memory slows to 0.52x at 14 copies, while one inside a core's cache stays at 0.99x. So memory bandwidth is the node's limit too, though a mild one at this scale.
 - **The PC's own slowdown is still undiagnosed.** That needs its own diagnosis run, after its golden runs.
 
+## The PC's run time against runs at once
+
+From each screen's `runs.csv`. Runs at once is the time-weighted mean over each run's life. Parameter changes alter run time too, so compare groups.
+
+| Maths threads | Runs at once | Runs | Mean run time (s) | Runs per hour |
+|---|---|---|---|---|
+| 16 | 1 | 1 | 48 | 74 |
+| 16 | 2 | 6 | 74 | 97 |
+| 1 | 1 | 20 | 47 | 77 |
+| 1 | 2 | 19 | 78 | 93 |
+| 1 | 3 | 74 | 83 | 130 |
+| 1 | 4 | 48 | 114 | 126 |
+
+- **One thread didn't remove the slowdown:** at 2 at once, 78 s against 74 s at 16 threads, though the 16-thread group has only 6 runs. Competition between maths threads wasn't the cause.
+- **This PC tops out at about 3 at once.** 4 at once is no faster overall (126 against 130 runs per hour), so more cores wouldn't help as it stands. The cause isn't diagnosed yet.
+- **One thread costs nothing measurable alone:** 47 s against 48 s.
+- **The whole screen:** 161 runs in 5494 s, 105 runs per hour, 2.6 at once on average, against 77 per hour one at a time.
+
 ## Found so far on the PC
 
 **Parallel launching changes nothing:** hashes are identical alone and in a batch (`out/bench/m1/parallel_proof.txt`).
