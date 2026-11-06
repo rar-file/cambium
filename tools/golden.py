@@ -33,6 +33,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 
 from batch import FLOOR_GB, free_gb  # noqa: E402
+from run_cache import code_version  # noqa: E402
 from treegen.machine import describe_machine  # noqa: E402
 
 GOLDEN = ROOT / "out" / "bench" / "golden"
@@ -129,6 +130,11 @@ def peak_of_child(proc) -> float | None:
 
 def run_one(name: str, folder: Path) -> dict:
     command, peak_gb = RUNS[name]
+    return run_case(name, command, peak_gb, folder)
+
+
+def run_case(name: str, command: list, peak_gb: float, folder: Path) -> dict:
+    """One run in its own process: time, peak memory and the hash of every output."""
     free = free_gb()
     if free - peak_gb < FLOOR_GB:
         raise SystemExit(f"STOP before {name}: {free:.2f} GB free, it needs about {FLOOR_GB + peak_gb:.2f} GB "
@@ -153,7 +159,8 @@ def record(label: str, only: list | None, root: Path = GOLDEN) -> dict:
     """Run the golden runs one at a time (they count as heavy) and save the hashes."""
     base = root / label
     target = base / "hashes.json"
-    doc = json.loads(target.read_text(encoding="utf-8")) if target.exists() else {"label": label, "machine": describe_machine(), "runs": {}}
+    doc = json.loads(target.read_text(encoding="utf-8")) if target.exists() else {"label": label, "machine": describe_machine(),
+                                                                                  "code_version": code_version(), "runs": {}}
     for name in only or list(RUNS):
         print(f"{name}: running...", flush=True)
         doc["runs"][name] = run_one(name, base / name)
@@ -222,6 +229,8 @@ def main():
         diff = {k: (m1.get(k), m2.get(k)) for k in sorted(set(m1) | set(m2)) if m1.get(k) != m2.get(k)}
         if diff:
             print(f"\nMachines differ: {json.dumps(diff, indent=1)}")
+        if first.get("code_version") != second.get("code_version"):
+            print("\nThe model code differs between these recordings.")
         print("\nIDENTICAL" if same else "\nDIFFERENT")
         sys.exit(0 if same else 1)
 

@@ -63,7 +63,10 @@ def uncommitted_fingerprint(root: Path = ROOT) -> dict:
     import subprocess
 
     def git(*a) -> bytes | None:
-        p = subprocess.run(["git", *a], cwd=str(root), capture_output=True)
+        try:
+            p = subprocess.run(["git", *a], cwd=str(root), capture_output=True)
+        except FileNotFoundError:   # git isn't installed (a second PC, say)
+            return None
         return p.stdout if p.returncode == 0 else None
 
     diff = git("diff", "HEAD", "--binary")
@@ -94,7 +97,10 @@ def run_manifest(species: str | Path, environment: str | Path, sp: SimpleNamespa
     import subprocess
 
     def git(*a):
-        p = subprocess.run(["git", *a], cwd=str(ROOT), capture_output=True, text=True)
+        try:
+            p = subprocess.run(["git", *a], cwd=str(ROOT), capture_output=True, text=True)
+        except FileNotFoundError:   # git isn't installed (a second PC, say)
+            return None
         return p.stdout.strip() if p.returncode == 0 else None
 
     def file_info(name, directory):
