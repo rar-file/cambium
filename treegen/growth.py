@@ -258,6 +258,27 @@ class GrowthModel:
         np.add.at(grid, tuple((ijk - lo).T), src_w * float(self.light.leaf_area) / cell ** 3)
         return grid, lo, cell
 
+    def _density_after_growth(self, src, src_w, n_before):
+        """Exploring, M3a: the same control, reckoned once the year's shoots have grown, with the
+        leaves their new nodes will carry next spring counted in.  Counts the buds it removes."""
+        dc = getattr(self.sp.bud_fate, "density_control", None)
+        if dc is None or not bool(dc.enabled) or not bool(dc.after_growth) or self.tree.n <= n_before:
+            return
+        T = self.tree
+        new = np.arange(n_before, T.n)
+        side = new[T.term[new] == 0]
+        if not len(side):
+            return
+        early = float(getattr(self.sp.light.foliage_weight, "early_leaves", 0.0) or 0.0)
+        pos = np.concatenate([src, T.pos[side]])
+        w = np.concatenate([src_w, np.full(len(side), early)])
+        self._leaf_density = self._leaf_density_grid(pos, w)
+        keep = self._bud_keep_chance(T.pos[side])
+        drop = self.rng.random(len(side)) > keep
+        T.no_axil[side[drop]] = True
+        self.density_log = getattr(self, "density_log", [])
+        self.density_log.append((int(self.year) + 1, len(side), int(drop.sum()), float(np.median(self._last_af)) if len(self._last_af) else 0.0))
+
     def _bud_keep_chance(self, pos):
         """The chance that a new node makes a lateral bud: 1 up to af_full, falling to 0 at af_zero."""
         grid, lo, cell = self._leaf_density
@@ -266,6 +287,7 @@ class GrowthModel:
         inside = np.all((ijk >= 0) & (ijk < np.array(grid.shape)), axis=1)
         af = np.zeros(len(pos))
         af[inside] = grid[tuple(ijk[inside].T)]
+        self._last_af = af
         return np.clip((float(dc.af_zero) - af) / (float(dc.af_zero) - float(dc.af_full)), 0.0, 1.0)
 
     def wood_sources(self) -> tuple[np.ndarray, np.ndarray]:
@@ -1093,9 +1115,11 @@ class GrowthModel:
             self._end_spur(nd, t)
 
         self._leaf_density = self._leaf_density_grid(src, src_w)
+        _n_before = T.n
         self._grow_shoots(t, field, term_nodes[g_term_mask], v_term[g_term_mask],
                           lat_nodes[g_lat_mask], v_lat[g_lat_mask],
                           np.concatenate([Qterm[term_nodes[g_term_mask]], Qlat[lat_nodes[g_lat_mask]]]))
+        self._density_after_growth(src, src_w, _n_before)
         # descending shoot apices that reach the ground layer stop growing
         tips = np.nonzero((T.term[:T.n] == 1) & (T.death[:T.n] < 0))[0]
         down = (T.pos[tips, 2] < float(sp.shoot.ground_contact_height)) & (
@@ -1299,6 +1323,10 @@ class GrowthModel:
             # lateral buds) were built with the shoots (_growth_factor)
             last = T.birth[bud_nodes] == self.year
             paid = last & ((T.term[bud_nodes] == 1) | ((T.lat[bud_nodes] == LAT_DORMANT) & (T.lat_age[bud_nodes] == 0)))
+            if bool(getattr(lc, "charge_fresh_laterals", False)):
+                # exploring: only one late leaf per node and a tip's cluster were charged with the
+                # shoot, so a fresh lateral's cluster next spring is still to pay
+                paid = last & (T.term[bud_nodes] == 1)
             build = np.where(paid, 0.0, build)
         # g C respired per g dry matter, back to dry-matter units
         maint = dm * float(lc.leaf_maintenance_gc_per_g) / float(lc.carbon_fraction) / g_per_unit
@@ -1841,7 +1869,7 @@ class GrowthModel:
             # short shoots carry only their terminal bud; Ishihara & Kikuzawa
             # 2009, Ann. Bot. 104:1195)
             T.no_axil[new] = no_axil[act]
-            if self._leaf_density is not None:
+            if self._leaf_density is not None and not bool(self.sp.bud_fate.density_control.after_growth):
                 T.no_axil[new] |= self.rng.random(len(new)) > self._bud_keep_chance(T.pos[new])
             T.lat_dir[new] = bud
             T.term[new] = last.astype(np.int8)

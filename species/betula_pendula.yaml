@@ -238,6 +238,8 @@ resource:
     # Fine-root dry mass per leaf dry mass: 1.35 against 2.81 Mg ha-1 in a
     # 10-year-old silver-birch stand [Aosaar et al. 2016, Table 4].
     fine_root_to_leaf_mass: 0.48
+    # Exploring only: charge next spring's clusters on fresh lateral buds (see _leaf_costs).
+    charge_fresh_laterals: false
     # Fine-root maintenance respiration, g C per g per year: 2.5-7.7 nmol
     # CO2 g-1 s-1 at 10 C in boreal aspen, black spruce and jack pine
     # [Ryan, Lavigne & Gower 1997, J. Geophys. Res. 102:28871], 5 over a
@@ -307,6 +309,7 @@ bud_fate:
     af_full: 0.3
     af_zero: 3.2
     cell_m: 0.5
+    after_growth: false
   # Short shoots are cheap and self-financing, so their fate is local and
   # driven by light, not by BH resource: a lateral bud that does not extend
   # forms a short shoot (spur) if its exposure Q reaches short_shoot_light;
