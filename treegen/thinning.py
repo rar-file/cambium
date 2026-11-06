@@ -130,7 +130,8 @@ class Mortality:
         around = self.hood.blur(i, j, weight) / np.maximum(count, 1e-12)
         competition = self.thinning_rate(rd) * weight / np.maximum(around, 1e-12)
         suppressed = np.where(d_ub_cm > 0.0, float(v.suppressed_hazard) * slow, 0.0)
-        dg = 100.0 * math.sqrt(float(np.mean((d_ob / 100.0) ** 2)))
+        past = d_ob[d_ob > 0.0]
+        dg = 100.0 * math.sqrt(float(np.mean((past / 100.0) ** 2))) if len(past) else 0.0
         around_size = self.hood.blur(i, j, size) / np.maximum(count, 1e-12)
         background = self.background_rate(dg, stand_age) * size / np.maximum(around_size, 1e-12)
         old = self.old_age_rate(age)

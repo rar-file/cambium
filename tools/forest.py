@@ -26,6 +26,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 
 import cli  # noqa: E402
+from batch import free_gb  # noqa: E402
 from treegen import checkpoint  # noqa: E402
 from treegen.params import run_manifest  # noqa: E402
 from treegen.plot import Plot  # noqa: E402
@@ -89,6 +90,10 @@ def run(a) -> None:
                   f"RD {s.get('relative_density')}, top {s.get('top_height_m')} m, gap {s.get('gap_fraction')}, "
                   f"new {s.get('new_trees')}, {time.time() - t0:.0f} s, peak {cli.peak_memory_mb():.0f} MB", flush=True)
             write()
+        if a.stop_free_gb and free_gb() < a.stop_free_gb:
+            print(f"STOPPED at year {plot.year}: {free_gb():.1f} GB free, under the {a.stop_free_gb} GB this run may leave", flush=True)
+            write()
+            sys.exit(4)
     write()
     (out / "done.txt").write_text("done\n")
     print(f"done in {time.time() - t0:.0f} s, peak {cli.peak_memory_mb():.0f} MB -> {out}", flush=True)
@@ -108,7 +113,7 @@ def plots(a) -> int:
             cmd += ["--area", str(a.area)]
         if a.patch:
             cmd += ["--patch", str(a.patch)]
-        for flag, on in (("--spread", a.spread), ("--regeneration", a.regeneration), ("--mortality-off", a.mortality_off)):
+        for flag, on in (("--spread", a.spread), ("--regeneration", a.regeneration), ("--mortality-off", a.mortality_off), ("--tree-table", a.tree_table)):
             if on:
                 cmd.append(flag)
         for item in a.set:
@@ -135,6 +140,7 @@ def main():
     ap.add_argument("--mortality-off", action="store_true")
     ap.add_argument("--tree-table", action="store_true", help="keep a row for every tree that ever lived in plot.json")
     ap.add_argument("--print-every", type=int, default=5)
+    ap.add_argument("--stop-free-gb", type=float, default=None, help="stop and save if free memory falls under this, on a shared machine")
     ap.add_argument("--set", action="append", default=[], metavar="KEY=JSON")
     ap.add_argument("--out", default=None)
     ap.add_argument("--label", default=None)

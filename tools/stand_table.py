@@ -103,9 +103,10 @@ def stat(values) -> str:
 def table(folder: Path, ages) -> str:
     plots = [read_plot(p, ages) for p in plot_folders(folder)]
     lines = [f"**{folder.name}: {len(plots)} plot(s), of {plots[0]['area_m2']:.0f} m2.**" if plots else f"{folder}: no plots", ""]
-    head = ["Age", "Stems/ha", "Basal area over bark (m2/ha)", "Dg over bark (cm)", "Mean height (m)", "Top height (m)", "Gap fraction", "New trees a year"]
+    head = ["Age", "Stems/ha, all", "Stems/ha past 1.3 m", "Basal area over bark (m2/ha)", "Dg over bark (cm)", "Mean height (m)", "Top height (m)", "Gap fraction",
+            "New trees a year"]
     lines += ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
-    keys = ["stems_per_ha", "basal_area_ob_m2_ha", "dg_ob_cm", "height_mean_m", "top_height_m", "gap_fraction", "new_trees_a_year"]
+    keys = ["stems_per_ha", "stems_bh_per_ha", "basal_area_ob_m2_ha", "dg_ob_cm", "height_mean_m", "top_height_m", "gap_fraction", "new_trees_a_year"]
     for age in ages:
         rows = [p["rows"][age] for p in plots if age in p["rows"]]
         if rows:

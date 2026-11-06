@@ -211,7 +211,8 @@ class SpreadRegeneration(Regeneration):
             i = np.floor((big_xy[:, 0] + 0.5 * self.lx) / self.lx * self._count_nx).astype(int) % self._count_nx
             j = np.floor((big_xy[:, 1] + 0.5 * self.ly) / self.ly * self._count_ny).astype(int) % self._count_ny
             np.add.at(grid, (i, j), 1)
-        self.trees_in_cell = grid
+        # as a count per 10 m x 10 m cell, whatever the ground's width makes of the cell
+        self.trees_in_cell = grid * (size * size) / (self.lx / self._count_nx * self.ly / self._count_ny)
 
     def _kernel_ft(self, t: int) -> np.ndarray:
         """The transform of the seed shadow of a tree with t big trees in its
@@ -256,7 +257,7 @@ class SpreadRegeneration(Regeneration):
         else:
             ci = np.floor((xy[:, 0] + 0.5 * self.lx) / self.lx * self._count_nx).astype(int) % self._count_nx
             cj = np.floor((xy[:, 1] + 0.5 * self.ly) / self.ly * self._count_ny).astype(int) % self._count_ny
-            t = np.minimum(self.trees_in_cell[ci, cj], most)
+            t = np.minimum(np.round(self.trees_in_cell[ci, cj]).astype(int), most)
         i, j = self._cell(xy)
         for v in np.unique(t).tolist():
             src = np.zeros((self.nx_pad, self.ny))

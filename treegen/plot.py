@@ -272,13 +272,17 @@ class Plot:
         occupied = np.zeros(R.cx.shape, bool)
         i, j = R._cell(np.array([[self.info[k]["x"], self.info[k]["y"]] for k in self.alive]))
         occupied[i, j] = True
-        if isinstance(R, SpreadRegeneration):
+        spreading = isinstance(R, SpreadRegeneration)
+        if spreading:
             # what a seed's way out depends on: the big trees around its source
             big = [self._offset(k)[:2] for k in self.alive if self._dbh(k) * 100.0 >= float(R.p.spread.tree_dbh_cm)]
             R.count_trees(np.array(big).reshape(-1, 2))
-        for x, y, mineral in R.step(np.array(xy).reshape(-1, 2), np.array(seeds), light.reshape(R.cx.shape),
-                                    field_layer, occupied):
+        ground = light.reshape(R.cx.shape)
+        for x, y, mineral in R.step(np.array(xy).reshape(-1, 2), np.array(seeds), ground, field_layer, occupied):
             self._recruit(float(x), float(y), mineral)
+            if spreading:
+                i, j = R._cell(np.array([[x, y]]))
+                self.info[-1]["light_at_birth"] = round(float(ground[i[0], j[0]]), 3)
 
     def _recruit(self, x, y, mineral=True):
         """A new tree from this year's seed; it germinates next spring, on
@@ -487,8 +491,10 @@ class Plot:
         fraction, what came and went this year, and for ground with a seed
         source at one end, stems and seedlings along it."""
         ob = over_bark_cm(d, self.species.mortality.bark_double_mm)
+        stems = ob[ob > 0.0]    # past breast height, as a forester counts them
         row = {"basal_area_ob_m2_ha": round(float(np.sum(np.pi / 4.0 * (ob / 100.0) ** 2)) / self.area * 1e4, 2),
-               "dg_ob_cm": round(100.0 * math.sqrt(float(np.mean((ob / 100.0) ** 2))), 2),
+               "stems_bh_per_ha": round(len(stems) / self.area * 1e4),
+               "dg_ob_cm": round(100.0 * math.sqrt(float(np.mean((stems / 100.0) ** 2))), 2) if len(stems) else 0.0,
                "top_height_m": round(top_height_m(ob, h, self.area), 2),
                "gap_fraction": round(getattr(self, "_gap_fraction", 1.0), 3),
                "new_trees": sum(1 for i in self.info if i.get("recruit") and i["germination"] == self.year),
@@ -498,6 +504,9 @@ class Plot:
                 row["dead_this_year"][i["cause"]] = row["dead_this_year"].get(i["cause"], 0) + 1
         if getattr(self, "mort", None) is not None:
             row["relative_density"] = round(getattr(self, "_rd_mean", 0.0), 3)
+            rings = [self.mort.ring_mm(self.rings[k]) for k in self.alive if k in self.rings and self.rings[k][-1] > 0.0]
+            # the share of stems that have all but stopped laying wood
+            row["stopped_share"] = round(sum(1 for r in rings if r < 0.1) / len(rings), 3) if rings else 0.0
         start = getattr(self.species.plot, "natural_start", None)
         if start is not None and getattr(start, "patch_x_m", None):
             # 10 m slices along x, from the source end
