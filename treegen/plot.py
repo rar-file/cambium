@@ -60,14 +60,15 @@ class OffsetField:
         return self.f.optimal_direction(pos + self.off, heading)
 
 
-def sweep_after_stop(out_dir, year: int, alive) -> list:
-    """Resuming from a checkpoint made at this year: remove what a stopped run left that the
-    checkpoint doesn't know about.  A half-written pickle; history from a later checkpoint
-    that never finished, which would otherwise be read back as extra years; and the history
-    of trees the checkpoint counts as dead.  Returns what it removed.  A tree that died after
-    the checkpoint still counts as alive here, and keeps its history: it has to die again."""
+def sweep_after_stop(out_dir, tree_years: dict) -> list:
+    """Resuming from a checkpoint: remove what a stopped run left that the checkpoint doesn't
+    know about.  A half-written pickle; history from a later checkpoint that never finished,
+    which would otherwise be read back as extra years; and the history of trees the checkpoint
+    counts as dead.  Returns what it removed.  tree_years: each tree the checkpoint counts as
+    alive -> its own age there.  History files are named by a tree's own age, which runs behind
+    the plot's year for a tree that germinated late.  A tree that died after the checkpoint
+    still counts as alive here, and keeps its history: it has to die again."""
     out = Path(out_dir)
-    alive = set(alive)
     removed = []
     tmp = out / "checkpoint.pkl.tmp"
     if tmp.exists():
@@ -77,7 +78,7 @@ def sweep_after_stop(out_dir, year: int, alive) -> list:
         k = int(folder.parent.name.split("_")[1])
         for f in folder.glob("history_*"):
             digits = f.name[len("history_"):].split(".")[0]
-            if k not in alive or not digits.isdigit() or int(digits) > year:
+            if k not in tree_years or not digits.isdigit() or int(digits) > tree_years[k]:
                 f.unlink()
                 removed.append(f)
     return removed
@@ -348,9 +349,11 @@ class Plot:
 
     @staticmethod
     def resume(out_dir) -> "Plot":
+        """Carry on from a stopped run in this folder.  This deletes what the stopped run left
+        after its last checkpoint, so never call it on the folder of a run that's still going."""
         with open(Path(out_dir) / "checkpoint.pkl", "rb") as f:
             plot = pickle.load(f)
-        sweep_after_stop(out_dir, plot.year, plot.alive)
+        sweep_after_stop(out_dir, {k: plot.trees[k].year for k in plot.alive})
         return plot
 
     def measure(self):
