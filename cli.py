@@ -26,7 +26,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from treegen import export, mesh, preview
+from treegen import checkpoint, export, mesh, preview
 from treegen.environment import make_environment, make_soil
 from treegen.growth import GrowthModel
 from treegen.params import ROOT, load_environment, load_species, run_manifest
@@ -64,11 +64,25 @@ def peak_memory_mb() -> float:
 
 
 def grow(species: str, seed: int, years: int, environment: str, stand: bool = False, verbose: bool = False,
-         lean: bool = False):
-    sp, _ = load_species(species)
-    env_p, _ = load_environment(environment)
-    model = GrowthModel(sp, make_environment(env_p), seed, stand=stand, soil=make_soil(env_p), lean=lean)
-    model.run(years, verbose=verbose)
+         lean: bool = False, save_at=(), state_dir=None, resume_state=None, scenario=()):
+    """Grow a tree.  save_at: ages at which to save its whole state in state_dir.
+    resume_state: carry on from such a file; scenario: values to change after that
+    ("key=JSON"; see treegen/checkpoint.py for what that can and can't change)."""
+    if resume_state:
+        model = checkpoint.load_model(resume_state)
+        sp = model.sp
+        checkpoint.set_values(sp, scenario)
+    else:
+        sp, _ = load_species(species)
+        env_p, _ = load_environment(environment)
+        model = GrowthModel(sp, make_environment(env_p), seed, stand=stand, soil=make_soil(env_p), lean=lean)
+    # stepped year by year: run() adds a keyframe at its end, so calling it in
+    # pieces would change the output
+    for age in sorted(save_at):
+        while model.year < age:
+            model.step()
+        checkpoint.save_model(model, Path(state_dir) / f"state_{age:03d}.pkl")
+    model.run(years - model.year, verbose=verbose)
     return model, sp
 
 
@@ -369,6 +383,9 @@ def main(argv=None) -> int:
     ap.add_argument("--no-mesh", action="store_true", help="skip the mesh files")
     ap.add_argument("--no-preview", action="store_true")
     ap.add_argument("--quiet", action="store_true")
+    ap.add_argument("--save-at", default="", help="comma-separated ages: save the whole state there, in <out>/states")
+    ap.add_argument("--resume-state", default=None, help="carry on from a saved state file, to --years")
+    ap.add_argument("--set", action="append", default=[], metavar="KEY=JSON", help="scenario: change a value after --resume-state")
     ap.add_argument("--lean", action="store_true",
                     help="for screens and calibration: stats.json only, with the scored outputs; no meshes, previews or timeline")
     args = ap.parse_args(argv)
@@ -380,7 +397,8 @@ def main(argv=None) -> int:
     timings, memory = {}, {}
     t0 = time.time()
     model, sp = grow(args.species, args.seed, args.years, args.environment, stand=args.stand, verbose=not args.quiet,
-                     lean=args.lean)
+                     lean=args.lean, save_at=[int(x) for x in args.save_at.split(",") if x.strip()],
+                     state_dir=out / "states", resume_state=args.resume_state, scenario=args.set)
     timings["growth_s"] = round(time.time() - t0, 1)
     memory["after_growth_mb"] = peak_memory_mb()
     meta = {
@@ -392,6 +410,7 @@ def main(argv=None) -> int:
         "generator": "treegen 0.4 (Palubicki et al. 2009 self-organising model, roots, hydraulics)",
     }
     meta["run_manifest"], meta["options"] = run_manifest(args.species, args.environment, sp)
+    meta["run_manifest"].update({"resumed_from": args.resume_state, "scenario": args.set})
     t1 = time.time()
     anchorage = anchorage_numbers(model, sp)
     if not args.lean:
