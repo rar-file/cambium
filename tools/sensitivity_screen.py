@@ -29,6 +29,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 
 from batch import Job, run_batch  # noqa: E402
+from run_cache import Cache, case_key, code_version, plain, settings  # noqa: E402
 
 RUN_PEAK_GB = 0.55  # measured: 464-532 MB in the screen's growth-only runs (peak_mb in the results)
 AGES = (30, 50, 60)
@@ -134,9 +135,18 @@ def result_name(path, factor):
     return "baseline.json" if path is None else f"{path}__x{factor:g}.json"
 
 
-def job_for(out: Path, path, factor, years, full=False) -> Job:
+def key_for(sp, env, path, factor, years, full, code, machine) -> str:
+    changed = copy.deepcopy(sp)
+    if path:
+        apply_change(changed, path, factor)
+    return case_key("screen", changed, plain(env), 1, years, not full, code=code, machine=machine)
+
+
+def job_for(out: Path, path, factor, years, full=False, key=None) -> Job:
     cmd = [sys.executable, str(Path(__file__).resolve()), "--one", path or "", "--factor", str(1.0 if path is None else factor),
            "--years", str(years), "--result", str(out / result_name(path, factor))] + (["--full"] if full else [])
+    if key:
+        cmd += ["--cache-key", key]
     return Job(f"{path or 'baseline'} x{1.0 if path is None else factor:g}", cmd, out / result_name(path, factor))
 
 
@@ -188,6 +198,8 @@ def main():
     ap.add_argument("--rank", default=None, help="rank the finished runs in this folder, no runs")
     ap.add_argument("--list", action="store_true", help="print what would be screened, no runs")
     ap.add_argument("--full", action="store_true", help="not lean: keep the history and every yearly stat")
+    ap.add_argument("--cache-key", default=None, help="internal: store the result under this key")
+    ap.add_argument("--no-cache", action="store_true", help="run every case, even one already finished elsewhere")
     ap.add_argument("--jobs", type=int, default=None, help="runs at once (default: CPU cores - 1, within the memory floor)")
     ap.add_argument("--only", default=None, help="comma-separated parameters, 'baseline' for the baseline: run just these")
     a = ap.parse_args()
@@ -195,6 +207,8 @@ def main():
     if a.one is not None:
         res = one_run(a.one or None, a.factor, a.years, lean=not a.full)
         Path(a.result).write_text(json.dumps(res))
+        if a.cache_key:
+            Cache().put(a.cache_key, res)
         return
     if a.rank:
         rank(Path(a.rank))
@@ -219,7 +233,22 @@ def main():
         cases = [None if c == "baseline" else c for c in chosen]
     else:
         cases = [None] + keep
-    jobs = [job_for(out, c, a.factor, a.years, a.full) for c in cases]
+    jobs = []
+    cache, reused = Cache(), 0
+    env_raw, _ = cli.load_environment("sweden_open_field")
+    code, machine = code_version(), settings()
+    for c in cases:
+        target = out / result_name(c, a.factor)
+        key = None
+        if not a.no_cache:
+            key = key_for(sp, env_raw, c, 1.0 if c is None else a.factor, a.years, a.full, code, machine)
+            hit = cache.get(key)
+            if hit is not None and not target.exists():
+                target.write_text(json.dumps(hit))
+                reused += 1
+        jobs.append(job_for(out, c, a.factor, a.years, a.full, key))
+    if reused:
+        print(f"{reused} cases reused from out/cache, not rerun", flush=True)
     code = run_batch(jobs, RUN_PEAK_GB, workers=a.jobs, log=out / "runs.csv")
     if code:
         sys.exit(code)
