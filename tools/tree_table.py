@@ -1,0 +1,375 @@
+"""The tree agent's one-pass measure: one stand tree per seed, everything the brief asks for from one run.
+
+    python tools/tree_table.py run --label X --seeds 8 [--first-seed 1] [--years 60] [--set key=json ...]
+    python tools/tree_table.py table X Y            # means over seeds at 20, 30, 40, 50, 60, against the targets
+    python tools/tree_table.py seeds X              # the same, seed by seed: a mean can hide outliers
+    python tools/tree_table.py fall X Y             # twigs and branches shed, crown base, lowest branch, crown ratio
+    python tools/tree_table.py driver X             # what held the leader back, year by year, across seeds
+
+Writes out/bench/ensemble/<label>/<seed>_stand/, the same stats.json an ensemble writes (so tools/scorecard.py,
+tools/m3_alternation.py and tools/m3_crown_compare.py read it), plus tree.json: new shoot length each year, wood and
+first-order branches at set ages, and every shedding event read back from the nodes' death years.  It only reads the
+model, so it changes no number: tests/test_tree_table.py.
+
+Sources for the comparison columns are the tools' own: Repola 2008 (tools/m3_wood.py), Evo TLS 2024
+(tools/m3_crown_compare.py), Lintunen 2013 (tools/m3_branches.py).  Those three are for a look, not a verdict.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import math
+import statistics
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "tools"))
+
+from batch import Job, run_batch  # noqa: E402
+
+E = ROOT / "out" / "bench" / "ensemble"
+AGES = (20, 30, 40, 50, 60)
+SNAPSHOT_EVERY = 5
+DENSITY = 530.0
+WINDOWS = ((5, 14), (15, 19), (20, 39), (40, 60))
+LINTUNEN_M, LINTUNEN_PER_10 = 1.02, 5.2
+LAI_FLOOR, LIGHT_BAND = 3.6, (6.4, 19.8)
+DENSE_CROWN_RATIO = (0.30, 0.45)    # dense unmanaged plots, ages 11-22: not a stand-tree target; shown as information
+REPOLA_CROWN_RATIO = (0.29, 0.96)   # Repola 2008 Table 2, single sample trees, mean 0.58; information in the target file
+CROWN_RATIO_FLOOR = 0.50            # Hynynen 2010: a recommendation for managed crop trees; information in the target file
+
+
+def snapshot(model, year: int) -> dict:
+    """Wood and first-order branches now.  Same definitions as tools/m3_wood.py and tools/m3_branches.py."""
+    import numpy as np
+
+    T, s = model.tree, model.stats[-1]
+    n = T.n
+    alive = T.death[:n] < 0
+    volume = np.where(alive, math.pi * T.radius[:n] ** 2 * T.length[:n], 0.0)
+    stem_nodes = np.asarray(T.trunk_chain(model.leader_axes), dtype=np.int64)
+    stem_v = float(volume[stem_nodes].sum())
+    total_v = float(volume.sum())
+    # a first-order branch: a side axis on the stem, or on a leader that replaced it (tools/m3_branches.py uses order == 1,
+    # which reads a stem that changed axis as one very long branch; it takes medians for that reason)
+    on_lead = np.isin(T.axis[:n], np.fromiter(model.leader_axes, np.int64))
+    starts = np.nonzero(alive & T.is_lateral[:n] & ~on_lead & on_lead[np.maximum(T.parent[:n], 0)])[0]
+    lengths = []
+    for start in starts:
+        total, node = 0.0, int(start)
+        while node >= 0 and alive[node]:
+            total += float(T.length[node])
+            node = int(T.main_child[node])
+        lengths.append(total)
+    real = [x for x in lengths if x >= 0.05]
+    # the crown base as the model measures it, but with limbs counted on the stem: see stats.limbs_on_leader
+    leaves = np.where(alive, T.leaves[:n], 0.0).astype(float)
+    crown_base_stem = lowest_stem = None
+    if starts.size:
+        lowest_stem = float(T.pos[T.parent[starts], 2].min())
+        lv = T.basipetal(T.levels(alive), leaves)[starts]
+        carrying = starts[lv >= max(5.0, float(model.sp.stats.crown_base_min_leaf_share) * float(leaves.sum()))]
+        if carrying.size:
+            crown_base_stem = float(T.pos[T.parent[carrying], 2].min())
+    h = float(s["height_m"])
+    return {"age": year, "crown_base_stem_m": crown_base_stem, "lowest_stem_branch_m": lowest_stem,
+            "crown_ratio_stem": None if crown_base_stem is None or h <= 0.0 else (h - crown_base_stem) / h, "leader_losses": len(model.leader_losses),
+            "stem_kg": stem_v * DENSITY, "branch_kg": (total_v - stem_v) * DENSITY,
+            "leaf_kg": float(s["carbon"].get("leaf_dm_g", 0.0)) / 1000.0, "branches": len(real),
+            "mean_branch_m": statistics.fmean(real) if real else 0.0, "median_branch_m": statistics.median(real) if real else 0.0,
+            "p90_branch_m": float(np.percentile(real, 90)) if real else 0.0}
+
+
+def shed_events(model) -> dict:
+    """Year -> shed axes by size, read back from the nodes' death years, after the run.  An axis counts when its first
+    node died and its parent didn't that year.  Branch: on the stem or a leader that replaced it.  Twig: on anything else.  Short shoots come
+    from the model's own log."""
+    import numpy as np
+
+    T = model.tree
+    n = T.n
+    dead = np.nonzero((T.death[:n] >= 0) & T.is_lateral[:n])[0]
+    par = T.parent[dead]
+    roots = dead[(T.death[par] != T.death[dead])]
+    on_lead = np.isin(T.axis[:n], np.fromiter(model.leader_axes, np.int64))
+    out: dict = {}
+    for year, branch in zip(T.death[roots].tolist(), on_lead[T.parent[roots]].tolist()):
+        row = out.setdefault(int(year), {"branches": 0, "twigs": 0, "short_shoots": 0})
+        row["branches" if branch else "twigs"] += 1
+    for year in model.spurs.death:
+        if year is not None and year >= 0:
+            row = out.setdefault(int(year), {"branches": 0, "twigs": 0, "short_shoots": 0})
+            row["short_shoots"] += 1
+    return out
+
+
+def one(seed: int, sets: list, out: Path, years: int) -> int:
+    import numpy as np
+
+    import cli
+    from treegen import checkpoint, export
+    from treegen.environment import make_environment, make_soil
+    from treegen.growth import GrowthModel
+    from treegen.params import load_environment, load_species
+
+    species, environment = "betula_pendula", "sweden_open_field"
+    sp, _ = load_species(species)
+    checkpoint.set_values(sp, sets)
+    env_p, _ = load_environment(environment)
+    model = GrowthModel(sp, make_environment(env_p), seed, stand=True, soil=make_soil(env_p), lean=True)
+    yearly, snaps = [], []
+    for year in range(1, years + 1):
+        n_before = model.tree.n
+        model.step()
+        T = model.tree
+        new = np.arange(n_before, T.n)
+        lead = np.isin(T.axis[new], np.fromiter(model.leader_axes, np.int64))
+        lengths = T.length[new]
+        c = model.stats[-1].get("carbon", {})
+        pool = float(c.get("shoot", 0.0)) - float(c.get("wood_maint", 0.0)) - float(c.get("leaf_build", 0.0)) - float(c.get("leaf_maint", 0.0))
+        yearly.append({"year": year, "new_m": float(lengths.sum()), "new_lateral_m": float(lengths[~lead].sum()),
+                       "new_leader_m": float(lengths[lead].sum()), "new_nodes": int(len(new)), "leader_nodes": int(lead.sum()),
+                       "ring_need": float(getattr(model, "_ring_need", 0.0)), "pool": max(pool, 0.0),
+                       "store": float(getattr(model, "_carbon_store", 0.0)),
+                       "stomata_leader": float(getattr(model, "_leader_phi", float("nan"))),
+                       "driver": getattr(model, "_driver_log", None)})
+        if year % SNAPSHOT_EVERY == 0:
+            snaps.append(snapshot(model, year))
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "tree.json").write_text(json.dumps({"yearly": yearly, "snapshots": snaps, "shed": shed_events(model)}), encoding="utf-8")
+    meta = {"species": sp.species.scientific_name, "species_file": species, "environment": environment, "mode": "stand", "seed": seed,
+            "generator": "treegen 0.4, tools/tree_table.py"}
+    meta["run_manifest"], meta["options"] = cli.run_manifest(species, environment, sp)
+    meta["run_manifest"].update({"resumed_from": None, "scenario": list(sets)})
+    export.write_stats(out / "stats.json", model, meta, cli.reference_block(sp, model.stats), cli.anchorage_numbers(model, sp))
+    (out / "manifest.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
+    return 0
+
+
+def run(label: str, seeds: int, first: int, sets: list, years: int) -> int:
+    folder = E / label
+    extra = [x for v in sets for x in ("--set", v)]
+    jobs = [Job(f"seed {s}", [sys.executable, str(Path(__file__).resolve()), "one", "--seed", str(s), "--years", str(years),
+                              "--out", str(folder / f"{s}_stand"), *extra], folder / f"{s}_stand" / "manifest.json")
+            for s in range(first, first + seeds)]
+    return run_batch(jobs, 0.6, log=folder / "runs.csv")
+
+
+def load(label: str) -> dict:
+    out = {}
+    for d in sorted((E / label).glob("*_stand"), key=lambda p: int(p.name.split("_")[0])):
+        if not (d / "manifest.json").exists() or not (d / "tree.json").exists():
+            continue
+        stats = json.loads((d / "stats.json").read_text(encoding="utf-8"))["per_year"]
+        extra = json.loads((d / "tree.json").read_text(encoding="utf-8"))
+        out[int(d.name.split("_")[0])] = {"per_year": {r["year"]: r for r in stats}, **extra,
+                                          "snap": {r["age"]: r for r in extra["snapshots"]},
+                                          "new": {r["year"]: r for r in extra["yearly"]}}
+    return out
+
+
+def height_item() -> dict:
+    from scorecard import load_approved_targets
+    return load_approved_targets("targets-approved")["tree_allometry"]["site_index_curves"]
+
+
+def reads_as(item: dict, height: float, age: float):
+    from m2_shape import reads_as as ra
+    return ra(item, height, age)
+
+
+def evo_median(d_over_bark: float, evo: list) -> float | None:
+    """Evo's median crown diameter in the tool's own stem-diameter bins (m3_crown_compare.BINS)."""
+    from m3_crown_compare import BINS
+    for lo, hi in BINS:
+        if lo <= d_over_bark < hi:
+            rows = [r["crown"] for r in evo if lo <= r["d_cm"] < hi]
+            return statistics.median(rows) if len(rows) >= 2 else None
+    return None
+
+
+def under_2cm(run_: dict, lo: int, hi: int) -> tuple:
+    small = total = 0
+    for y in range(lo, hi + 1):
+        if y in run_["per_year"] and y - 1 in run_["per_year"]:
+            small += run_["per_year"][y]["height_m"] - run_["per_year"][y - 1]["height_m"] < 0.02
+            total += 1
+    return small, total
+
+
+def fmt(xs: list, f: str = ".2f") -> str:
+    return f"{statistics.fmean(xs):{f}} ({min(xs):{f}}-{max(xs):{f}})"
+
+
+def table(labels: list) -> None:
+    from bark import dbh_over_bark
+    from m3_crown_compare import evo_rows
+    from m3_wood import repola
+
+    item = height_item()
+    evo = evo_rows()
+    print("Means over seeds, (lowest-highest seed). Height's site index is read on the approved equation and T13 rule. Light is diffuse, at 1-2 m, as the target measures it. Repola is at the tree's own size, over bark. Evo is the median of his trees in the same over-bark stem-diameter bin. Lintunen: 1.02 m, 5.2 per 10 % of crown length, ages 4-32.\n")
+    print("| Set | Age | Seeds | Height (m) | Reads as SI | Stem over bark (cm) | LAI | Light (%) | Implied k | Stem wood (kg) | Repola stem | Branch wood (kg) | Repola branches | Crown width (m) | Evo at that stem | Branch mean, median (m) | Branches per 10 % |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    for label in labels:
+        runs = load(label)
+        if not runs:
+            print(f"| `{label}` | none yet |" + " |" * 15)
+            continue
+        for age in AGES:
+            rows = [r for r in runs.values() if age in r["per_year"] and r["per_year"][age].get("dbh_cm") is not None]
+            if not rows:
+                continue
+            at = [r["per_year"][age] for r in rows]
+            sn = [r["snap"][age] for r in rows]
+            h = [a["height_m"] for a in at]
+            si = reads_as(item, statistics.fmean(h), age)
+            lai = [a["lai"] for a in at]
+            light = [a["subcanopy_diffuse_light_pct"] for a in at]
+            ks = [-math.log(max(x, 1e-6) / 100.0) / max(y, 1e-6) for x, y in zip(light, lai)]
+            ob = [float(dbh_over_bark(a["dbh_cm"])) for a in at]
+            rep = [repola(d, a["height_m"]) for d, a in zip(ob, at)]
+            ev = [evo_median(d, evo) for d in ob]
+            ev = [x for x in ev if x is not None]
+            crown = [a["crown_ratio"] or 0.0 for a in at]
+            per10 = [s["branches"] / 10.0 for s in sn]
+            print(f"| `{label}` | {age} | {len(rows)} | {fmt(h)} | {'-' if si is None else f'{si:.1f}'} | {statistics.fmean(ob):.1f} | {fmt(lai)} | {fmt(light, '.1f')} | {statistics.fmean(ks):.3f} | "
+                  f"{statistics.fmean(s['stem_kg'] for s in sn):.0f} | {statistics.fmean(x[0] for x in rep):.0f} | {statistics.fmean(s['branch_kg'] for s in sn):.1f} | {statistics.fmean(x[1] for x in rep):.1f} | "
+                  f"{fmt([a['crown_width_m'] for a in at])} | {statistics.fmean(ev) if ev else float('nan'):.1f} | {statistics.fmean(s['mean_branch_m'] for s in sn):.2f}, {statistics.fmean(s['median_branch_m'] for s in sn):.2f} | {fmt(per10, '.1f')} |")
+    print("\nYears under 2 cm of height growth (all seeds), and whole-crown flips: years where side shoots total under a fifth of the median of the 5 years around them, or none at all.\n")
+    print("| Set | Ages 5-14 under 2 cm | 15-19 | 20-39 | 40-60 | Crown flips 5-19 | 20-39 | 40-60 | Worst seed, flips | New side shoots at 50, 60 (m/yr) | Largest one-year fall in leaf area, 20-60: median seed, worst seed |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|")
+    for label in labels:
+        runs = load(label)
+        if not runs:
+            continue
+        cells = []
+        for lo, hi in WINDOWS:
+            s = sum(under_2cm(r, lo, hi)[0] for r in runs.values())
+            t = sum(under_2cm(r, lo, hi)[1] for r in runs.values())
+            cells.append(f"{s}/{t}" if t else "-")
+        flips = {w: [crown_flips(r, *w) for r in runs.values()] for w in ((5, 19), (20, 39), (40, 60))}
+        worst = max(sum(flips[w][i] for w in flips) for i in range(len(runs)))
+        fl = [f"{sum(flips[w])}/{sum(w[1] - w[0] + 1 for _ in runs)}" for w in flips]
+        n50 = [r["new"][50]["new_lateral_m"] for r in runs.values() if 50 in r["new"]]
+        n60 = [r["new"][60]["new_lateral_m"] for r in runs.values() if 60 in r["new"]]
+        falls = [leaf_fall(r) for r in runs.values()]
+        print(f"| `{label}` | {' | '.join(cells)} | {' | '.join(fl)} | {worst} | {statistics.fmean(n50) if n50 else 0:.1f}, {statistics.fmean(n60) if n60 else 0:.1f} | {100 * statistics.median(falls):.0f} %, {100 * max(falls):.0f} % |")
+
+
+def leaf_fall(run_: dict) -> float:
+    """The largest share of its leaf area a tree lost from one year to the next, ages 20-60."""
+    worst = 0.0
+    for y in range(21, 61):
+        if y in run_["per_year"] and y - 1 in run_["per_year"]:
+            before, after = run_["per_year"][y - 1]["leaf_area_m2"], run_["per_year"][y]["leaf_area_m2"]
+            if before > 0.0:
+                worst = max(worst, 1.0 - after / before)
+    return worst
+
+
+def crown_flips(run_: dict, lo: int, hi: int) -> int:
+    count = 0
+    for y in range(lo, hi + 1):
+        if y not in run_["new"]:
+            continue
+        around = [run_["new"][k]["new_lateral_m"] for k in range(y - 2, y + 3) if k in run_["new"] and k != y]
+        if not around:
+            continue
+        here = run_["new"][y]["new_lateral_m"]
+        if here <= 0.0 or here < 0.2 * statistics.median(around):
+            count += 1
+    return count
+
+
+def seeds(label: str) -> None:
+    item = height_item()
+    runs = load(label)
+    print("| Seed | " + " | ".join(f"H{a}" for a in AGES) + " | SI 15 | SI 60 | " + " | ".join(f"LAI{a}" for a in (40, 50, 60)) + " | " + " | ".join(f"Light{a}" for a in (40, 50, 60))
+          + " | Width 50, 60 | Crown ratio 20, 60 | Under 2 cm, 15-60 | Flips | Branches at 60 | Mean branch at 60 |")
+    print("|---" * (len(AGES) + 13) + "|")
+    for s, r in runs.items():
+        py = r["per_year"]
+        if not all(a in py for a in AGES):
+            continue
+        si15, si60 = reads_as(item, py[15]["height_m"], 15), reads_as(item, py[60]["height_m"], 60)
+        u2 = under_2cm(r, 15, 60)[0]
+        fl = crown_flips(r, 5, 60)
+        print(f"| {s} | " + " | ".join(f"{py[a]['height_m']:.1f}" for a in AGES) + f" | {si15 or 0:.1f} | {si60 or 0:.1f} | " + " | ".join(f"{py[a]['lai']:.2f}" for a in (40, 50, 60)) + " | "
+              + " | ".join(f"{py[a]['subcanopy_diffuse_light_pct']:.1f}" for a in (40, 50, 60))
+              + f" | {py[50]['crown_width_m']:.1f}, {py[60]['crown_width_m']:.1f} | {py[20].get('crown_ratio') or 0:.2f}, {py[60].get('crown_ratio') or 0:.2f} | {u2} | {fl} | {r['snap'][60]['branches']} | {r['snap'][60]['mean_branch_m']:.2f} |")
+
+
+def fall(labels: list) -> None:
+    print(f"Twig and branch fall: an outcome of light and carbon in each tree, no schedule. Per year over the 5 years up to each age, means over seeds. Branch: a side axis on the stem. Twig: a side axis on anything else. "
+          f"Crown ratio bands, all information only in the target file for stand trees: dense unmanaged plots at 11-22 yr {DENSE_CROWN_RATIO[0]}-{DENSE_CROWN_RATIO[1]} (Niemisto 1995, unchecked), Repola's trees {REPOLA_CROWN_RATIO[0]}-{REPOLA_CROWN_RATIO[1]}, mean 0.58, Hynynen's managed floor {CROWN_RATIO_FLOOR}.\n")
+    print("| Set | Age | Seeds | Branches shed /yr | Twigs shed /yr | Short shoots lost /yr | Crown base (m), limbs on the stem | Lowest live branch (m), on the stem | Crown ratio, limbs on the stem | Crown ratio as stats.json has it | Trees with a replaced leader | Inside Repola's range | At or over Hynynen's 0.50 |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    for label in labels:
+        runs = load(label)
+        for age in AGES:
+            rows = [r for r in runs.values() if age in r["per_year"]]
+            if not rows:
+                continue
+            years = range(age - 4, age + 1)
+            b = [sum(r["shed"].get(str(y), {}).get("branches", 0) for y in years) / 5.0 for r in rows]
+            t = [sum(r["shed"].get(str(y), {}).get("twigs", 0) for y in years) / 5.0 for r in rows]
+            s = [sum(r["shed"].get(str(y), {}).get("short_shoots", 0) for y in years) / 5.0 for r in rows]
+            sn = [r["snap"][age] for r in rows]
+            cb = [x.get("crown_base_stem_m") or 0.0 for x in sn]
+            ll = [x.get("lowest_stem_branch_m") or 0.0 for x in sn]
+            cr = [x.get("crown_ratio_stem") or 0.0 for x in sn]
+            cr_stats = [r["per_year"][age].get("crown_ratio") or 0.0 for r in rows]
+            inside = sum(REPOLA_CROWN_RATIO[0] <= x <= REPOLA_CROWN_RATIO[1] for x in cr)
+            over = sum(x >= CROWN_RATIO_FLOOR for x in cr)
+            lost = sum((x.get("leader_losses") or 0) > 0 for x in sn)
+            print(f"| `{label}` | {age} | {len(rows)} | {fmt(b, '.1f')} | {fmt(t, '.0f')} | {fmt(s, '.0f')} | {fmt(cb, '.1f')} | {fmt(ll, '.1f')} | {fmt(cr)} | {fmt(cr_stats)} | {lost}/{len(rows)} | {inside}/{len(rows)} | {over}/{len(rows)} |")
+
+
+def driver(label: str) -> None:
+    print("What held the leader back. `Cap` is the curve's allowance after light. `Got` is the shoot it built. Shares are seed-years in each window where that limit was the tightest.\n")
+    print("| Ages | Seed-years | Curve's increment (m) | Light factor | Water factor | Got (m) | Nodes built | Leader's cost, % of pool | Held by curve | Held by light | Held by water | Held by carbon |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|")
+    runs = load(label)
+    for lo, hi in ((1, 5), (6, 14), (15, 19), (20, 29), (30, 39), (40, 49), (50, 60)):
+        rows = [r["new"][y]["driver"] for r in runs.values() for y in range(lo, hi + 1) if y in r["new"] and r["new"][y].get("driver")]
+        if not rows:
+            continue
+        m = lambda k: statistics.fmean(x[k] for x in rows)
+        by = {k: sum(x["held_by"] == k for x in rows) for k in ("curve", "light", "water", "carbon")}
+        print(f"| {lo}-{hi} | {len(rows)} | {m('increment_m'):.3f} | {m('light'):.3f} | {m('water'):.3f} | {m('got_m'):.3f} | {m('nodes'):.1f} | {100 * m('cost_share'):.1f} | {by['curve']} | {by['light']} | {by['water']} | {by['carbon']} |")
+
+
+def main(argv=None) -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("what", choices=("run", "one", "table", "seeds", "fall", "driver"))
+    ap.add_argument("labels", nargs="*")
+    ap.add_argument("--label")
+    ap.add_argument("--seeds", type=int, default=8)
+    ap.add_argument("--first-seed", type=int, default=1)
+    ap.add_argument("--seed", type=int)
+    ap.add_argument("--years", type=int, default=60)
+    ap.add_argument("--out")
+    ap.add_argument("--set", action="append", default=[])
+    a = ap.parse_args(argv)
+    if a.what == "one":
+        return one(a.seed, a.set, Path(a.out), a.years)
+    if a.what == "run":
+        return run(a.label, a.seeds, a.first_seed, a.set, a.years)
+    if a.what == "table":
+        table(a.labels)
+    elif a.what == "seeds":
+        seeds(a.labels[0])
+    elif a.what == "fall":
+        fall(a.labels)
+    else:
+        driver(a.labels[0])
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
