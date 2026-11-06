@@ -48,6 +48,15 @@ def paired(a: dict, b: dict, age: int, field: str) -> str:
     return f"{statistics.mean(d):+.3f} +- {statistics.stdev(d) / math.sqrt(len(d)):.3f}"
 
 
+def per_seed_k(sets: dict, age: int) -> str:
+    """Across seeds: each seed's own k, and how closely -ln(light) follows LAI (Pearson r)."""
+    lai = [at(v, age, LAI) for v in sets.values()]
+    fade = [-math.log(at(v, age, LIGHT) / 100.0) for v in sets.values()]
+    ks = [f / x for f, x in zip(fade, lai)]
+    r = statistics.correlation(lai, fade) if len(lai) > 2 else float("nan")
+    return f"{statistics.mean(ks):.3f} +- {statistics.stdev(ks):.3f} | {r:+.2f}"
+
+
 def k_row(name: str, sets: dict) -> list:
     out = []
     for age in (50, 60):
@@ -69,13 +78,28 @@ def main() -> int:
         print("\n".join(k_row(name, s)))
     print("\nAt k 0.37, 19.8 % light needs LAI " + f"{-math.log(0.198) / 0.37:.2f}.")
 
+    print("\n## Across seeds: does each seed's light follow its own LAI?\n")
+    print("| Set | Age | Seeds | Each seed's k, mean +- SD | r between LAI and -ln(light) |\n|---|---|---|---|---|")
+    for name, s in (("Trees, wood on", base), ("Trees, wood off", off), ("Trees, both", both), ("Plots, wood on", p_base), ("Plots, wood off", p_off), ("Plots, both", p_both)):
+        for age in (50, 60):
+            print(f"| {name} | {age} | {len(s)} | {per_seed_k(s, age)} |")
+
     print("\n## Paired change in k-related rows, wood off against wood on\n")
     print("| Set | Age | LAI | Light (points) |\n|---|---|---|---|")
     for name, a, b in (("Trees", base, off), ("Plots", p_base, p_off)):
         for age in (50, 60):
             print(f"| {name} | {age} | {paired(a, b, age, LAI)} | {paired(a, b, age, LIGHT)} |")
     print("\nPer plot, light at 50 and 60, wood off minus wood on: " + "; ".join(f"plot {s}: {at(p_off[s], 50, LIGHT) - at(p_base[s], 50, LIGHT):+.2f}, {at(p_off[s], 60, LIGHT) - at(p_base[s], 60, LIGHT):+.2f}" for s in sorted(p_base)))
-    print("\nPer plot, top-height proxy not shown here: `gate_nowood_plots.txt` has the row.")
+
+    print("\n## Two draws of the default and of each proposed correction (seeds 1-20, then 21-40), each paired with the default on its own seeds\n")
+    fresh_base = trees("m2_base_fresh")
+    print("| Change | Row | Age | Seeds 1-20 | Seeds 21-40 | All 40 |\n|---|---|---|---|---|---|")
+    for name, first, fresh in (("Wood off", off, trees("m2_nowood_fresh")), ("Leaf charge", trees("m2_charge"), trees("m2_charge_fresh")), ("Both", both, trees("m2_cc_fresh"))):
+        all_base, all_opt = {**base, **fresh_base}, {**first, **fresh}
+        for label, field in (("Height", HT), ("LAI", LAI), ("Light", LIGHT)):
+            for age in (50, 60):
+                print(f"| {name} | {label} | {age} | {paired(base, first, age, field)} | {paired(fresh_base, fresh, age, field)} | {paired(all_base, all_opt, age, field)} |")
+    print("\nThe default's own two draws, seeds 21-40 minus seeds 1-20, unpaired: " + "; ".join(f"{label} at {age}: {mean_at(fresh_base, age, field) - mean_at(base, age, field):+.3f}" for label, field in (("height", HT), ("LAI", LAI), ("light", LIGHT)) for age in (50, 60)) + ".")
 
     y50, a44 = trees("m2_cc_young0.50"), trees("m2_cc_a4.4")
     print("\n## Young apical 0.50 and alpha 4.4, each against both corrections (Q22)\n")
@@ -93,13 +117,16 @@ def main() -> int:
     for age in (10, 20, 30, 40, 50, 60):
         print(f"| {age} | {paired(base, charge, age, HT)} | {paired(off, both, age, HT)} | {paired(base, charge, age, LAI)} | {paired(off, both, age, LAI)} |")
 
+    off_f, both_f = trees("m2_nowood_fresh"), trees("m2_cc_fresh")
+    all_off, all_both = {**off, **off_f}, {**both, **both_f}
+    print("\nWith wood off, all 40 seeds: " + "; ".join(f"age {age}: height {paired(all_off, all_both, age, HT)}, LAI {paired(all_off, all_both, age, LAI)}" for age in (50, 60)) + ".")
+
     twin = trees("m2_diag_nowoodshade")
     print("\n## Two wood-off runs, same setting, same seeds, different commits (`f45928e`, `3f3d687`)\n")
     print("| Age | Height | LAI |\n|---|---|---|")
     for age in (30, 50, 60):
         print(f"| {age} | {paired(twin, off, age, HT)} | {paired(twin, off, age, LAI)} |")
-    equal = sum(1 for s in off if off[s] == twin[s])
-    print(f"\nSeeds equal in every per_year value: {equal} of {len(off)}.")
+    print("\n`tools/ensembles_identical.py m2_diag_nowoodshade m2_nowood` compares them field by field: `m2_twin_nowood.txt`.")
 
     ahead = trees("m2_cc_y50_ahead")
     print(f"\n## Young 0.50 with rings ahead (Q18)\n\nSeed 6 at 60: height {at(ahead[6], 60, HT):.2f} m, LAI {at(ahead[6], 60, LAI):.2f}, light {at(ahead[6], 60, LIGHT):.1f} %.")

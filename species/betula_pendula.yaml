@@ -301,7 +301,7 @@ bud_fate:
   # increment, weak tips stacked buds and short shoots at a few mm
   # (phase 26).
   axillary_buds_below_one_metamer: false
-  # Exploring only (M3a), off: Sievanen et al. 2018 Eq. 11's density term.  Its fitted values aren't
+  # VERIFY.  Exploring only (M3a), off: Sievanen et al. 2018 Eq. 11's density term.  Its fitted values aren't
   # printed.  These two bracket birch crown leaf density, shade 0.3 and sun 3.2 m2/m3, Hagemeier &
   # Leuschner 2019 Table 5, as a test, not a claim.  The 0.5 m cell stands in for their 0.5 m cone.
   density_control:
@@ -577,7 +577,7 @@ mechanics:
   max_rotation_per_step: 0.25
 
 pipe_model:
-  # Diagnosis only (M3a), no source: see treegen/growth.py, _growth_factor.
+  # VERIFY.  Diagnosis only (M3a), no source: see treegen/growth.py, _growth_factor.
   sapwood_for_next_season: false
   # r_parent^g = sum r_child^g [S64].  Measured exponents for trees lie
   # between ~2 and 3; the brief asked for ~2.5. VERIFY

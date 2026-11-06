@@ -80,14 +80,16 @@ def run(label: str, seeds: int, sets: list) -> int:
 
 
 def table(labels: list) -> None:
-    print("Wood only for the model; Repola's branches include bark. Means over seeds, at the model's own diameter and height.\n")
+    from bark import dbh_over_bark
+
+    print("Wood only for the model; Repola's branches include bark. Means over seeds. Repola is at the model's own height and its diameter over bark (tools/bark.py); the diameter shown is wood only.\n")
     print("| Ensemble | Age | Stem diameter (cm) | Height (m) | Stem wood (kg) | Repola stem wood at that size (kg) | Branch wood (kg) | Repola branches (kg) | Leaves (kg) | Stem share of above-ground, % |")
     print("|---|---|---|---|---|---|---|---|---|---|")
     for label in labels:
         rows = [json.loads(f.read_text(encoding="utf-8")) for f in sorted((OUT / label).glob("*.json"))]
         for i, age in enumerate(AGES):
             at = [r[i] for r in rows]
-            rep = [repola(r["dbh_cm"], r["height_m"]) for r in at]
+            rep = [repola(float(dbh_over_bark(r["dbh_cm"])), r["height_m"]) for r in at]
             shares = [100.0 * r["stem_kg"] / (r["stem_kg"] + r["branch_kg"] + r["leaf_kg"]) for r in at]
             m = lambda k: statistics.fmean(r[k] for r in at)
             print(f"| `{label}` | {age} | {m('dbh_cm'):.1f} | {m('height_m'):.1f} | {m('stem_kg'):.0f} | {statistics.fmean(x[0] for x in rep):.0f} | {m('branch_kg'):.1f} | {statistics.fmean(x[1] for x in rep):.1f} | {m('leaf_kg'):.1f} | {statistics.fmean(shares):.1f} |")

@@ -19,13 +19,12 @@
 
 stand_canopy:
   lai_baltic_chronosequence:
-    # VERIFY: Uri 2012 and Varik 2015 are unopened in this campaign (QUESTIONS.md Q15); the band and pages below
-    # come from earlier phases and aren't rechecked against the papers.
+    # VERIFY: where 2.5-4.5 comes from isn't settled (QUESTIONS.md Q15). Uri 2012, read as reprinted in Varik's thesis (Estonian University of Life Sciences), prints no LAI: Table 1 (p. 119) is stand data, Table 4 (p. 121) gives leaf mass. Varik 2015, read as the submitted manuscript in that thesis, prints none either.
     target_range: [2.5, 4.5]
     source: "Uri et al. (2012); Varik et al. (2015)"
     doi: "10.1016/j.foreco.2011.11.033"
     citation: "Uri, V., et al. (2012). Biomass production and carbon sequestration in a fertile silver birch (Betula pendula Roth) forest chronosequence. Forest Ecology and Management 267:117-126."
-    page_table: "Table 1 (p. 119) & Table 4 (p. 122)"
+    page_table: "Table 1 (p. 119) & Table 4 (p. 121)"
     measures: "Leaf area index (LAI, m2 m-2) of monospecific silver birch stands on fertile abandoned agricultural land in Estonia across an age chronosequence (ages 6 to 60)."
     conditions:
       scenario: [plot]
@@ -147,7 +146,7 @@ tree_allometry:
       source: "Elfving (2010), Appendix 7, p. 56: 'For other broad-leaves (birch, aspen etc.) the following relation is applied: T13 = 150/SIS'. SIS is 'site index according to site factors, given as top height at age 100, m' (p. 55)."
       numerator: 150
       sis_total_age_years: 100
-      sis_reading: "Elfving sets SIS from site factors for a site-indicative species (pp. 20, 38) and prints no conversion from birch site index (height at breast-height age 50) to SIS; pp. 9-10, on functions for mean height development in young stands (Section 2.2), put birch on the H100 pine scale ('Pend. birch: Pub. birch function with SI = H100pine + 1.5'). Here SIS is this curve's own top height at total age 100, solved together with T13: SI20 25.08 m, 5.98 yr; SI26 29.93 m, 5.01 yr. VERIFY"
+      sis_reading: "Elfving sets SIS from site factors for a site-indicative species (pp. 20, 38) and prints no conversion from birch site index (height at breast-height age 50) to SIS; p. 9 (Section 2.2, functions for mean height development in young stands) puts birch on the H100 pine scale ('Pend. birch: Pub. birch function with SI = H100pine + 1.5'), and p. 10 (Section 2.3, functions for age determination of young trees) gives 'H100pine for pine and birch'. Here SIS is this curve's own top height at total age 100, solved together with T13: SI20 25.08 m, 5.98 yr; SI26 29.93 m, 5.01 yr. VERIFY"
     swedish_boreal_range_m: [20.0, 26.0] # SI20 to SI26
     height_measure: "dominant height"
     # height_curve_at_100_thickest_per_ha | 100_thickest_per_ha | 100_tallest_per_ha | unconfirmed.

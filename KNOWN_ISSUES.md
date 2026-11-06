@@ -2136,7 +2136,10 @@ Crossref shows `10.1139/b65-035` is Loman 1965 on basidiomycetes and `10.1139/b6
 
 - **Fresh laterals' leaves aren't charged.** `_leaf_costs` waives next spring's clusters on fresh side buds (`treegen/growth.py:1325`), saying they were built with the shoot, but `_growth_factor` charges only one late leaf per node and the tip's cluster (`:1606-1608`). `resource.leaf_costs.charge_fresh_laterals` charges them; it's off by default. Q23.
 - **`0386ce7` is output-only with wood shade on, not off.** Every golden run is identical. Two wood-off ensembles at `f45928e` and `3f3d687`, same seeds, differ on all 20 seeds from about year 6-7; `0386ce7` lengthens the grid when wood is off, and it's the likely cause (inference). `out/bench/ensemble/m2_linked.txt`.
-- **The model's k with no wood sits below its input.** Implied k is about 0.345 at 50-60 from an input of 0.37, on trees and plots; with wood on, 0.39-0.40. Neither is the paper's 0.37. The offset matches the 2 points in the phase 17-20 table above. Q21.
-- **Plots barely thin.** About 1,650 stems/ha at 60 at alpha 4.8, and basal area 51-56 m2/ha, against Repola Table 1's top of 32.3. M4. `out/bench/ensemble/m2_validation.txt`.
+- **The model's k with no wood sits below its input.** Implied k is about 0.345 at 50-60 from an input of 0.37, on trees and plots; with wood on, 0.39-0.40. Neither is the paper's 0.37. The offset is about the 2 points in the phase 17-20 table above. Q21.
+- **Plots barely thin.** About 1,480-1,660 stems/ha at 60 at alpha 4.8, and basal area over bark 62-67 m2/ha, against Repola Table 1's top of 32.3. M4. `out/bench/ensemble/m2_validation.txt`.
 - **`tools/plots_identical.py` walks the first folder's plots:** give a partial control first, or it reports the others missing.
-- **Height responds to crowding:** at the same alpha, plots' top height runs 3.3-6.5 m over stand trees' height at 60, measured a little differently. Trees and plots then want different alphas (rows 76, 75). M3, M4.
+- **Plots' thickest trees run taller than a stand tree at the same alpha.** At 60, the thickest 100 per hectare are 2.1-6.8 m over; the average plot tree is +0.96, -2.15, -4.54 m at alpha 3.0, 3.5, 4.8. So trees and plots want different alphas (row 76). Why isn't established: it may be selection, or crowding. M4.
+- **`base_trees` is a low draw for LAI:** 3.09, 3.27 at 50, 60, against 3.36, 3.46 on seeds 21-40. Its verdicts stand, but every row paired with it inherits that (row 77).
+- **The Baltic LAI band's papers print no LAI** (Q26).
+- **`tools/m3_wood.py` and `tools/m2_validation.py` used wood-only diameters against over-bark sources until `tools/bark.py` went in** (row 80).
