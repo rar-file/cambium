@@ -33,7 +33,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 from batch import Job, run_batch  # noqa: E402
 
 BASE = ROOT / "out" / "bench" / "ensemble"
-TREE_PEAK_GB, PLOT_PEAK_GB = 0.6, 6.0
+TREE_PEAK_GB, PLOT_PEAK_GB = 0.6, 7.0   # plots: 6.1-6.7 GB measured with no save files, 100 trees to 60
 MEDIAN_METRICS = ("height_m", "dbh_cm", "lai", "crown_ratio")
 
 

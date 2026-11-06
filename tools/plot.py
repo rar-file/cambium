@@ -82,7 +82,7 @@ def main(argv=None):
         print(f"plot {plot.L:.1f} m square, {len(plot.trees)} trees at start, {plot.mode}"
               f"{', regeneration' if args.regeneration else ''}", flush=True)
     meta_base = {"species": sp.species.scientific_name, "environment": args.environment, "mode": f"plot ({plot.mode})",
-                 "plot_seed": args.seed}
+                 "plot_seed": plot.seed}
     manifest, options = run_manifest(args.species, args.environment, sp)
     # --set overrides change the parameters used without changing the file;
     # a resumed run reports the files as they are now, not as at its start
