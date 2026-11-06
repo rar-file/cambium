@@ -149,3 +149,22 @@ On the maintainer's decision of 2026-11-06, the JSTOR scan of Borchert & Honda 1
 - **Is the divergence the see-saw? Mostly not.** About a third of the leaf-area divergence is fast (median 33 %, 11-82 %), and a 4-year mean barely narrows the spread: leaf area at 30, 9.06 to 8.25; at 60, 3.76 to 3.67; height at 60, 2.22 to 2.25.
 - **So:** averaging over years won't remove the noise; averaging over seeds has to.
 - **For M3, seen in the default's yearly table:** whole-tree on-off years. Shoot length made is 0.0 m in years 10 and 19 and 133.9 m in year 24. Leaf area falls from 28.1 to 14.6 m2 between years 18 and 19. Height increment switches between exactly 1.17 m and 0.00 m. The example tree's render looks the same way: a pole with separate tufts (`reports/renders/M1_example_seed5.png`).
+
+## The six top-ranked values nobody had checked (M1, 2026-11-06)
+
+Ranks from the node's 5-seed screen (`out/bench/node/screen5/ranking.csv`). Checked by a research subagent; rows in `reports/parameter_checks.csv`. Not changed in M1; inputs to M2 and M3, like the 11 above. Abstract-level findings could change with the full text.
+
+| Rank | Value | Supported? | What the sources say |
+|---|---|---|---|
+| 2 | `hydraulics.conductivity_exponent` 0.7 | No | Conduits widen towards the base, in abstracts of Anfodillo 2006 and Olson 2014. No exponent, and they go by path length, the model by radius |
+| 7 | `hydraulics.conductivity_reference_radius` 0.02 | No | No page gives a reference radius or a cap at 2 cm |
+| 4 | `light.foliage_weight.early_leaves` 2.5 | Partly | Long shoots two early leaves (Kull 2003, B. pendula, Methods; Caesar 1983, B. papyrifera); 2-3 fits short shoots. No mean of 2.5. Clausen & Kozlowski 1965, the one cited, wasn't opened |
+| 9 | `resource.reiteration.min_light` 0.8 | No | The comment itself says no published threshold was found |
+| 12 | `resource.root_share_max` 0.6 | No | Direction only, in crops (Brouwer 1963). 0.6 is above the comment's own 25-40 %; Aosaar 2016 Table 4 gives 17.8 % below ground for a 10-year-old birch stand, by arithmetic on 2.32 of 13.02 Mg/ha/yr |
+| 13 | `pipe_model.wood_volume_per_carbon` 1.2e-06 | No source exists | A unit size: 0.305 g C per unit by arithmetic on wood density 530 kg/m3 and carbon 0.48. The "calibrated" label overstates it: the calibration predates git, was made in rings mode, and can't be reproduced |
+
+**For M2:** alpha's derivation passes through that 0.305 g C per unit, so alpha inherits this choice, and the screen's ranking may partly reflect that coupling (inferred).
+
+**Citation corrections:** Anfodillo 2006 is New Phytol. 169:279, not Tree Physiol. 26:1415 (corrected in the species file's comment). Two Clausen & Kozlowski DOIs in `KNOWN_ISSUES.md` were wrong; only 10.1038/2051030a0 is right (Crossref).
+
+**How they were read:** some through the fetch tool's summary (Kull, Barthelemy & Caraglio, Thornley's page), so recheck those wordings before citing them. PubMed abstracts and PMC XML through NCBI's documented E-utilities, and DOI metadata through Crossref's API, after the PubMed page returned a cookie notice: public, documented routes with default headers, the same content as PubMed and PMC. When a redirect to Nature or Springer was refused as a bot check, the subagent stopped and didn't retry. **Not opened,** and they'd settle these: Lintunen & Kalliokoski 2010, Sellin et al. 2008, Clausen & Kozlowski 1965, Aspelmeier & Leuschner 2006.

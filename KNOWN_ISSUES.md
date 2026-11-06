@@ -2126,3 +2126,7 @@ The Birch v1 campaign replaces round-by-round briefs; `CAMPAIGN.md` is where to 
 - **Run outputs:** `subcanopy_diffuse_light_pct` per year; manifests fingerprint uncommitted code. The scorecard reads the diffuse value per year; old runs stay NOT APPLICABLE.
 - **Audit:** `reports/parameter_audit.csv`, 274 values, 65 checked against sources, 11 not supported by the page. Findings for later milestones: `reports/research_notes.md`.
 - **Open:** `light.woody_shade` may double-count wood against `light.extinction_coefficient`. Not settled: Hagemeier & Leuschner 2019, Forests 10:925, couldn't be opened.
+
+## Campaign M1: citations corrected, 2026-11-06
+
+Crossref shows `10.1139/b65-035` is Loman 1965 on basidiomycetes and `10.1139/b66-096` is Edwardson 1966 on plant viruses, so the Clausen & Kozlowski DOIs marked "Yes" above are wrong. The right one is `10.1038/2051030a0`. Anfodillo 2006 is New Phytol. 169:279, not Tree Physiol. 26:1415.

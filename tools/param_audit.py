@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SPECIES = ROOT / "species" / "betula_pendula.yaml"
 CHECKS = ROOT / "reports" / "parameter_checks.csv"
 OUT = ROOT / "reports" / "parameter_audit.csv"
-SCREEN = ROOT / "out" / "bench" / "m1" / "screen" / "ranking.csv"
+SCREEN = ROOT / "out" / "bench" / "node" / "screen5" / "ranking.csv"   # 5 seeds per value, on the node; the top 15 at 20 seeds override it from screen20
 
 KEY = re.compile(r"^(\s*)([A-Za-z_]\w*):(?:\s+(.*))?$")
 CITE = re.compile(r"\[[A-Z]+\d*\]|\b(?:19|20)\d\d\b|doi|PMC\d+", re.I)

@@ -954,7 +954,7 @@ hydraulics:
   # shoots and fall towards the stem.
   huber_value: 1.24e-4
   # Vessels widen from twig tips towards the stem base (Anfodillo et al.
-  # 2006, Tree Physiol. 26:1415; Olson et al. 2014, Ecol. Lett. 17:988), and
+  # 2006, New Phytol. 169:279; Olson et al. 2014, Ecol. Lett. 17:988), and
   # conductivity goes with vessel diameter squared, so thin wood conducts
   # worse: k_s(r) = xylem_conductivity * min(1, (r / reference)^exponent).
   # This is what makes long runs of thin branches expensive. VERIFY
