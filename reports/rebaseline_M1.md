@@ -1,6 +1,6 @@
 # One-off ensemble re-baseline (DECISIONS.md rows 28, 39)
 
-**Provisional.** Targets at master are a preview until checker A confirms the edits and the tag moves. From then on, no-PASS-to-FAIL applies against the verdicts in the last column.
+**In force.** Checker A confirmed the target edits and the tag moved (DECISIONS.md row 50). No-PASS-to-FAIL applies against the verdicts in the last column. "The tag" in the tables below is the previous tag, `41d18c1`, and "master" the tag as moved.
 
 - **Machine:** the node, kernel `neoversen1`, one maths thread.
 - **Code:** `68782d9`. The manifests' commit is null, because the node had no git; 24 of 24 Python files were checked against that commit (DECISIONS.md row 35).

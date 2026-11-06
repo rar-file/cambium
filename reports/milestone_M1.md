@@ -4,18 +4,18 @@ Protocol hash at the start of the campaign: `0e58497`. Date: 2026-11-06. Machine
 
 ## 1. Summary
 - Alpha 4.8 is traceable, but it's a one-point model calibration, not a published value. It carries VERIFY.
-- Verdicts now come from 20 trees and 5 plots, at a preview of the targets. A stand tree is 0.16-0.34 m over the height band at 50 and 60, with too few leaves and too much light (7.7-10.3 points over the light band). On plots, top height on Elfving's curve is 3.8-3.9 m over, or 2.7-2.8 m by those trees' own mean height; the plots' mean tree is inside the band; LAI passes; light fails, 2.5 points over.
-- The height band and plot top height use Elfving's definitions, with two stand-ins: the site index, and a Naslund curve. At the approved tag the stand tree's height passes at 40 and 50, by 0.003 m and 0.03 m.
+- Verdicts now come from 20 trees and 5 plots, on the targets as approved at the end of M1. A stand tree is 0.16-0.34 m over the height band at 50 and 60, with too few leaves and too much light (7.7-10.3 points over the light band). On plots, top height on Elfving's curve is 3.8-3.9 m over, or 2.7-2.8 m by those trees' own mean height; the plots' mean tree is inside the band, though the target measures dominant height, not the mean tree; LAI passes; light fails, 2.5 points over.
+- The height band and plot top height use Elfving's definitions, with two stand-ins: the site index, and a Naslund curve. At the previous tag the stand tree's height passed at 40 and 50, by 0.003 m and 0.03 m.
 - Of the 15 values ranked highest by effect over noise, the page gives the number on 5, one of those read only through a summarising fetch. Nothing was changed: they're inputs to M2 and M3.
 - No model calculation changed in M1. The 225 files of the four golden runs stayed identical through every model-touching P0 merge.
 
 ## 2. Scorecard
 
-From `tools/scorecard.py --ensemble`, unchanged. Both target sets, because the target edits aren't approved until checker A confirms them. Side by side, with the changes spelled out: `reports/rebaseline_M1.md`. Notes in an ensemble row are the first seed's, except the distance from the light median.
+From `tools/scorecard.py --ensemble`, unchanged, at the tag as moved at the end of M1 and at the previous tag. Side by side, with the changes spelled out: `reports/rebaseline_M1.md`. Notes in an ensemble row are the first seed's, except the distance from the light median.
 
-**Stand trees, 20 seeds, node, targets at master (preview):**
+**Stand trees, 20 seeds, node, at the approved tag:**
 
-Targets: reference/targets.yaml at master (commit 881b5c0). NOT the approved tag targets-approved (commit 41d18c1): results are a preview, not approved. Ensemble: out/bench/ensemble/base_trees, 20 runs.
+Targets: reference/targets.yaml at targets-approved (commit 3c6bde7). Ensemble: out/bench/ensemble/base_trees, 20 runs.
 
 | Target | Ensemble mean | SD | Seeds | Target Range / Value | Status | Share of seeds inside | Source | Notes |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|---|
@@ -75,9 +75,9 @@ Targets: reference/targets.yaml at master (commit 881b5c0). NOT the approved tag
 The verdict is the ensemble mean against the band. The band shown is the first seed's where it depends on the seed.
 INFO: information only (scoring: info in targets.yaml), never PASS/FAIL.
 
-**Plots, 5 seeds, node, targets at master (preview):**
+**Plots, 5 seeds, node, at the approved tag:**
 
-Targets: reference/targets.yaml at master (commit 881b5c0). NOT the approved tag targets-approved (commit 41d18c1): results are a preview, not approved. Ensemble: out/bench/ensemble/base_plots, 5 runs.
+Targets: reference/targets.yaml at targets-approved (commit 3c6bde7). Ensemble: out/bench/ensemble/base_plots, 5 runs.
 
 | Target | Ensemble mean | SD | Seeds | Target Range / Value | Status | Share of seeds inside | Source | Notes |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|---|
@@ -137,9 +137,9 @@ Targets: reference/targets.yaml at master (commit 881b5c0). NOT the approved tag
 The verdict is the ensemble mean against the band. The band shown is the first seed's where it depends on the seed.
 INFO: information only (scoring: info in targets.yaml), never PASS/FAIL.
 
-**Stand trees, targets at the approved tag:**
+**Stand trees, at the previous tag, `41d18c1`:**
 
-Targets: reference/targets.yaml at targets-approved (commit 41d18c1). Ensemble: out/bench/ensemble/base_trees, 20 runs.
+Targets: reference/targets.yaml at 41d18c1 (commit 41d18c1). NOT the approved tag targets-approved (commit 3c6bde7): results are a preview, not approved. Ensemble: out/bench/ensemble/base_trees, 20 runs.
 
 | Target | Ensemble mean | SD | Seeds | Target Range / Value | Status | Share of seeds inside | Source | Notes |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|---|
@@ -199,9 +199,9 @@ Targets: reference/targets.yaml at targets-approved (commit 41d18c1). Ensemble: 
 The verdict is the ensemble mean against the band. The band shown is the first seed's where it depends on the seed.
 INFO: information only (scoring: info in targets.yaml), never PASS/FAIL.
 
-**Plots, targets at the approved tag:**
+**Plots, at the previous tag, `41d18c1`:**
 
-Targets: reference/targets.yaml at targets-approved (commit 41d18c1). Ensemble: out/bench/ensemble/base_plots, 5 runs.
+Targets: reference/targets.yaml at 41d18c1 (commit 41d18c1). NOT the approved tag targets-approved (commit 3c6bde7): results are a preview, not approved. Ensemble: out/bench/ensemble/base_plots, 5 runs.
 
 | Target | Ensemble mean | SD | Seeds | Target Range / Value | Status | Share of seeds inside | Source | Notes |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|---|
@@ -492,13 +492,13 @@ No option was adopted, and nothing went through the adoption gate. **No model ca
 
 Also changed in a fixed folder: `tests/test_scorecard_targets.py`. The existing height-band test now reads T13 from the rule instead of a fixed 56 years of breast-height age, as it must once the target changes (DECISIONS.md row 22, provided checker C confirms it's no looser: same PASS and FAIL checks at the same margin). **Tests:** checker C first ruled that edit not yet no looser, because the literal it replaced had pinned the years to breast height. Added `test_height_band_at_60_is_pinned`, with both edges: a changed T13 now fails it (`out/bench/m1/test_edit_mutation.txt`). None that existed at `campaign-start` was removed. **Of those added in the campaign, I rewrote `tests/test_gate.py`:** one test replaced to follow the maintainer's Q8, and one deleted, whose INFO half I've restored; QUESTIONS.md Q12.
 
-## 5. Proposed targets: changes under pre-approval (a) or the maintainer's answer (not in use until checker A confirms and the tag moves)
+## 5. Proposed targets: changes under pre-approval (a) or the maintainer's answer, now in use
 
 | Target | Before | After |
 |---|---|---|
 | `site_index_curves` | fixed 4 years to breast height | T13 = 150/SIS (Elfving p. 56), per site index. Band in M1b |
 | `site_index_curves.dominant_height_definition` | unconfirmed | `height_curve_at_100_thickest_per_ha` (Elfving p. 58; the maintainer, Q7) |
-| `site_index_curves.page_table`, `parameters`, `parameters_source`, `age_definition` | Eriksson's own parameter and age wording | Elfving 2010, Appendix 9, Table 1, p. 58: asi 7, beta 394, b2 -1.3870; height above breast height on breast-height age |
+| `site_index_curves.page_table`, `parameters_source`, `age_definition` | "Model values from the R package forester... not yet checked against the paper's table". `parameters` didn't change | Elfving 2010, Appendix 9, Table 1, p. 58: asi 7, beta 394, b2 -1.3870; height above breast height on breast-height age |
 | `sis_reading` | not there | The stand-in, with Elfving pp. 9-10 cited |
 | `foliage_clumping_index` comment | "Omega" | Results text 0.41, Table 5 0.42 |
 | `subcanopy_light_transmittance.conditions.text` | "mature closed canopy (age 45-65). Values above 20% indicate insufficient...; 21-29% in unclosed stands is excessive light penetration." | "mature stands with a closed canopy (canopy closure > 0.9, Forests 10:265 p. 3), aged 45 and 67". The removed sentence had no source |
@@ -506,7 +506,7 @@ Also changed in a fixed folder: `tests/test_scorecard_targets.py`. The existing 
 | `foliage_biomass.models.eq_a6` | var=0.063 | residual 0.044, between-stand 0.0108, Table A1. Not scored |
 | `managed_stand_empirical` text; `foliage_biomass` text | "24 managed stands on mineral soil" | "24 stands", unthinned and heavily thinned included (p. 608), three on peatlands (p. 607). The `mode: [managed]` label stays: QUESTIONS.md Q13 |
 | `managed_stand_empirical` comment | "no stand age given" | stand age 11-97 years (Table 1) |
-| `dense_unmanaged_stand.citation`, `measures` | a shortened title; "In Repola (2008) suppressed trees in denser stands reached a lower bound of 0.29. Reconciled: ..." | the paper's full title (Crossref); 0.29 is the minimum across all sample trees; Niemistö unopened |
+| `dense_unmanaged_stand.citation`, `measures` | a shortened title; "In Repola (2008) suppressed trees in denser stands reached a lower bound of 0.29. Reconciled: ..." | the title from Crossref, shortened by leaving off "(Betula pendula)"; 0.29 is the minimum across all sample trees; Niemistö unopened |
 | `lai_baltic_chronosequence.source` | names Aosaar 2016 | removed: no LAI or leaf area in it |
 | `subcanopy_light_transmittance.page_table` | "Table 5 (p. 14) & Section 3" | Results 3.2 and Figure 5; Table 5; Methods 2.3; no page numbers in the publisher's HTML |
 | `subcanopy_light_transmittance.measures` | "at 1.0-2.0 m height" | sensor on a 2 m pole, height above the ground not stated; the source's sentence quoted |
@@ -528,11 +528,11 @@ Three fresh checkers ran once, at the end of M1, as the maintainer asked. Full r
 
 | Checker | What it caught | What I did | Unresolved |
 |---|---|---|---|
-| A, sources and targets | Elfving's five quotes verbatim, and the band recomputes. An unsourced sentence and a change note left in the light target, a wrong variance (`var=0.063`), wording Repola doesn't support, Aosaar named for LAI, missing records. **The Niemistö file in birch-data is a paper on Eucalyptus.** Stem densities unlike the sources' | Corrected the text; added the records | Q13, Q14, Q15 |
+| A, sources and targets | Elfving's five quotes verbatim, and the band recomputes. No band changed, and no verdict moved, by its corrections. An unsourced sentence and a change note left in the light target, a wrong variance (`var=0.063`), wording Repola doesn't support, Aosaar named for LAI, missing records. **The Niemistö file in birch-data is a paper on Eucalyptus.** Stem densities unlike the sources' | Corrected the text; added the records | Q13, Q14, Q15 |
 | B, numbers | All scorecards and counts reproduce. Two rounded distances; "rank 8 of 160"; summary wording that went further than the numbers; a stale rescore; alpha's origin not reproduced; an unapproved scorecard footer | Corrected; `tools/m1_figures.py` saves the worked figures; reverted the footer | Alpha's origin stays unreproduced, and is said so |
 | C, rules | The test edit wasn't no looser; a test deleted; "Not done" missing from M1c; five stale line references; rows missing; `f45928e` and `eb9c984` unapproved | Added the pin and restored the test; corrected the rest | Q12 |
 
-**The tag moves after checker A's recheck,** with its own row in DECISIONS.md.
+**Checker A rechecked and allowed the tag to move** (`reports/reviews/2026-11-06_M1_checker_A_recheck.md`), with one limit: the light target is checked against the maintainer's reading, not the paper, because the publisher returned HTTP 403. Moved, DECISIONS.md row 50. Checker C reruled the test edit no looser, with the pin (`2026-11-06_M1_checker_C_rerun.md`).
 
 ## 7. Corrections to earlier reports
 - **Distance rule, my error (KNOWN_ISSUES.md:177, :297; species comment).** I credited its pattern to Mencuccini et al. 2019. The paper says the Huber value stays about constant from twig to trunk. Corrected. It isn't active at the default stage.
