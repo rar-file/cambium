@@ -695,9 +695,10 @@ pipe_model:
   # 2015), crown streamlining C = 1.9627 and N = 0.881 clamped to 10-20 m/s
   # (Mayhead 1973, Agric. Meteorol. 12:123, DOI 10.1016/0002-1571(73)90013-7;
   # Vollsinger et al. 2005, Can. J. For. Res. 35:1238, DOI 10.1139/x05-051),
-  # air density 1.22 kg m-3, deflection loading factor 1.136 (Hale et al. 2015,
-  # Eqs. 11-12, p. 32, for its turning-moment equations; this comment used to
-  # credit Gardiner et al. 2000).  These are ForestGALES (fgr) model values.
+  # air density 1.22 kg m-3, deflection loading factor 1.136 (credited to Hale et
+  # al. 2015 in the fgr vignette Deflection_Loading_Factor; Hale itself not read;
+  # this comment used to credit Gardiner et al. 2000).  These are ForestGALES
+  # (fgr) model values.
   # Target stress = wood_mor_green_mpa * knot_factor / safety_factor.
   # safety_factor 3.5 -> 18.0 MPa (from Univ. Tokyo branch study above; note
   # Niklas & Spatz 2000, Trees 14:230, DOI 10.1007/s004680050008 argue against

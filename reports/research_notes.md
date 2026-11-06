@@ -34,9 +34,9 @@ What research subagents read and reported during M1, kept so later milestones do
 - **Krisans et al. 2022:** no tree table; data "available on request ... not publicly available". Fig. 2A plots individual points (could be digitised). Table 3: BBM_SF -18.7, Vstem 70.76, species -8.29, interaction 50.51, so a birch slope near 121 kN m per m3 (inference, aspen as reference). Trees about 87 years, de-topped before pulling.
 
 ## Access limits met
-Publisher pages return HTTP 403 to automated fetches, and the permission system refused attempts on archive copies, so subagents stopped there. These stayed at abstract level or below and need a copy from the maintainer or a library:
-- Hagemeier & Leuschner 2019, Forests 10:925 (decides the double count and the light target; open access, https://www.mdpi.com/1999-4907/10/10/925)
+Publisher pages return HTTP 403 to automated fetches. Copies elsewhere aren't allowed (rule above). These stayed at abstract level or below and need a copy from the maintainer or a library:
+- Hagemeier & Leuschner 2019, Forests 10:925 (decides the double count and the light target; open access; the maintainer is saving it to `birch-data\`)
 - Ilomaki et al. 2003; Waring et al. 1998; DeLucia et al. 2007; Ryan 1991; Oleksyn et al. 2000; Ryan et al. 1997; Ostonen et al. 2007 (both); Perttunen et al. 1996; Uri et al. 2007; Granier et al. 2000; Barclay et al. 2000; Duursma & Makela 2007; Chen et al. 1997; Miyazawa & Kikuzawa 2004; Brown et al. 1967; Wilson 2000; Macdonald et al. 1984.
 
-## A provenance flag
-A subagent read keyword excerpts of Borchert & Honda 1984 from a JSTOR scan on a third-party university site, fetched before the block above: `<scratchpad>\research_crown\bh84\bh84.pdf`, outside the repo. The publisher copy is paywalled. Nothing here relies on it beyond one audit row saying the paper concerns Tabebuia. Whether to keep it is the maintainer's call.
+## Third-party copies
+On the maintainer's decision of 2026-11-06, the JSTOR scan of Borchert & Honda 1984 and the web-archive copies (Hale et al. 2015, a Tokyo thesis abstract, three MDPI pages) were deleted, and rows that relied on them are marked unread in `reports/parameter_audit.csv`. Rule in `CAMPAIGN.md`: no papers from third-party copies (university scans, web archives, mirrors).

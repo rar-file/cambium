@@ -27,7 +27,7 @@ from types import SimpleNamespace
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-FLOOR_GB = 8.0      # PROTOCOL.md section 6
+FLOOR_GB = 4.0      # PROTOCOL.md section 6
 RUN_PEAK_GB = 0.65  # seed-1 stand tree, no meshes (out/bench/p40_default_v3: 584 MB)
 AGES = (30, 50, 60)
 METRICS = ("height_m", "dbh_cm", "leaf_area_m2", "fixed")
