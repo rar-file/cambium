@@ -10,6 +10,12 @@ Every source below is a research subagent's reading (`reports/research_notes.md`
 
 **The CROBAS fertility mechanism fits a value the model already has.** Minunno et al. 2019 Eq. A10 (W_R = a_Rs W_F) sets fine-root mass from foliage mass by site type. The model already has that ratio: `resource.leaf_costs.fine_root_to_leaf_mass`, 0.48 (and `roots.fine_root_uptake.fine_root_per_leaf_mass`, 0.46, for uptake). So a fertility option may need no new carbon pool, only that ratio as a function of site index. Whether that keeps the Eriksson curve's shape is the subagent's inference, not a source's claim, and is the first thing to test. Not calculated yet.
 
+**Height and leaf area are fitted together, never height alone (the maintainer, 2026-11-06).** The trees are too tall, mostly when young, and have too few leaves. Lowering alpha would likely fix height but worsen leaf area. So:
+
+- Every fit scores height and leaf area at once, and no candidate is chosen on height alone.
+- If no alpha fits both, M2 reports that the problem is how carbon is shared out, which is M3's work, and doesn't force the fit.
+- Light isn't counted as a third failure. It follows leaf area (`tools/light_lai_link.py`), so the two are reported as linked.
+
 ## 2. What gets calibrated
 
 | Parameter | Why | Bounds | Status |
@@ -41,7 +47,7 @@ Values on the audit's unsupported list that may turn out influential: `maintenan
 2. **Sample:** a Latin hypercube over the parameters in section 2, inside their bounds, with a fixed, recorded seed. Size: not set, it depends on how many parameters survive.
 3. **Successive halving:** every candidate to 15; those whose seed average isn't clearly failing continue to 30; then to 60.
 4. **Continue, don't restart:** a survivor resumes from its saved state at 15 or 30 (P0 A4), only once the hash proof has passed. Lean mode, the result cache and parallel light runs apply throughout.
-5. **Finalists:** rerun at 20 seeds on the same machine as the rest of M2 (the node), paired with the baseline; an effect only counts above 2 standard errors.
+5. **Finalists:** rerun at 20 seeds on the same machine as the rest of M2 (the node), paired with the baseline; an effect only counts above 2 standard errors. Judge them with the gate in PROTOCOL.md section 9 (`paired.band_move`): no target further from its band by more than 2 standard errors, and at least one closer.
 6. **Label** the result "calibrated" in the species file, with the fit and the validation.
 
 ## 5. The cut rule

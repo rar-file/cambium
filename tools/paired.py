@@ -44,6 +44,28 @@ def paired_difference(base: list, option: list) -> dict | None:
             "counts": abs(mean) > 2.0 * se}
 
 
+def band_distance(x: float, lo: float, hi: float) -> float:
+    """How far a value is outside its band; 0 inside it."""
+    return max(lo - x, 0.0, x - hi)
+
+
+def band_move(base: list, option: list, lo: float, hi: float) -> dict | None:
+    """The adoption gate's question (PROTOCOL.md section 9): did the ensemble mean move
+    towards its band or away from it, by more than 2 standard errors of the paired difference?
+    A verdict is the ensemble mean against the band, so that's what's measured, not each seed.
+    "closer" and "further" mean the distance changed and the effect counts; moves that stay
+    inside the band change no distance and are "no change"."""
+    r = paired_difference(base, option)
+    if r is None:
+        return None
+    d_base = band_distance(statistics.fmean(base), lo, hi)
+    d_option = band_distance(statistics.fmean(option), lo, hi)
+    moved = "no change"
+    if r["counts"] and d_option != d_base:
+        moved = "closer" if d_option < d_base else "further"
+    return {**r, "lo": lo, "hi": hi, "distance_base": d_base, "distance_option": d_option, "moved": moved}
+
+
 def compare(base: dict, option: dict, ages=AGES, metrics=METRICS) -> list:
     seeds = sorted(set(base) & set(option))
     rows = []
