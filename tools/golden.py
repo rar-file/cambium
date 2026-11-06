@@ -46,6 +46,7 @@ RUNS = {
 }
 
 METADATA_KEYS = {"run_manifest", "timings", "peak_memory", "peak_mb", "runtime_s", "files_mb"}
+# (saved states are left out of the hash too: they're a way of running, not output)
 SKIP_NAMES = {"manifest.json", "checkpoint.pkl", "checkpoint.pkl.tmp", "hashes.json"}
 SKIP_SUFFIXES = {".log", ".png", ".tmp"}
 SKIP_DIRS = {"history", "previews", "__pycache__"}
@@ -102,7 +103,7 @@ def hash_tree(folder: Path) -> dict:
         if not path.is_file() or path.name in SKIP_NAMES or path.suffix.lower() in SKIP_SUFFIXES:
             continue
         rel = path.relative_to(folder)
-        if SKIP_DIRS & set(rel.parts):
+        if SKIP_DIRS & set(rel.parts) or any(part.startswith("state_") or part == "states" for part in rel.parts):
             continue
         out[rel.as_posix()] = hash_file(path)
     return out

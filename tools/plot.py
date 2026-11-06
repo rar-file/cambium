@@ -5,6 +5,8 @@ export every tree as it finishes (removed, dead, or alive at the end).
     python tools/plot.py --out out/plot_1 --resume          # continue from the last checkpoint
     python tools/plot.py --start-trees 25 --mode natural --years 20    # 25 trees at the start
     python tools/plot.py --trees 2 --dense-start 10000 --mode natural --years 10    # dense regeneration
+    python tools/plot.py --out out/a --save-at 30 --mode natural --years 60            # keep the state at 30
+    python tools/plot.py --branch-from out/a/state_030 --out out/b --mode managed      # another scenario from there
 
 Every --checkpoint-every years each tree's history goes to disk, the plot is
 pickled to <out>/checkpoint.pkl and <out>/plot.json is rewritten, so memory
@@ -14,13 +16,14 @@ trees alive at the end also get meshes (unless --no-mesh).
 """
 import argparse
 import json
+import shutil
 import sys
 import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import cli  # noqa: E402
-from treegen import export  # noqa: E402
+from treegen import checkpoint, export  # noqa: E402
 from treegen.params import run_manifest  # noqa: E402
 from treegen.plot import Plot  # noqa: E402
 
@@ -32,7 +35,7 @@ def main(argv=None):
     ap.add_argument("--trees", type=int, default=25, help="trees left at the managed programme's final stem density (sets the plot area)")
     ap.add_argument("--years", type=int, default=60)
     ap.add_argument("--seed", type=int, default=1)
-    ap.add_argument("--mode", choices=["managed", "natural"], default="managed")
+    ap.add_argument("--mode", choices=["managed", "natural"], default=None, help="default managed; with --branch-from, keeps the saved mode")
     ap.add_argument("--out", default=None)
     ap.add_argument("--start-trees", type=int, default=None,
                     help="trees at the start of the plot, instead of --trees (which counts those left at the final stem density)")
@@ -41,18 +44,28 @@ def main(argv=None):
     ap.add_argument("--no-mesh", action="store_true")
     ap.add_argument("--checkpoint-every", type=int, default=5)
     ap.add_argument("--resume", action="store_true")
+    ap.add_argument("--save-at", default="", help="comma-separated years: keep a full copy of the state in <out>/state_YYY")
+    ap.add_argument("--branch-from", default=None, help="copy a saved state to --out and carry on from it, for a scenario")
     ap.add_argument("--set", action="append", default=[], metavar="KEY=JSON",
                     help="override a species value, e.g. tropism.gravitropism_per_m=[2,3.5,2,0.5]")
     ap.add_argument("--regeneration", action="store_true",
                     help="natural regeneration: seed rain, germination and recruits (treegen/regeneration.py)")
     args = ap.parse_args(argv)
     out = Path(args.out or f"out/plot_{args.seed}")
+    if args.branch_from:
+        shutil.copytree(args.branch_from, out)
     out.mkdir(parents=True, exist_ok=True)
+    save_at = {int(x) for x in args.save_at.split(",") if x.strip()}
     t0 = time.time()
-    if args.resume:
+    if args.resume or args.branch_from:
         plot = Plot.resume(out)
         sp = plot.trees[plot.alive[0]].sp
         print(f"resumed at year {plot.year}: {len(plot.alive)} trees", flush=True)
+        if args.mode:
+            plot.mode = args.mode
+        for item in args.set:   # a scenario: every living tree, and the template for recruits
+            for target in [plot.trees[k].sp for k in plot.alive] + [plot.species]:
+                checkpoint.set_values(target, [item])
     else:
         sp, _ = cli.load_species(args.species)
         for item in args.set:
@@ -68,7 +81,7 @@ def main(argv=None):
             n_final = args.start_trees * float(stages[-1].stems_per_ha) / float(stages[0].stems_per_ha)
         if args.dense_start is not None:
             stages[0].stems_per_ha = float(args.dense_start)
-        plot = Plot(sp, cli.make_environment(env_p), lambda: cli.make_soil(env_p), n_final, args.seed, args.mode)
+        plot = Plot(sp, cli.make_environment(env_p), lambda: cli.make_soil(env_p), n_final, args.seed, args.mode or "managed")
         if args.regeneration:
             plot.enable_regeneration()
         print(f"plot {plot.L:.1f} m square, {len(plot.trees)} trees at start, {plot.mode}"
@@ -117,6 +130,10 @@ def main(argv=None):
         if args.checkpoint_every and plot.year % args.checkpoint_every == 0 and plot.year < args.years:
             plot.checkpoint(out)
             write_plot_json()
+        if plot.year in save_at:
+            plot.checkpoint(out)
+            write_plot_json()
+            shutil.copytree(out, out / f"state_{plot.year:03d}", ignore=shutil.ignore_patterns("state_*"))
     for k in list(plot.alive):
         export_tree(k, "alive", meshes=not args.no_mesh)
         plot.trees[k] = None              # free its memory before the next export
