@@ -241,6 +241,20 @@ def test_seedlings_take_in_the_open_and_not_under_a_closed_canopy():
     assert len(placed) and (placed[:, 0] > -0.1 * r.csx).mean() > 0.99
 
 
+def test_no_seedling_takes_under_cover_however_bright_the_light_reads():
+    r = _spread(lx=40.0, ly=40.0)
+    r.count_trees(np.zeros((0, 2)))
+    xs, ys = np.meshgrid(np.arange(-20.0, 0.0, 0.5), np.arange(-20.0, 20.0, 0.5), indexing="ij")
+    canopy = np.stack([xs.ravel(), ys.ravel(), np.full(xs.size, 15.0)], 1)    # crowns over the half with x < 0
+    r.read_canopy(canopy)
+    assert r.overhead[(r.cx > -15.0) & (r.cx < -5.0)].min() > 0.9 and r.overhead[(r.cx > 5.0) & (r.cx < 15.0)].max() < 0.1
+    placed = np.array(r.step(np.array([[0.0, 0.0]]), np.array([1e7]), np.ones(r.cx.shape), 0.38, np.zeros(r.cx.shape, bool)))
+    assert len(placed) > 50 and (placed[:, 0] < -6.0).sum() <= 0.1 * len(placed)    # what's left is at the far edge, across the repeat
+    low = np.stack([xs.ravel(), ys.ravel(), np.full(xs.size, 1.0)], 1)        # young growth under 2 m is no canopy
+    r.read_canopy(low)
+    assert r.overhead.max() == 0.0
+
+
 def test_a_windthrow_takes_the_trees_in_its_circle_and_bares_soil():
     sp = species("plot.natural_start.enabled=true", "plot.natural_start.stems_per_ha=4000", "plot.natural_start.area_m2=100",
                  "regeneration.spread.enabled=true", "regeneration.spread.open_ends=false", "mortality.enabled=true", "plot.stand_measures=true")

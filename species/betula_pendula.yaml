@@ -933,14 +933,19 @@ regeneration:
     kernel_reach_m: 400.0
     # TUNED: the share of germinants living through the first season rises from 0
     # at the first light to 1 at the second (relative, at 0.1 m, canopy only: the
-    # organic layer's rate already holds its field layer's shade).  Tuned so that
-    # no seedling takes under this model's closed canopy, which reads 30-34 % at
-    # the ground at LAI 3.0-3.3 (one 300 m2 plot, ages 15-25; real stands 6.4-19.8 %
-    # at 1-2 m, Hagemeier & Leuschner 2019b), and open ground takes in full.  With
-    # the first value at 0.25, 234 recruits came up under that canopy and none was
-    # alive after 10 years.  Silver birch is a light-demanding pioneer; I found no
+    # organic layer's rate already holds its field layer's shade).  The first is set
+    # above the 25-29 % where no recruit lived past six years (KNOWN_ISSUES phase 27)
+    # and 234 recruits here, none alive at 10 years; the second so that gaps and open
+    # ground take in full.  Silver birch is a light-demanding pioneer; I found no
     # opened figure for its first-year light need.
-    establishment_light: [0.40, 0.70]
+    establishment_light: [0.30, 0.60]
+    # TUNED: and none takes where more than this share of the ground within about
+    # this radius (a Gaussian's SD, a crown's width) has a leaf above 2 m over it.
+    # Tuned against one plot's windthrow: the light field's contrast is too low to
+    # tell a gap from a canopy (10th-90th percentile 0.42-0.52), and real closed
+    # canopies, at 6.4-19.8 % light, stop seedlings through light alone.
+    canopy_cover_max: 0.5
+    canopy_radius_m: 3.0
     # Share of a windthrow gap's ground bared by uprooting (Plot.open_gap).  Pit-mound
     # microrelief covers 7-12 % of the ground in all-aged boreal forests [Samonil et
     # al. 2010, as above]; the top of that, for a fresh gap. VERIFY
@@ -970,12 +975,12 @@ mortality:
   # Appendix 11, at SI 26, N 600-1000).
   sdi_max: 747.0
   # TUNED (onset, rate_at_max, shape): stems lost per stem and year = rate_at_max *
-  # ((RD - onset) / (1 - onset)) ^ shape.  Fitted by eye over a grid of least
-  # squares to Aosaar Table 3's yearly losses at its own RD; given Table 3's RD
-  # the fit takes 11,633 stems/ha at 8 to 2,731 at 17 (Table 3: 2,733).  Long's
-  # 1985 rule of thumb, not opened, puts the onset of competition mortality near
-  # 0.6 too.  The fit is to a stand at 3-10 cm DBH, and no source tests it for old
-  # stands.
+  # ((RD - onset) / (1 - onset)) ^ shape.  Picked from a grid of least-squares fits
+  # to Aosaar Table 3's nine yearly losses at its own RD; the data don't pin the
+  # onset (rmse 0.094-0.098 a year for 0.55-0.70).  Given Table 3's RD this takes
+  # 11,633 stems/ha at 8 to 2,731 at 17 (Table 3: 2,733).  Long's 1985 rule of thumb,
+  # not opened, puts the onset of competition mortality near 0.6 too.  The fit is to
+  # a stand at 3-10 cm DBH; no source tests it for old stands.
   onset: 0.60
   rate_at_max: 0.278
   shape: 1.5

@@ -84,9 +84,10 @@ def run(a) -> None:
         if a.gap_at and plot.year == a.gap_at:
             print(f"year {plot.year}: a windthrow of {a.gap_radius} m radius took {plot.open_gap(0.0, 0.0, a.gap_radius)} trees", flush=True)
         s = plot.stats[-1]
-        # year, seconds, peak MB, trees, crown and root nodes held (live and dead)
+        # year, seconds, peak MB, trees, crown and root nodes held (live and dead), crown nodes alive
         year_log.append([plot.year, round(time.time() - y0, 1), round(cli.peak_memory_mb()), len(plot.alive),
-                         sum(plot.trees[k].tree.n for k in plot.alive), sum(plot.trees[k].roots.tree.n for k in plot.alive)])
+                         sum(plot.trees[k].tree.n for k in plot.alive), sum(plot.trees[k].roots.tree.n for k in plot.alive),
+                         sum(int((plot.trees[k].tree.death[:plot.trees[k].tree.n] < 0).sum()) for k in plot.alive)])
         if plot.year % a.print_every == 0 or plot.year == a.years:
             print(f"year {plot.year}: {s['stems_per_ha']}/ha, G {s.get('basal_area_ob_m2_ha')}, Dg {s.get('dg_ob_cm')}, "
                   f"RD {s.get('relative_density')}, top {s.get('top_height_m')} m, gap {s.get('gap_fraction')}, "
