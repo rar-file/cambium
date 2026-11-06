@@ -1,0 +1,9 @@
+{
+ "about": "The four golden runs: the second PC's first job (WORKER.md). Same commands as tools/golden.py; a test keeps them equal.",
+ "cases": [
+  {"name": "tree60", "peak_gb": 0.65, "args": ["cli.py", "--stand", "--seed", "1", "--years", "60", "--no-mesh", "--no-preview", "--quiet", "--out", "{dir}"]},
+  {"name": "mesh30", "peak_gb": 1.2, "args": ["cli.py", "--stand", "--seed", "1", "--years", "30", "--no-preview", "--quiet", "--out", "{dir}"]},
+  {"name": "plot25", "peak_gb": 1.5, "args": ["tools/plot.py", "--start-trees", "25", "--mode", "natural", "--years", "20", "--seed", "1", "--no-mesh", "--out", "{dir}"]},
+  {"name": "regen10", "peak_gb": 1.5, "args": ["tools/plot.py", "--trees", "2", "--dense-start", "10000", "--mode", "natural", "--years", "10", "--seed", "1", "--no-mesh", "--out", "{dir}"]}
+ ]
+}
