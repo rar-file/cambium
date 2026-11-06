@@ -152,6 +152,21 @@ def check_floor(n: int, peak_gb: float = RUN_PEAK_GB) -> None:
         sys.exit(f"STOP: {free:.2f} GB free; {n} runs need about {FLOOR_GB + n * peak_gb:.2f} GB (PROTOCOL.md section 6)")
 
 
+# each run on its own physical core; core 0, where Windows keeps much of its own work, comes last
+CORE_ORDER = (2, 4, 6, 1, 3, 5, 7, 0)
+
+
+def pin_reaches_the_run() -> tuple:
+    """On Windows a venv's python.exe starts the real python as its child, so check that a pin
+    set straight after launch is inherited: (the real python's affinity mask, the mask set)."""
+    masks = physical_core_masks()
+    ask = ("import ctypes, ctypes.wintypes as w; k = ctypes.WinDLL('kernel32'); a = ctypes.c_size_t(); b = ctypes.c_size_t(); "
+           "k.GetProcessAffinityMask(w.HANDLE(2**64 - 1), ctypes.byref(a), ctypes.byref(b)); print(a.value)")
+    p = subprocess.Popen([sys.executable, "-c", ask], stdout=subprocess.PIPE, text=True)
+    pin(p, masks[CORE_ORDER[0]])
+    return int(p.communicate()[0].strip()), masks[CORE_ORDER[0]]
+
+
 def tree_group(n: int, lean: bool, pinned: bool, years: int, work: Path) -> dict:
     """n copies of the seed-1 tree at once; their times, hashes and the counters."""
     check_floor(n)
@@ -165,8 +180,7 @@ def tree_group(n: int, lean: bool, pinned: bool, years: int, work: Path) -> dict
                 cmd.append("--full")
             p = subprocess.Popen(cmd, cwd=str(ROOT))
             if pinned:
-                # cores 2, 4, ...: core 0 is where Windows keeps much of its own work
-                pin(p, masks[(2 + 2 * i) % len(masks)])
+                pin(p, masks[CORE_ORDER[i % len(CORE_ORDER)] % len(masks)])
             procs.append((p, result, time.time()))
         secs = [None] * n
         while any(s is None for s in secs):
@@ -247,6 +261,7 @@ def main():
     ap.add_argument("--years", type=int, default=60)
     ap.add_argument("--micro-only", action="store_true")
     ap.add_argument("--scale", default=None, help="comma-separated runs at once, e.g. 1,8,14: find the fastest number")
+    ap.add_argument("--pinned", action="store_true", help="with --scale: each run on its own physical core")
     ap.add_argument("--micro-copies", default="1,2,4", help="benchmark copies at once")
     ap.add_argument("--micro-child", nargs=2, default=None, help="internal")
     a = ap.parse_args()
@@ -257,14 +272,27 @@ def main():
     doc = {"trees": {}, "micro": {}, "machine": describe_machine()}
     if a.scale:
         doc["scale"] = []
+        doc["pinned"] = a.pinned
+        if a.pinned:
+            got, want = pin_reaches_the_run()
+            print(f"pin check: the real python's mask is {got:#x}; the mask set was {want:#x}", flush=True)
+            if got != want:
+                sys.exit("the pin doesn't reach the real python, so this test is void")
         with tempfile.TemporaryDirectory() as tmp:
             for n in (int(x) for x in a.scale.split(",")):
                 print(f"{n} at once...", flush=True)
-                g = tree_group(n, True, False, a.years, Path(tmp))
+                g = tree_group(n, True, a.pinned, a.years, Path(tmp))
                 doc["scale"].append(g)
                 print(f"  mean {g['mean_s']} s, {3600.0 * n / g['mean_s']:.0f} runs per hour", flush=True)
         hashes = {h for g in doc["scale"] for h in g["hashes"]}
         doc["hashes_same"] = "all the same" if len(hashes) == 1 else f"DIFFERENT: {len(hashes)} distinct, so this test is void"
+        if a.pinned:
+            OUT.mkdir(parents=True, exist_ok=True)
+            (OUT / "scale_pinned.json").write_text(json.dumps(doc, indent=1), encoding="utf-8")
+            text = report(dict(doc, micro={}))
+            (OUT / "scale_pinned.md").write_text(text, encoding="utf-8")
+            print(text)
+            return
     elif not a.micro_only:
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp)

@@ -111,9 +111,22 @@ def hash_tree(folder: Path) -> dict:
 
 
 def peak_of_child(proc) -> float | None:
-    """Peak memory of a child process (MB), while it can still be read."""
+    """Peak memory of a child process (MB), while it can still be read.  On Windows a venv's
+    python.exe is only a launcher, so this reads the launcher, not the run: see peak_of_run."""
     gb = process_memory_gb(proc, peak=True)
     return None if gb is None else round(gb * 1024, 1)
+
+
+def peak_of_run(folder: Path) -> float | None:
+    """The peak memory a run recorded for itself (MB): a tree's manifest, or a plot's plot.json."""
+    peaks = []
+    for f in folder.rglob("manifest.json"):
+        peaks += [v for v in json.loads(f.read_text(encoding="utf-8")).get("peak_memory", {}).values() if isinstance(v, (int, float))]
+    for f in folder.rglob("plot.json"):
+        v = json.loads(f.read_text(encoding="utf-8")).get("peak_mb")
+        if isinstance(v, (int, float)):
+            peaks.append(v)
+    return round(max(peaks), 1) if peaks else None
 
 
 def run_one(name: str, folder: Path) -> dict:
@@ -140,7 +153,7 @@ def run_case(name: str, command: list, peak_gb: float, folder: Path) -> dict:
     if proc.returncode != 0:
         raise SystemExit(f"{name} failed with exit {proc.returncode}; see {folder / 'run.log'}")
     seconds = round(time.time() - t0, 1)
-    return {"seconds": seconds, "peak_mb": peak, "free_gb_at_launch": round(free, 2), "files": hash_tree(folder)}
+    return {"seconds": seconds, "peak_mb": peak_of_run(folder) or peak, "free_gb_at_launch": round(free, 2), "files": hash_tree(folder)}
 
 
 def record(label: str, only: list | None, root: Path = GOLDEN) -> dict:
