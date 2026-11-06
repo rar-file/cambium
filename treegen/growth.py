@@ -244,6 +244,30 @@ class GrowthModel:
         src = np.concatenate([T.pos[term_nodes], T.pos[lat_nodes]])
         return term_nodes, lat_nodes, w_term, w_lat, src, np.concatenate([w_term, w_lat])
 
+    def _leaf_density_grid(self, src, src_w):
+        """Exploring, M3a: this season's leaf area per m3 on a coarse grid, for a lateral-bud density control
+        in the form of Sievanen et al. 2018 Eq. 11 (Ann. Bot. 122:423), whose fitted values aren't printed."""
+        dc = getattr(self.sp.bud_fate, "density_control", None)
+        if dc is None or not bool(dc.enabled) or len(src) == 0:
+            return None
+        cell = float(dc.cell_m)
+        ijk = np.floor(src / cell).astype(np.int64)
+        lo = ijk.min(0)
+        shape = ijk.max(0) - lo + 1
+        grid = np.zeros(shape)
+        np.add.at(grid, tuple((ijk - lo).T), src_w * float(self.light.leaf_area) / cell ** 3)
+        return grid, lo, cell
+
+    def _bud_keep_chance(self, pos):
+        """The chance that a new node makes a lateral bud: 1 up to af_full, falling to 0 at af_zero."""
+        grid, lo, cell = self._leaf_density
+        dc = self.sp.bud_fate.density_control
+        ijk = np.floor(pos / cell).astype(np.int64) - lo
+        inside = np.all((ijk >= 0) & (ijk < np.array(grid.shape)), axis=1)
+        af = np.zeros(len(pos))
+        af[inside] = grid[tuple(ijk[inside].T)]
+        return np.clip((float(dc.af_zero) - af) / (float(dc.af_zero) - float(dc.af_full)), 0.0, 1.0)
+
     def wood_sources(self) -> tuple[np.ndarray, np.ndarray]:
         """Living woody internodes sampled along their axis and their projected area (m^2)."""
         T = self.tree
@@ -1068,6 +1092,7 @@ class GrowthModel:
         for nd in released_spurs.tolist():
             self._end_spur(nd, t)
 
+        self._leaf_density = self._leaf_density_grid(src, src_w)
         self._grow_shoots(t, field, term_nodes[g_term_mask], v_term[g_term_mask],
                           lat_nodes[g_lat_mask], v_lat[g_lat_mask],
                           np.concatenate([Qterm[term_nodes[g_term_mask]], Qlat[lat_nodes[g_lat_mask]]]))
@@ -1816,6 +1841,8 @@ class GrowthModel:
             # short shoots carry only their terminal bud; Ishihara & Kikuzawa
             # 2009, Ann. Bot. 104:1195)
             T.no_axil[new] = no_axil[act]
+            if self._leaf_density is not None:
+                T.no_axil[new] |= self.rng.random(len(new)) > self._bud_keep_chance(T.pos[new])
             T.lat_dir[new] = bud
             T.term[new] = last.astype(np.int8)
             # sympodial growth: the pseudo-terminal bud sits beside the aborted

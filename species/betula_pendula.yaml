@@ -299,6 +299,14 @@ bud_fate:
   # increment, weak tips stacked buds and short shoots at a few mm
   # (phase 26).
   axillary_buds_below_one_metamer: false
+  # Exploring only (M3a), off: Sievanen et al. 2018 Eq. 11's density term.  Its fitted values aren't
+  # printed.  These two bracket birch crown leaf density, shade 0.3 and sun 3.2 m2/m3, Hagemeier &
+  # Leuschner 2019 Table 5, as a test, not a claim.  The 0.5 m cell stands in for their 0.5 m cone.
+  density_control:
+    enabled: false
+    af_full: 0.3
+    af_zero: 3.2
+    cell_m: 0.5
   # Short shoots are cheap and self-financing, so their fate is local and
   # driven by light, not by BH resource: a lateral bud that does not extend
   # forms a short shoot (spur) if its exposure Q reaches short_shoot_light;
