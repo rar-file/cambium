@@ -5,8 +5,9 @@ that value changed by a factor, and ranks the parameters by the largest relative
 change in height, DBH, leaf area or carbon fixed at ages 30, 50 and 60.  Each run
 is its own process; several run at once within the free-memory floor (tools/batch.py,
 PROTOCOL.md section 6).  It can be stopped and started again: finished runs are
-kept.  Each new result carries a SHA-256 of the run's whole output (yearly stats and
-the final tree), so a run can be shown to be the same however it was launched.
+kept.  Runs are lean (no history, fewer stats; the scored outputs are the same,
+tests/test_lean.py) unless --full.  Each new result carries a SHA-256 of the scored
+outputs and the final tree, so a run can be shown to be the same however it was launched.
 
     python tools/sensitivity_screen.py --out out/bench/m1/screen
     python tools/sensitivity_screen.py --out out/bench/m1/screen --factor 0.75
@@ -18,7 +19,6 @@ from __future__ import annotations
 import argparse
 import copy
 import csv
-import hashlib
 import json
 import sys
 from pathlib import Path
@@ -104,26 +104,17 @@ def apply_change(sp, path, factor):
     setattr(obj, parts[-1], scaled(getattr(obj, parts[-1]), factor))
 
 
-def output_digest(m) -> str:
-    """SHA-256 of what the run produced: every year's stats and the final tree."""
-    h = hashlib.sha256()
-    h.update(json.dumps(m.stats, sort_keys=True, default=lambda o: o.tolist() if hasattr(o, "tolist") else str(o)).encode())
-    T = m.tree
-    for name in ("pos", "radius", "parent", "death"):
-        h.update(getattr(T, name)[:T.n].tobytes())
-    return h.hexdigest()
-
-
-def one_run(path: str | None, factor: float, years: int) -> dict:
+def one_run(path: str | None, factor: float, years: int, lean: bool = True) -> dict:
     """Grow the tree once in this process and return what the ranking needs."""
     import cli
     from treegen.growth import GrowthModel
+    from treegen.runhash import scored_digest
 
     sp, _ = cli.load_species("betula_pendula")
     if path:
         apply_change(sp, path, factor)
     env_p, _ = cli.load_environment("sweden_open_field")
-    m = GrowthModel(sp, cli.make_environment(env_p), 1, stand=True, soil=cli.make_soil(env_p))
+    m = GrowthModel(sp, cli.make_environment(env_p), 1, stand=True, soil=cli.make_soil(env_p), lean=lean)
     for _ in range(years):
         m.step()
     out = {}
@@ -134,7 +125,7 @@ def one_run(path: str | None, factor: float, years: int) -> dict:
                 "lai": s["lai"], "crown_ratio": s.get("crown_ratio"), "fixed": s["carbon"].get("fixed"),
                 "cue": s["carbon"].get("cue"), "diffuse_light_pct": s.get("subcanopy_diffuse_light_pct"),
             }
-    out["digest"] = output_digest(m)
+    out["scored_digest"] = scored_digest(m)
     out["peak_mb"] = cli.peak_memory_mb()
     return out
 
@@ -143,9 +134,9 @@ def result_name(path, factor):
     return "baseline.json" if path is None else f"{path}__x{factor:g}.json"
 
 
-def job_for(out: Path, path, factor, years) -> Job:
+def job_for(out: Path, path, factor, years, full=False) -> Job:
     cmd = [sys.executable, str(Path(__file__).resolve()), "--one", path or "", "--factor", str(1.0 if path is None else factor),
-           "--years", str(years), "--result", str(out / result_name(path, factor))]
+           "--years", str(years), "--result", str(out / result_name(path, factor))] + (["--full"] if full else [])
     return Job(f"{path or 'baseline'} x{1.0 if path is None else factor:g}", cmd, out / result_name(path, factor))
 
 
@@ -196,12 +187,13 @@ def main():
     ap.add_argument("--result", default=None, help="internal: where --one writes")
     ap.add_argument("--rank", default=None, help="rank the finished runs in this folder, no runs")
     ap.add_argument("--list", action="store_true", help="print what would be screened, no runs")
+    ap.add_argument("--full", action="store_true", help="not lean: keep the history and every yearly stat")
     ap.add_argument("--jobs", type=int, default=None, help="runs at once (default: CPU cores - 1, within the memory floor)")
     ap.add_argument("--only", default=None, help="comma-separated parameters, 'baseline' for the baseline: run just these")
     a = ap.parse_args()
 
     if a.one is not None:
-        res = one_run(a.one or None, a.factor, a.years)
+        res = one_run(a.one or None, a.factor, a.years, lean=not a.full)
         Path(a.result).write_text(json.dumps(res))
         return
     if a.rank:
@@ -227,7 +219,7 @@ def main():
         cases = [None if c == "baseline" else c for c in chosen]
     else:
         cases = [None] + keep
-    jobs = [job_for(out, c, a.factor, a.years) for c in cases]
+    jobs = [job_for(out, c, a.factor, a.years, a.full) for c in cases]
     code = run_batch(jobs, RUN_PEAK_GB, workers=a.jobs, log=out / "runs.csv")
     if code:
         sys.exit(code)

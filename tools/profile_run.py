@@ -264,9 +264,9 @@ def main():
     a = ap.parse_args()
 
     import cli
-    from sensitivity_screen import output_digest
     from treegen.growth import GrowthModel
     from treegen.plot import Plot
+    from treegen.runhash import output_digest
 
     years = a.years or {"tree": 60, "plot": 20, "mesh": 30}[a.case]
     clock = Clock()
