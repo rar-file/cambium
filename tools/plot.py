@@ -96,6 +96,16 @@ def main(argv=None):
                                                    "runtime_s": round(time.time() - t0), "peak_mb": round(cli.peak_memory_mb())},
                                                   indent=1))
 
+    # A dead tree's history stays until a checkpoint no longer counts it as alive: a run
+    # stopped before then resumes from a checkpoint where that tree still has to die.
+    stale_history = []
+
+    def clear_stale_history():
+        for folder in stale_history:
+            for f in folder.glob("history_*.npz"):
+                f.unlink()
+        stale_history.clear()
+
     def export_tree(k, cause, meshes):
         m = plot.trees[k]
         d = out / f"tree_{k:03d}"
@@ -108,8 +118,7 @@ def main(argv=None):
         if meshes:
             cli.export_all(m, m.sp, d, meta, anchorage, [], 400_000, {}, {})
         plot.info[k]["leader_losses"] = [list(x) for x in m.leader_losses]
-        for f in (d / "history").glob("history_*.npz"):
-            f.unlink()
+        stale_history.append(d / "history")
 
     plot.on_finish = lambda k, cause: export_tree(k, cause, meshes=False)
     while plot.year < args.years:
@@ -122,18 +131,20 @@ def main(argv=None):
             print(f"year {s['year']}: {s['trees']} trees ({s['stems_per_ha']}/ha, {s['died_total']} died), DBH {s['dbh_mean_cm']} +- "
                   f"{s['dbh_sd_cm']} cm, H max {s['height_max_m']} m, LAI {s['lai']}, {time.time() - t0:.0f} s, "
                   f"peak {cli.peak_memory_mb():.0f} MB", flush=True)
-        if args.checkpoint_every and plot.year % args.checkpoint_every == 0 and plot.year < args.years:
+        # one checkpoint a year at most: a second one would write an empty history over the first
+        regular = args.checkpoint_every and plot.year % args.checkpoint_every == 0 and plot.year < args.years
+        if regular or plot.year in save_at:
             plot.checkpoint(out)
+            clear_stale_history()
             write_plot_json()
         if plot.year in save_at:
-            plot.checkpoint(out)
-            write_plot_json()
             shutil.copytree(out, out / f"state_{plot.year:03d}", ignore=shutil.ignore_patterns("state_*"))
     for k in list(plot.alive):
         export_tree(k, "alive", meshes=not args.no_mesh)
         plot.trees[k] = None              # free its memory before the next export
         print(f"exported tree {k} ({time.time() - t0:.0f} s, peak {cli.peak_memory_mb():.0f} MB)", flush=True)
-    write_plot_json()
+    write_plot_json()         # before the histories go: a run stopped here can still resume
+    clear_stale_history()
     print(f"done in {time.time() - t0:.0f} s, peak {cli.peak_memory_mb():.0f} MB -> {out}")
 
 

@@ -60,6 +60,29 @@ class OffsetField:
         return self.f.optimal_direction(pos + self.off, heading)
 
 
+def sweep_after_stop(out_dir, year: int, alive) -> list:
+    """Resuming from a checkpoint made at this year: remove what a stopped run left that the
+    checkpoint doesn't know about.  A half-written pickle; history from a later checkpoint
+    that never finished, which would otherwise be read back as extra years; and the history
+    of trees the checkpoint counts as dead.  Returns what it removed.  A tree that died after
+    the checkpoint still counts as alive here, and keeps its history: it has to die again."""
+    out = Path(out_dir)
+    alive = set(alive)
+    removed = []
+    tmp = out / "checkpoint.pkl.tmp"
+    if tmp.exists():
+        tmp.unlink()
+        removed.append(tmp)
+    for folder in out.glob("tree_*/history"):
+        k = int(folder.parent.name.split("_")[1])
+        for f in folder.glob("history_*"):
+            digits = f.name[len("history_"):].split(".")[0]
+            if k not in alive or not digits.isdigit() or int(digits) > year:
+                f.unlink()
+                removed.append(f)
+    return removed
+
+
 class Plot:
     def __init__(self, species, environment, make_soil, n_final: int = 25, seed: int = 1, mode: str = "managed"):
         pp = species.plot
@@ -326,7 +349,9 @@ class Plot:
     @staticmethod
     def resume(out_dir) -> "Plot":
         with open(Path(out_dir) / "checkpoint.pkl", "rb") as f:
-            return pickle.load(f)
+            plot = pickle.load(f)
+        sweep_after_stop(out_dir, plot.year, plot.alive)
+        return plot
 
     def measure(self):
         if not self.alive:
