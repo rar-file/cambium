@@ -68,12 +68,7 @@ def main(argv=None):
                 checkpoint.set_values(target, [item])
     else:
         sp, _ = cli.load_species(args.species)
-        for item in args.set:
-            key, val = item.split("=", 1)
-            obj = sp
-            for part in key.split(".")[:-1]:
-                obj = getattr(obj, part)
-            setattr(obj, key.split(".")[-1], json.loads(val))
+        checkpoint.set_values(sp, args.set)
         env_p, _ = cli.load_environment(args.environment)
         stages = sorted(sp.stand.thinning, key=lambda s: float(s.from_height_m))
         n_final = args.trees

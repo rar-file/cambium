@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from tools.scorecard import dominant_height, evaluate_targets, t13_years
+from tools.scorecard import dominant_height, evaluate_ensemble, evaluate_targets, t13_years
 from treegen.reference import eriksson_1997_height
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -209,3 +209,30 @@ def test_light_is_read_for_each_year_and_only_as_diffuse():
     # a value at the run level is not read
     results, _ = evaluate_targets(targets, [_tree_run(per_year=[{"year": 50}], extra={"subcanopy_diffuse_light_pct": 15.0})], ages=[50])
     assert _row(results, name, 50)["status"] == "NOT APPLICABLE"
+
+
+def test_ensemble_verdict_is_the_mean_against_the_band():
+    targets = _targets()
+    name = "stand_canopy.lai_hagemeier"
+    # band 3.60-5.40: two seeds inside, one far below, mean inside
+    runs = [_tree_run(per_year=[{"year": 50, "lai": v}]) for v in (3.8, 4.0, 3.3)]
+    r = next(x for x in evaluate_ensemble(targets, runs, [50]) if x["target"] == f"{name} (age 50)")
+    assert r["status"] == "PASS"
+    assert r["mean"] == pytest.approx((3.8 + 4.0 + 3.3) / 3)
+    assert r["seeds"] == 3
+    assert r["share"] == pytest.approx(2 / 3)
+    assert r["sd"] > 0
+    # most seeds inside but the mean outside is a FAIL: the mean is the verdict
+    runs = [_tree_run(per_year=[{"year": 50, "lai": v}]) for v in (3.61, 3.62, 1.0)]
+    r = next(x for x in evaluate_ensemble(targets, runs, [50]) if x["target"] == f"{name} (age 50)")
+    assert r["status"] == "FAIL"
+    assert r["share"] == pytest.approx(2 / 3)
+
+
+def test_ensemble_keeps_info_and_not_applicable():
+    targets = _targets()
+    runs = [_tree_run(per_year=[{"year": 60, "crown_ratio": 0.7, "lai": 4.0}]) for _ in range(2)]
+    rows = {x["target"]: x for x in evaluate_ensemble(targets, runs, [60])}
+    assert rows["stand_canopy.live_crown_ratio.managed_stand_empirical (age 60)"]["status"] == "INFO"
+    assert rows["stand_canopy.subcanopy_light_transmittance (age 60)"]["status"] == "NOT APPLICABLE"
+    assert rows["stand_canopy.subcanopy_light_transmittance (age 60)"]["mean"] is None
