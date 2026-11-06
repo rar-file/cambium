@@ -2,6 +2,24 @@
 
 What research subagents read and reported during M1, kept so later milestones don't need to repeat it. These are subagent reports: each still has to be opened again before it is cited as a target or in a change (PROTOCOL.md section 3), and checker A re-opens them.
 
+## The 11 values the page doesn't support (not changed in M1; inputs to M2 and M3)
+
+The maintainer, 2026-11-06: don't change them in M1. What each page actually says:
+
+| # | Value | In the file | What the page says | Goes to |
+|---|---|---|---|---|
+| 1 | `resource.apical_dominance` | 0.62 | Palubicki et al. 2009, Sec. 4.2, Fig. 7: "parameter lambda are 0.46, 0.48, 0.50, 0.52, 0.54", synthetic trees. 0.62 is outside that; no birch value exists | M3a |
+| 2 | `resource.apical_control_young` | 0.60 | Same page: outside that range. Brown et al. 1967 and Wilson 2000 (abstracts) give the concept, no numbers | M3a |
+| 3 | `resource.apical_control_old` | 0.50 | Same page: 0.50 is the "not biased" case, not a value for old birch | M3a |
+| 4 | `resource.maintenance_per_internode` | 0.5 | Perttunen 2008 thesis, Eq. 18, p. 23: R_Mi = k_i W_i, by tissue mass, with P and M "first summed up for the whole tree". Not charged per internode as resource flows | M2 |
+| 5 | `light.foliage_weight.late_leaf_season_fraction` | 0.5 | Tenkanen et al. 2020, pp. 6, 11: timing only ("elongates through the season and produces new late leaves"; on 5-13 June long-shoot leaves "were not present or were too small"). Miyazawa & Kikuzawa 2004 abstract: timing only, B. grossa. No fraction in either | M2 |
+| 6 | `pipe_model.exponent` | 2.5 | Eloy 2011, p. 1: "1.8 < D < 2.3 for a large number of species"; no Betula. The comment's only reason is "the brief asked" | M3 |
+| 7 | `pipe_model.huber_path_exponent` | 0.283 | Mencuccini et al. 2019, accepted manuscript p. 19: "Hv tend to remain relatively constant from twig to trunk base". Sellin & Kupper 2006 abstract: "HV increased basipetally within a crown", branch level, no exponent. Not used at the default stem theory stage 2 | M3b |
+| 8 | `hydraulics.xylem_conductivity` | 4.0 | Klepsch et al. 2018, Zhang et al. 2018, Gonzalez-Munoz et al. 2018: branch P50 about -1.8 to -2.0 MPa. That's a different trait; no opened page gives a conductivity of 4.0 | M2 |
+| 9 | `hydraulics.psi_stomata_open` | -1.0 | Sellin et al. 2014, Table 2 and text: "no threshold level". -1.0 is the branch potential where stomatal conductance is about 0.06 and water-use efficiency turns; it's already 0.086 of 0.145 at leaf -1.26 | M2 |
+| 10 | `hydraulics.psi_stomata_closed` | -2.0 | Sellin et al. 2014, Table 2: no closure value. At leaf -1.91 and -2.10 stomatal conductance is 0.046 and 0.060, still 25-32 % of pre-cut | M2 |
+| 11 | `hydraulics.psi_turgor_loss` | -2.1 | Hannus et al. 2021, Results and Table 2: mean -2.47 (+-0.03); subsp. pendula -2.32 to -2.94; -2.07 only in subsp. mandshurica | M2 |
+
 ## M3a: lateral-bud density control (Sievanen et al. 2018)
 - **Source:** Sievanen, Raumonen, Perttunen, Nikinmaa & Kaitaniemi 2018, Ann. Bot. 122:423-434, doi:10.1093/aob/mcy082, full main text at PMC6110348. Supplement (Table S1) not reached.
 - **Species:** Scots pine only: 4 trees, ages 8, 16, 25, 33, near Helsinki. The form could transfer by analogy; the parameters can't.
