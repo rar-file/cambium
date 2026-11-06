@@ -12,6 +12,11 @@ from the ensemble mean against the target band, on one machine.
 Single trees run lean and in parallel.  Plots are heavy runs: on the node they run within
 its limits (PROTOCOL.md section 6), and on the main PC only one at a time.  Finished seeds
 are kept, so a stopped ensemble can be started again.
+
+--no-saves is for the node, whose disk other services share: five plots writing save files
+left 10.7 GB free by age 35 (DECISIONS.md row 33).  Without save files a plot holds its history
+in memory, so it needs more of that.  Output is the same on what's been tested so far
+(out/bench/p0/checkpoint_proof.txt); the full-size test is out/bench/route_check on the node.
 """
 from __future__ import annotations
 
@@ -41,11 +46,12 @@ def run_trees(label: str, seeds: int, years: int, values: list) -> int:
     return run_batch(jobs, TREE_PEAK_GB, log=out / "runs.csv")
 
 
-def run_plots(label: str, seeds: int, years: int, mode: str, trees: int, values: list) -> int:
+def run_plots(label: str, seeds: int, years: int, mode: str, trees: int, values: list, no_saves: bool = False) -> int:
     out = BASE / label
     sets = [x for v in values for x in ("--set", v)]
     jobs = [Job(f"plot {s}", [sys.executable, str(ROOT / "tools" / "plot.py"), "--trees", str(trees), "--mode", mode, "--seed", str(s),
-                              "--years", str(years), "--no-mesh", "--out", str(out / f"plot_{s}"), *sets], out / f"plot_{s}" / "done.txt")
+                              "--years", str(years), "--no-mesh", *(["--checkpoint-every", "0"] if no_saves else []),
+                              "--out", str(out / f"plot_{s}"), *sets], out / f"plot_{s}" / "done.txt")
             for s in range(1, seeds + 1)]
     # plot.py writes no marker of its own, so wrap each one to leave done.txt only if it finishes
     for j in jobs:
@@ -85,12 +91,13 @@ def main():
     ap.add_argument("--mode", default="natural")
     ap.add_argument("--trees", type=int, default=25, help="plots: trees left at the final stem density; 25 gives 100 at the start")
     ap.add_argument("--set", action="append", default=[], metavar="KEY=JSON", help="an option's change, from the start of each run")
+    ap.add_argument("--no-saves", action="store_true", help="plots: write no save files, on the node; see above")
     ap.add_argument("--age", type=int, default=60)
     a = ap.parse_args()
     if a.what == "trees":
         sys.exit(run_trees(a.label, a.seeds or 20, a.years, a.set))
     if a.what == "plots":
-        sys.exit(run_plots(a.label, a.seeds or 5, a.years, a.mode, a.trees, a.set))
+        sys.exit(run_plots(a.label, a.seeds or 5, a.years, a.mode, a.trees, a.set, a.no_saves))
     rows = {}
     for d in sorted((BASE / a.label).glob("*_stand")):
         per_year = json.loads((d / "stats.json").read_text(encoding="utf-8"))["per_year"]

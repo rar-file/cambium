@@ -116,7 +116,8 @@ def run_manifest(species: str | Path, environment: str | Path, sp: SimpleNamespa
     status = git("status", "--porcelain", "--untracked-files=no")
     options = option_values(sp)
     manifest = {
-        "git_commit": git("rev-parse", "HEAD"),
+        # the node gets the code at a fixed commit, without git, with that commit in a file
+        "git_commit": git("rev-parse", "HEAD") or ((ROOT / "COMMIT").read_text().strip() if (ROOT / "COMMIT").exists() else None),
         "git_tracked_changes": None if status is None else bool(status),
         **uncommitted_fingerprint(),
         # every comparison runs entirely on one machine (PROTOCOL.md section 6)
