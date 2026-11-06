@@ -2139,3 +2139,4 @@ Crossref shows `10.1139/b65-035` is Loman 1965 on basidiomycetes and `10.1139/b6
 - **The model's k with no wood sits below its input.** Implied k is about 0.345 at 50-60 from an input of 0.37, on trees and plots; with wood on, 0.39-0.40. Neither is the paper's 0.37. The offset matches the 2 points in the phase 17-20 table above. Q21.
 - **Plots barely thin.** About 1,650 stems/ha at 60 at alpha 4.8, and basal area 51-56 m2/ha, against Repola Table 1's top of 32.3. M4. `out/bench/ensemble/m2_validation.txt`.
 - **`tools/plots_identical.py` walks the first folder's plots:** give a partial control first, or it reports the others missing.
+- **Height responds to crowding:** at the same alpha, plots' top height runs 3.3-6.5 m over stand trees' height at 60, measured a little differently. Trees and plots then want different alphas (rows 76, 75). M3, M4.
