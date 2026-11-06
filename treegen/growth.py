@@ -1945,6 +1945,8 @@ class GrowthModel:
         from pathlib import Path
         d = Path(path)
         d.mkdir(parents=True, exist_ok=True)
+        if not self.radius_history and not self.keyframes and (self.roots is None or not self.roots.radius_history):
+            return   # a second call in one year would write an empty file over the first
         rb, qb = getattr(self, "_hist_base", 0), getattr(self, "_root_hist_base", 0)
         arrays = {f"r{rb + i:04d}": a for i, a in enumerate(self.radius_history)}
         arrays.update({f"k{y:04d}": a for y, a in self.keyframes.items()})

@@ -90,3 +90,36 @@ def test_states_are_left_out_of_the_output_hash(tmp_path):
     (tmp_path / "states").mkdir()
     (tmp_path / "states" / "x.json").write_text("{}")
     assert list(hash_tree(tmp_path)) == ["stats.json"]
+
+
+def test_spilling_twice_keeps_the_first_file(tmp_path):
+    sp, _ = cli.load_species("betula_pendula")
+    env_p, _ = cli.load_environment("sweden_open_field")
+    m = GrowthModel(sp, cli.make_environment(env_p), 1, stand=True, soil=cli.make_soil(env_p))
+    for _ in range(3):
+        m.step()
+    m.spill_history(tmp_path)
+    size = (tmp_path / "history_003.npz").stat().st_size
+    assert size > 1000
+    m.spill_history(tmp_path)
+    assert (tmp_path / "history_003.npz").stat().st_size == size
+
+
+def test_resume_sweeps_only_what_the_checkpoint_does_not_know(tmp_path):
+    from treegen.plot import sweep_after_stop
+
+    def touch(rel):
+        f = tmp_path / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_bytes(b"x")
+        return f
+
+    keep = [touch("tree_001/history/history_005.npz"), touch("tree_001/history/history_010.npz"), touch("checkpoint.pkl"),
+            touch("tree_002/stats.json"), touch("state_010/tree_002/history/history_010.npz")]
+    gone = [touch("tree_001/history/history_015.npz"),     # a later checkpoint that never finished
+            touch("tree_002/history/history_010.npz"),     # a tree the checkpoint counts as dead
+            touch("tree_001/history/history_015.npz.tmp"),
+            touch("checkpoint.pkl.tmp")]
+    removed = sweep_after_stop(tmp_path, 10, [1])
+    assert sorted(removed) == sorted(gone)
+    assert all(f.exists() for f in keep) and not any(f.exists() for f in gone)
