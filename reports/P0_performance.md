@@ -1,6 +1,16 @@
-# P0: Performance (in progress)
+# P0: Performance
 
-Started 2026-11-06. The full report comes when P0 finishes; this holds what's measured so far.
+Started and finished 2026-11-06. Everything below keeps outputs bit-for-bit identical.
+
+## Summary
+
+| Goal | Result |
+|---|---|
+| About 10x campaign throughput | **About 4.9x:** 77 runs an hour on this PC one at a time, 380 on the node at 14. Not 10x. |
+| Outputs identical | Yes, on the four golden runs, at every model-touching merge |
+| 100-tree, 60-year plot under 2 GB | **Not met:** 3.1-5.0 GB with save files on this PC's older runs, 6.1-6.7 GB with none on the node. See "What's left" |
+| Stop when every remaining idea gains under 10 % | Done: see "What's left". These are estimates |
+
 
 ## The node
 
@@ -119,38 +129,41 @@ The largest gap between means is LAI at 50: 0.21, about 1.8 standard errors of a
 
 The maintainer asked which of these explains it: memory bandwidth, disk, paging, cores or clock speed.
 
-**Like for like:** lean trees, seed 1, each group once, all hashes the same, with little else running on this PC (`out/bench/p0/scale_unpinned.md`, `scale_pinned.md`, in the worktree).
+**Answer: most likely memory bandwidth and the shared cache.** That's by elimination and from a benchmark: Windows can't show bandwidth directly.
 
-| Runs at once | Free to move: mean run time (s) | Runs per hour | Each on its own core: mean run time (s) | Runs per hour |
-|---|---|---|---|---|
-| 1 | 44.2 | 81 | 45.4 | 79 |
-| 2 | 57.2 | 126 | 62.5 | 115 |
-| 3 | 76.4 | **141** | 89.2 | 121 |
-| 4 | 112.8 | 128 | 161.2 | 89 |
-| 5 | 167.2 | 108 | 174.8 | 103 |
-| 6 | 221.1 | 98 | 224.7 | 96 |
+**Test:** lean trees, seed 1, on a quiet PC, three repeats each way, every hash the same (`out/bench/p0/repeat_summary.txt`, `repeat_*.json`). My first comparison ran while other work was on the PC, so it's withdrawn.
 
-**More than 3 at once is slower overall, not just no faster.** Peak memory per run stays near 440 MB.
+| Runs at once | Free to move: mean of 3 (s) | Each repeat | Runs per hour | Each on its own core: mean of 3 (s) | Each repeat | Runs per hour |
+|---|---|---|---|---|---|---|
+| 1 | 42.5 | 43.6, 41.6, 42.2 | 85 | 41.9 | 42.2, 41.8, 41.6 | 86 |
+| 2 | 58.0 | 59.0, 57.6, 57.5 | 124 | 56.6 | 59.1, 56.7, 53.9 | 127 |
+| 3 | 77.7 | 76.9, 78.4, 77.8 | 139 | 78.0 | 81.0, 77.6, 75.4 | 138 |
+| 4 | 116.9 | 125.5, 112.9, 112.4 | 123 | 113.8 | 114.8, 114.3, 112.3 | 127 |
 
-**A correction:** the first diagnosis had 2 at once at 1.73x-1.75x free to move and 1.15x pinned (`parallel_diagnosis_first.md`), so I told the maintainer pinning looked like the fix. It isn't. In the like-for-like test pinning is no better at any level, and worse at 3 and 4. The same case, lean with 2 at once, took 74.4 s in one test and 57.2 s in another, so a single group can move about 25 %. Read these tables as a shape, not to the second.
+- **This PC peaks at 3 at once.** At 4 it does fewer runs an hour than at 3, by more than the spread between repeats.
+- **Pinning makes no difference** at any level. **A correction:** the first diagnosis showed 1.15x pinned against 1.75x free at 2 at once (`parallel_diagnosis_first.md`), so I told the maintainer pinning looked like the fix. Those groups were disturbed by other work on the PC.
 
 | Possible cause | Verdict | Evidence |
 |---|---|---|
-| Disk | No | Lean runs write about 0.1 MB/s and still slow each other |
-| Paging | No | Lean at 2 at once: under 1 hard fault a second |
-| Clock speed | No | 4,516-4,675 MHz across the runs, rising with load |
+| Disk | No | Lean runs write under 3 MB/s at every level |
+| Paging | No | Under 2 hard faults a second at 1, 2 and 3 at once. At 4, one group had 13,873 a second and took 125.5 s, against 112-115 s for the others, so that was something else on the PC |
+| Clock speed | No | 4,561-4,667 MHz, rising with load |
 | Cores | No | 8 physical cores, and throughput falls after 3; pinning doesn't help |
-| **Memory bandwidth, and the shared cache** | **Most likely** | Benchmark below. By elimination and from the benchmark: Windows can't show bandwidth directly |
+| **Memory bandwidth, and the shared cache** | **Most likely** | Benchmark below, and nothing else is left |
 
-**The benchmark, speed per copy against 1 alone:** in a core's own cache, 0.97x at 4 copies. In the shared cache, 0.94x at 2 and 0.38x at 4. In memory, 0.50x at 2 and 0.24x at 4: one copy alone already uses the whole 17 GB/s, and more copies split it.
+**The benchmark, speed per copy against 1 alone:** in a core's own cache, 0.97x at 4 copies. In the shared cache (8 MB), 0.94x at 2 and 0.38x at 4. In memory (512 MB), 0.50x at 2 and 0.24x at 4: one copy alone already uses the whole 17 GB/s, and more copies split it. The model's less memory-bound than that benchmark, since it slows only 1.36x at 2.
 
 **What would fix it:**
 - **For now, at no cost:** at most 3 at once on this PC. Batch work is on the node anyway.
-- **A second stick: an estimate, not a measurement.** It would double memory bandwidth, but not the shared cache, which limits from about 4 copies. So I'd guess 1.5-2x on throughput, about 200-280 runs an hour against 141. The maintainer's second slot doesn't work at the moment, so it may need more than a stick. The campaign doesn't need it: the node does 280-380 an hour.
+- **A second stick: an estimate, not a measurement.** It would double memory bandwidth. If that makes n runs behave like n/2 do today: 3 at once, 216 runs an hour (mean of the 1 and 2 rows, 50.2 s); 4 at once, 248; 6 at once, 278 (the 3 row, 77.7 s). That assumes all the slowdown is bandwidth and none is the shared cache, so these are upper limits: up to about 2x. The maintainer's second slot doesn't work at the moment, so it may need more than a stick. The campaign doesn't need it: the node does 262 at 8 and 380 at 14.
+
+**Power mode:** Balanced, not Best performance (`powercfg`, and the overlay setting is empty). The clock figures above show it costs nothing measurable, so I'd leave it.
+
+**Time writing files:** not significant, so no Defender exclusion is needed. A tree spends 0.6 of 44.5 s on timeline and stats; profile shares are 1.1 % on a plot and 2.3 % on a mesh export (`out/bench/p0/profile_*.md`). Save files don't change that on this PC: plot25 took 69 s with them and 68 s without, with 327 MB against 29 MB on disk. The node's 185 s against 124 s was contention between runs, not the writing.
 
 ## The merges
 
-20 commits from `p0-perf`, one at a time. Those touching `treegen/`, `cli.py` or `tools/plot.py` needed all tests and all four golden runs identical to `pc_base`, or the merge was aborted. **None was aborted, and none conflicted.** Raw: `out/bench/p0/merges/`.
+23 commits from `p0-perf`, one at a time. Those touching `treegen/`, `cli.py` or `tools/plot.py` needed all tests and all four golden runs identical to `pc_base`, or the merge was aborted. **None was aborted, and none conflicted.** Raw: `out/bench/p0/merges/`.
 
 | Commit | What | Model paths? | Tests | Golden |
 |---|---|---|---|---|
@@ -162,6 +175,8 @@ The maintainer asked which of these explains it: memory bandwidth, disk, paging,
 | `b64f75a` | Resume after any stop | yes | 98 pass | identical |
 | `95233fc` | Node tools, golden memory | yes | 102 pass | identical |
 | `d205edd` | A resumed plot's seed label; plots' memory figure | yes | 107 pass | identical |
+| `63e2491`, `eb9c984` | Resume by each tree's own age; gate, scorecard | yes | 110 pass | identical |
+| Tree arrays grow by 1.25x | Lossless memory | yes | all pass | identical |
 | 12 others | Tools and reports only | no | not run for each; each covered by the next checked commit | not run for each (DECISIONS.md row 45) |
 
 **None of these makes a default run faster:** on an otherwise idle PC, tree60 43-47.5 s against 45.7 s, and plot25 68-70 s against 71.6 s, within what a run moves. During the two merges that ran beside the PC's ensemble, tree60 took 77 s and plot25 89 s, so those two say nothing about speed. **Their gain is in how they're used:**
@@ -171,7 +186,8 @@ The maintainer asked which of these explains it: memory bandwidth, disk, paging,
 | Lean mode | No time gain beyond the noise: lean took 42.9, 44.2 and 45.4 s across three tests, and full 43.1-47.5 s. Peak memory 440 MB against 581 MB | scale tables; golden |
 | Lean scores the same | 3 pairs of 61-year runs, 23 scored keys: 0 values differ | `out/bench/p0/lean_proof.txt` |
 | Parallel runs on the PC | 141 against 81 runs an hour at 3 at once | scale table |
-| Node at 14 | 380 runs an hour on lean trees, against the PC's best of 120-140 | above |
+| Node at 14 | 380 runs an hour on lean trees, against the PC's best of 139 | above |
+| Tree arrays grow by 1.25x | plot25 peak 737 MB against 783; tree60 577 against 581; no slower | `out/bench/p0/mem125_hashes.json` |
 | Result cache and finished runs | The screen's restarts lost only runs in progress: 58 already done at one, 408 at the last | `out/bench/node/disk_step/screen5.log`, and the session for the last |
 
 ## Plots with no save files, on the node
@@ -186,6 +202,39 @@ From `reports/reviews/2026-11-06_node_disk_report.md`.
 | Peak memory, 100 trees to 60, no save files | 6.1-6.7 GB a plot; lowest free memory on the node 64.8 GB (`out/bench/node/disk_step/evidence/usage.log`) |
 | Time, no save files, sharing the node | 2,515-2,680 s a plot |
 | Disk, finished plot with no save files | about 0.3 GB, against 2.7-3.7 GB with them |
+
+## What's left, and why P0 stops here
+
+The rule for P0: stop once every remaining idea gains less than 10 %. From the profiles (`out/bench/p0/profile_tree.md`, `_plot.md`, `_mesh.md`; one run each, on the worktree). **The gains here are estimates from those shares, not measurements.**
+
+| Run | Largest shares of its time |
+|---|---|
+| Tree, 60 years | Light 55 %, carbon solve 14 %, mechanics 11 %, water 9 % |
+| Plot, 25 trees, 20 years | Carbon solve 25 %, mechanics 23 %, light 21 %, shoot growth 10 % |
+| Mesh, 30 years | Light 33 %, mesh export 32 % |
+
+| Idea | Estimated gain on a tree | Why I'm stopping |
+|---|---|---|
+| Inverse FFT only for light layers something reads | About 7 %: about 30 % of layers, on about a quarter of the time | Under 10 % |
+| A faster FFT library | Up to about 8 % of a run, if it stays bit-identical, which isn't known | Under 10 % |
+| Faster carbon solve in compiled code | At most about 9 %, if it took no time at all, and only if arithmetic order holds | Under 10 % |
+| Mechanics in compiled code | At most about 5 % of the time it owns | Under 10 % |
+
+Together they might give 15-25 %, against 380 runs an hour already. That's little beside the M2 work waiting.
+
+**Memory:** the 2 GB target isn't met, and I'm not chasing it now. The node has 94 GB and no plot needs more than 6.7 GB. Lossless steps left: writing history to disk without the pickle (the pickle was 78 % of a plot's disk at year 30), with no measured gain yet. **Largest plot in 6 GB, an estimate:** a plot's peak is about 0.4 GB plus an amount in proportion to trees; at 5.0 GB for 100 trees, 6 GB fits about 120 trees with save files. With no save files, a 100-tree plot already goes over, at 6.1-6.7 GB.
+
+**Plots parallel within a year (B8): not done.** On a 5-plot ensemble the node already runs one plot per core, so its limit of 14 could gain at most 14/5 = 2.8x, in theory, with more memory. Trees in a plot share the light field, so it needs a real rewrite. Worth another look if M4's 1,000 m2 plots turn out too slow.
+
+**A rewrite in C++ or Rust (E11), an estimate only.** Most of a run is already compiled code: FFT, the maths library and numpy. If all the rest took no time, the gain is about 1.5x. It'd take weeks, couldn't be bit-identical, and so would need a new baseline.
+
+**A GPU (E12), an estimate only.** Only light's FFT and matrix work could move, about 35 % of a tree, so at most about 1.5x. The node has none. It'd change rounding, so it isn't lossless, and the grids are small enough that moving data would eat into it.
+
+**Proposals needing the maintainer's approval, none recommended now.** Listed as asked; nothing's been done:
+- **float32 for tree positions and directions:** at year 15 on 25 trees those six arrays hold about 197 MB (`out/bench/p0/profile_plot.md`), so about 98 MB less out of 823 MB. It changes rounding, so every result moves as if by a new seed and needs a new baseline.
+- **Coarser light grid:** faster, but changes the light field itself; not measured.
+
+**Second PC:** skipped by the maintainer (DECISIONS.md row 37). `WORKER.md` and the kit stay in the repo, unused.
 
 ## Found so far on the PC
 
