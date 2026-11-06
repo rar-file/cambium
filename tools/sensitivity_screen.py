@@ -39,7 +39,9 @@ SKIP_SECTIONS = {
     "germination": "option off", "soil_water_balance": "option off", "field_layer_competition": "option off",
 }
 SKIP_PATHS = {
-    "pipe_model.huber_radius_exponent": "not used while huber_path_exponent is set",
+    "pipe_model.huber_radius_exponent": "not used at stem_theory stage 1 or 2 (treegen/growth.py:1469-1471)",
+    "pipe_model.huber_path_exponent": "not used at stem_theory stage 1 or 2 (treegen/growth.py:1469-1471)",
+    "pipe_model.huber_path_reference_m": "not used at stem_theory stage 1 or 2 (treegen/growth.py:1469-1471)",
     "roots.uptake_conductance_per_m": "used only when fine_root_uptake is off",
     "mechanics.substeps": "numerical resolution",
     "mechanics.max_rotation_per_step": "numerical guard",

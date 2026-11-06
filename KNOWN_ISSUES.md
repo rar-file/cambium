@@ -2115,3 +2115,14 @@ Not done: the cause lies entirely in mesh and render code, but a fix needs a val
 
 **7. Notes.**
 Answer: notes for phases 34–36 and 39 were written from git history and saved files, and the unsupported claims in the phase 37 & 38 notes were corrected. What could not be reconstructed is marked.
+
+## Campaign M1: foundations (stopped at a hard stop, 2026-11-06)
+
+The Birch v1 campaign replaces round-by-round briefs; `CAMPAIGN.md` is where to resume, and `reports/milestone_M1.md` is the full report.
+
+- **Stopped on memory:** one 16 GB stick, so the 8 GB free rule (PROTOCOL.md section 6) blocks every model run. Not run: the sensitivity screen, the renders, the checkers. The `targets-approved` tag has not moved.
+- **Alpha 4.8** is a one-point model calibration (commit `c3fd2dc`), not a published value. Flagged VERIFY.
+- **Height band:** the fixed 4 years to breast height is replaced by T13 = 150/SIS (Elfving 2010 p. 56), in the working copy of targets.yaml. Preview: one verdict changes, p41_germ at age 20 to FAIL.
+- **Run outputs:** `subcanopy_diffuse_light_pct` per year; manifests fingerprint uncommitted code. The scorecard reads the diffuse value per year; old runs stay NOT APPLICABLE.
+- **Audit:** `reports/parameter_audit.csv`, 274 values, 65 checked against sources, 11 not supported by the page. Findings for later milestones: `reports/research_notes.md`.
+- **Open:** `light.woody_shade` may double-count wood against `light.extinction_coefficient`. Not settled: Hagemeier & Leuschner 2019, Forests 10:925, couldn't be opened.

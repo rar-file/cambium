@@ -636,7 +636,8 @@ pipe_model:
   # for their DBH and DBH 20-26 cm with 0.6-0.7x Repola's.  Marklund 1988
   # has no birch foliage function.
   huber_radius_exponent: 0.312
-  # In use (phase 30): the Huber value rises from tip to base with the
+  # Not in use at the default stem_theory stage 2, which sets c to 0.  Used
+  # only at stage 0 (phase 30): the Huber value rises from tip to base with the
   # leaf-weighted path length l from each internode to the leaves it
   # supplies, huber_value x (l / l_ref)^c, instead of with its radius.
   # VERIFY: the pattern has no stem-level source.  This comment used to credit
