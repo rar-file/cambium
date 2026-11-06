@@ -39,6 +39,7 @@ def main(argv=None) -> int:
     print(f"Targets at {a.ref}. Means, with SD between seeds. Height is top height on the curve; bands at 50, 60: 18.76-25.12, 20.72-26.73 m.\n")
     print("| Setting | Seeds | Top height at 50 (m) | at 60 (m) | Over band top at 50, 60 (m) | LAI at 50 | at 60 | Light at 50 (%) | at 60 (%) | Stems/ha at 45 | Fits by row 52? |")
     print("|---|---|---|---|---|---|---|---|---|---|---|")
+    young = []
     for s in a.settings:
         name, folder = s.split("=", 1)
         if not (E / folder).exists():
@@ -52,9 +53,13 @@ def main(argv=None) -> int:
         fits = all(x["status"] == "PASS" for x in (h50, h60, l50, l60, b50, b60))
         top50, top60 = 25.1239, 26.7328
         density = r.get("stand_canopy.stand_density (age 45)", {}).get("mean")
+        young.append(f"| {name} | " + " | ".join(f"{r[f'{HEIGHT} (age {age})']['mean']:.2f} +- {r[f'{HEIGHT} (age {age})']['sd']:.2f}, {r[f'{HEIGHT} (age {age})']['status']}" for age in (20, 30, 40)) + " |")
         print(f"| {name} | {r['__n']} | {h50['mean']:.2f} +- {h50['sd']:.2f} | {h60['mean']:.2f} +- {h60['sd']:.2f} | {h50['mean'] - top50:+.2f}, {h60['mean'] - top60:+.2f} | "
               f"{l50['mean']:.2f} +- {l50['sd']:.2f} | {l60['mean']:.2f} +- {l60['sd']:.2f} | {q50['mean']:.1f} +- {q50['sd']:.1f} | {q60['mean']:.1f} +- {q60['sd']:.1f} | "
               f"{density:.0f} | {'yes' if fits else 'no'} |")
+    print("\nHeight at the younger ages, shown beside the rule as row 52 says (band tops 13.61, 19.24, 22.79 m):\n")
+    print("| Setting | 20 | 30 | 40 |\n|---|---|---|---|")
+    print("\n".join(young))
     return 0
 
 

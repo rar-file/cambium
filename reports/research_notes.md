@@ -29,6 +29,21 @@ The maintainer, 2026-11-06: don't change them in M1. What each page actually say
 - **Caveat for this model:** BUDVIEW alone scored -11 with the extended Borchert-Honda model (+19 with LIGNUM, +17 with VIGOR; Table 3). EBH+BUDVIEW+BOOST scored 0.0394 against EBH+BOOST 0.0396 (Table 1), about 0.5 %. So the gain on top of EBH+BOOST is small.
 - **Consequence:** the parameters would have to be calibrated under the campaign's calibration rule, with published ranges for bounds. None is printed, which is a problem for that rule.
 
+## M3a: when do rings meet next spring's leaves? (subagent's search, 2026-11-06; passages below opened by the builder)
+- **No source states the rule** that this year's rings are sized for next spring's leaves.
+- **Perttunen 2008,** TKK A102, summary read: Eq. 26, A_sr = A_f SLA Y, for deciduous trees; Eq. 27, A_w,new = max[A_su + dA_s + A_h + A_sr, A_w], with A_sr "the sapwood requirement by the existing foliage". p. 26: "no storage module". Sugar maple. The appended article itself wasn't reached.
+- **Valentine & Makela 2012,** New Phytol. 194:961, p. 963, Eq. 1: W_f = q_f A; Eq. 12: one carbon balance over foliage, roots and wood. Even-aged conifer stands. It doesn't settle the timing.
+- **Timing:** Castells-Montero et al. 2023, Trees 37:1593, doi:10.1007/s00468-023-02444-y, full, B. pendula, Spanish Pyrenees, leaf data for one year. Schmitt et al. 2004, Silva Fennica 38:167, doi:10.14214/sf.426, full, Betula spp., Finnish Lapland, one season. Takahashi et al. 2013, Ecol. Res., doi:10.1007/s11284-013-1053-x, full, ten Japanese species, including B. grossa: "vessels in several outer rings" carry water in diffuse-porous species.
+- **Cycles in another model:** Mathieu et al. 2008, Ann. Bot., doi:10.1093/aob/mcm171, GreenLab, subagent's reading: cycles arise from source-sink feedback without reserves. Not opened by the builder.
+- **Reserves, subagent's reading of abstracts:** Landhausser 2011 (aspen), Keel & Schadel 2010 (mature beech, oak, lime): shoots carbon autonomous early. Field data count against a stored-carbon form.
+- **Not reached:** Davi 2009, doi:10.1016/j.agrformet.2008.08.014 (top priority, blocked); Perttunen et al. 2001 and Makela 1997 (abstracts only).
+- **Not from a paper:** the agent also read PREBAS's source code. Its reading is an inference, and no code is copied from it.
+
+## M3c: Evo TLS 2024 (table fetched 2026-11-06, `birch-data\evo2024`; hash equal to the Metax record)
+- Yrttimaa, Liikonen, Erkkila & Vastaranta 2025, Silva Fennica 59(1):24066, doi:10.14214/sf.24066, read from the publisher's HTML. Data doi:10.23729/fd-5a800660-8bd8-35ef-ac9f-ac5c45f7fa77, CC BY 4.0. 55 plots of 32 x 32 m, Evo, southern Finland, 61 12 N, leaf-off, April-May 2024.
+- `tree_sp` 3 is Betula spp., 989 trees, silver and downy not separated. Crown diameter comes from "a polygon enveloping the tree point cloud". `stem_diam` is at the height the tree was found, median 2.50 m, 5-95 % 1.39-3.99 m, not at 1.3 m. Stands run from single-species to mixed, even-aged to multi-layered, so not a target until those conditions are written and checker A has seen it.
+- First look, `tools/m3_crown_compare.py`: at 10-30 cm, model crowns are about 40 % narrower at the same stem diameter (for example 3.18 m against 5.21 m at 25-30 cm).
+
 ## M3b and M3c: crown
 - **Lintunen 2013,** doi:10.14214/df.165, Table 3 p. 23, confirmed: first-order branches 102.0 (7.0) cm long, 5.2 (0.3) per 10 % of crown length, 73 B. pendula next to B. pendula. Ages 4-32 and heights 2-17 m are site means, not tree ranges. Finland 60-63 N, mixed stands, MT sites. Read in full, so usable for a target under pre-approval (b).
 - **Ilomaki et al. 2003,** doi:10.1139/x03-164: abstract only, full text blocked. "proportion of stem in aboveground biomass increased from 80% to 96% when the slenderness index increased"; "mean length (weighted by basal area) of branches correlated linearly with crown length". 30-year-old monocultures, three spacings. Not read in full, so it can't become a target under pre-approval (b).

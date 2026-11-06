@@ -6,7 +6,7 @@ The review is `2026-11-06_M1c_audit_M2start_review.md`. All of this is exploring
 |---|---|---|
 | 1. `--set` control | Alpha 4.8 and 6.0 by `--set`, 20 seeds, on the node's code. 4.8 equals `base_trees` on every per_year value of all 20 seeds; 6.0 equals the screen's 240 saved values. Noise at 4.79 and 4.81: 3 of 42 cells over 2 SE, about what chance gives | `out/bench/ensemble/m2_controls.txt`, `m2_noise.txt`; `tools/ensembles_identical.py` |
 | 2. Claims | Daily report, row 51, `CAMPAIGN.md` reworded; paired table and the 6.0 row added | `reports/daily_2026-11-06.md`; `tools/m2_alpha_report.py`; `out/bench/ensemble/m2_alpha_report.txt` |
-| 3. Diagnose | Short-shoot light 0.21, wood shade off, both apical controls x 0.75, shoot cap 0.9 m, the shade thresholds at 0.15: 20 seeds, paired with `base_trees` | `out/bench/ensemble/m2_diagnosis.txt` |
+| 3. Diagnose | **Still open, says the re-review.** Short-shoot light 0.21, wood shade off, both apical controls x 0.75, shoot cap 0.9 m, the shade thresholds at 0.15: 20 seeds, paired with `base_trees`. The apical step was too big to separate light from sharing; smaller steps are queued. `fccd283`'s "fix list closed" claimed too much | `out/bench/ensemble/m2_diagnosis.txt` |
 | 4. Plots' rule | Row 52, committed in `48159fd` before any plot result was read. Plots at 3.5 and 4.0 judged by it: neither fits (row 54) | `git log`, `out/bench/ensemble/m2_plots_table.txt` |
 | 5. Open window | Alpha 4.6, 5.0, 20 seeds. No value run fits | `out/bench/ensemble/m2_alpha_report.txt` |
 | 6. Free slots | Queues within the limit; "What M2 can still do" in `CAMPAIGN.md` | `out/bench/node/m2_evidence/` |
@@ -18,3 +18,5 @@ The review is `2026-11-06_M1c_audit_M2start_review.md`. All of this is exploring
 **Marked ASK MAINTAINER:** Q16, Q17 in `QUESTIONS.md`.
 
 **Not done, and why:** the 5-seed per-seed LAI the review asks to copy back wasn't needed, because each lead got a 20-seed run instead.
+
+The re-review is `2026-11-06_M1c_audit_M2start_rereview.md`. The maintainer's rule is one re-review, so no further one. Its items N1-N7 are dealt with in the commit that adds it: reports corrected, or runs queued where a number was missing. N8 is under test.

@@ -32,7 +32,7 @@ Values on the audit's unsupported list that may turn out influential: `maintenan
 
 | Fit against | Conditions to respect |
 |---|---|
-| Leaf area, always with height. Stand tree: `lai_hagemeier`, 3.6-5.4, which applies at 45-67 only. Plot: `lai_baltic_chronosequence`, 2.5-4.5, ages 6-60 | No stand-tree leaf-area band applies before 45, so a stand-tree candidate can't be judged on both until then |
+| Leaf area, always with height. Stand tree: `lai_hagemeier`, 3.6-5.4, which applies at 45-67 only. Plot: both apply at 50 and 60, so 3.6-4.5 (DECISIONS.md row 52); `lai_baltic_chronosequence`, 2.5-4.5, alone at other ages from 6 to 60 | No stand-tree leaf-area band applies before 45, so a stand-tree candidate can't be judged on both until then |
 | Eriksson height curve, shape across site indices (Elfving 2010 p. 58, height above breast height on breast-height age, T13 as in targets.yaml) | Ratio of SI 32 to SI 22 heights falling with age: about 2.28 at 10, 1.65 at 30, 1.45 at 50, 1.40 at 60 (to recheck) |
 | Liziniewicz 2022 MAI ladder, Table 6, p. 13: 6.0, 7.9, 10.5, 12.8 at SI 22, 25, 28, 32 | Their simulation's output, not a measurement. Planted improved stock, thinned, no mortality, rotations 60, 51, 45, 31 years. SI 32 is outside their data. Their site index may not be on Eriksson's scale (Johansson 2013 unread) |
 | Repola 2008 stem wood, Eq. 7 at over-bark DBH | Finnish, 34 % downy birch; bias-corrected |
