@@ -1,0 +1,4 @@
+# Birch's targets stay where tools/scorecard.py reads them, at the approved tag.
+# A new species keeps its own in reference/<name>/targets.yaml and needs no file like this.
+targets_file: reference/targets.yaml
+git_ref: targets-approved

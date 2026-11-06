@@ -37,19 +37,20 @@ TREE_PEAK_GB, PLOT_PEAK_GB = 0.6, 7.0   # plots: 6.1-6.7 GB measured with no sav
 MEDIAN_METRICS = ("height_m", "dbh_cm", "lai", "crown_ratio")
 
 
-def run_trees(label: str, seeds: int, years: int, values: list, first_seed: int = 1) -> int:
+def run_trees(label: str, seeds: int, years: int, values: list, first_seed: int = 1, species: str = "betula_pendula") -> int:
     out = BASE / label
     sets = [x for v in values for x in ("--set", v)]
-    jobs = [Job(f"seed {s}", [sys.executable, str(ROOT / "cli.py"), "--stand", "--seed", str(s), "--years", str(years), "--lean", "--quiet",
+    jobs = [Job(f"seed {s}", [sys.executable, str(ROOT / "cli.py"), "--species", species, "--stand", "--seed", str(s), "--years", str(years), "--lean", "--quiet",
                               "--out", str(out), *sets], out / f"{s}_stand" / "manifest.json")
             for s in range(first_seed, first_seed + seeds)]
     return run_batch(jobs, TREE_PEAK_GB, log=out / "runs.csv")
 
 
-def run_plots(label: str, seeds: int, years: int, mode: str, trees: int, values: list, no_saves: bool = False, first_seed: int = 1) -> int:
+def run_plots(label: str, seeds: int, years: int, mode: str, trees: int, values: list, no_saves: bool = False, first_seed: int = 1,
+              species: str = "betula_pendula") -> int:
     out = BASE / label
     sets = [x for v in values for x in ("--set", v)]
-    jobs = [Job(f"plot {s}", [sys.executable, str(ROOT / "tools" / "plot.py"), "--trees", str(trees), "--mode", mode, "--seed", str(s),
+    jobs = [Job(f"plot {s}", [sys.executable, str(ROOT / "tools" / "plot.py"), "--species", species, "--trees", str(trees), "--mode", mode, "--seed", str(s),
                               "--years", str(years), "--no-mesh", *(["--checkpoint-every", "0"] if no_saves else []),
                               "--out", str(out / f"plot_{s}"), *sets], out / f"plot_{s}" / "done.txt")
             for s in range(first_seed, first_seed + seeds)]
@@ -87,6 +88,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("what", choices=["trees", "plots", "median"])
     ap.add_argument("--label", required=True)
+    ap.add_argument("--species", default="betula_pendula", help="a name in species/, or a path")
     ap.add_argument("--seeds", type=int, default=None)
     ap.add_argument("--years", type=int, default=60)
     ap.add_argument("--mode", default="natural")
@@ -97,9 +99,9 @@ def main():
     ap.add_argument("--age", type=int, default=60)
     a = ap.parse_args()
     if a.what == "trees":
-        sys.exit(run_trees(a.label, a.seeds or 20, a.years, a.set, a.first_seed))
+        sys.exit(run_trees(a.label, a.seeds or 20, a.years, a.set, a.first_seed, a.species))
     if a.what == "plots":
-        sys.exit(run_plots(a.label, a.seeds or 5, a.years, a.mode, a.trees, a.set, a.no_saves, a.first_seed))
+        sys.exit(run_plots(a.label, a.seeds or 5, a.years, a.mode, a.trees, a.set, a.no_saves, a.first_seed, a.species))
     rows = {}
     for d in sorted((BASE / a.label).glob("*_stand")):
         per_year = json.loads((d / "stats.json").read_text(encoding="utf-8"))["per_year"]
