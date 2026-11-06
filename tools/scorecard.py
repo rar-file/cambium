@@ -441,6 +441,8 @@ def evaluate_run(name: str, item: dict[str, Any], run: dict[str, Any] | None,
                 h, counted = dominant_height(recs, float(run["plot_data"]["area_m2"]), DOMINANT_RANK[definition])
                 need = 100.0 * float(run["plot_data"]["area_m2"]) / 1e4
                 what = f"dominant height, {definition}: {counted:.2f} of {need:.2f} trees on the plot"
+                if counted < 10.0:   # the maintainer, 2026-11-06: say so, the figure gets noisy
+                    what += "; fewer than 10 such trees, so this is noisy"
             else:
                 rec = tree_record(run, age)
                 h = rec.get("height_m") if rec else None
