@@ -25,13 +25,14 @@ ROOT = Path(__file__).resolve().parent.parent
 SPECIES = ROOT / "species" / "betula_pendula.yaml"
 CHECKS = ROOT / "reports" / "parameter_checks.csv"
 OUT = ROOT / "reports" / "parameter_audit.csv"
-SCREEN = ROOT / "out" / "bench" / "node" / "screen5" / "ranking.csv"   # 5 seeds per value, on the node; the top 15 at 20 seeds override it from screen20
+SCREEN = ROOT / "out" / "bench" / "node" / "screen5" / "ranking.csv"    # every value, 5 seeds, on the node
+SCREEN_TOP = ROOT / "out" / "bench" / "node" / "screen20" / "ranking.csv"   # its top 15 again, 20 seeds
 
 KEY = re.compile(r"^(\s*)([A-Za-z_]\w*):(?:\s+(.*))?$")
 CITE = re.compile(r"\[[A-Z]+\d*\]|\b(?:19|20)\d\d\b|doi|PMC\d+", re.I)
 CALIBRATED = re.compile(r"calibrat|fitted|tuned|re-tuned|ESTIMATE", re.I)
 COLUMNS = ["path", "value", "cited_source", "read_level", "page_supports", "page_or_table", "species_in_source",
-           "applies_to_silver_birch_sweden", "status", "used_by_code", "influence_rank", "max_change_pct", "note"]
+           "applies_to_silver_birch_sweden", "status", "used_by_code", "influence_rank", "max_change_pct", "effect_over_noise", "within_noise", "screen_seeds", "note"]
 
 
 def flatten(o, p=""):
@@ -118,6 +119,12 @@ def main():
         raise SystemExit(f"no comment entry for {missing}: the line parser and the YAML disagree")
     checks = load_csv(CHECKS, "path")
     screen = load_csv(SCREEN, "path")
+    top = load_csv(SCREEN_TOP, "path")
+    # the top 15 take their places from the 20-seed run; the rest keep their order behind them
+    rest = sorted((r for p, r in screen.items() if p not in top), key=lambda r: int(r["rank"]))
+    for k, r in enumerate(rest):
+        r["rank"] = str(len(top) + k + 1)
+    screen.update(top)
     unknown = sorted(set(checks) - set(values))
     if unknown:
         raise SystemExit(f"parameter_checks.csv names values not in the species file: {unknown}")
@@ -143,6 +150,9 @@ def main():
             "used_by_code": "yes" if re.search(rf"\b{re.escape(name)}\b", code) else "no",
             "influence_rank": s.get("rank", "not calculated"),
             "max_change_pct": s.get("max_change_pct", ""),
+            "effect_over_noise": s.get("effect_over_noise", ""),
+            "within_noise": s.get("within_noise", ""),
+            "screen_seeds": s.get("seeds", ""),
             "note": c.get("note") or comment[:300],
         })
     with open(OUT, "w", encoding="utf-8", newline="") as f:
