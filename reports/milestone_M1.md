@@ -15,15 +15,15 @@ From `tools/scorecard.py --ensemble`, unchanged. Both target sets, because the t
 
 **Stand trees, 20 seeds, node, targets at master (preview):**
 
-Targets: reference/targets.yaml at master (commit a89e749). NOT the approved tag targets-approved (commit 41d18c1): results are a preview, not approved. Ensemble: out/bench/ensemble/base_trees, 20 runs.
+Targets: reference/targets.yaml at master (commit 881b5c0). NOT the approved tag targets-approved (commit 41d18c1): results are a preview, not approved. Ensemble: out/bench/ensemble/base_trees, 20 runs.
 
 | Target | Ensemble mean | SD | Seeds | Target Range / Value | Status | Share of seeds inside | Source | Notes |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|---|
-| `stand_canopy.lai_baltic_chronosequence (age 20)` | N/A | N/A | 0 | [2.50, 4.50] | **NOT APPLICABLE** | N/A | Uri et al. (2012); Varik et al. (2015); Aosaar et al. (2016) | needs a plot run |
-| `stand_canopy.lai_baltic_chronosequence (age 30)` | N/A | N/A | 0 | [2.50, 4.50] | **NOT APPLICABLE** | N/A | Uri et al. (2012); Varik et al. (2015); Aosaar et al. (2016) | needs a plot run |
-| `stand_canopy.lai_baltic_chronosequence (age 40)` | N/A | N/A | 0 | [2.50, 4.50] | **NOT APPLICABLE** | N/A | Uri et al. (2012); Varik et al. (2015); Aosaar et al. (2016) | needs a plot run |
-| `stand_canopy.lai_baltic_chronosequence (age 50)` | N/A | N/A | 0 | [2.50, 4.50] | **NOT APPLICABLE** | N/A | Uri et al. (2012); Varik et al. (2015); Aosaar et al. (2016) | needs a plot run |
-| `stand_canopy.lai_baltic_chronosequence (age 60)` | N/A | N/A | 0 | [2.50, 4.50] | **NOT APPLICABLE** | N/A | Uri et al. (2012); Varik et al. (2015); Aosaar et al. (2016) | needs a plot run |
+| `stand_canopy.lai_baltic_chronosequence (age 20)` | N/A | N/A | 0 | [2.50, 4.50] | **NOT APPLICABLE** | N/A | Uri et al. (2012); Varik et al. (2015) | needs a plot run |
+| `stand_canopy.lai_baltic_chronosequence (age 30)` | N/A | N/A | 0 | [2.50, 4.50] | **NOT APPLICABLE** | N/A | Uri et al. (2012); Varik et al. (2015) | needs a plot run |
+| `stand_canopy.lai_baltic_chronosequence (age 40)` | N/A | N/A | 0 | [2.50, 4.50] | **NOT APPLICABLE** | N/A | Uri et al. (2012); Varik et al. (2015) | needs a plot run |
+| `stand_canopy.lai_baltic_chronosequence (age 50)` | N/A | N/A | 0 | [2.50, 4.50] | **NOT APPLICABLE** | N/A | Uri et al. (2012); Varik et al. (2015) | needs a plot run |
+| `stand_canopy.lai_baltic_chronosequence (age 60)` | N/A | N/A | 0 | [2.50, 4.50] | **NOT APPLICABLE** | N/A | Uri et al. (2012); Varik et al. (2015) | needs a plot run |
 | `stand_canopy.lai_hagemeier (age 20)` | N/A | N/A | 0 | [3.60, 5.40] | **NOT APPLICABLE** | N/A | Hagemeier & Leuschner (2019) | age 20 outside age_years [45, 67] |
 | `stand_canopy.lai_hagemeier (age 30)` | N/A | N/A | 0 | [3.60, 5.40] | **NOT APPLICABLE** | N/A | Hagemeier & Leuschner (2019) | age 30 outside age_years [45, 67] |
 | `stand_canopy.lai_hagemeier (age 40)` | N/A | N/A | 0 | [3.60, 5.40] | **NOT APPLICABLE** | N/A | Hagemeier & Leuschner (2019) | age 40 outside age_years [45, 67] |
@@ -72,20 +72,20 @@ Targets: reference/targets.yaml at master (commit a89e749). NOT the approved tag
 | `juvenile_establishment.field_layer` | N/A | N/A | 0 | See yaml | **NOT APPLICABLE** | N/A | Aubin, Beaudet & Messier (2000, Can. J. For. Res. 30:168); SMEAR II Hyytiälä data; Ring & Sikström (2024, Silva Fennica 58:23056) | needs a single-seedling or plot run |
 | `juvenile_establishment.seedling_root_shoot_ratio` | N/A | N/A | 0 | See yaml | **NOT APPLICABLE** | N/A | Konôpka et al. (2023, Plants 12:1607); Laitakari (1935, Acta For. Fenn. 41) | needs a single-seedling run |
 
-The verdict is the ensemble mean against the band. The band shown, and any figure in the notes other than the distance from a median, are the first seed's.
+The verdict is the ensemble mean against the band. The band shown is the first seed's where it depends on the seed.
 INFO: information only (scoring: info in targets.yaml), never PASS/FAIL.
 
 **Plots, 5 seeds, node, targets at master (preview):**
 
-Targets: reference/targets.yaml at master (commit a89e749). NOT the approved tag targets-approved (commit 41d18c1): results are a preview, not approved. Ensemble: out/bench/ensemble/base_plots, 5 runs.
+Targets: reference/targets.yaml at master (commit 881b5c0). NOT the approved tag targets-approved (commit 41d18c1): results are a preview, not approved. Ensemble: out/bench/ensemble/base_plots, 5 runs.
 
 | Target | Ensemble mean | SD | Seeds | Target Range / Value | Status | Share of seeds inside | Source | Notes |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|---|
-| `stand_canopy.lai_baltic_chronosequence (age 20)` | 2.972 | 0.390 | 5 | [2.50, 4.50] | **PASS** | 80 % | Uri et al. (2012); Varik et al. (2015); Aosaar et al. (2016) | stand LAI at 1746 stems/ha |
-| `stand_canopy.lai_baltic_chronosequence (age 30)` | 3.768 | 0.152 | 5 | [2.50, 4.50] | **PASS** | 100 % | Uri et al. (2012); Varik et al. (2015); Aosaar et al. (2016) | stand LAI at 1728 stems/ha |
-| `stand_canopy.lai_baltic_chronosequence (age 40)` | 3.807 | 0.045 | 5 | [2.50, 4.50] | **PASS** | 100 % | Uri et al. (2012); Varik et al. (2015); Aosaar et al. (2016) | stand LAI at 1566 stems/ha |
-| `stand_canopy.lai_baltic_chronosequence (age 50)` | 3.769 | 0.031 | 5 | [2.50, 4.50] | **PASS** | 100 % | Uri et al. (2012); Varik et al. (2015); Aosaar et al. (2016) | stand LAI at 1476 stems/ha |
-| `stand_canopy.lai_baltic_chronosequence (age 60)` | 3.761 | 0.016 | 5 | [2.50, 4.50] | **PASS** | 100 % | Uri et al. (2012); Varik et al. (2015); Aosaar et al. (2016) | stand LAI at 1440 stems/ha |
+| `stand_canopy.lai_baltic_chronosequence (age 20)` | 2.972 | 0.390 | 5 | [2.50, 4.50] | **PASS** | 80 % | Uri et al. (2012); Varik et al. (2015) | stand LAI at 1746 stems/ha |
+| `stand_canopy.lai_baltic_chronosequence (age 30)` | 3.768 | 0.152 | 5 | [2.50, 4.50] | **PASS** | 100 % | Uri et al. (2012); Varik et al. (2015) | stand LAI at 1728 stems/ha |
+| `stand_canopy.lai_baltic_chronosequence (age 40)` | 3.807 | 0.045 | 5 | [2.50, 4.50] | **PASS** | 100 % | Uri et al. (2012); Varik et al. (2015) | stand LAI at 1566 stems/ha |
+| `stand_canopy.lai_baltic_chronosequence (age 50)` | 3.769 | 0.031 | 5 | [2.50, 4.50] | **PASS** | 100 % | Uri et al. (2012); Varik et al. (2015) | stand LAI at 1476 stems/ha |
+| `stand_canopy.lai_baltic_chronosequence (age 60)` | 3.761 | 0.016 | 5 | [2.50, 4.50] | **PASS** | 100 % | Uri et al. (2012); Varik et al. (2015) | stand LAI at 1440 stems/ha |
 | `stand_canopy.lai_hagemeier (age 20)` | N/A | N/A | 0 | [3.60, 5.40] | **NOT APPLICABLE** | N/A | Hagemeier & Leuschner (2019) | age 20 outside age_years [45, 67] |
 | `stand_canopy.lai_hagemeier (age 30)` | N/A | N/A | 0 | [3.60, 5.40] | **NOT APPLICABLE** | N/A | Hagemeier & Leuschner (2019) | age 30 outside age_years [45, 67] |
 | `stand_canopy.lai_hagemeier (age 40)` | N/A | N/A | 0 | [3.60, 5.40] | **NOT APPLICABLE** | N/A | Hagemeier & Leuschner (2019) | age 40 outside age_years [45, 67] |
@@ -134,7 +134,7 @@ Targets: reference/targets.yaml at master (commit a89e749). NOT the approved tag
 | `juvenile_establishment.field_layer` | N/A | N/A | 0 | See yaml | **NOT APPLICABLE** | N/A | Aubin, Beaudet & Messier (2000, Can. J. For. Res. 30:168); SMEAR II Hyytiälä data; Ring & Sikström (2024, Silva Fennica 58:23056) | field_layer_competition.enabled was False, needs True |
 | `juvenile_establishment.seedling_root_shoot_ratio` | N/A | N/A | 0 | See yaml | **NOT APPLICABLE** | N/A | Konôpka et al. (2023, Plants 12:1607); Laitakari (1935, Acta For. Fenn. 41) | needs a single-seedling run |
 
-The verdict is the ensemble mean against the band. The band shown, and any figure in the notes other than the distance from a median, are the first seed's.
+The verdict is the ensemble mean against the band. The band shown is the first seed's where it depends on the seed.
 INFO: information only (scoring: info in targets.yaml), never PASS/FAIL.
 
 **Stand trees, targets at the approved tag:**
@@ -196,7 +196,7 @@ Targets: reference/targets.yaml at targets-approved (commit 41d18c1). Ensemble: 
 | `juvenile_establishment.field_layer` | N/A | N/A | 0 | See yaml | **NOT APPLICABLE** | N/A | Aubin, Beaudet & Messier (2000, Can. J. For. Res. 30:168); SMEAR II Hyytiälä data; Ring & Sikström (2024, Silva Fennica 58:23056) | needs a single-seedling or plot run |
 | `juvenile_establishment.seedling_root_shoot_ratio` | N/A | N/A | 0 | See yaml | **NOT APPLICABLE** | N/A | Konôpka et al. (2023, Plants 12:1607); Laitakari (1935, Acta For. Fenn. 41) | needs a single-seedling run |
 
-The verdict is the ensemble mean against the band. The band shown, and any figure in the notes other than the distance from a median, are the first seed's.
+The verdict is the ensemble mean against the band. The band shown is the first seed's where it depends on the seed.
 INFO: information only (scoring: info in targets.yaml), never PASS/FAIL.
 
 **Plots, targets at the approved tag:**
@@ -258,7 +258,7 @@ Targets: reference/targets.yaml at targets-approved (commit 41d18c1). Ensemble: 
 | `juvenile_establishment.field_layer` | N/A | N/A | 0 | See yaml | **NOT APPLICABLE** | N/A | Aubin, Beaudet & Messier (2000, Can. J. For. Res. 30:168); SMEAR II Hyytiälä data; Ring & Sikström (2024, Silva Fennica 58:23056) | field_layer_competition.enabled was False, needs True |
 | `juvenile_establishment.seedling_root_shoot_ratio` | N/A | N/A | 0 | See yaml | **NOT APPLICABLE** | N/A | Konôpka et al. (2023, Plants 12:1607); Laitakari (1935, Acta For. Fenn. 41) | needs a single-seedling run |
 
-The verdict is the ensemble mean against the band. The band shown, and any figure in the notes other than the distance from a median, are the first seed's.
+The verdict is the ensemble mean against the band. The band shown is the first seed's where it depends on the seed.
 INFO: information only (scoring: info in targets.yaml), never PASS/FAIL.
 
 ## 3. Task items
