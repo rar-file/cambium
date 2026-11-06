@@ -129,7 +129,7 @@ On the screen's own measure (largest change in height, DBH, leaf area or carbon 
 | 28 | 11.1 | 19.1 | 23.6 | 26.3 | 28.0 | 29.2 | 0.397 | 1.043 |
 | 32 | 14.8 | 23.6 | 28.0 | 30.5 | 32.0 | 33.0 | 0.463 | 1.032 |
 
-The SI 32 / SI 22 height ratio falls with age: about 2.28 at 10, 1.65 at 30, 1.45 at 50, 1.40 at 60. Any fertility term has to reproduce that.
+The SI 32 / SI 22 height ratio falls with age: about 2.28 at 10, 1.65 at 30, 1.45 at 50, 1.40 at 60, at breast-height age. By total age, with the T13 rule: 2.70, 1.78, 1.50, 1.44 (`out/bench/ensemble/m2_shape.txt`). Any fertility term has to reproduce that.
 
 ## M2: carbon
 - **SLA falls with age:** Rosenvald et al. 2013, 10.1007/s10342-012-0669-7, Fig. 3, as reprinted in the Varik thesis (PDF p. 114): SLA = 15 - 0.075 A, so 14.25 at 10, 12.75 at 30, 11.25 at 50, 10.5 at 60 (subagent's arithmetic). Lintunen 2013 p. 28: mean SLA 13.6 for B. pendula in southern Finland.

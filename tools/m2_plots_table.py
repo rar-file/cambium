@@ -58,7 +58,13 @@ def main(argv=None) -> int:
         q50, q60 = r[f"{LIGHT} (age 50)"], r[f"{LIGHT} (age 60)"]
         fits = all(x["status"] == "PASS" for x in (h50, h60, l50, l60, b50, b60))
         top50, top60 = 25.1239, 26.7328
-        near = min(abs(h50["mean"] - top50), abs(h60["mean"] - top60)) <= 0.2 or min(abs(l50["mean"] - 3.6), abs(l60["mean"] - 3.6)) <= 0.12
+        missed, close = [], []
+        for mean, top in ((h50["mean"], top50), (h60["mean"], top60)):
+            (missed if mean > top else close).append(abs(mean - top) <= 0.2)
+        for mean in (l50["mean"], l60["mean"]):
+            (missed if mean < 3.6 else close).append(abs(mean - 3.6) <= 0.12)
+        # a "no" depends on the draw only if every line it misses is within its margin
+        near = all(missed) if missed else any(close)
         density = r.get("stand_canopy.stand_density (age 45)", {}).get("mean")
         young.append(f"| {name} | " + " | ".join(f"{r[f'{HEIGHT} (age {age})']['mean']:.2f} +- {r[f'{HEIGHT} (age {age})']['sd']:.2f}, {r[f'{HEIGHT} (age {age})']['status']}" for age in (20, 30, 40)) + " |")
         print(f"| {name} | {r['__n']} | {h50['mean']:.2f} +- {h50['sd']:.2f} | {h60['mean']:.2f} +- {h60['sd']:.2f} | {h50['mean'] - top50:+.2f}, {h60['mean'] - top60:+.2f} | "

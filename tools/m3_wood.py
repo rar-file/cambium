@@ -6,7 +6,10 @@ nothing in it, and nothing in its saved outputs.
     python tools/m3_wood.py table pc_wood_base pc_wood_ahead
 
 Repola 2008, Silva Fennica 42(4):605, birch, multivariate model 1 (Table 3), with dS = 2 + 1.25 d, d in cm
-over bark at 1.3 m, h in m, y in kg dry mass, each with its bias correction:
+over bark at 1.3 m, h in m, y in kg dry mass, each with its bias correction.  Eq. 9 is printed with d_k,
+stump diameter: dS is used here, as the brief asks.  Taking Repola's d as over bark is a reading, and the bark
+comes from tools/bark.py; Repola's own sample's bark, about 0.9 cm at 16.5 cm, gives less stem wood, 390 and
+407 kg rather than 413 and 430 at 60, for the default and both proposed corrections:
     stem wood (Eq. 7):       ln y = -4.879 + 9.651 dS/(dS + 12) + 1.012 ln h,          exp((0.00263 + 0.00544)/2)
     living branches (Eq. 9): ln y = -4.152 + 15.874 dS/(dS + 16) - 4.407 h/(h + 10),   exp((0.02733 + 0.07662)/2)
 Model wood is pi r^2 L x 530 kg/m3: wood only, no bark.  Repola's living branches include bark and no

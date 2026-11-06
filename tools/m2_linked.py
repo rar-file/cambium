@@ -16,6 +16,11 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "tools"))
+
+from scorecard import ensemble_folders, evaluate_ensemble, load_approved_targets, load_run_data  # noqa: E402
+
 E = ROOT / "out" / "bench" / "ensemble"
 HT, LAI, LIGHT, WIDTH = "height_m", "lai", "subcanopy_diffuse_light_pct", "crown_width_m"
 
@@ -77,6 +82,43 @@ def main() -> int:
     for name, s in (("Trees, wood on", base), ("Trees, wood off", off), ("Trees, both", both), ("Plots, wood on", p_base), ("Plots, wood off", p_off), ("Plots, both", p_both), ("Plots, wood on, death lines 0.15 (test value)", p_shade)):
         print("\n".join(k_row(name, s)))
     print("\nAt k 0.37, 19.8 % light needs LAI " + f"{-math.log(0.198) / 0.37:.2f}.")
+
+    print("\n## Implied k by age, node, trees\n")
+    print("| Set | 20 | 30 | 50 | 60 |\n|---|---|---|---|---|")
+    for name, s in (("Wood on", base), ("Wood off", off), ("Both", both)):
+        cells = []
+        for age in (20, 30, 50, 60):
+            lai, q = mean_at(s, age, LAI), mean_at(s, age, LIGHT)
+            cells.append(f"{-math.log(q / 100.0) / lai:.3f}")
+        print(f"| {name} | " + " | ".join(cells) + " |")
+
+    print("\n## Plots' heights against a stand tree, both corrections\n")
+    print("| Alpha | Age | Top height on the curve (m) | Thickest 100/ha, mean (m) | All plot trees, mean (m) | Stand tree (m) | All plot trees minus stand tree (m) |\n|---|---|---|---|---|---|---|")
+    targets = load_approved_targets("targets-approved")
+    for alpha, plot_label, tree_label in (("3.0", "m2_plots_cc_a3.0", "m2_cc_a3.0"), ("3.5", "m2_plots_cc_a3.5", "m2_cc_a3.5"), ("4.8", "m2_plots_cc", "m2_cc")):
+        runs = [load_run_data(str(x)) for x in ensemble_folders(E / plot_label)]
+        rows = {r["target"]: r for r in evaluate_ensemble(targets, runs, [50, 60])}
+        stand = trees(tree_label)
+        for age in (50, 60):
+            tops, means = [], []
+            for folder in sorted((E / plot_label).glob("plot_*")):
+                doc = json.loads((folder / "plot.json").read_text(encoding="utf-8"))
+                area_ha = doc["area_m2"] / 10000.0
+                alive = []
+                for t in doc["trees"]:
+                    f = folder / f"tree_{t['id']:03d}" / "stats.json"
+                    removed = t.get("removed")
+                    if not f.exists() or (removed is not None and removed <= age):
+                        continue
+                    rec = next((r for r in json.loads(f.read_text(encoding="utf-8"))["per_year"] if r["year"] == age - t["germination"]), None)
+                    if rec and (rec.get("dbh_cm") or 0.0) > 0.0:
+                        alive.append(rec)
+                alive.sort(key=lambda r: r["dbh_cm"], reverse=True)
+                n = max(1, round(100.0 * area_ha))
+                tops.append(statistics.mean(r["height_m"] for r in alive[:n]))
+                means.append(statistics.mean(r["height_m"] for r in alive))
+            s = mean_at(stand, age, HT)
+            print(f"| {alpha} | {age} | {rows[f'tree_allometry.site_index_curves (age {age})']['mean']:.2f} | {statistics.mean(tops):.2f} | {statistics.mean(means):.2f} | {s:.2f} | {statistics.mean(means) - s:+.2f} |")
 
     print("\n## Across seeds: does each seed's light follow its own LAI?\n")
     print("| Set | Age | Seeds | Each seed's k, mean +- SD | r between LAI and -ln(light) |\n|---|---|---|---|---|")
