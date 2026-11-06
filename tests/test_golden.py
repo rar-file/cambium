@@ -25,6 +25,19 @@ def _glb(path, extras, payload=b"12345678"):
         f.write(payload)
 
 
+def test_an_option_that_is_off_leaves_the_hash_alone(tmp_path):
+    a, b, c, d, e = (tmp_path / f"{n}.json" for n in "abcde")
+    a.write_text(json.dumps({"x": 1.5, "options": {"old": True}}))
+    b.write_text(json.dumps({"x": 1.5, "options": {"old": True, "new": False}}))
+    c.write_text(json.dumps({"x": 1.5, "options": {"old": True, "new": True}}))
+    d.write_text(json.dumps({"x": 1.5, "options": {"old": True, "new": 2}}))
+    e.write_text(json.dumps({"x": 1.6, "options": {"old": True, "new": False}}))
+    assert hash_file(a) == hash_file(b)
+    assert hash_file(a) != hash_file(c)   # on counts
+    assert hash_file(a) != hash_file(d)   # a value counts
+    assert hash_file(b) != hash_file(e)   # a number still counts
+
+
 def test_json_hash_ignores_run_metadata_only(tmp_path):
     a, b, c = tmp_path / "a.json", tmp_path / "b.json", tmp_path / "c.json"
     a.write_text(json.dumps({"x": 1.5, "run_manifest": {"git_commit": "aaa"}, "nested": {"peak_mb": 10, "y": 2}}))

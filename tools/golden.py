@@ -10,6 +10,9 @@ again, and every model output and mesh file must hash the same.
 
 Run metadata is left out of the hash: manifest.json, logs, checkpoints, and inside
 JSON and GLB files the keys in METADATA_KEYS (git commit, timings, memory figures).
+An option listed as off isn't a result either, so a new option that's off by default leaves the
+hash alone; an option that's on, or has a value, still counts.  'rehash' reworks a recording's
+hashes from its saved folders, keeping the old ones beside them.
 Each run's time and peak memory are recorded next to the hashes, not in them.
 
 Results depend on the maths libraries' versions and on the CPU, so a recording also
@@ -55,7 +58,14 @@ SKIP_DIRS = {"history", "previews", "__pycache__"}
 
 def strip_metadata(o):
     if isinstance(o, dict):
-        return {k: strip_metadata(v) for k, v in o.items() if k not in METADATA_KEYS}
+        out = {}
+        for k, v in o.items():
+            if k in METADATA_KEYS:
+                continue
+            if k == "options" and isinstance(v, dict):
+                v = {name: value for name, value in v.items() if value is not False and value is not None}
+            out[k] = strip_metadata(v)
+        return out
     if isinstance(o, list):
         return [strip_metadata(v) for v in o]
     return o
@@ -178,6 +188,16 @@ def load_hashes(label_or_path: str, root: Path = GOLDEN) -> dict:
     return json.loads(p.read_text(encoding="utf-8"))
 
 
+def rehash(label: str, root: Path = GOLDEN) -> None:
+    """Rework a recording's hashes from its saved folders, after a change in what's hashed."""
+    path = root / label / "hashes.json"
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    path.with_name("hashes_before_rehash.json").write_text(json.dumps(saved, indent=1), encoding="utf-8")
+    for name, run in saved["runs"].items():
+        run["files"] = hash_tree(root / label / name)
+    path.write_text(json.dumps(saved, indent=1), encoding="utf-8")
+
+
 def compare(a: dict, b: dict) -> tuple:
     """(identical?, lines describing every difference, time and memory table rows)."""
     same = True
@@ -211,11 +231,15 @@ def main():
     c = sub.add_parser("compare")
     c.add_argument("first")
     c.add_argument("second")
+    re_h = sub.add_parser("rehash")
+    re_h.add_argument("label")
     h = sub.add_parser("hash")
     h.add_argument("folder")
     a = ap.parse_args()
     if a.what == "record":
         record(a.label, a.only.split(",") if a.only else None)
+    elif a.what == "rehash":
+        rehash(a.label)
     elif a.what == "hash":
         print(json.dumps(hash_tree(Path(a.folder)), indent=1))
     else:
