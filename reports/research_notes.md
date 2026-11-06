@@ -49,6 +49,22 @@ Sets the margin for M2's cut rule, and shows how far seed 1 can be from typical.
 
 Seed 1 on this PC: height 26.11 m at 60 and LAI 2.95, both low against these means. The mean height at 60 is above the corrected band's top edge (26.73 m), though seed 1 is inside it. So a verdict on seed 1 alone may not hold for the typical tree. Worth raising with the maintainer: the adoption gate is scored on seed 1.
 
+## The model is chaotic (node, 28 runs, 2026-11-06; `out/bench/node/noise_floor.md`)
+
+Four parameters, each changed by 1 to 7 parts in a million, seed 1. None of the 28 came out the same as the default. Any movement is the model's own chaos, not an effect.
+
+| Age | Height: largest move, SD | DBH | Leaf area | Crown ratio | Diffuse light |
+|---|---|---|---|---|---|
+| 30 | -6.1 %, 2.7 | +11.2 %, 4.6 | +28.1 %, 9.1 | -21.1 %, 8.9 | +26.4 %, 9.3 |
+| 50 | +5.7 %, 2.4 | -11.4 %, 4.7 | -13.4 %, 4.9 | -15.6 %, 6.9 | +15.3 %, 5.4 |
+| 60 | +5.6 %, 2.2 | -9.1 %, 3.3 | +11.5 %, 3.8 | -14.9 %, 6.5 | -9.4 %, 4.1 |
+
+On the screen's own measure (largest change in height, DBH, leaf area or carbon at 30, 50, 60), these tiny changes give a median of 10.8 % and at most 28.1 %. An effect in the single-seed screen below that can't be told from noise.
+
+- **Pairing helps only partly:** at 60 the tiny-change spread is close to the seed spread for height (2.2 % against 2.8 %), and smaller for DBH (3.3 against 6.5), leaf area (3.8 against 10.9) and crown ratio (6.5 against 18.1). The 2-standard-error rule measures what's left.
+- **The node's seed 1 isn't the PC's seed 1:** height at 60 is 26.51 m against 26.11 m. Rounding differences between chips grow the same way, which is why every comparison stays on one machine.
+- **Thread-count rounding moved results far less (0.03 %),** so divergence depends on the size of the disturbance.
+
 ## M2a: is there a direct source for alpha? (subagent, 2026-11-06; files in the scratchpad's research_m2a folder)
 
 **Answer: no direct source in anything readable.** No paper read gives seasonal carbon per m2 of fully lit birch leaf, or a full set of Amax, respiration and light response for Nordic B. pendula. So alpha goes down the calibration route. In physical terms 4.8 is 976 g C per m2 of leaf per season in full light (4.8 x 0.305 / 0.0015).
