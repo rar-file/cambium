@@ -107,3 +107,14 @@ def test_a_stated_commit_cant_overwrite_a_real_one():
     option = [_run(commit="def") for _ in NAMES]
     with pytest.raises(Refused, match="already name a commit"):
         check_like_for_like(base, option, (NAMES, NAMES), "option", "def", None)
+
+
+def test_info_rows_are_left_out(monkeypatch):
+    """Restored: an INFO row is never a gate row (it was in the test this file's rewrite replaced)."""
+    import gate
+
+    rows = [{"target": "a (age 60)", "value": 1.0, "band": (0.0, 2.0), "status": "INFO"},
+            {"target": "b (age 60)", "value": 1.0, "band": (0.0, 2.0), "status": "PASS"},
+            {"target": "c (age 60)", "value": None, "band": None, "status": "NOT APPLICABLE"}]
+    monkeypatch.setattr(gate, "evaluate_targets", lambda targets, runs, ages: (rows, []))
+    assert list(gate.per_seed({}, [{}], [60])[0]) == ["b (age 60)"]

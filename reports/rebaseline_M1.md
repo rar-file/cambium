@@ -22,7 +22,7 @@
 | Diffuse light (%) | 50 | 30.1 +- 4.2 | band 6.4-19.8, FAIL, 0 % | same; +15.3 points from the median of 14.8 % |
 | Diffuse light (%) | 60 | 27.5 +- 2.7 | band 6.4-19.8, FAIL, 0 % | same; +12.7 points from the median |
 
-**How near these height verdicts are:** at master, age 40 is 0.28 m over the band top (1.66 standard errors of the mean), age 50 is 0.17 m (1.20), and age 60 is 0.34 m (2.05). On a verdict of ensemble mean against band, those FAILs stand, but they're close.
+**How near these height verdicts are** (`out/bench/m1/figures.txt`, from unrounded bands): at master, age 40 is 0.28 m over the band top (1.66 standard errors of the mean), age 50 is 0.16 m (1.17), and age 60 is 0.34 m (2.03). Age 20 is 1.28 m over (11.8), and age 30 is 0.49 m (3.09). **At the tag,** the passes are thin: age 40 by 0.003 m (0.02) and age 50 by 0.03 m (0.20).
 
 ## Plots, 5 seeds
 
@@ -42,22 +42,24 @@
 | Crown ratio, dense stand | 20 | 0.72 +- 0.03 | 0.30-0.45, FAIL, 0 % | same |
 | Stems/ha, INFO | 45 | 1,566 +- 52 | 880 in the source stand, not scored | same |
 
-Each plot holds only 5.56 of the top-height trees, so the scorecard calls that figure noisy. Those trees' mean height, shown beside it, is 27.92 at 50 and 29.41 at 60: lower than the curve, and still 2.7-2.8 m over the band top.
+Each plot holds only 5.56 of the top-height trees, so the scorecard calls that figure noisy. Those trees' mean height, shown beside it, is 27.92 at 50 and 29.41 at 60: lower than the curve, and still 2.7-2.8 m over the band top. All live trees average 21.85 and 22.80 m, inside the band (`out/bench/m1/figures.txt`).
+
+**Not like for like, and noted:** these plots hold about 1,500 stems/ha at 50-60, against 880 and 420 in the Hagemeier stands, and about 1,700 at 20, against 3,000-5,000 in the crown-ratio target's text. Stand trees' crowns cover about 0.42 and 0.58 of the ground at 50 and 60 (checker A's arithmetic), against the source's closure above 0.9. So the plots' LAI PASS isn't quoted as like for like. QUESTIONS.md Q13.
 
 ## Verdicts that changed
 
 | Target | Before | Now, at master | Why |
 |---|---|---|---|
-| Stand-tree height at 40 | FAIL (seed 1, PC) | FAIL | None |
-| Stand-tree height at 50 | PASS (seed 1, PC) | FAIL | Many seeds, and the corrected band: at the tag the ensemble passes |
+| Stand-tree height at 40 | FAIL (seed 1, PC) | FAIL; at the tag, PASS by 0.003 m | Many seeds, at the tag |
+| Stand-tree height at 50 | PASS (seed 1, PC) | FAIL | The corrected band, with many seeds: at the tag the ensemble passes by 0.03 m |
 | Stand-tree height at 60 | PASS (seed 1, PC) | FAIL | Many seeds, and the corrected band: at the tag the ensemble fails too, so seeds alone do it |
-| Plot top height at 20-60 | FAIL on `p38_nat` at master; not scored at the tag | FAIL | None at master |
+| Plot top height at 20-60 | FAIL on `p38_nat` at master, by 100 thickest (28.20, 29.54 m at 50, 60); not scored at the tag | FAIL, on the curve | None at master; the definition changed |
 | Plot light at 50, 60 | Not scored on `p38_nat`, which never recorded it | FAIL | Newly scored |
 
 Old runs: `out/bench/ensemble/scorecard_seed1_pc.txt`, `scorecard_p38_nat_seed1.txt`.
 
 ## What's one failure, and what isn't
 
-- **Too tall:** the height rows at five ages, on trees and on plots, are one problem, mostly when young on trees, and large on plots.
-- **Leaf area and light on stand trees: linked.** Light follows LAI at k 0.367-0.393 by age, against the paper's 0.37, which the model takes as an input. Correlation within an age is 0.705-0.892, so at age 50 leaf area explains about half of the seed-to-seed spread in light, and the largest single-seed gap is 22 points (`out/bench/ensemble/light_lai_link.txt`).
-- **Leaf area and light on plots: not the same.** LAI passes and light fails. By Beer-Lambert, 19.8 % needs LAI 4.38 at k = 0.37, or about 4.06 at the plots' own k of about 0.399, and 3.6 gives 26.4 % at k = 0.37. So the lower part of the LAI band can't pass the light band. That's arithmetic, not a model run.
+- **Too tall:** the height rows at five ages, on trees and on plots. Whether they're one problem is not calculated: the trees' excess shrinks with age (1.28 to 0.16-0.34 m), and the plots' grows (1.82 to 3.85 m on the curve).
+- **Leaf area and light on stand trees: linked.** Light follows LAI at k 0.367-0.393 by age, against the paper's 0.37, which the model takes as an input. Correlation within an age is 0.705-0.892, so at age 50 leaf area explains about half of the seed-to-seed spread in light. The largest single-seed gap is 22 points at age 20, and 15.7 at age 50 (`out/bench/ensemble/light_lai_link.txt`).
+- **Leaf area and light on plots: linked too, with a different verdict for each.** LAI passes and light fails. By Beer-Lambert, 19.8 % needs LAI 4.38 at k = 0.37, or 4.06-4.07 at the plots' own k of 0.398-0.399, and 3.6 gives 26.4 % at k = 0.37. So the lower part of the LAI band can't pass the light band. That's arithmetic (`out/bench/m1/figures.txt`), not a model run.

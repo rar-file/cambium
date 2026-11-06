@@ -163,6 +163,23 @@ Ranks from the node's 5-seed screen (`out/bench/node/screen5/ranking.csv`). Chec
 | 12 | `resource.root_share_max` 0.6 | No | Direction only, in crops (Brouwer 1963). 0.6 is above the comment's own 25-40 %; Aosaar 2016 Table 4 gives 17.8 % below ground for a 10-year-old birch stand, by arithmetic on 2.32 of 13.02 Mg/ha/yr |
 | 13 | `pipe_model.wood_volume_per_carbon` 1.2e-06 | No source exists | A unit size: 0.305 g C per unit by arithmetic on wood density 530 kg/m3 and carbon 0.48. The "calibrated" label overstates it: the calibration predates git, was made in rings mode, and can't be reproduced |
 
+**Where the copies read for the top 15 came from** (recorded late; "not recorded" means the file doesn't say):
+
+| Rank | Source | Where from |
+|---|---|---|
+| 1, 4, 7 | Ounapuu-Pikas et al. 2022 | Local text extract, carrying the journal's own citation and URL; download not recorded |
+| 2 | Sellin & Lubenets 2010; Sellin 2014 | Abstract at the publisher; PMC4602113 |
+| 3 | Kull et al. 2003; Caesar 1983 | PMC4242242; Lakehead University's thesis repository |
+| 5, 6, 11 | Anfodillo 2006; Olson 2014 | PubMed abstracts, through NCBI's API |
+| 8 | Aosaar et al. 2016 | Silva Fennica, the publisher |
+| 9 | Barthelemy & Caraglio 2007 | PMC2802949 |
+| 10 | Hagemeier & Leuschner 2019b | mdpi.com, read by Claude (chat) for the maintainer |
+| 12 | Hagemeier & Leuschner 2019a | Local copy, carrying the journal's own citation; download not recorded |
+| 13 | ForestGALES 2.5 manual | Download not recorded |
+| 15 | Brouwer 1963; Aosaar 2016 | Wageningen's repository; Silva Fennica |
+
+The papers downloaded for these checks were moved to `birch-data\M1_downloads\`, as the research rules ask.
+
 **For M2:** alpha's derivation passes through that 0.305 g C per unit, so alpha inherits this choice, and the screen's ranking may partly reflect that coupling (inferred).
 
 **Citation corrections:** Anfodillo 2006 is New Phytol. 169:279, not Tree Physiol. 26:1415 (corrected in the species file's comment). Two Clausen & Kozlowski DOIs in `KNOWN_ISSUES.md` were wrong; only 10.1038/2051030a0 is right (Crossref).

@@ -20,7 +20,7 @@
 stand_canopy:
   lai_baltic_chronosequence:
     target_range: [2.5, 4.5]
-    source: "Uri et al. (2012); Varik et al. (2015); Aosaar et al. (2016)"
+    source: "Uri et al. (2012); Varik et al. (2015)"
     doi: "10.1016/j.foreco.2011.11.033"
     citation: "Uri, V., et al. (2012). Biomass production and carbon sequestration in a fertile silver birch (Betula pendula Roth) forest chronosequence. Forest Ecology and Management 267:117-126."
     page_table: "Table 1 (p. 119) & Table 4 (p. 122)"
@@ -55,14 +55,14 @@ stand_canopy:
     doi: "10.3390/f10100925"
     citation: "Hagemeier, M., & Leuschner, C. (2019). Leaf and Crown Optical Properties of Five Early-, Mid- and Late-Successional Temperate Tree Species and Their Relation to Sapling Light Demand. Forests 10(10):925."
     page_table: "Results 3.2 and Figure 5 (14.8%, 6.4-19.8%); Table 5 (K_PAR, clumping); Methods 2.3. Read from the publisher's HTML, which has no page numbers (reports/hagemeier2019b_publisher_reading.md); check the table values against the PDF when saved"
-    measures: "Relative diffuse photosynthetically active radiation (PAR) transmittance (T_PAR, %) reaching the forest floor beneath closed mature birch canopy: overcast days, 11:00-14:00, 110-241 points per stand, forest-floor sensor on a 2 m pole, its height above the ground not stated. \"A median transmission of 14.8% was recorded in the B. pendula stands, with individual values varying between 6.4% and 19.8%.\" (Model-derived 12.6% removed)."
+    measures: "Relative diffuse photosynthetically active radiation (PAR) transmittance (T_PAR, %) reaching the forest floor beneath closed mature birch canopy: overcast days, 11:00-14:00, 110-241 points per stand, forest-floor sensor on a 2 m pole, its height above the ground not stated. \"A median transmission of 14.8% was recorded in the B. pendula stands, with individual values varying between 6.4% and 19.8%.\""
     optical_parameters:
       k_par: 0.37 # canopy extinction coefficient for PAR under diffuse light
       foliage_clumping_index: 0.41 # Omega; Results text 0.41, Table 5 0.42
     conditions:
       scenario: [plot, stand-tree]
       age_years: [45, 67]
-      text: "mature closed canopy (stands aged 45 and 67, Table 2 of Forests 10:925). Values above 20% indicate insufficient crown leaf/wood shading; 21-29% in unclosed stands is excessive light penetration."
+      text: "mature stands with a closed canopy (canopy closure > 0.9, Forests 10:265 p. 3), aged 45 and 67 (Table 3 there; Table 2 of Forests 10:925)."
 
   live_crown_ratio:
     silvicultural_recommendation:
@@ -85,19 +85,19 @@ stand_canopy:
       doi: "10.14214/sf.236"
       citation: "Repola, J. (2008). Biomass equations for birch in Finland. Silva Fennica 42(4):605-624."
       page_table: "Table 2 (p. 608)"
-      measures: "Live crown ratio of 127 sample trees from 24 managed stands on mineral soil across Finland (mean DBH 16.5 cm, mean H 17.1 m)."
-      scoring: info # the range is the spread of single sample trees, not of stand means; no stand age given
+      measures: "Live crown ratio of 127 sample trees from 24 stands across Finland (mean DBH 16.5 cm, mean H 17.1 m). Unthinned and heavily thinned plots are included (p. 608), and three stands were on peatlands (p. 607)."
+      scoring: info # the range is the spread of single sample trees, not of stand means; stand age 11-97 years (Table 1)
       conditions:
         scenario: [plot, stand-tree]
         mode: [managed]
-        text: "24 managed stands on mineral soil across Finland"
+        text: "24 stands across Finland, unthinned and heavily thinned plots included"
     dense_unmanaged_stand:
       target_range: [0.30, 0.45]
       source: "Niemistö (1995, Paper 1); Repola (2008)"
       doi: "10.1080/02827589509382889"
-      citation: "Niemistö, P. (1995). Crown and branch properties and taper of silver birch (Betula pendula). Scand. J. For. Res. 10:235-244."
+      citation: "Niemistö, P. (1995). Influence of initial spacing and row-to-row distance on the crown and branch properties and taper of silver birch. Scand. J. For. Res. 10:235-244."
       page_table: "Table 2 (p. 238) & Fig. 1 (p. 239); Repola (2008) Table 2 minimum (0.29)"
-      measures: "Observed live crown ratio in dense, self-thinned stands. In Niemistö (1995) dense unthinned planted trials (3,000-5,000 stems/ha, aged 11-22 yr), rapid crown lift reduced LCR to 0.35-0.45, with suppressed trees reaching 0.30. In Repola (2008) suppressed trees in denser stands reached a lower bound of 0.29. Reconciled: Managed stands average 0.58 because thinnings release crowns; dense unmanaged stands self-thin to 0.30-0.45 due to intense lateral shading and crown recession."
+      measures: "Observed live crown ratio in dense, self-thinned stands. In Niemistö (1995) dense unthinned planted trials (3,000-5,000 stems/ha, aged 11-22 yr), rapid crown lift reduced LCR to 0.35-0.45, with suppressed trees reaching 0.30. Repola (2008) Table 2: 0.29 is the minimum across all sample trees. Niemistö (1995) has not been opened in this campaign: the numbers here are unchecked."
       conditions:
         scenario: [plot]
         mode: [natural]
@@ -145,7 +145,7 @@ tree_allometry:
       source: "Elfving (2010), Appendix 7, p. 56: 'For other broad-leaves (birch, aspen etc.) the following relation is applied: T13 = 150/SIS'. SIS is 'site index according to site factors, given as top height at age 100, m' (p. 55)."
       numerator: 150
       sis_total_age_years: 100
-      sis_reading: "Elfving sets SIS from site factors for a site-indicative species (pp. 20, 38) and prints no conversion from birch site index (height at breast-height age 50) to SIS. Here SIS is this curve's own top height at total age 100, solved together with T13: SI20 25.08 m, 5.98 yr; SI26 29.93 m, 5.01 yr. VERIFY"
+      sis_reading: "Elfving sets SIS from site factors for a site-indicative species (pp. 20, 38) and prints no conversion from birch site index (height at breast-height age 50) to SIS; pp. 9-10 put birch on the H100 pine scale ('Pend. birch: Pub. birch function with SI = H100pine + 1.5'). Here SIS is this curve's own top height at total age 100, solved together with T13: SI20 25.08 m, 5.98 yr; SI26 29.93 m, 5.01 yr. VERIFY"
     swedish_boreal_range_m: [20.0, 26.0] # SI20 to SI26
     height_measure: "dominant height"
     # height_curve_at_100_thickest_per_ha | 100_thickest_per_ha | 100_tallest_per_ha | unconfirmed.
@@ -195,13 +195,13 @@ tree_allometry:
     citation: "Repola, J. (2008). Biomass equations for birch in Finland. Silva Fennica 42(4):605-624."
     models:
       eq_12: "ln(foliage_kg) = -29.566 + 33.372 * (d_s / (d_s + 2)) where d_s = 2 + 1.25 * DBH, var=0.077 (DBH-only model)"
-      eq_a6: "ln(foliage_kg) = -20.856 + 22.320 * (d_s / (d_s + 2)) + 2.819 * cr where d_s = 2 + 1.25 * DBH, cr = crown ratio, var=0.063 (DBH, H, CR model)"
+      eq_a6: "ln(foliage_kg) = -20.856 + 22.320 * (d_s / (d_s + 2)) + 2.819 * cr where d_s = 2 + 1.25 * DBH, cr = crown ratio, residual variance 0.044, between-stand variance 0.0108, Table A1 (DBH, H, CR model)"
     page_table: "Eq. 12 (p. 612), parameters Table 4 (p. 613), valid only for DBH 11-26 cm, N = 21 (p. 617); Eq. A6 (p. 621), parameters Table A1 (p. 623)"
     scoring: info # an equation; no pass range written
     conditions:
       scenario: [plot, stand-tree]
       mode: [managed]
-      text: "Sample trees from managed stands on mineral soil across Finland (same data as live_crown_ratio.managed_stand_empirical)."
+      text: "Sample trees from 24 stands across Finland, unthinned and heavily thinned plots included (same data as live_crown_ratio.managed_stand_empirical)."
 
   wood_basic_density:
     value_kg_m3: 530.0

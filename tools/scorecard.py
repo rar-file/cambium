@@ -631,7 +631,7 @@ def print_ensemble(rows: list[dict[str, Any]], header: str) -> str:
         else:
             lines.append(f"| `{r['target']}` | {r['mean']:.3f} | {r['sd']:.3f} | {r['seeds']} | {r['target_range']} | **{r['status']}** | "
                          f"{100 * r['share']:.0f} % | {r['source']} | {r['notes']} |")
-    lines += ["", "The verdict is the ensemble mean against the band. The band shown, and any figure in the notes other than the distance from a median, are the first seed's.",
+    lines += ["", "The verdict is the ensemble mean against the band. The band shown is the first seed's where it depends on the seed.",
               "INFO: information only (scoring: info in targets.yaml), never PASS/FAIL."]
     return "\n".join(lines)
 

@@ -1894,7 +1894,7 @@ Seed 1, age 60, against published silver-birch values. "Shoot" is a branch tip c
 | Mean Foliage dry mass (kg) | 1.08 | 1.14 | 0.89 | 1.17 | Model leaf dry mass / tree |
 | Foliage vs Repola Eq. 12 | 0.47x | 0.36x | 0.26x | 0.30x | Repola 2008 Eq. 12 (DBH only) |
 | Foliage vs Repola A6 | 0.36x | 0.41x | 0.32x | 0.41x | Repola 2008 A6 (DBH + Crown Ratio) |
-| Sub-canopy Light (2.0–5.0 m) | 24.1% – 24.5% | 22.8% – 23.2% | 28.9% – 29.3% | 21.2% – 21.8% | Hagemeier & Leuschner 2019b: 6.4–19.8 %, diffuse light at 1.0–2.0 m. Not the same heights or the same light as this row, and every value here is above that range. (Corrected in campaign M1d; this cell said "Hagemeier 10–15% (approaching target)".) |
+| Sub-canopy Light (2.0–5.0 m) | 24.1% – 24.5% | 22.8% – 23.2% | 28.9% – 29.3% | 21.2% – 21.8% | Hagemeier & Leuschner 2019b: 6.4–19.8 %, diffuse light on the forest floor, sensor height not stated (corrected in campaign M1; the model reads 1.0–2.0 m). Not the same heights or the same light as this row, and every value here is above that range. (Corrected in campaign M1d; this cell said "Hagemeier 10–15% (approaching target)".) |
 
 - **Mortality Diagnosis:**
   - 16 total deaths across 60 years. 1 seedling failed to establish at year 3 (`failed to establish`, Tree 82).
@@ -2116,16 +2116,17 @@ Not done: the cause lies entirely in mesh and render code, but a fix needs a val
 **7. Notes.**
 Answer: notes for phases 34–36 and 39 were written from git history and saved files, and the unsupported claims in the phase 37 & 38 notes were corrected. What could not be reconstructed is marked.
 
-## Campaign M1: foundations (stopped at a hard stop, 2026-11-06)
+## Campaign M1: foundations, 2026-11-06
 
-The Birch v1 campaign replaces round-by-round briefs; `CAMPAIGN.md` is where to resume, and `reports/milestone_M1.md` is the full report.
+The Birch v1 campaign replaces round-by-round briefs; `CAMPAIGN.md` is where to resume, and `reports/milestone_M1.md` is the full report. No model calculation changed.
 
-- **Stopped on memory:** one 16 GB stick, so the 8 GB free rule (PROTOCOL.md section 6) blocks every model run. Not run: the sensitivity screen, the renders, the checkers. The `targets-approved` tag has not moved.
-- **Alpha 4.8** is a one-point model calibration (commit `c3fd2dc`), not a published value. Flagged VERIFY.
-- **Height band:** the fixed 4 years to breast height is replaced by T13 = 150/SIS (Elfving 2010 p. 56), in the working copy of targets.yaml. Preview: one verdict changes, p41_germ at age 20 to FAIL.
-- **Run outputs:** `subcanopy_diffuse_light_pct` per year; manifests fingerprint uncommitted code. The scorecard reads the diffuse value per year; old runs stay NOT APPLICABLE.
-- **Audit:** `reports/parameter_audit.csv`, 274 values, 65 checked against sources, 11 not supported by the page. Findings for later milestones: `reports/research_notes.md`.
-- **Open:** `light.woody_shade` may double-count wood against `light.extinction_coefficient`. Not settled: Hagemeier & Leuschner 2019, Forests 10:925, couldn't be opened.
+- **Verdicts come from ensembles on one machine:** 20 trees and 5 plots on the node (`reports/rebaseline_M1.md`). A single seed can move like a new tree on a change of a few parts per million.
+- **Alpha 4.8** is a one-point model calibration (commit `c3fd2dc`), not a published value, and its origin doesn't reproduce exactly. Flagged VERIFY.
+- **Height band:** T13 = 150/SIS (Elfving 2010 p. 56) replaces a fixed 4 years, with a stand-in for SIS. Plot top height is on a Naslund curve (Elfving p. 58; the curve is the maintainer's choice). At the approved tag the stand tree passes at 40 and 50 by 0.003 m and 0.03 m; at master it fails.
+- **Run outputs:** `subcanopy_diffuse_light_pct` per year; manifests fingerprint uncommitted code where git exists.
+- **Audit:** `reports/parameter_audit.csv`, 274 values, 71 looked at, 15 not supported by the page. Screen: 77 of 160 values within the noise at 5 seeds (`out/bench/node/screen5/`, `screen20/`).
+- **`light.woody_shade` looks like a double count** against `light.extinction_coefficient`: K_PAR comes from measured transmission against leaf-only LAI (`reports/hagemeier2019b_publisher_reading.md`). Not changed. For M2 and M3.
+- **Open:** the Niemistö file in `birch-data` is the wrong paper; stands in three targets differ from the sources' (QUESTIONS.md Q13, Q15).
 
 ## Campaign M1: citations corrected, 2026-11-06
 

@@ -260,3 +260,43 @@ def test_top_height_on_elfvings_curve():
     # too few trees to fit
     h, counted, _ = naslund_top_height(recs[:2], 200.0)
     assert h != h and counted == 0.0
+
+
+def test_height_band_at_60_is_pinned():
+    """The band itself, written out, so a change to the years to breast height in targets.yaml
+    can't pass unnoticed.  Both edges: the fixed-age test this replaced pinned neither low edge."""
+    targets = _targets()
+    name = "tree_allometry.site_index_curves"
+    results, _ = evaluate_targets(targets, [_tree_run(per_year=[{"year": 60, "height_m": 24.0}])], ages=[60])
+    assert "20.72-26.73 m" in _row(results, name, 60)["target_range"]
+    assert _row(results, name, 60)["status"] == "PASS"
+    for h, status in ((20.60, "FAIL"), (20.80, "PASS"), (26.70, "PASS"), (26.80, "FAIL")):
+        results, _ = evaluate_targets(targets, [_tree_run(per_year=[{"year": 60, "height_m": h}])], ages=[60])
+        assert _row(results, name, 60)["status"] == status, h
+
+
+def test_plot_top_height_scored_on_elfvings_curve():
+    """Through the whole scorecard, at the definition in targets.yaml: a plot's trees exactly on
+    a Naslund curve score the curve at the thickest trees' mean diameter, not their mean height."""
+    a, b = 1.2, 0.17
+
+    def h_of(d):
+        return 1.3 + d * d / (a + b * d) ** 2
+
+    ds = [12.0 + 1.5 * k for k in range(12)]
+    trees = [{"id": k, "germination": 0, "removed": None} for k in range(12)]
+    trees_py = {k: [{"year": 60, "height_m": h_of(ds[k]), "dbh_cm": ds[k]}] for k in range(12)}
+    plot = _plot_run(mode="natural", trees=trees, trees_py=trees_py)
+    results, _ = evaluate_targets(_targets(), [plot], ages=[60])
+    row = _row(results, "tree_allometry.site_index_curves", 60)
+    assert "Naslund curve" in row["notes"]
+    need = 100.0 * float(plot["plot_data"]["area_m2"]) / 1e4
+    order = sorted(ds, reverse=True)
+    w_sum = d_sum = 0.0
+    for d in order:
+        w = min(1.0, need - w_sum)
+        if w <= 0.0:
+            break
+        w_sum += w
+        d_sum += w * d
+    assert row["value"] == pytest.approx(h_of(d_sum / w_sum), abs=1e-6)
