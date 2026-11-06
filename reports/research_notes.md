@@ -35,6 +35,29 @@ The maintainer, 2026-11-06: don't change them in M1. What each page actually say
 - **LIGNUM form,** J. Perttunen 2008, TKK Report A102, thesis summary, https://sal.aalto.fi/publications/pdf-files/rper09.pdf: Eq. 3 p. 17, P - M = dWn + dWo + dWr, P - M > 0; Eq. 18 p. 23, R_Mi = k_i W_i; Eq. 21 p. 26, P - M = G; Eq. 23 p. 27, G(lambda) = dWn(lambda) + dWo(lambda) + dWr(lambda). Text layer was garbled; symbols decoded, not seen rendered. P and M are "first summed up for the whole tree".
 - **Palubicki et al. 2009:** lambda illustrated at 0.46-0.54 only (Sec. 4.2, Fig. 7, p. 4).
 
+## M2a: is there a direct source for alpha? (subagent, 2026-11-06; files in the scratchpad's research_m2a folder)
+
+**Answer: no direct source in anything readable.** No paper read gives seasonal carbon per m2 of fully lit birch leaf, or a full set of Amax, respiration and light response for Nordic B. pendula. So alpha goes down the calibration route. In physical terms 4.8 is 976 g C per m2 of leaf per season in full light (4.8 x 0.305 / 0.0015).
+
+| Quantity | Value | Source | Read level | Species, site |
+|---|---|---|---|---|
+| Saturated net photosynthesis | Provenance means about 13.3-16.4 umol/m2/s (read by eye from Fig. 3a; text gives 3.12 between 66N and 61N); at 1800 umol photons, 400 ppm | Tenkanen et al. 2020, 10.1093/treephys/tpz124 | Full (accepted manuscript) | B. pendula, 3rd-season plants, watered common garden, Joensuu, summer 2013 |
+| Maintenance respiration | ~8 nmol CO2/g/s; about 0.53 umol/m2/s at SLA 15 | Oleksyn et al. 2000, 10.1007/PL00009768 | Abstract | B. pendula |
+| Stand light-use efficiency | NPP/APAR 0.93 g/MJ; birch LAI 5.9; 92 % of PAR absorbed | Molchanov 2000, 10.1093/treephys/20.17.1137 | Abstract | B. pendula, 41 years, southern taiga |
+| Stand NPP | 7.35, 7.94, 8.47 t C/ha/yr at ages 13, 32, 45 | Varik thesis, Estonian University of Life Sciences, PDF pp. 42-43 | Full for this table | B. pendula, fertile sites, Estonia |
+| Global radiation, May-Sep | Norrkoping 2469 MJ/m2 (2180-2664); Stockholm 2442 (2134-2684) | Persson 2000, SMHI RMK 89, PDF pp. 71, 73 | Full | Sweden |
+| PAR / global | 0.48 (SD 0.02) | Grimenes & Thue-Hansen 2019, 10.1007/s00704-019-02869-x | Abstract | Norway plus 7 Nordic stations |
+| Scaling forms | Rectangular hyperbola f_L = (gamma phi + 1)^-1 (Peltoniemi 2015 p. 157); LIGNUM P = eta_c x I, proportional to intercepted radiation (Perttunen 2008 thesis) | as named | Full for these parts | Pine; no birch values |
+
+**Bounds for a calibration (the subagent's arithmetic; recheck before use):**
+- **Leaf route:** gross Amax 13.8-15.5 with SMHI light gives 1110-1390 g C/m2/season, alpha 5.5-6.8. Uses assumptions that aren't from sources (quantum yield 0.05-0.06, curvature 0.7-0.9, 4.57 mol/MJ, a sine-shaped day), with no temperature or leaf-phenology limit, so an upper limit.
+- **Stand route, Varik:** alpha 5.15-5.35. **Stand route, Molchanov at Swedish PAR:** alpha 2.7-3.75.
+- **Overall:** alpha about 2.7-6.8; 4.8 sits inside. The stand routes aren't independent of the model: their 0.3375 mean light comes from the run at alpha 4.8, and they use the file's CUE 0.45 and SLA 15.
+- **What 976 implies:** an effective seasonal Amax of 10.65 umol/m2/s, 69-77 % of the measured midsummer range. Plausible, not derived.
+- **Caveat:** the model's carbon is linear in light, as in LIGNUM, while real leaves saturate. A canopy-fitted alpha is an effective slope, not a true full-light leaf value.
+
+**Best sources still unread:** Uddling et al. 2005, Agric. For. Meteorol. 132:115, 10.1016/j.agrformet.2005.07.004: mature B. pendula, southern Sweden, net photosynthesis over 3 years; also Uddling's thesis, "Uptake of Ozone and its Impact on Silver Birch" (University of Gothenburg, GUPEA; bot-blocked, might open in a browser). Riikonen et al. 2005, 10.1093/treephys/25.5.621: seven-year-old trees, Finland.
+
 ## M2b: fertility and season length (subagent, 2026-11-06; files in the scratchpad's research_m2b folder)
 
 **Fertility.** The only published Nordic mechanism read that includes silver birch and isn't a carbon multiplier:
