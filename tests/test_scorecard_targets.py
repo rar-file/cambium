@@ -166,6 +166,7 @@ def test_height_band_and_definition():
     si["dominant_height_definition"] = "100_thickest_per_ha"
     results, _ = evaluate_targets(targets, [plot], ages=[60])
     assert _row(results, "tree_allometry.site_index_curves", 60)["status"] == "PASS"
+    assert "fewer than 10 such trees" in _row(results, "tree_allometry.site_index_curves", 60)["notes"]
 
 
 def test_time_to_breast_height_rule():
