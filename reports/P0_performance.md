@@ -31,7 +31,7 @@ Recorded twice side by side (`out/bench/node/`), at one maths thread, kernel `ne
 | plot25 | 129.6 / 122.4 | 993 / 979 | 76 |
 | regen10 | 38.3 / 38.7 | 491 / 495 | 133 |
 
-Compared with this PC below: they differ, as ARM and x86 round differently.
+Compared with this PC below: they differ.
 
 ### Throughput against this PC
 
@@ -85,7 +85,7 @@ Recorded twice at master `bc723ee`, one at a time, one maths thread, kernel `Has
 
 ## This PC against the node
 
-**Same code, same seed: every one of the 225 files differs** (`tools/golden.py compare pc_base out/bench/node/node_a_hashes.json`). Crown width first differs at year 2, and other outputs from year 3. It's the same chaos as a tiny parameter change, set off by rounding between chips.
+**Same code, same seed: 216 of the 225 files differ** (`tools/golden.py compare pc_base out/bench/node/node_a_hashes.json`). The 9 identical are `regen10` timelines of trees that died early. Crown width first differs at year 2, and other outputs from year 3. It behaves like the chaos from a tiny parameter change. The cause is most likely rounding, but I haven't separated chips from the other differences between the builds: Windows against Linux, OpenBLAS kernels, the C maths library.
 
 **Seed 1, node minus PC** (`out/bench/node/golden_tree60/stats.json`):
 
@@ -97,7 +97,7 @@ Recorded twice at master `bc723ee`, one at a time, one maths thread, kernel `Has
 | 50 | 25.02 / 25.04 | 26.05 / 27.05 | 66.4 / 63.3 | 30.3 / 31.6 |
 | 60 | 26.11 / 26.51 | 28.86 / 29.35 | 65.6 / 65.2 | 29.8 / 30.0 |
 
-**Largest difference in any year:** leaf area at year 17, 10.5 against 25.3 m2, +142 %. From age 20 on, in the scored metrics: LAI at year 24, +27 %.
+**Largest difference, for seed 1's tree60 only; plot and mesh files weren't examined.** Among height, DBH, leaf area, LAI, crown ratio, crown width, light and internodes: leaf area at year 17, 10.5 against 25.3 m2, +142 %. From age 20 on, in the scored metrics: LAI at year 24, +27 %. Other yearly stats differ by more: hanging twigs +203 %, and `carbon.late_shoot_net` 1.11 against 1411.
 
 **Do verdicts change? No.** 20 seeds on each machine, targets at master (`out/bench/ensemble/scorecard_base_trees.txt`, `scorecard_pc_trees.txt` in the worktree's `out/`):
 
@@ -113,7 +113,7 @@ Recorded twice at master `bc723ee`, one at a time, one maths thread, kernel `Has
 | Diffuse light (%) | 50 | 30.1 +- 4.2 | 28.2 +- 3.5 | FAIL |
 | Diffuse light (%) | 60 | 27.5 +- 2.7 | 26.9 +- 2.9 | FAIL |
 
-The largest gap between means is LAI at 50: 0.21, about 1.8 standard errors of an unpaired difference, on one of nine rows. These can't be paired, because the same seed is a different tree on each chip. **So a seed's tree belongs to its machine, while the ensemble's verdict doesn't depend on which of these two ran it.** Comparisons still stay on one machine, as PROTOCOL.md section 6 says.
+The largest gap between means is LAI at 50: 0.21, about 1.8 standard errors of an unpaired difference, on one of nine rows. These can't be paired, because the same seed is a different tree on each chip. **So a seed's tree belongs to its machine. Today, on these nine tree rows, the two machines' verdicts agree;** three of the PC's rows are within about 1 standard error of the band, so that could change. Plots weren't compared. Comparisons still stay on one machine, as PROTOCOL.md section 6 says.
 
 ## Why runs slow each other down on the PC
 
@@ -138,7 +138,7 @@ The maintainer asked which of these explains it: memory bandwidth, disk, paging,
 |---|---|---|
 | Disk | No | Lean runs write about 0.1 MB/s and still slow each other |
 | Paging | No | Lean at 2 at once: under 1 hard fault a second |
-| Clock speed | No | 4,590-4,610 MHz in every case |
+| Clock speed | No | 4,516-4,675 MHz across the runs, rising with load |
 | Cores | No | 8 physical cores, and throughput falls after 3; pinning doesn't help |
 | **Memory bandwidth, and the shared cache** | **Most likely** | Benchmark below. By elimination and from the benchmark: Windows can't show bandwidth directly |
 
@@ -150,7 +150,7 @@ The maintainer asked which of these explains it: memory bandwidth, disk, paging,
 
 ## The merges
 
-19 commits from `p0-perf`, one at a time. Those touching `treegen/`, `cli.py` or `tools/plot.py` needed all tests and all four golden runs identical to `pc_base`, or the merge was aborted. **None was aborted, and none conflicted.** Raw: `out/bench/p0/merges/`.
+20 commits from `p0-perf`, one at a time. Those touching `treegen/`, `cli.py` or `tools/plot.py` needed all tests and all four golden runs identical to `pc_base`, or the merge was aborted. **None was aborted, and none conflicted.** Raw: `out/bench/p0/merges/`.
 
 | Commit | What | Model paths? | Tests | Golden |
 |---|---|---|---|---|
@@ -161,16 +161,18 @@ The maintainer asked which of these explains it: memory bandwidth, disk, paging,
 | `68782d9` | Ensembles, paired comparison | yes | 90 pass | identical |
 | `b64f75a` | Resume after any stop | yes | 98 pass | identical |
 | `95233fc` | Node tools, golden memory | yes | 102 pass | identical |
-| 12 others | Tools and reports only | no | not run for each; 102 pass at the tip | not needed |
+| `d205edd` | A resumed plot's seed label; plots' memory figure | yes | 107 pass | identical |
+| 12 others | Tools and reports only | no | not run for each; each covered by the next checked commit | not run for each (DECISIONS.md row 45) |
 
-**None of these makes a default run faster:** tree60 43-47 s against 45.7 s, plot25 68-70 s against 71.6 s, within what a run moves. **Their gain is in how they're used:**
+**None of these makes a default run faster:** on an otherwise idle PC, tree60 43-47.5 s against 45.7 s, and plot25 68-70 s against 71.6 s, within what a run moves. During the two merges that ran beside the PC's ensemble, tree60 took 77 s and plot25 89 s, so those two say nothing about speed. **Their gain is in how they're used:**
 
 | Change | Measured gain | Source |
 |---|---|---|
-| Lean mode | 44 s against 47 s alone; the seed-1 tree's peak 440 MB against 581 MB | scale table; golden |
+| Lean mode | No time gain beyond the noise: lean took 42.9, 44.2 and 45.4 s across three tests, and full 43.1-47.5 s. Peak memory 440 MB against 581 MB | scale tables; golden |
+| Lean scores the same | 3 pairs of 61-year runs, 23 scored keys: 0 values differ | `out/bench/p0/lean_proof.txt` |
 | Parallel runs on the PC | 141 against 81 runs an hour at 3 at once | scale table |
-| Node at 14 | 380 against 141 runs an hour | above |
-| Result cache | reused 30 cases on the first node restart; later restarts lost only runs in progress | `~/origin/screen5.log` |
+| Node at 14 | 380 runs an hour on lean trees, against the PC's best of 120-140 | above |
+| Result cache and finished runs | The screen's restarts lost only runs in progress: 58 already done at one, 408 at the last | `out/bench/node/disk_step/screen5.log`, and the session for the last |
 
 ## Plots with no save files, on the node
 

@@ -142,7 +142,7 @@ On the maintainer's decision of 2026-11-06, the JSTOR scan of Borchert & Honda 1
 
 ## Is the chaos the every-other-year pattern? (INFO for M3; the maintainer's lead, 2026-11-06)
 
-`out/bench/node/noise_cycle.md`: 28 runs, seed 1, a parameter changed by 1 to 7 parts in a million, every year kept, on the node. The tool's alternation rule and its split into fast and slow parts are its own, for a diagnosis, not from a source.
+`out/bench/node/noise_cycle.md`: 28 runs, **seed 1 only**, a parameter changed by 1 to 7 parts in a million, every year kept, on the node. The tool's alternation rule and its split into fast and slow parts are its own, for a diagnosis, not from a source.
 
 - **Does divergence start at the first strong alternating year? No, earlier.** It passes 1 % in leaf area at a median of year 6, and 5 % at 6.5. The first strong alternating year comes at 8-14, median 10, and 14 in the default.
 - **Do the runs show the same alternation, just out of step? Partly.** From age 20 on, the yearly swing in shoot length agrees with the default in 49 % of years, which is chance. Shifting by up to 3 years gives a median correlation of +0.53, but best-of-seven picks inflate that, and the best shift varies, with -1 the most common (10 of 28).
