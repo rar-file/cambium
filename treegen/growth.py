@@ -74,8 +74,12 @@ class SpurLog:
 
 class GrowthModel:
     def __init__(self, species, environment, seed: int, stand: bool = False, keyframe_step: int = 5, soil=None,
-                 soil_frame=None):
+                 soil_frame=None, lean: bool = False):
         self.sp = species
+        # lean: keep only what growth reads back and what the scorecard scores
+        # (no radius history, no keyframes, fewer yearly stats).  The tree grows
+        # the same; it can't be exported afterwards (tests/test_lean.py).
+        self.lean = bool(lean)
         self.soil = soil
         self.seed = int(seed)
         self.stand = bool(stand)
@@ -118,6 +122,8 @@ class GrowthModel:
         self.field_layer_exposed = 0
         # soil_frame: (offset, soil seed) of this tree in a plot's shared soil
         self.roots = RootSystem(species.roots, soil, seed, self.light.vs, soil_frame) if soil is not None else None
+        if self.roots is not None:
+            self.roots.lean = self.lean
         if self.stand:
             nrng = np.random.default_rng([self.seed, 7919])
             k = int(st.cell_trees)
@@ -149,7 +155,8 @@ class GrowthModel:
             # the radicle: the seedling starts with a short taproot
             self.roots.step(0, float(self.sp.roots.radicle_segments))
             self._update_roots(0)
-        self.keyframes[0] = T.pos[: T.n].astype(np.float32).copy()
+        if not self.lean:
+            self.keyframes[0] = T.pos[: T.n].astype(np.float32).copy()
         self.stats.append(self.measure())
 
     def _scaffold_vigour(self, t: int, nodes: np.ndarray) -> np.ndarray:
@@ -579,7 +586,7 @@ class GrowthModel:
                     f"hanging {s['mean_hanging_twig_length_m']:4.2f} m",
                     flush=True,
                 )
-        if self.year not in self.keyframes:
+        if not self.lean and self.year not in self.keyframes:
             self.keyframes[self.year] = self.tree.pos[: self.tree.n].astype(np.float32).copy()
         return self
 
@@ -1158,7 +1165,7 @@ class GrowthModel:
                                        r_prev, setpoint, float(self.sp.shoot.min_height_above_ground),
                                        self._stem_posture_target(n), stem)
         T.leaves[:n] = leaves_now
-        if self.keyframe_step > 0 and t % self.keyframe_step == 0:
+        if not self.lean and self.keyframe_step > 0 and t % self.keyframe_step == 0:
             self.keyframes[t] = T.pos[:n].astype(np.float32).copy()
         self.stats.append(self.measure())
 
@@ -1905,7 +1912,8 @@ class GrowthModel:
         T.radius[:n] = np.where(alive, r, T.radius[:n])
         self._r_last = T.radius[:n].copy()
         # the history is for replay, export and ring widths (float32)
-        self.radius_history.append(T.radius[:n].astype(np.float32))
+        if not self.lean:
+            self.radius_history.append(T.radius[:n].astype(np.float32))
 
     def _stress_area(self, levels, alive, leaves, sf) -> np.ndarray:
         """Wood area each internode needs so that the self-weight bending
@@ -2087,12 +2095,14 @@ class GrowthModel:
             except Exception:
                 hull_d = 0.0
         idx = np.nonzero(alive)[0]
-        _, starts = np.unique(T.axis[idx], return_index=True)
-        orders = T.order[idx][starts]
-        axes_by_order = {str(int(o)): int(c) for o, c in zip(*np.unique(orders, return_counts=True))}
         inter = idx[idx > 0]
-        io, ic = np.unique(T.order[inter], return_counts=True)
-        internodes_by_order = {str(int(o)): int(c) for o, c in zip(io, ic)}
+        axes_by_order, internodes_by_order = {}, {}
+        if not self.lean:
+            _, starts = np.unique(T.axis[idx], return_index=True)
+            orders = T.order[idx][starts]
+            axes_by_order = {str(int(o)): int(c) for o, c in zip(*np.unique(orders, return_counts=True))}
+            io, ic = np.unique(T.order[inter], return_counts=True)
+            internodes_by_order = {str(int(o)): int(c) for o, c in zip(io, ic)}
         # crown base: lowest living first-order limb that carries a real share
         # of the foliage (isolated near-dead twigs do not count)
         leaves = np.where(alive, T.leaves[:n], 0.0).astype(float)
@@ -2105,11 +2115,13 @@ class GrowthModel:
             real = limbs[lv >= max(5.0, float(self.sp.stats.crown_base_min_leaf_share) * total_leaves)]
             if real.size:
                 crown_base = float(T.pos[T.parent[real], 2].min())
-        run = self.hanging_runs()
-        tips = alive & (T.main_child[:n] < 0)
-        tips[0] = False
-        hr = run[tips]
-        hanging = hr[hr >= float(self.sp.stats.hanging_twig_min_length)]
+        hanging = np.zeros(0)
+        if not self.lean:
+            run = self.hanging_runs()
+            tips = alive & (T.main_child[:n] < 0)
+            tips[0] = False
+            hr = run[tips]
+            hanging = hr[hr >= float(self.sp.stats.hanging_twig_min_length)]
         return {
             "year": int(self.year),
             "height_m": round(height, 4),
@@ -2148,8 +2160,8 @@ class GrowthModel:
             # carbon fixed this season, in resource units (alpha x sum of bud
             # light x stomatal opening; one unit builds about one metamer)
             "carbon": {k: round(v, 4) for k, v in getattr(self, "carbon", {}).items()},
-            "roots": self.roots.measure() if self.roots is not None else None,
-            "scaffold": self.scaffold() if self.year % 5 == 0 or self.year >= 50 else None,
+            "roots": self.roots.measure() if self.roots is not None and not self.lean else None,
+            "scaffold": self.scaffold() if not self.lean and (self.year % 5 == 0 or self.year >= 50) else None,
             "apical_control": round(self.apical_control(max(self.year, 1)), 4),
             "reiterated_limbs": len(self.reit),
             "loss_of_dominance_year": self.loss_of_dominance_year,

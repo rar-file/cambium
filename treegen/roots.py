@@ -615,7 +615,8 @@ class RootSystem:
             self.path_dist = d
         self.zrt_length = float(zrt_length)
         T.radius[:n] = np.where(alive, r, T.radius[:n])
-        self.radius_history.append(T.radius[:n].astype(np.float16))
+        if not getattr(self, "lean", False):
+            self.radius_history.append(T.radius[:n].astype(np.float16))
 
     def update_uptake(self, t: int, k_axial: float, fine_root_mass: float | None = None):
         """Root uptake conductance (kg s^-1 MPa^-1): absorbing roots in series

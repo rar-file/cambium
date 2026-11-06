@@ -63,10 +63,11 @@ def peak_memory_mb() -> float:
     return round(r / (2**20 if sys.platform == "darwin" else 2**10), 1)
 
 
-def grow(species: str, seed: int, years: int, environment: str, stand: bool = False, verbose: bool = False):
+def grow(species: str, seed: int, years: int, environment: str, stand: bool = False, verbose: bool = False,
+         lean: bool = False):
     sp, _ = load_species(species)
     env_p, _ = load_environment(environment)
-    model = GrowthModel(sp, make_environment(env_p), seed, stand=stand, soil=make_soil(env_p))
+    model = GrowthModel(sp, make_environment(env_p), seed, stand=stand, soil=make_soil(env_p), lean=lean)
     model.run(years, verbose=verbose)
     return model, sp
 
@@ -368,13 +369,18 @@ def main(argv=None) -> int:
     ap.add_argument("--no-mesh", action="store_true", help="skip the mesh files")
     ap.add_argument("--no-preview", action="store_true")
     ap.add_argument("--quiet", action="store_true")
+    ap.add_argument("--lean", action="store_true",
+                    help="for screens and calibration: stats.json only, with the scored outputs; no meshes, previews or timeline")
     args = ap.parse_args(argv)
+    if args.lean:
+        args.no_mesh = args.no_preview = True
 
     out = Path(args.out) / (f"{args.seed}_stand" if args.stand else str(args.seed))
     out.mkdir(parents=True, exist_ok=True)
     timings, memory = {}, {}
     t0 = time.time()
-    model, sp = grow(args.species, args.seed, args.years, args.environment, stand=args.stand, verbose=not args.quiet)
+    model, sp = grow(args.species, args.seed, args.years, args.environment, stand=args.stand, verbose=not args.quiet,
+                     lean=args.lean)
     timings["growth_s"] = round(time.time() - t0, 1)
     memory["after_growth_mb"] = peak_memory_mb()
     meta = {
@@ -388,7 +394,8 @@ def main(argv=None) -> int:
     meta["run_manifest"], meta["options"] = run_manifest(args.species, args.environment, sp)
     t1 = time.time()
     anchorage = anchorage_numbers(model, sp)
-    export.write_timeline(out / "timeline.json", model, meta)
+    if not args.lean:
+        export.write_timeline(out / "timeline.json", model, meta)
     export.write_stats(out / "stats.json", model, meta, reference_block(sp, model.stats), anchorage)
     timings["timeline_stats_s"] = round(time.time() - t1, 1)
     memory["after_timeline_mb"] = peak_memory_mb()
