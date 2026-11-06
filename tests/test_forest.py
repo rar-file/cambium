@@ -320,8 +320,23 @@ def test_stems_at_aosaars_stem_size_and_the_forest_edge(tmp_path):
     # the first year the stand reaches Dg 3.52 is year 1 (Dg 4.0): 11,000 stems/ha there
     assert "| 3.5 | 8, 11,633, 11.3 | 1, 11,000, 11.0 |" in text
     f = stand_table.fronts(stats[0], 10.0)
-    assert f == {"first": 50.0, "forest": 30.0, "seedling": 60.0}
+    assert f == {"first": 50.0, "forest": 40.0, "seedling": 60.0}     # [8, 8, 8, 0, 1, 0]: three slices read together
+    assert stand_table.fronts({"stems_along_x": [8, 8, 8, 0, 0, 0, 1]}, 10.0)["forest"] == 40.0
     assert "Forest edge" in stand_table.spread_table(d)
+
+
+def test_the_fast_spread_estimate_runs_on_the_models_own_rules(tmp_path):
+    import argparse
+    import spread_estimate
+    stats = [{"year": y, "dg_ob_cm": 1.0 * y, "height_mean_m": 1.0 * y} for y in range(1, 41)]
+    (tmp_path / "plot.json").write_text(json.dumps({"stats": stats}))
+    a = argparse.Namespace(species="betula_pendula", environment="sweden_open_field", set=[], seed=1, length=300.0, width=10.0,
+                           curve=str(tmp_path), stems=2000.0, patch=20.0, size_sd=0.2, years=16)
+    out = spread_estimate.run(a)
+    assert len(out["rows"]) == 16
+    assert out["rows"][8]["new_trees"] == 0          # no seed before the maturity age
+    assert max(r["new_trees"] for r in out["rows"]) > 0
+    assert stand_table.fronts(out["rows"][-1], 10.0)["first"] > 50.0
 
 
 def test_settings_lists_every_change():

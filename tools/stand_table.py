@@ -148,24 +148,24 @@ def size_density(plots) -> str:
     return "\n".join(["| Dg over bark (cm) | Aosaar: age, stems/ha, m2/ha | This run: age, stems/ha, m2/ha |", "|---|---|---|", *rows])
 
 
-def fronts(s: dict, side_y_m: float, min_stems_ha: float = 400.0, slice_m: float = 10.0) -> dict:
+def fronts(s: dict, side_y_m: float, min_stems_ha: float = 150.0, slice_m: float = 10.0) -> dict:
     """How far a forest has come along its ground this year, from one year's row (metres from the
     seed-source end):  'first' is the furthest tree 2 m tall or more, 'forest' is the end of the
-    unbroken run of slices with at least min_stems_ha of such trees, 'seedling' the furthest of any size."""
-    area = slice_m * side_y_m / 1e4
+    unbroken run where such trees stand at min_stems_ha or more, read over three slices so one empty
+    slice in a thin old stand doesn't end it, 'seedling' the furthest tree under 2 m."""
     stems = s["stems_along_x"]
-    tall = [n / area for n in stems]
     first = max((slice_m * (i + 1) for i, n in enumerate(stems) if n > 0), default=0.0)
     seedling = max((slice_m * (i + 1) for i, n in enumerate(s.get("seedlings_along_x", [])) if n > 0), default=0.0)
     forest = 0.0
-    for i, density in enumerate(tall):
-        if density < min_stems_ha:
+    for i in range(len(stems)):
+        window = stems[max(i - 1, 0): i + 2]
+        if sum(window) / (len(window) * slice_m * side_y_m / 1e4) < min_stems_ha:
             break
         forest = slice_m * (i + 1)
     return {"first": first, "forest": forest, "seedling": seedling}
 
 
-def spread_table(folder: Path, every: int = 5, min_stems_ha: float = 400.0) -> str:
+def spread_table(folder: Path, every: int = 5, min_stems_ha: float = 150.0) -> str:
     """How far and how fast a forest advances, by year, across a run's plots."""
     docs = [json.loads((p / "plot.json").read_text(encoding="utf-8")) for p in plot_folders(folder)]
     docs = [d for d in docs if any("stems_along_x" in s for s in d["stats"])]
