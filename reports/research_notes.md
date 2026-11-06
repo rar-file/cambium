@@ -35,6 +35,20 @@ The maintainer, 2026-11-06: don't change them in M1. What each page actually say
 - **LIGNUM form,** J. Perttunen 2008, TKK Report A102, thesis summary, https://sal.aalto.fi/publications/pdf-files/rper09.pdf: Eq. 3 p. 17, P - M = dWn + dWo + dWr, P - M > 0; Eq. 18 p. 23, R_Mi = k_i W_i; Eq. 21 p. 26, P - M = G; Eq. 23 p. 27, G(lambda) = dWn(lambda) + dWo(lambda) + dWr(lambda). Text layer was garbled; symbols decoded, not seen rendered. P and M are "first summed up for the whole tree".
 - **Palubicki et al. 2009:** lambda illustrated at 0.46-0.54 only (Sec. 4.2, Fig. 7, p. 4).
 
+## Spread between seeds (node, 30 seeds, default species file, 2026-11-06; `out/bench/node/spread.md`)
+
+Sets the margin for M2's cut rule, and shows how far seed 1 can be from typical.
+
+| Age | Height, mean and SD (m) | Lowest-highest | DBH, mean and SD (cm) | LAI, mean and SD | Leaf area SD | Crown ratio, mean and SD |
+|---|---|---|---|---|---|---|
+| 15 | 12.14, 0.42 | 10.85-12.87 | 12.04, 0.66 | 1.76, 0.55 | 33 % | 0.51, 0.16 |
+| 20 | 14.80, 0.52 | 13.35-15.72 | 14.50, 1.01 | 2.25, 0.62 | 28 % | 0.59, 0.13 |
+| 30 | 19.64, 0.70 | 18.35-20.48 | 19.98, 1.08 | 2.55, 0.45 | 18 % | 0.69, 0.10 |
+| 50 | 25.20, 0.65 | 23.60-26.64 | 28.09, 1.67 | 3.20, 0.40 | 13 % | 0.73, 0.09 |
+| 60 | 26.93, 0.76 | 24.96-28.27 | 30.59, 2.00 | 3.35, 0.37 | 11 % | 0.70, 0.13 |
+
+Seed 1 on this PC: height 26.11 m at 60 and LAI 2.95, both low against these means. The mean height at 60 is above the corrected band's top edge (26.73 m), though seed 1 is inside it. So a verdict on seed 1 alone may not hold for the typical tree. Worth raising with the maintainer: the adoption gate is scored on seed 1.
+
 ## M2a: is there a direct source for alpha? (subagent, 2026-11-06; files in the scratchpad's research_m2a folder)
 
 **Answer: no direct source in anything readable.** No paper read gives seasonal carbon per m2 of fully lit birch leaf, or a full set of Amax, respiration and light response for Nordic B. pendula. So alpha goes down the calibration route. In physical terms 4.8 is 976 g C per m2 of leaf per season in full light (4.8 x 0.305 / 0.0015).
