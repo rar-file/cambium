@@ -106,7 +106,7 @@ def main():
     run(["tools/plot.py", "--no-mesh", "--years", 20, "--branch-from", WORK / "plot_first" / "state_010", "--out", WORK / "plot_resumed"])
     p_ok, p_n, p_diff = same(WORK / "plot_straight", WORK / "plot_resumed")
 
-    dense = ["tools/plot.py", "--trees", 2, "--dense-start", 10000, "--mode", "natural", "--seed", 1, "--no-mesh", "--years", 10]
+    dense = ["tools/plot.py", "--trees", 2, "--dense-start", 10000, "--mode", "natural", "--seed", 2, "--no-mesh", "--years", 10]   # not seed 1: a resume once wrote the wrong seed as a label
     run(dense + ["--out", WORK / "dense_straight"])
     since = stopped_hard_after_a_death(dense, WORK / "dense_stopped")
     run(["tools/plot.py", "--no-mesh", "--years", 10, "--resume", "--out", WORK / "dense_stopped"])
