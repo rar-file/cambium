@@ -32,7 +32,7 @@ KEY = re.compile(r"^(\s*)([A-Za-z_]\w*):(?:\s+(.*))?$")
 CITE = re.compile(r"\[[A-Z]+\d*\]|\b(?:19|20)\d\d\b|doi|PMC\d+", re.I)
 CALIBRATED = re.compile(r"calibrat|fitted|tuned|re-tuned|ESTIMATE", re.I)
 COLUMNS = ["path", "value", "cited_source", "read_level", "page_supports", "page_or_table", "species_in_source",
-           "applies_to_silver_birch_sweden", "status", "used_by_code", "influence_rank", "max_change_pct", "effect_over_noise", "within_noise", "screen_seeds", "note"]
+           "applies_to_silver_birch_sweden", "status", "used_by_code", "influence_rank", "max_change_pct", "max_change_where", "effect_over_noise", "within_noise", "screen_seeds", "note"]
 
 
 def flatten(o, p=""):
@@ -150,6 +150,7 @@ def main():
             "used_by_code": "yes" if re.search(rf"\b{re.escape(name)}\b", code) else "no",
             "influence_rank": s.get("rank", "not calculated"),
             "max_change_pct": s.get("max_change_pct", ""),
+            "max_change_where": s.get("where", ""),
             "effect_over_noise": s.get("effect_over_noise", ""),
             "within_noise": s.get("within_noise", ""),
             "screen_seeds": s.get("seeds", ""),

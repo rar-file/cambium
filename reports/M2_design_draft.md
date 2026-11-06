@@ -16,11 +16,13 @@ Every source below is a research subagent's reading (`reports/research_notes.md`
 - If no alpha fits both, M2 reports that the problem is how carbon is shared out, which is M3's work, and doesn't force the fit.
 - **Light stays a reported row, and isn't scored away.** On stand trees it follows leaf area: fitted k 0.367-0.393 by age, correlation within an age 0.705-0.892 (`out/bench/ensemble/light_lai_link.txt`), so those two failures are reported as linked. On plots they part: LAI 3.76 passes and light 22.3 % fails. By Beer-Lambert, LAI 3.6 gives 26.4 % at k = 0.37, and 19.8 % needs LAI 4.38 at k = 0.37, or about 4.06 at the plots' own k of about 0.399. So the lower part of the LAI band can't pass the light band, and a plot needs about 4.1-4.4 to pass both. Arithmetic, not a model run.
 
+**What the first sweep found (exploring only, `out/bench/ensemble/m2_alpha_report.txt`):** none of the values run fits on stand trees. The cause isn't settled: QUESTIONS.md Q16. Values outside the top 15 in the ranking rest on 5 seeds and the largest of 12 comparisons, so they're unreplicated.
+
 ## 2. What gets calibrated
 
 | Parameter | Why | Bounds | Status |
 |---|---|---|---|
-| `resource.alpha` | No direct source | About 2.7-6.8 (leaf route 5.5-6.8; stand routes 2.7-3.75 and 5.15-5.35; subagent's arithmetic, to recheck; some inputs aren't independent of the model) | Certain |
+| `resource.alpha` | No direct source | About 2.7-6.8 (leaf route 5.5-6.8; stand routes 2.7-3.75 and 5.15-5.35; subagent's arithmetic, to recheck; some inputs aren't independent of the model) | Bounds not settled: they're a subagent's arithmetic, not published ranges, and the stand routes aren't independent of the model, so PROTOCOL.md section 9 isn't met. They set the exploring sweep's range only |
 | Fine-root ratio by site index | Eq. A10 has no birch values in what's readable | Not set: only 0.46-0.48 seen, at one site type | If the option is built |
 | Others | Only those the screen ranks as influential and that have no direct source | From published ranges only | Not set: waits for the ranking |
 
@@ -58,7 +60,7 @@ Values on the audit's unsupported list that may turn out influential: `maintenan
 - A candidate is cut only on its seed average, never on one seed, and only if that average is far outside its target band: outside by more than a margin, which is well above the standard error of that average.
 - **No cut on height alone (the maintainer, 2026-11-06).** The height band applies from age 20 and the stand-tree leaf-area band only from 45, so:
   - **Stage 15 cuts nothing.** No approved band applies there.
-  - **Stage 30** can cut only if height's average is far outside its band and leaf area's average is no higher than the baseline's at 30: too tall, and no sign of more leaves. That leaf-area test is on the mean alone, on 10 seeds a candidate: with too few seeds or a 2-standard-error test it would nearly always hold, and the cut would drift back to height alone. The leaf-area half is against the baseline, because no band applies at 30.
+  - **Stage 30** can cut only if height's average is far outside its band and the tree's leaf area in m2, not LAI, is no higher than the baseline's at 30: too tall, and no sign of more leaves. LAI won't do at 30, because the stem density it's reckoned on follows height: from alpha 3.5 to 4.0, LAI falls while the tree's leaf area rises. The test is on the mean alone, on 10 seeds a candidate: with too few seeds or a 2-standard-error test it would nearly always hold, and the cut would drift back to height alone. **To recheck:** LAI's SD at 60 runs from 0.30 to 0.62 across alphas, so 10 seeds may not suit every candidate. The leaf-area half is against the baseline, because no band applies at 30.
   - **Stage 60** judges height and leaf area together, against their bands.
 - At these sizes a cut saves little: a lean 60-year tree takes about 2 minutes on the node, and it does 262-380 an hour. So the cut only matters if the sample runs to hundreds of candidates.
 - Nothing is cut for being merely in the wrong half of the sample: "successive halving" here means cutting clear failures, not a fixed half.

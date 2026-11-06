@@ -398,25 +398,25 @@ Not done: full source checks on all of the top-ranked values. Ranks 6 and 11 wer
 | 2 | `hydraulics.transpiration_max` 3e-05 | -11.49, height at 50 | 18.2 | -11.5, -11.2 | +9.0, +3.0 | abstract and full | partly | derived |
 | 3 | `light.foliage_weight.early_leaves` 2.5 | -12.92, height at 30 | 16.1 | -7.9, -7.2 | +6.8, +3.1 | Kull via summarising fetch; Caesar p. 19; the cited paper unopened | partly | VERIFY |
 | 4 | `light.sun_shade.lma_reference_g_m2` 60.8 | -12.05, height at 30 | 13.3 | -5.5, -4.5 | +12.3, +9.5 | full | yes | sourced |
-| 5 | `pipe_model.wood_volume_per_carbon` 1.2e-06 | +7.54, height at 60 | 11.8 | +7.4, +7.5 | +10.6, +5.1 | no source exists | not checked | calibrated; that label overstates it, because it's a unit size |
-| 6 | `hydraulics.conductivity_reference_radius` 0.02 | -9.35, height at 30 | 11.7 | -6.5, -6.0 | +8.7, +3.8 | abstracts | no | VERIFY |
+| 5 | `pipe_model.wood_volume_per_carbon` 1.2e-06 | +7.54, height at 60 | 11.8 | +7.4, +7.5 | +10.6, +5.1 | no source exists | not checked | VERIFY: a unit size; the species file's "calibrated" overstates it |
+| 6 | `hydraulics.conductivity_reference_radius` 0.02 | -9.35, height at 30 | 11.7 | -6.5, -6.0 | +8.7, +3.8 | abstracts | not checked | VERIFY |
 | 7 | `hydraulics.huber_value` 0.000124 | +14.77, DBH at 30 | 10.9 | +2.0, +1.7 | +17.2, +14.0 | full | yes | sourced |
 | 8 | `resource.alpha` 4.8 | +8.71, height at 60 | 10.5 | +7.9, +8.7 | +13.2, +13.2 | see M1a | partly | calibrated |
 | 9 | `resource.reiteration.min_light` 0.8 | +6.31, height at 60 | 9.2 | +3.7, +6.3 | +2.1, -1.7 | full, via summarising fetch, general | no | VERIFY |
 | 10 | `light.extinction_coefficient` 0.37 | -5.84, height at 60 | 9.2 | -5.3, -5.8 | -16.3, -17.0 | publisher HTML, via summarising fetch | yes | VERIFY |
-| 11 | `hydraulics.conductivity_exponent` 0.7 | -48.67, carbon fixed at 30 | 9.1 | -23.9, -23.2 | -7.9, -12.6 | abstracts | no | VERIFY |
+| 11 | `hydraulics.conductivity_exponent` 0.7 | -48.67, carbon fixed at 30 | 9.1 | -23.9, -23.2 | -7.9, -12.6 | abstracts | not checked | VERIFY |
 | 12 | `light.sun_shade.lma_shade_g_m2` 50.5 | -6.13, height at 60 | 7.4 | -5.5, -6.1 | -8.7, -10.7 | full | yes | sourced |
 | 13 | `pipe_model.wind_load.air_density_kg_m3` 1.22 | -5.49, height at 30 | 6.9 | -4.5, -4.8 | +5.4, +6.3 | full | yes, another model's parameter | sourced |
 | 14 | `pipe_model.wind_load.safety_factor` 3.5 | -5.49, height at 30 | 6.9 | -4.5, -4.8 | +5.4, +6.3 | unread | not checked | VERIFY |
 | 15 | `resource.root_share_max` 0.6 | -1.52, height at 60 | 2.4 | -1.2, -1.5 | +5.7, +3.7 | Brouwer, Aosaar; Thornley abstract | no | VERIFY |
 
-Height and LAI at 50 and 60: paired change ± about 0.5-0.9 % for height and 2-4 % for LAI, more for rank 11; each row is in `out/bench/m1/figures.txt`. **How each acts:** not diagnosed, except alpha (M1a) and ranks 13 and 14 (below). That's M2's and M3's work. **For M2, without drawing a conclusion yet:** alpha moves height and LAI the same way, while ranks 1-4, 6 and 15 lower height with LAI level or higher.
+Height and LAI at 50 and 60: paired change ± about 0.5-0.9 % for height and 2-4 % for LAI, more for rank 11; each row is in `out/bench/m1/figures.txt`. **How each acts:** not diagnosed, except alpha (M1a) and ranks 13 and 14 (below). That's M2's and M3's work. **For M2, without drawing a conclusion yet:** alpha moves height and LAI the same way, while ranks 1-4, 6 and 15 lower height with LAI level or higher. Ranks 16 and below rest on 5 seeds and the largest of 12 comparisons, so they're unreplicated.
 
 Ranks 13 and 14 are the same effect, because the two values act together in the wind moment: density in the moment, the safety factor dividing the stress (`treegen/growth.py:1450-1451`).
 
-**For all 71 checked rows:** the page supports the value on 25, partly on 23, doesn't on 15, and 8 couldn't be checked. Statuses in the whole table: VERIFY 188, sourced 41, borrowed 16, calibrated 15, derived 14. **Of the 41 "sourced", only 12 were opened:** the other 29 are labelled from the comment's own wording (`tools/param_audit.py:11`). Species file changes are comments only; values unchanged.
+**For all 71 checked rows:** the page supports the value on 25, partly on 23, doesn't on 13, and 10 couldn't be checked. Statuses in the whole table: VERIFY 189, sourced 41, borrowed 16, calibrated 14, derived 14. **Of the 41 "sourced", only 12 were opened:** the other 29 are labelled from the comment's own wording (`tools/param_audit.py:11`). Species file changes are comments only; values unchanged.
 
-**The 15 values the page doesn't support, with what it says:** `reports/research_notes.md`: the 11 from the first pass, and 4 of the 6 top-ranked values checked later (`conductivity_exponent`, `conductivity_reference_radius`, `reiteration.min_light`, `root_share_max`). Not changed in M1, as the maintainer asked (DECISIONS.md row 23): inputs to M2 and M3.
+**The 13 values the page doesn't support, with what it says:** `reports/research_notes.md`: the 11 from the first pass, and 2 of the 6 top-ranked values checked later (`reiteration.min_light`, `root_share_max`). Two more, `conductivity_exponent` and `conductivity_reference_radius`, have only abstracts that give no value, so they count as not checked. Not changed in M1, as the maintainer asked (DECISIONS.md row 23): inputs to M2 and M3.
 
 **Copies from repositories, flagged as CAMPAIGN.md's research rules ask:** author's or university repositories, not third-party copies: Caesar 1983 (Lakehead University thesis), Tenkanen (University of Eastern Finland), the Mencuccini and Collalti manuscripts (Leiden and Barcelona; Imperial), Minunno (Helsinki), Brouwer 1963 (Wageningen's repository), Lintunen 2013 (Dissertationes Forestales). The maintainer can overrule any. `parameter_checks.csv` has no column for where a copy came from; `reports/research_notes.md` lists them for the top 15.
 
@@ -544,7 +544,7 @@ Three fresh checkers ran once, at the end of M1, as the maintainer asked. Full r
 - **Citations:** Anfodillo 2006 is New Phytol. 169:279, not Tree Physiol. 26:1415. Two Clausen & Kozlowski DOIs in KNOWN_ISSUES.md were wrong.
 - **Pinning:** I told the maintainer it looked like the fix for the PC's slowdown. Three repeats show no difference (`reports/P0_performance.md`).
 - **Row 39's first form** listed verdict changes at master only, as if settled; `reports/rebaseline_M1.md` has both target sets.
-- **Commit `740031a`'s message** says none of the six values has a page supporting its number. By the rows: 4 no, 1 partly (`early_leaves`), 1 no source to read.
+- **Commit `740031a`'s message** says none of the six values has a page supporting its number. By the rows now: 2 no, 2 not checked on abstracts alone, 1 partly (`early_leaves`), 1 no source to read.
 - **`out/bench/m1/height_rescore.txt`** was stale, and has been rerun: `p38_nat` is FAIL at all five ages at master, so 6 verdicts changed, not 1.
 - **"It isn't looser"** of the height band was true only of the top edge (M1b). The band is wider.
 - **`KNOWN_ISSUES.md`** credited the 1.0-2.0 m height to Hagemeier & Leuschner, and said the milestone had stopped on memory. Corrected there.

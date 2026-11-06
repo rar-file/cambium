@@ -2130,4 +2130,4 @@ The Birch v1 campaign replaces round-by-round briefs; `CAMPAIGN.md` is where to 
 
 ## Campaign M1: citations corrected, 2026-11-06
 
-Crossref shows `10.1139/b65-035` is Loman 1965 on basidiomycetes and `10.1139/b66-096` is Edwardson 1966 on plant viruses, so the Clausen & Kozlowski DOIs marked "Yes" above are wrong. The right one is `10.1038/2051030a0`. Anfodillo 2006 is New Phytol. 169:279, not Tree Physiol. 26:1415.
+Crossref shows `10.1139/b65-035` is Loman 1965 on basidiomycetes and `10.1139/b66-096` is Edwardson 1966 on plant viruses, so the Clausen & Kozlowski DOIs marked "Yes" above are wrong. Crossref has the Nature paper at `10.1038/2051030a0`, and Kozlowski & Clausen 1966, Can. J. Bot., at `10.1139/b66-097`; one search found no 1965 Can. J. Bot. paper by them. Anfodillo 2006 is New Phytol. 169:279, not Tree Physiol. 26:1415.
