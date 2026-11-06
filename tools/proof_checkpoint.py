@@ -69,17 +69,27 @@ def stopped_hard_after_a_death(command: list, out: Path) -> int:
     return since
 
 
-def stopped_inside_a_checkpoint(command: list, out: Path, year: int) -> bool:
-    """Run a plot, and stop it at once when trees have spilled for this year's checkpoint.
-    Returns whether the stop did land inside: the newest pickle can't be this year's yet."""
+def stopped_inside_a_checkpoint(command: list, out: Path, every: int) -> bool:
+    """Run a plot with a checkpoint every so many years, and stop it inside its second, after a
+    tree that germinated late has spilled.  History files go by a tree's own age, so that tree
+    writes a file named for the first checkpoint's year after that checkpoint's pickle exists.
+    Returns whether the stop did land inside: such a file is newer than the newest pickle."""
     free = free_gb()
     if free - PEAK_GB < FLOOR_GB:
         sys.exit(f"STOP: {free:.2f} GB free; this needs about {FLOOR_GB + PEAK_GB:.2f} GB (PROTOCOL.md section 6)")
     out.mkdir(parents=True)
     p = subprocess.Popen([sys.executable] + [str(a) for a in command] + ["--out", str(out)], cwd=str(ROOT),
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    pattern = f"tree_*/history/history_{year:03d}.npz"
-    while not list(out.glob(pattern)) and p.poll() is None:
+    pattern = f"tree_*/history/history_{every:03d}.npz"
+    pickle_file = out / "checkpoint.pkl"
+    while not pickle_file.exists() and p.poll() is None:
+        time.sleep(0.005)
+    first = pickle_file.stat().st_mtime if pickle_file.exists() else 0.0
+
+    def late_tree_has_spilled():
+        return any(f.stat().st_mtime > first for f in out.glob(pattern))
+
+    while p.poll() is None and not late_tree_has_spilled():
         time.sleep(0.005)
     if p.poll() is None:
         if sys.platform == "win32":
@@ -117,7 +127,7 @@ def main():
     run(dense + ["--checkpoint-every", 0, "--out", WORK / "dense_none"])
     n_ok, n_n, n_diff = same(WORK / "dense_straight", WORK / "dense_none")
 
-    inside = stopped_inside_a_checkpoint(dense + ["--checkpoint-every", 3], WORK / "dense_inside", 6)
+    inside = stopped_inside_a_checkpoint(dense + ["--checkpoint-every", 3], WORK / "dense_inside", 3)
     run(["tools/plot.py", "--no-mesh", "--years", 10, "--resume", "--checkpoint-every", 0, "--out", WORK / "dense_inside"])
     i_ok, i_n, i_diff = same(WORK / "dense_straight", WORK / "dense_inside")
     i_word = ("IDENTICAL" if i_ok else "DIFFERENT") if inside else "VOID: the stop didn't land inside the checkpoint"
@@ -125,7 +135,7 @@ def main():
 
     lines = [f"Dense plot, stopped hard with {since} trees dead since its last checkpoint, then resumed: {d_word} ({d_n} files) {d_diff[:10]}",
              f"Dense plot, no checkpoints at all, against every 5 years: {'IDENTICAL' if n_ok else 'DIFFERENT'} ({n_n} files) {n_diff[:10]}",
-             f"Dense plot, stopped hard inside its year-6 checkpoint, then resumed with no more: {i_word} ({i_n} files) {i_diff[:10]}",
+             f"Dense plot, stopped hard inside its year-6 checkpoint after a late-germinating tree spilled, then resumed with no more: {i_word} ({i_n} files) {i_diff[:10]}",
              f"Tree, straight to 60 against saved at 30 and resumed: {'IDENTICAL' if t_ok else 'DIFFERENT'} ({t_n} files) {t_diff[:10]}",
              f"Plot, 25 trees, straight to 20 against saved at 10 and resumed: {'IDENTICAL' if p_ok else 'DIFFERENT'} ({p_n} files) {p_diff[:10]}"]
     print("\n".join(lines))

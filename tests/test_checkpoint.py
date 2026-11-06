@@ -115,11 +115,14 @@ def test_resume_sweeps_only_what_the_checkpoint_does_not_know(tmp_path):
         return f
 
     keep = [touch("tree_001/history/history_005.npz"), touch("tree_001/history/history_010.npz"), touch("checkpoint.pkl"),
-            touch("tree_002/stats.json"), touch("state_010/tree_002/history/history_010.npz")]
+            touch("tree_002/stats.json"), touch("state_010/tree_002/history/history_010.npz"),
+            touch("tree_003/history/history_007.npz")]   # germinated 3 years late: 7 years old in plot year 10
     gone = [touch("tree_001/history/history_015.npz"),     # a later checkpoint that never finished
             touch("tree_002/history/history_010.npz"),     # a tree the checkpoint counts as dead
             touch("tree_001/history/history_015.npz.tmp"),
+            touch("tree_003/history/history_009.npz"),     # the late tree's part of the checkpoint that never finished,
+                                                           # whose number is still under the plot's year
             touch("checkpoint.pkl.tmp")]
-    removed = sweep_after_stop(tmp_path, 10, [1])
+    removed = sweep_after_stop(tmp_path, {1: 10, 3: 7})
     assert sorted(removed) == sorted(gone)
     assert all(f.exists() for f in keep) and not any(f.exists() for f in gone)
