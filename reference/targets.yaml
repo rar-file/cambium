@@ -19,6 +19,8 @@
 
 stand_canopy:
   lai_baltic_chronosequence:
+    # VERIFY: Uri 2012 and Varik 2015 are unopened in this campaign (QUESTIONS.md Q15); the band and pages below
+    # come from earlier phases and aren't rechecked against the papers.
     target_range: [2.5, 4.5]
     source: "Uri et al. (2012); Varik et al. (2015)"
     doi: "10.1016/j.foreco.2011.11.033"
@@ -95,7 +97,7 @@ stand_canopy:
       target_range: [0.30, 0.45]
       source: "Niemistö (1995, Paper 1); Repola (2008)"
       doi: "10.1080/02827589509382889"
-      citation: "Niemistö, P. (1995). Influence of initial spacing and row-to-row distance on the crown and branch properties and taper of silver birch. Scand. J. For. Res. 10:235-244."
+      citation: "Niemistö, P. (1995). Influence of initial spacing and row-to-row distance on the crown and branch properties and taper of silver birch (Betula pendula). Scand. J. For. Res. 10:235-244."
       page_table: "Table 2 (p. 238) & Fig. 1 (p. 239); Repola (2008) Table 2 minimum (0.29)"
       measures: "Observed live crown ratio in dense, self-thinned stands. In Niemistö (1995) dense unthinned planted trials (3,000-5,000 stems/ha, aged 11-22 yr), rapid crown lift reduced LCR to 0.35-0.45, with suppressed trees reaching 0.30. Repola (2008) Table 2: 0.29 is the minimum across all sample trees. Niemistö (1995) has not been opened in this campaign: the numbers here are unchecked."
       conditions:
@@ -145,7 +147,7 @@ tree_allometry:
       source: "Elfving (2010), Appendix 7, p. 56: 'For other broad-leaves (birch, aspen etc.) the following relation is applied: T13 = 150/SIS'. SIS is 'site index according to site factors, given as top height at age 100, m' (p. 55)."
       numerator: 150
       sis_total_age_years: 100
-      sis_reading: "Elfving sets SIS from site factors for a site-indicative species (pp. 20, 38) and prints no conversion from birch site index (height at breast-height age 50) to SIS; pp. 9-10 put birch on the H100 pine scale ('Pend. birch: Pub. birch function with SI = H100pine + 1.5'). Here SIS is this curve's own top height at total age 100, solved together with T13: SI20 25.08 m, 5.98 yr; SI26 29.93 m, 5.01 yr. VERIFY"
+      sis_reading: "Elfving sets SIS from site factors for a site-indicative species (pp. 20, 38) and prints no conversion from birch site index (height at breast-height age 50) to SIS; pp. 9-10, on functions for mean height development in young stands (Section 2.2), put birch on the H100 pine scale ('Pend. birch: Pub. birch function with SI = H100pine + 1.5'). Here SIS is this curve's own top height at total age 100, solved together with T13: SI20 25.08 m, 5.98 yr; SI26 29.93 m, 5.01 yr. VERIFY"
     swedish_boreal_range_m: [20.0, 26.0] # SI20 to SI26
     height_measure: "dominant height"
     # height_curve_at_100_thickest_per_ha | 100_thickest_per_ha | 100_tallest_per_ha | unconfirmed.
