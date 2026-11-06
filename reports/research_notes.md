@@ -134,7 +134,7 @@ The SI 32 / SI 22 height ratio falls with age: about 2.28 at 10, 1.65 at 30, 1.4
 
 ## Access limits met
 Publisher pages return HTTP 403 to automated fetches. Copies elsewhere aren't allowed (rule above). These stayed at abstract level or below and need a copy from the maintainer or a library:
-- Hagemeier & Leuschner 2019, Forests 10:925 (decides the double count and the light target; open access). 2026-11-06: not in the maintainer's folders; publisher and Gottingen repository give HTTP 403 to automated fetches; QUESTIONS.md Q6. **Search snippets only, not a reading:** transmittance "~15%" under early-successional B. pendula; a table row for B. pendula with 4.6, 3.2, 0.3, 0.37, 0.42, column headers not seen. The range 6.4-19.8 % not seen
+- Hagemeier & Leuschner 2019, Forests 10:925: **now read from the publisher's HTML,** `reports/hagemeier2019b_publisher_reading.md`. It settles the light target's numbers, and K_PAR from measured transmission against litter LAI, so the double count with `light.woody_shade` looks real
 - Ilomaki et al. 2003; Waring et al. 1998; DeLucia et al. 2007; Ryan 1991; Oleksyn et al. 2000; Ryan et al. 1997; Ostonen et al. 2007 (both); Perttunen et al. 1996; Uri et al. 2007; Granier et al. 2000; Barclay et al. 2000; Duursma & Makela 2007; Chen et al. 1997; Miyazawa & Kikuzawa 2004; Brown et al. 1967; Wilson 2000; Macdonald et al. 1984.
 
 ## Third-party copies

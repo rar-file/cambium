@@ -34,7 +34,7 @@ stand_canopy:
       text: "unthinned / natural self-thinning on fertile abandoned farmland"
 
   lai_hagemeier:
-    target_mean: 4.5 # mean of the two stands the paper lists, 3.6 and 5.4; no mean is printed. Was 4.59, not found in the paper (M1c). Not used in scoring
+    target_mean: 4.6 # Forests 10:925 Table 5, printed as the mean of the two birch stands. Forests 10:265 lists the stands, 3.6 and 5.4, whose mean is 4.5. Not used in scoring
     stand_range: [3.6, 5.4]
     source: "Hagemeier & Leuschner (2019)"
     doi: "10.3390/f10030265"
@@ -54,11 +54,11 @@ stand_canopy:
     source: "Hagemeier & Leuschner (2019b)"
     doi: "10.3390/f10100925"
     citation: "Hagemeier, M., & Leuschner, C. (2019). Leaf and Crown Optical Properties of Five Early-, Mid- and Late-Successional Temperate Tree Species and Their Relation to Sapling Light Demand. Forests 10(10):925."
-    page_table: "Table 5 (p. 14) & Section 3"
-    measures: "Relative diffuse photosynthetically active radiation (PAR) transmittance (T_PAR, %) reaching the understory beneath closed mature birch canopy at 1.0-2.0 m height. Measured median 14.8%, empirical range across sample positions 6.4% to 19.8% (abstract ~15%). (Model-derived 12.6% removed)."
+    page_table: "Results 3.2 and Figure 5 (14.8%, 6.4-19.8%); Table 5 (K_PAR, clumping); Methods 2.3. Read from the publisher's HTML, which has no page numbers (reports/hagemeier2019b_publisher_reading.md); check the table values against the PDF when saved"
+    measures: "Relative diffuse photosynthetically active radiation (PAR) transmittance (T_PAR, %) reaching the forest floor beneath closed mature birch canopy: overcast days, 11:00-14:00, 110-241 points per stand, forest-floor sensor on a 2 m pole, its height above the ground not stated. \"A median transmission of 14.8% was recorded in the B. pendula stands, with individual values varying between 6.4% and 19.8%.\" (Model-derived 12.6% removed)."
     optical_parameters:
       k_par: 0.37 # canopy extinction coefficient for PAR under diffuse light
-      foliage_clumping_index: 0.41 # Omega
+      foliage_clumping_index: 0.41 # Omega; Results text 0.41, Table 5 0.42
     conditions:
       scenario: [plot, stand-tree]
       age_years: [45, 65]
