@@ -6,7 +6,8 @@ A setting meets the lines only if, as means, height is inside its band at 20, 30
 is at least 3.60 at 50 and 60.  A star marks a mean that depends on the draw: a height within 0.2 m of a
 band edge, or an LAI within 0.12 of 3.60, the size by which runs at the same or almost the same setting
 differ (row 68).  --outside marks settings that row 62's frame doesn't cover: they never read as fits.
-Reads saved outputs.  Stops if a set mixes machines or commits, or has unequal seed counts.
+Reads saved outputs.  Warns and exits 1, after the table, if a set mixes machines or code versions, or
+has other than 20 seeds, the number row 62 and PROTOCOL.md section 2 ask of trees.
 """
 from __future__ import annotations
 
@@ -19,7 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 
-from gate import code_of, machine_of, per_seed  # noqa: E402
+from gate import REQUIRED_SEEDS, code_of, machine_of, per_seed  # noqa: E402
 from scorecard import ensemble_folders, evaluate_ensemble, load_approved_targets, load_run_data  # noqa: E402
 
 E = ROOT / "out" / "bench" / "ensemble"
@@ -86,11 +87,11 @@ def main(argv=None) -> int:
         print(line)
         every.append(runs)
     machines = {machine_of(r) for runs in every for r in runs}
-    codes = {code_of(r)[0] for runs in every for r in runs}
+    codes = {code_of(r) for runs in every for r in runs}
     counts = {len(runs) for runs in every}
-    print(f"\nMachines: {sorted(m[0] or '?' for m in machines)}. Commits: {sorted(str(c) for c in codes)}. Seeds per set: {sorted(counts)}.")
-    if len(machines) != 1 or len(codes) != 1 or len(counts) != 1:
-        print("NOT LIKE FOR LIKE: this table mixes machines, commits or seed counts.")
+    print(f"\nMachines: {sorted(m[0] or '?' for m in machines)}. Commits: {sorted(str(c[0]) for c in codes)}. Seeds per set: {sorted(counts)}.")
+    if len(machines) != 1 or len(codes) != 1 or counts != {REQUIRED_SEEDS["tree"]}:
+        print("NOT LIKE FOR LIKE: this table mixes machines or code versions, or has other than 20 seeds in a set.")
         return 1
     return 0
 

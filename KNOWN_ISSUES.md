@@ -2131,3 +2131,11 @@ The Birch v1 campaign replaces round-by-round briefs; `CAMPAIGN.md` is where to 
 ## Campaign M1: citations corrected, 2026-11-06
 
 Crossref shows `10.1139/b65-035` is Loman 1965 on basidiomycetes and `10.1139/b66-096` is Edwardson 1966 on plant viruses, so the Clausen & Kozlowski DOIs marked "Yes" above are wrong. Crossref has the Nature paper at `10.1038/2051030a0`, and Kozlowski & Clausen 1966, Can. J. Bot., at `10.1139/b66-097`; one search found no 1965 Can. J. Bot. paper by them. Anfodillo 2006 is New Phytol. 169:279, not Tree Physiol. 26:1415.
+
+## Campaign M2: found, 2026-11-06
+
+- **Fresh laterals' leaves aren't charged.** `_leaf_costs` waives next spring's clusters on fresh side buds (`treegen/growth.py:1325`), saying they were built with the shoot, but `_growth_factor` charges only one late leaf per node and the tip's cluster (`:1606-1608`). `resource.leaf_costs.charge_fresh_laterals` charges them; it's off by default. Q23.
+- **`0386ce7` is output-only with wood shade on, not off.** Every golden run is identical. Two wood-off ensembles at `f45928e` and `3f3d687`, same seeds, differ on all 20 seeds from about year 6-7; `0386ce7` lengthens the grid when wood is off, and it's the likely cause (inference). `out/bench/ensemble/m2_linked.txt`.
+- **The model's k with no wood sits below its input.** Implied k is about 0.345 at 50-60 from an input of 0.37, on trees and plots; with wood on, 0.39-0.40. Neither is the paper's 0.37. The offset matches the 2 points in the phase 17-20 table above. Q21.
+- **Plots barely thin.** About 1,650 stems/ha at 60 at alpha 4.8, and basal area 51-56 m2/ha, against Repola Table 1's top of 32.3. M4. `out/bench/ensemble/m2_validation.txt`.
+- **`tools/plots_identical.py` walks the first folder's plots:** give a partial control first, or it reports the others missing.
