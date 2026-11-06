@@ -139,3 +139,13 @@ Publisher pages return HTTP 403 to automated fetches. Copies elsewhere aren't al
 
 ## Third-party copies
 On the maintainer's decision of 2026-11-06, the JSTOR scan of Borchert & Honda 1984 and the web-archive copies (Hale et al. 2015, a Tokyo thesis abstract, three MDPI pages) were deleted, and rows that relied on them are marked unread in `reports/parameter_audit.csv`. Rule in `CAMPAIGN.md`: no papers from third-party copies (university scans, web archives, mirrors).
+
+## Is the chaos the every-other-year pattern? (INFO for M3; the maintainer's lead, 2026-11-06)
+
+`out/bench/node/noise_cycle.md`: 28 runs, seed 1, a parameter changed by 1 to 7 parts in a million, every year kept, on the node. The tool's alternation rule and its split into fast and slow parts are its own, for a diagnosis, not from a source.
+
+- **Does divergence start at the first strong alternating year? No, earlier.** It passes 1 % in leaf area at a median of year 6, and 5 % at 6.5. The first strong alternating year comes at 8-14, median 10, and 14 in the default.
+- **Do the runs show the same alternation, just out of step? Partly.** From age 20 on, the yearly swing in shoot length agrees with the default in 49 % of years, which is chance. Shifting by up to 3 years gives a median correlation of +0.53, but best-of-seven picks inflate that, and the best shift varies, with -1 the most common (10 of 28).
+- **Is the divergence the see-saw? Mostly not.** About a third of the leaf-area divergence is fast (median 33 %, 11-82 %), and a 4-year mean barely narrows the spread: leaf area at 30, 9.06 to 8.25; at 60, 3.76 to 3.67; height at 60, 2.22 to 2.25.
+- **So:** averaging over years won't remove the noise; averaging over seeds has to.
+- **For M3, seen in the default's yearly table:** whole-tree on-off years. Shoot length made is 0.0 m in years 10 and 19 and 133.9 m in year 24. Leaf area falls from 28.1 to 14.6 m2 between years 18 and 19. Height increment switches between exactly 1.17 m and 0.00 m. The example tree's render looks the same way: a pole with separate tufts (`reports/renders/M1_example_seed5.png`).
