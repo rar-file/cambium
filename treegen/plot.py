@@ -306,6 +306,7 @@ class Plot:
 
     def step(self):
         t = self.year + 1
+        self._lost_this_year = 0.0
         if getattr(self, "soil", None) is None:
             self._make_soil()
         active = [k for k in self.alive if t > self.info[k]["germination"]]
@@ -446,7 +447,24 @@ class Plot:
         for n, cause in M.draw(hz, self.mort_rng):
             self._finish(now[n], cause)
 
+    def open_gap(self, x: float, y: float, radius: float) -> int:
+        """A windthrow: every tree within radius of (x, y) goes this year, across the plot's
+        repeat, and uprooting bares soil there.  Returns how many went."""
+        lx, ly = self._sides()
+        gone = 0
+        for k in list(self.alive):
+            dx, dy = abs(self.info[k]["x"] - x), abs(self.info[k]["y"] - y)
+            if math.hypot(min(dx, lx - dx), min(dy, ly - dy)) <= radius:
+                self._finish(k, "windthrow")
+                gone += 1
+        if isinstance(getattr(self, "regen", None), SpreadRegeneration):
+            self.regen.bare_circle(x, y, radius, float(self.species.regeneration.spread.windthrow_mineral))
+        return gone
+
     def _finish(self, k, cause):
+        if getattr(self, "measures", False):
+            ob = float(over_bark_cm(self._dbh(k) * 100.0, self.species.mortality.bark_double_mm))
+            self._lost_this_year = getattr(self, "_lost_this_year", 0.0) + math.pi / 4.0 * (ob / 100.0) ** 2
         self.alive.remove(k)
         if getattr(self, "mort", None) is not None:
             self.rings.pop(k, None)
@@ -498,6 +516,7 @@ class Plot:
                "top_height_m": round(top_height_m(ob, h, self.area), 2),
                "gap_fraction": round(getattr(self, "_gap_fraction", 1.0), 3),
                "new_trees": sum(1 for i in self.info if i.get("recruit") and i["germination"] == self.year),
+               "basal_area_lost_m2_ha": round(getattr(self, "_lost_this_year", 0.0) / self.area * 1e4, 3),
                "dead_this_year": {}}
         for i in self.info:
             if i.get("removed") == self.year:

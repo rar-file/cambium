@@ -241,6 +241,21 @@ def test_seedlings_take_in_the_open_and_not_under_a_closed_canopy():
     assert len(placed) and (placed[:, 0] > -0.1 * r.csx).mean() > 0.99
 
 
+def test_a_windthrow_takes_the_trees_in_its_circle_and_bares_soil():
+    sp = species("plot.natural_start.enabled=true", "plot.natural_start.stems_per_ha=4000", "plot.natural_start.area_m2=100",
+                 "regeneration.spread.enabled=true", "regeneration.spread.open_ends=false", "mortality.enabled=true", "plot.stand_measures=true")
+    plot = make_plot(sp, lean=True)
+    plot.enable_regeneration()
+    plot.step()
+    before = len(plot.alive)
+    inside = [k for k in plot.alive if math.hypot(plot.info[k]["x"], plot.info[k]["y"]) <= 3.0]
+    assert plot.open_gap(0.0, 0.0, 3.0) == len(inside) > 0
+    assert len(plot.alive) == before - len(inside)
+    assert all(plot.info[k]["cause"] == "windthrow" for k in inside)
+    assert plot.regen.mineral.max() == pytest.approx(float(sp.regeneration.spread.windthrow_mineral))
+    assert plot.regen.mineral.min() < 0.05
+
+
 def test_occupied_cells_take_nobody_and_the_memory_limit_holds():
     r = _spread(lx=40.0, ly=40.0, max_recruits_per_year=7)
     r.count_trees(np.zeros((0, 2)))

@@ -266,6 +266,14 @@ class SpreadRegeneration(Regeneration):
             rain += np.fft.irfft2(np.fft.rfft2(src) * self._kernel_ft(int(v)), s=src.shape)
         return np.maximum(rain[: self.nx], 0.0)
 
+    def bare_circle(self, x: float, y: float, radius: float, share: float) -> None:
+        """Uprooting bares mineral soil in a windthrow gap: at least this share of each cell in it."""
+        dx = np.abs(self.cx - x)
+        dy = np.abs(self.cy - y)
+        dx, dy = np.minimum(dx, self.lx - dx), np.minimum(dy, self.ly - dy)
+        inside = np.hypot(dx, dy) <= radius
+        self.mineral[inside] = np.maximum(self.mineral[inside], share)
+
     def light_chance(self, light: np.ndarray) -> np.ndarray:
         """Share of germinants that live through the first season, by light at 0.1 m."""
         lo, hi = (float(x) for x in self.p.spread.establishment_light)
@@ -277,8 +285,11 @@ class SpreadRegeneration(Regeneration):
         p = self.p
         rain = self.seed_rain(trees_xy, seeds)
         organic = np.maximum(1.0 - self.mineral - self.surface_stone, 0.0)
-        e_m = rain * self.mineral * float(p.establishment_mineral) * self.light_chance(canopy_light)
-        e_o = rain * organic * float(p.establishment_organic) * self.light_chance(canopy_light * field_layer)
+        # the organic layer's rate was measured under its field layer in full light, so it
+        # already holds that shade: both seedbeds read only the canopy's light here
+        chance_light = self.light_chance(canopy_light)
+        e_m = rain * self.mineral * float(p.establishment_mineral) * chance_light
+        e_o = rain * organic * float(p.establishment_organic) * chance_light
         expected = e_m + e_o
         chance = np.where(~occupied, 1.0 - np.exp(-expected), 0.0)
         hit = np.nonzero(self.rng.random(chance.shape) < chance)
@@ -303,7 +314,7 @@ class SpreadRegeneration(Regeneration):
                      "ground_light_mean": float(canopy_light.mean()),
                      "ground_light_p10": float(np.percentile(canopy_light, 10)),
                      "ground_light_p90": float(np.percentile(canopy_light, 90)),
-                     "open_share": float((self.light_chance(canopy_light) > 0.0).mean()),
+                     "open_share": float((chance_light > 0.0).mean()),
                      "expected_per_m2": float(expected.sum() / area), "recruits": len(out),
                      "recruits_on_mineral": sum(1 for r in out if r[2]),
                      "recruits_offered": int(len(hit[0])), "mineral_share": float(self.mineral.mean())}

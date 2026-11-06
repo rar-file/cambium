@@ -932,12 +932,19 @@ regeneration:
     # How far the kernel's table runs; 6 mean distances at the open-ground mean.
     kernel_reach_m: 400.0
     # TUNED: the share of germinants living through the first season rises from 0
-    # at the first light to 1 at the second (relative, at 0.1 m).  Tuned so that no
-    # seedling takes under this model's closed canopy (22-29 % at the ground on the
-    # 40-60 year plots; real stands 6.4-19.8 %, Hagemeier & Leuschner 2019b), and
-    # open ground under a full field layer (38 % of full light) takes about half.
-    # Silver birch is a light-demanding pioneer; I found no opened figure for it.
-    establishment_light: [0.25, 0.50]
+    # at the first light to 1 at the second (relative, at 0.1 m, canopy only: the
+    # organic layer's rate already holds its field layer's shade).  Tuned so that
+    # no seedling takes under this model's closed canopy, which reads 30-34 % at
+    # the ground at LAI 3.0-3.3 (one 300 m2 plot, ages 15-25; real stands 6.4-19.8 %
+    # at 1-2 m, Hagemeier & Leuschner 2019b), and open ground takes in full.  With
+    # the first value at 0.25, 234 recruits came up under that canopy and none was
+    # alive after 10 years.  Silver birch is a light-demanding pioneer; I found no
+    # opened figure for its first-year light need.
+    establishment_light: [0.40, 0.70]
+    # Share of a windthrow gap's ground bared by uprooting (Plot.open_gap).  Pit-mound
+    # microrelief covers 7-12 % of the ground in all-aged boreal forests [Samonil et
+    # al. 2010, as above]; the top of that, for a fresh gap. VERIFY
+    windthrow_mineral: 0.12
     # TUNED (memory, not biology): at most one recruit per cell a year, so this
     # sets the densest a young stand can be: 2 m is 2500 stems/ha.  The plain class
     # has 1 m.  Set lower where the machine allows.

@@ -81,6 +81,8 @@ def run(a) -> None:
     while plot.year < a.years and plot.alive:
         y0 = time.time()
         plot.step()
+        if a.gap_at and plot.year == a.gap_at:
+            print(f"year {plot.year}: a windthrow of {a.gap_radius} m radius took {plot.open_gap(0.0, 0.0, a.gap_radius)} trees", flush=True)
         s = plot.stats[-1]
         # year, seconds, peak MB, trees, crown and root nodes held (live and dead)
         year_log.append([plot.year, round(time.time() - y0, 1), round(cli.peak_memory_mb()), len(plot.alive),
@@ -140,6 +142,8 @@ def main():
     ap.add_argument("--mortality-off", action="store_true")
     ap.add_argument("--tree-table", action="store_true", help="keep a row for every tree that ever lived in plot.json")
     ap.add_argument("--print-every", type=int, default=5)
+    ap.add_argument("--gap-at", type=int, default=None, help="a windthrow in the middle of the plot in this year")
+    ap.add_argument("--gap-radius", type=float, default=10.0)
     ap.add_argument("--stop-free-gb", type=float, default=None, help="stop and save if free memory falls under this, on a shared machine")
     ap.add_argument("--set", action="append", default=[], metavar="KEY=JSON")
     ap.add_argument("--out", default=None)
