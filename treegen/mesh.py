@@ -41,6 +41,9 @@ class MeshSettings:
     parent_refine_ratio: float = 0.12   # refine the parent around children at least this thick
     tip_length_factor: float = 3.0      # tip cone length / tip radius
     radius_smoothing_iters: int = 8     # visual smoothing of the pipe-model steps at nodes
+    ring_attributes: bool = False       # also output each vertex's place on its tube, for texture coordinates
+    stem_sides_by_radius: bool = False  # the stem's rings follow its own radius, not the thin taproot tip below it
+
 
 
 @dataclass
@@ -647,7 +650,15 @@ def build_mesh(tree, select: np.ndarray, radius: np.ndarray, geometry, settings:
     want = 2.0 * np.pi * R / s.edge_target
     sides = allowed[np.clip(np.searchsorted(allowed, want), 0, len(allowed) - 1)]
     big = 1000
+    raw_sides = sides
     sides = np.minimum.accumulate(sides - ring_axis_rank * big) + ring_axis_rank * big
+    if s.stem_sides_by_radius and trunk.any():
+        # axis 0 starts at the tip of the taproot, and a running minimum from there would hold the
+        # whole stem at the tip's few sides: let its rings grow to its thickest point, then thin
+        tr = np.nonzero(trunk)[0]
+        peak = int(np.argmax(R[tr]))
+        sides[tr[: peak + 1]] = np.maximum.accumulate(raw_sides[tr[: peak + 1]])
+        sides[tr[peak:]] = np.minimum.accumulate(raw_sides[tr[peak:]])
     voff = np.r_[0, np.cumsum(sides)[:-1]]
     NV_ring = int(sides.sum())
     vr = np.repeat(np.arange(NR), sides)
@@ -720,6 +731,11 @@ def build_mesh(tree, select: np.ndarray, radius: np.ndarray, geometry, settings:
     V = np.concatenate([V] + extra_pos)
     vring = np.concatenate([vr] + extra_ring)
     F = np.concatenate(faces).astype(np.int64)
+    around = None
+    if s.ring_attributes:
+        # share of the way around its ring; NaN for the points that close a tube (tips, base cap)
+        around = np.full(len(V), np.nan, np.float32)
+        around[:NV_ring] = (vj / sides[vr]).astype(np.float32)
 
     # --- junction fillets -------------------------------------------------
     ring_s = ss
@@ -768,6 +784,8 @@ def build_mesh(tree, select: np.ndarray, radius: np.ndarray, geometry, settings:
             remap = np.cumsum(vkeep) - 1
             F = remap[F[vkeep[F[:, 0]]]]
             V, vring = V[vkeep], vring[vkeep]
+            if around is not None:
+                around = around[vkeep]
         if not len(F):
             return None
 
@@ -785,6 +803,10 @@ def build_mesh(tree, select: np.ndarray, radius: np.ndarray, geometry, settings:
         "radius": R[vring].astype(np.float32),
         "node_id": node.astype(np.int32),
     }
+    if s.ring_attributes:
+        attrs["ring_around"] = around                               # 0-1 around the tube
+        attrs["ring_along"] = ss[vring].astype(np.float32)          # m along the axis from its base
+        attrs["axis_id"] = T.axis[node].astype(np.int32)            # 0 = the stem
     return MeshData(vertices=V, faces=F, normals=vn, attributes=attrs)
 
 
