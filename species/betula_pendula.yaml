@@ -566,6 +566,8 @@ mechanics:
   max_rotation_per_step: 0.25
 
 pipe_model:
+  # Diagnosis only (M3a), no source: see treegen/growth.py, _growth_factor.
+  sapwood_for_next_season: false
   # r_parent^g = sum r_child^g [S64].  Measured exponents for trees lie
   # between ~2 and 3; the brief asked for ~2.5. VERIFY
   exponent: 2.5

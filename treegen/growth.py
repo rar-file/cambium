@@ -1540,6 +1540,10 @@ class GrowthModel:
         early = float(getattr(fw, "early_leaves", 0.0) or 0.0) * size
         lc = getattr(sp.resource, "leaf_costs", None)
         g_per_unit = float(pm.wood_volume_per_carbon) * (float(lc.wood_basic_density_kg_m3) * 1000.0 if lc else 0.0)
+        # Diagnosis, off by default, no source (M3a): rings are sized for the leaves a new node
+        # will carry next season, not for the single leaf it carries this year
+        ahead = bool(getattr(pm, "sapwood_for_next_season", False))
+        extra_per_node = (float(getattr(fw, "early_leaves", 0.0) or 0.0) - float(fw.new_leaf)) * size if ahead else 0.0
 
         def parts(lam):
             v = lam * share
@@ -1550,13 +1554,14 @@ class GrowthModel:
             # with them; next season they are not built again (_leaf_costs)
             leaf_area = np.where(grow, np.maximum(np.floor(vc), 1.0) * per_met + early, 0.0)
             leaf_units = float((leaf_area * lma).sum()) / g_per_unit * g_resp if g_per_unit > 0.0 else 0.0
+            piped = leaf_area + np.where(grow, np.floor(vc) * extra_per_node, 0.0) if ahead else leaf_area
             dla = np.zeros(n0)
-            np.add.at(dla, starts, leaf_area)
+            np.add.at(dla, starts, piped)
             la_tot = la_now + T.basipetal(levels, dla)
             ring = np.maximum(hv * la_tot - keep, 0.0)
             if f_wind > 0.0:
                 dlaz = np.zeros(n0)
-                np.add.at(dlaz, starts, leaf_area * z_node[starts])
+                np.add.at(dlaz, starts, piped * z_node[starts])
                 laz_tot = laz_now + T.basipetal(levels, dlaz)
                 m_wind = f_wind * np.maximum(laz_tot - z_base * la_tot, 0.0)
                 a_wind = a_wind_coef * np.cbrt(m_wind) ** 2
