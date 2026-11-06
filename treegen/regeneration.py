@@ -146,3 +146,164 @@ class Regeneration:
 
     def _surface_stone(self, x: float, y: float) -> bool:
         return bool(self.soil.is_stone(np.array([[x, y, -0.01]]), self.seed)[0])
+
+
+class SpreadRegeneration(Regeneration):
+    """Regeneration that can carry a forest across open ground (species block
+    ``regeneration.spread``, off by default).  What's different from the class above:
+
+    * The ground can be a long rectangle.  Seed carried past the two ends of x
+      is lost, where the plain class brings it back round; the sides repeat, so a
+      strip stands for a long forest edge.
+    * Each tree throws its seed on the fitted kernel of Liu & Evans 2021: lognormal
+      with mean distance u = exp(u0 + ut T) and shape p = exp(p0 + pt T), T the
+      big trees in its 10 m cell.  Trees at an open edge throw furthest.
+    * A germinant's chance rises with light between two values.  A closed canopy
+      gives none; a gap or open ground does.  The plain class has one cut-off, the
+      light at which birch leaves die, and that passes the ground of a closed
+      canopy in this model (it reads 22-29 %).
+    * Open ground starts with the mineral soil of old ground (new exposure balances
+      cover), not the share bared by a stand-replacing disturbance.
+    * ``max_recruits_per_year``, a limit on memory and not a model value: it keeps
+      a random draw of the year's recruits, across the whole ground.
+    """
+
+    def __init__(self, rp, light_survival: float, soil, lx: float, ly: float, seed: int):
+        self.p = rp
+        self.soil = soil
+        self.light_survival = float(light_survival)
+        self.seed = int(seed)
+        self.rng = np.random.default_rng([self.seed, 4243])
+        self.lx, self.ly = float(lx), float(ly)
+        self.L = self.lx
+        cell = float(rp.spread.cell_m)
+        self.nx, self.ny = max(1, int(round(self.lx / cell))), max(1, int(round(self.ly / cell)))
+        self.csx, self.csy = self.lx / self.nx, self.ly / self.ny
+        self.cs = math.sqrt(self.csx * self.csy)
+        self.nc = self.nx
+        cx = (np.arange(self.nx) + 0.5) * self.csx - 0.5 * self.lx
+        cy = (np.arange(self.ny) + 0.5) * self.csy - 0.5 * self.ly
+        self.cx, self.cy = np.meshgrid(cx, cy, indexing="ij")
+        self.mineral = np.full(self.cx.shape, self.equilibrium_mineral())
+        k = 4
+        sub = (np.arange(k) + 0.5) / k - 0.5
+        sx, sy = np.meshgrid(sub * self.csx, sub * self.csy, indexing="ij")
+        pts = np.stack([(self.cx[..., None, None] + sx).ravel(), (self.cy[..., None, None] + sy).ravel(),
+                        np.full(self.cx.size * k * k, -0.01)], 1)
+        self.surface_stone = soil.is_stone(pts, self.seed).reshape(self.nx, self.ny, k * k).mean(-1)
+        # room for seed to run past the end of x and stop, rather than come round
+        self.nx_pad = 2 * self.nx if bool(rp.spread.open_ends) else self.nx
+        self._kernels = {}
+        self.trees_in_cell = None
+        self.last = {}
+
+    def _cell(self, xy: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        i = np.floor((xy[:, 0] + 0.5 * self.lx) / self.csx).astype(int)
+        j = np.floor((xy[:, 1] + 0.5 * self.ly) / self.csy).astype(int) % self.ny
+        return i % self.nx, j
+
+    def count_trees(self, big_xy: np.ndarray) -> None:
+        """Big trees in each 10 m cell of the ground, as Liu & Evans counted them."""
+        size = float(self.p.spread.density_cell_m)
+        self._count_nx, self._count_ny = max(1, int(round(self.lx / size))), max(1, int(round(self.ly / size)))
+        grid = np.zeros((self._count_nx, self._count_ny), np.int64)
+        if len(big_xy):
+            i = np.floor((big_xy[:, 0] + 0.5 * self.lx) / self.lx * self._count_nx).astype(int) % self._count_nx
+            j = np.floor((big_xy[:, 1] + 0.5 * self.ly) / self.ly * self._count_ny).astype(int) % self._count_ny
+            np.add.at(grid, (i, j), 1)
+        self.trees_in_cell = grid
+
+    def _kernel_ft(self, t: int) -> np.ndarray:
+        """The transform of the seed shadow of a tree with t big trees in its
+        cell: share of its seed landing in each cell (Liu & Evans 2021 Eq. 2,
+        whose text and Table 1 read u as the mean distance: exp(4.18) = 65 m)."""
+        if t in self._kernels:
+            return self._kernels[t]
+        s = self.p.spread
+        u = math.exp(float(s.ln_mean_m) + float(s.ln_mean_per_tree) * t)
+        p = math.exp(float(s.ln_shape) + float(s.ln_shape_per_tree) * t)
+        mu = math.log(u) - 0.5 * p * p
+        nxp, ny = self.nx_pad, self.ny
+        ix = np.arange(nxp)
+        dx = np.minimum(ix, nxp - ix) * self.csx
+        jy = np.arange(ny)
+        dy = np.minimum(jy, ny - jy) * self.csy
+        reach = int(math.ceil(float(s.kernel_reach_m) / self.ly)) + 1
+        K = np.zeros((nxp, ny))
+        images_x = (0,) if bool(s.open_ends) else range(-(int(math.ceil(float(s.kernel_reach_m) / self.lx)) + 1),
+                                                        int(math.ceil(float(s.kernel_reach_m) / self.lx)) + 2)
+        for m in images_x:
+            for n in range(-reach, reach + 1):
+                r = np.hypot(dx[:, None] + m * self.lx, dy[None, :] + n * self.ly)
+                r = np.maximum(r, 0.25 * min(self.csx, self.csy))
+                K += np.exp(-((np.log(r) - mu) ** 2) / (2.0 * p * p)) / ((2.0 * math.pi) ** 1.5 * p * r * r)
+        K *= self.csx * self.csy
+        if not bool(s.open_ends):
+            K /= K.sum()       # every seed lands somewhere in the repeating ground
+        else:
+            K = np.minimum(K, 1.0)
+        self._kernels[t] = np.fft.rfft2(K)
+        return self._kernels[t]
+
+    def seed_rain(self, xy: np.ndarray, seeds: np.ndarray) -> np.ndarray:
+        """Seeds landing in each cell, each source on the kernel of its big-tree count."""
+        rain = np.zeros((self.nx_pad, self.ny))
+        if not len(xy):
+            return rain[: self.nx]
+        most = int(self.p.spread.max_trees_counted)
+        if self.trees_in_cell is None:
+            t = np.zeros(len(xy), int)
+        else:
+            ci = np.floor((xy[:, 0] + 0.5 * self.lx) / self.lx * self._count_nx).astype(int) % self._count_nx
+            cj = np.floor((xy[:, 1] + 0.5 * self.ly) / self.ly * self._count_ny).astype(int) % self._count_ny
+            t = np.minimum(self.trees_in_cell[ci, cj], most)
+        i, j = self._cell(xy)
+        for v in np.unique(t).tolist():
+            src = np.zeros((self.nx_pad, self.ny))
+            pick = t == v
+            np.add.at(src, (i[pick], j[pick]), seeds[pick])
+            rain += np.fft.irfft2(np.fft.rfft2(src) * self._kernel_ft(int(v)), s=src.shape)
+        return np.maximum(rain[: self.nx], 0.0)
+
+    def light_chance(self, light: np.ndarray) -> np.ndarray:
+        """Share of germinants that live through the first season, by light at 0.1 m."""
+        lo, hi = (float(x) for x in self.p.spread.establishment_light)
+        return np.clip((light - lo) / (hi - lo), 0.0, 1.0)
+
+    def step(self, trees_xy: np.ndarray, seeds: np.ndarray, canopy_light: np.ndarray, field_layer: float,
+             occupied: np.ndarray):
+        """One year, as Regeneration.step, with the light ramp and the kernels."""
+        p = self.p
+        rain = self.seed_rain(trees_xy, seeds)
+        organic = np.maximum(1.0 - self.mineral - self.surface_stone, 0.0)
+        e_m = rain * self.mineral * float(p.establishment_mineral) * self.light_chance(canopy_light)
+        e_o = rain * organic * float(p.establishment_organic) * self.light_chance(canopy_light * field_layer)
+        expected = e_m + e_o
+        chance = np.where(~occupied, 1.0 - np.exp(-expected), 0.0)
+        hit = np.nonzero(self.rng.random(chance.shape) < chance)
+        cells = list(zip(*hit))
+        limit = getattr(p.spread, "max_recruits_per_year", None)
+        if limit is not None and len(cells) > int(limit):
+            keep = self.rng.permutation(len(cells))[: int(limit)]
+            cells = [cells[n] for n in sorted(keep.tolist())]
+        out = []
+        for i, j in cells:
+            on_mineral = bool(self.rng.random() * expected[i, j] < e_m[i, j])
+            for _ in range(8):                      # a point of the cell off surface stones
+                x = self.cx[i, j] + (self.rng.random() - 0.5) * self.csx
+                y = self.cy[i, j] + (self.rng.random() - 0.5) * self.csy
+                if not self._surface_stone(x, y):
+                    out.append((x, y, on_mineral))
+                    break
+        keep_m = 0.5 ** (1.0 / self._half_life())
+        self.mineral = self.mineral * keep_m + float(p.mineral_new_per_year) * (1.0 - self.mineral * keep_m)
+        area = self.lx * self.ly
+        self.last = {"seed_rain_per_m2": float(rain.sum() / area),
+                     "ground_light_mean": float(canopy_light.mean()),
+                     "ground_light_p10": float(np.percentile(canopy_light, 10)),
+                     "ground_light_p90": float(np.percentile(canopy_light, 90)),
+                     "open_share": float((self.light_chance(canopy_light) > 0.0).mean()),
+                     "expected_per_m2": float(expected.sum() / area), "recruits": len(out),
+                     "recruits_on_mineral": sum(1 for r in out if r[2]),
+                     "recruits_offered": int(len(hit[0])), "mineral_share": float(self.mineral.mean())}
+        return out

@@ -18,6 +18,14 @@ tree), as in an unmanaged stand.  ``on_finish(k, cause)`` is called for
 each tree the year it is removed or dies, before it is freed; ``checkpoint``
 moves every tree's history to disk and pickles the plot, so a long run can
 resume and keeps only the trees' current state in memory.
+
+Settings, all off by default: ``mortality.enabled`` adds mortality that answers
+to crowding and vigour in natural mode (treegen/thinning.py);
+``plot.natural_start.enabled`` starts at a chosen density on a chosen rectangle
+of ground, the first trees optionally on one part of it; ``plot.stand_measures``
+adds basal area, top height, gap fraction and new trees to the yearly stats.
+``lean=True`` (a way of running, for plots with no tree files) keeps only what
+growth reads back, and shares what trees needn't each hold.
 """
 from __future__ import annotations
 
@@ -31,8 +39,9 @@ import numpy as np
 
 from .growth import GrowthModel
 from .light import SUBCANOPY_LIGHT_HEIGHTS_M
-from .regeneration import Regeneration
+from .regeneration import Regeneration, SpreadRegeneration
 from .roots import SharedSoil
+from .thinning import Mortality, gap_fraction, over_bark_cm, top_height_m
 
 # a tree that dies of no carbon within this many years of its own age is
 # logged as "failed to establish" (a label, not a parameter of the model)
@@ -85,31 +94,40 @@ def sweep_after_stop(out_dir, tree_years: dict) -> list:
 
 
 class Plot:
-    def __init__(self, species, environment, make_soil, n_final: int = 25, seed: int = 1, mode: str = "managed"):
+    def __init__(self, species, environment, make_soil, n_final: int = 25, seed: int = 1, mode: str = "managed", lean: bool = False):
         pp = species.plot
         st = species.stand
         stages = sorted(st.thinning, key=lambda s: float(s.from_height_m))
         self.stages = [(float(s.from_height_m), float(s.stems_per_ha)) for s in stages]
-        self.area = n_final / self.stages[-1][1] * 1e4
+        self.lean = bool(lean)
         rng = np.random.default_rng([seed, 31337])
-        n0 = int(round(self.stages[0][1] * self.area / 1e4))
-        L = math.sqrt(self.area)
-        dmin = float(st.min_distance) * math.sqrt(1e4 / self.stages[0][1])
-        pts = []
-        while len(pts) < n0:
-            q = rng.uniform(-L / 2, L / 2, 2)
-            d = np.abs(np.array(pts) - q) if pts else np.zeros((0, 2))
-            d = np.minimum(d, L - d)
-            if not len(d) or (np.hypot(d[:, 0], d[:, 1]) >= dmin).all():
-                pts.append(q)
+        start = getattr(pp, "natural_start", None)
+        if start is not None and bool(getattr(start, "enabled", False)):
+            pts, n0, L, Lx, Ly = self._natural_start(start, rng, float(st.min_distance))
+        else:
+            self.area = n_final / self.stages[-1][1] * 1e4
+            n0 = int(round(self.stages[0][1] * self.area / 1e4))
+            L = math.sqrt(self.area)
+            Lx = Ly = None
+            dmin = float(st.min_distance) * math.sqrt(1e4 / self.stages[0][1])
+            pts = []
+            while len(pts) < n0:
+                q = rng.uniform(-L / 2, L / 2, 2)
+                d = np.abs(np.array(pts) - q) if pts else np.zeros((0, 2))
+                d = np.minimum(d, L - d)
+                if not len(d) or (np.hypot(d[:, 0], d[:, 1]) >= dmin).all():
+                    pts.append(q)
         self.trees, self.info = [], []
+        shared_soil = make_soil() if self.lean else None
         for k in range(n0):
-            sp_k = copy.deepcopy(species)
+            sp_k = self._tree_species(species)
             vigour = float(math.exp(rng.normal(0.0, float(pp.vigour_sd))))
             sp_k.resource.alpha = float(sp_k.resource.alpha) * vigour
             g = int(rng.choice(np.asarray(pp.germination_years, int), p=np.asarray(pp.germination_weights, float)))
-            m = GrowthModel(sp_k, environment, seed * 1000 + k, stand=True, soil=make_soil(),
-                            soil_frame=(np.array([pts[k][0], pts[k][1], 0.0]), seed))
+            m = GrowthModel(sp_k, environment, seed * 1000 + k, stand=True, soil=shared_soil or make_soil(),
+                            soil_frame=(np.array([pts[k][0], pts[k][1], 0.0]), seed), lean=self.lean)
+            if self.lean:
+                self._lighten(m, self.trees[0].light if self.trees else m.light)
             # the stand grows up on ground bared by the disturbance at plot
             # year 0 (tree year -g); the field layer grows back over it
             m.field_layer_exposed = -g
@@ -119,9 +137,16 @@ class Plot:
         self.alive = list(range(n0))
         self.light = self.trees[0].light
         vs = self.light.vs
-        nx = max(1, int(round(L / vs)))
-        self.L = nx * vs
-        self.cell = (-0.5 * self.L, -0.5 * self.L, nx, nx)
+        if Lx is None:
+            nx = max(1, int(round(L / vs)))
+            self.L = nx * vs
+            self.cell = (-0.5 * self.L, -0.5 * self.L, nx, nx)
+        else:
+            # a rectangle of ground, whole voxels each way
+            nx, ny = max(1, int(round(Lx / vs))), max(1, int(round(Ly / vs)))
+            self.Lx, self.Ly = nx * vs, ny * vs
+            self.L = self.Lx
+            self.cell = (-0.5 * self.Lx, -0.5 * self.Ly, nx, ny)
         self.seed = int(seed)
         self.soil = None
         self._make_soil()
@@ -132,6 +157,59 @@ class Plot:
         # the template and environment new trees are made from (regeneration)
         self.species, self.environment = species, environment
         self.regen = None
+        self.measures = bool(getattr(pp, "stand_measures", False))
+        self.mort = None
+        mp = getattr(species, "mortality", None)
+        if mp is not None and bool(getattr(mp, "enabled", False)):
+            lx, ly = self._sides()
+            self.mort = Mortality(mp, lx, ly, self.cell[0], self.cell[1])
+            self.mort_rng = np.random.default_rng([seed, 5381])
+            self.rings = {}
+
+    def _sides(self):
+        """The plot's two sides (m)."""
+        return (self.Lx, self.Ly) if getattr(self, "Lx", None) is not None else (self.L, self.L)
+
+    def _natural_start(self, start, rng, min_distance):
+        """Trees at a natural density on a rectangle of ground, repeating at
+        its edges; with ``patch_x_m``, only in the first stretch of x, the rest
+        being open ground to spread over."""
+        lx = float(getattr(start, "side_x_m", None) or math.sqrt(float(start.area_m2)))
+        ly = float(getattr(start, "side_y_m", None) or lx)
+        self.area = lx * ly
+        patch = float(getattr(start, "patch_x_m", None) or lx)
+        density = float(start.stems_per_ha)
+        n0 = max(1, int(round(density * patch * ly / 1e4)))
+        dmin = min_distance * math.sqrt(1e4 / density)
+        pts = []
+        while len(pts) < n0:
+            q = np.array([rng.uniform(-lx / 2, -lx / 2 + patch), rng.uniform(-ly / 2, ly / 2)])
+            d = np.abs(np.array(pts) - q) if pts else np.zeros((0, 2))
+            d = np.minimum(d, np.array([lx, ly]) - d)
+            if not len(d) or (np.hypot(d[:, 0], d[:, 1]) >= dmin).all():
+                pts.append(q)
+        return pts, n0, math.sqrt(self.area), lx, ly
+
+    def _tree_species(self, species):
+        """A tree's own copy of the species: all of it, or (lean) only the part
+        that differs between trees."""
+        if not getattr(self, "lean", False):
+            return copy.deepcopy(species)
+        sp = copy.copy(species)
+        sp.resource = copy.copy(species.resource)
+        return sp
+
+    @staticmethod
+    def _lighten(m, light):
+        """What a lean plot's trees needn't hold each: one light model for all,
+        no neighbour tables, since a plot's neighbours are real, and no room for
+        4096 nodes in a seedling that may die at three (2 MB a tree at the start)."""
+        m.light = light
+        m._clone_angle = {}
+        m._stand_map = None
+        m.tree.trim()
+        if m.roots is not None:
+            m.roots.tree.trim()
 
     def _offset(self, k):
         return np.array([self.info[k]["x"], self.info[k]["y"], 0.0])
@@ -157,8 +235,13 @@ class Plot:
             self.environment = environment
         if getattr(self, "soil", None) is None:
             self._make_soil()
-        self.regen = Regeneration(self.species.regeneration, self.species.bud_fate.short_shoot_survival_light,
-                                  self.trees[self.alive[0]].soil, self.L, self.seed)
+        spread = getattr(self.species.regeneration, "spread", None)
+        if spread is not None and bool(getattr(spread, "enabled", False)):
+            self.regen = SpreadRegeneration(self.species.regeneration, self.species.bud_fate.short_shoot_survival_light,
+                                            self.trees[self.alive[0]].soil, *self._sides(), self.seed)
+        else:
+            self.regen = Regeneration(self.species.regeneration, self.species.bud_fate.short_shoot_survival_light,
+                                      self.trees[self.alive[0]].soil, self.L, self.seed)
         if self.year > 0:
             # switched on in a grown stand: the exposed mineral soil of a stand
             # long past its disturbance (new exposure = cover each year)
@@ -186,10 +269,14 @@ class Plot:
         s = self.trees[self.alive[0]].soil
         h = float(getattr(s, "herb_height", 0.0) or 0.0)
         field_layer = math.exp(-float(s.herb_extinction) * float(s.herb_lai) * max(1.0 - 0.1 / h, 0.0)) if h > 0.0 else 1.0
-        occupied = np.zeros((R.nc, R.nc), bool)
+        occupied = np.zeros(R.cx.shape, bool)
         i, j = R._cell(np.array([[self.info[k]["x"], self.info[k]["y"]] for k in self.alive]))
         occupied[i, j] = True
-        for x, y, mineral in R.step(np.array(xy).reshape(-1, 2), np.array(seeds), light.reshape(R.nc, R.nc),
+        if isinstance(R, SpreadRegeneration):
+            # what a seed's way out depends on: the big trees around its source
+            big = [self._offset(k)[:2] for k in self.alive if self._dbh(k) * 100.0 >= float(R.p.spread.tree_dbh_cm)]
+            R.count_trees(np.array(big).reshape(-1, 2))
+        for x, y, mineral in R.step(np.array(xy).reshape(-1, 2), np.array(seeds), light.reshape(R.cx.shape),
                                     field_layer, occupied):
             self._recruit(float(x), float(y), mineral)
 
@@ -198,12 +285,15 @@ class Plot:
         bared mineral soil (the field layer then grows back over it) or on
         the undisturbed organic layer under a full field layer."""
         k = len(self.trees)
-        sp_k = copy.deepcopy(self.species)
+        sp_k = self._tree_species(self.species)
         vigour = float(math.exp(self.regen.rng.normal(0.0, float(self.species.plot.vigour_sd))))
         sp_k.resource.alpha = float(sp_k.resource.alpha) * vigour
         s = self.seed * 1_000_000 + k
+        lean = getattr(self, "lean", False)
         m = GrowthModel(sp_k, self.environment, s, stand=True, soil=self.trees[self.alive[0]].soil,
-                        soil_frame=(np.array([x, y, 0.0]), self.seed))
+                        soil_frame=(np.array([x, y, 0.0]), self.seed), lean=lean)
+        if lean:
+            self._lighten(m, self.light)
         m.field_layer_exposed = 0 if mineral else None
         self.trees.append(m)
         self.info.append({"id": k, "x": x, "y": y, "germination": self.year, "vigour": round(vigour, 4), "seed": s,
@@ -239,6 +329,11 @@ class Plot:
             field = self.light.compute(allp, np.concatenate(ws), np.stack([pts_for_region.min(0), pts_for_region.max(0)]),
                                        periodic=self.cell, wood_pos=all_wpos, wood_area=all_warea, k_wood=k_wood,
                                        diffuse_heights=SUBCANOPY_LIGHT_HEIGHTS_M)
+        if getattr(self, "measures", False):
+            lx, ly = self._sides()
+            cfg = self.species.plot
+            self._gap_fraction = gap_fraction(np.concatenate(srcs) if srcs else None, self.cell[0], self.cell[1], lx, ly,
+                                              float(getattr(cfg, "gap_cell_m", 2.0)), float(getattr(cfg, "gap_above_m", 2.0)))
         # output only: light at the target's measurement heights under the canopy
         self._subcanopy_light = field.relative_light_at_heights(SUBCANOPY_LIGHT_HEIGHTS_M) if field is not None else None
         self._subcanopy_diffuse_light = field.diffuse_light_at_heights(SUBCANOPY_LIGHT_HEIGHTS_M) if field is not None else None
@@ -264,6 +359,8 @@ class Plot:
         self._starve(active)
         if self.mode == "natural":
             self._die([k for k in active if k in self.alive])
+            if getattr(self, "mort", None) is not None:
+                self._self_thin(active)
         else:
             self._thin()
         if getattr(self, "regen", None) is not None and self.alive:
@@ -319,8 +416,36 @@ class Plot:
             if n >= 2:
                 self._finish(k, "died")
 
+    def _self_thin(self, active):
+        """Natural mode, with ``mortality`` on: the hazards of treegen/thinning.py,
+        drawn tree by tree.  Each tree's recent wood DBHs give its ring width."""
+        M = self.mort
+        alive = set(self.alive)
+        now = [k for k in active if k in alive]
+        if not now:
+            return
+        window = int(M.p.vigour.window_years)
+        d = np.array([self._dbh(k) * 100.0 for k in now])
+        rings = np.zeros(len(now))
+        for n, k in enumerate(now):
+            h = self.rings.setdefault(k, [0.0])
+            if d[n] <= 0.0:
+                h[:] = [0.0]
+            else:
+                h.append(float(d[n]))
+                del h[:-(window + 1)]
+            rings[n] = M.ring_mm(h)
+        xy = np.array([self._offset(k)[:2] for k in now])
+        age = np.array([self.trees[k].year for k in now], float)
+        hz = M.hazards(xy, d, rings, age, float(self.year))
+        self._rd_mean = float(hz["rd"].mean())
+        for n, cause in M.draw(hz, self.mort_rng):
+            self._finish(now[n], cause)
+
     def _finish(self, k, cause):
         self.alive.remove(k)
+        if getattr(self, "mort", None) is not None:
+            self.rings.pop(k, None)
         self.info[k]["removed"] = self.year
         self.info[k]["cause"] = cause
         if self.on_finish is not None:
@@ -356,6 +481,33 @@ class Plot:
         sweep_after_stop(out_dir, {k: plot.trees[k].year for k in plot.alive})
         return plot
 
+    def _stand_row(self, d, h):
+        """The stand as a forester reads it: basal area over bark, quadratic
+        mean diameter, top height (the 100 thickest stems a hectare), gap
+        fraction, what came and went this year, and for ground with a seed
+        source at one end, stems and seedlings along it."""
+        ob = over_bark_cm(d, self.species.mortality.bark_double_mm)
+        row = {"basal_area_ob_m2_ha": round(float(np.sum(np.pi / 4.0 * (ob / 100.0) ** 2)) / self.area * 1e4, 2),
+               "dg_ob_cm": round(100.0 * math.sqrt(float(np.mean((ob / 100.0) ** 2))), 2),
+               "top_height_m": round(top_height_m(ob, h, self.area), 2),
+               "gap_fraction": round(getattr(self, "_gap_fraction", 1.0), 3),
+               "new_trees": sum(1 for i in self.info if i.get("recruit") and i["germination"] == self.year),
+               "dead_this_year": {}}
+        for i in self.info:
+            if i.get("removed") == self.year:
+                row["dead_this_year"][i["cause"]] = row["dead_this_year"].get(i["cause"], 0) + 1
+        if getattr(self, "mort", None) is not None:
+            row["relative_density"] = round(getattr(self, "_rd_mean", 0.0), 3)
+        start = getattr(self.species.plot, "natural_start", None)
+        if start is not None and getattr(start, "patch_x_m", None):
+            # 10 m slices along x, from the source end
+            lx, _ = self._sides()
+            xs = np.array([self.info[k]["x"] for k in self.alive]) + 0.5 * lx
+            bins = np.arange(0.0, lx + 10.0, 10.0)
+            row["stems_along_x"] = np.histogram(xs[h >= 2.0], bins=bins)[0].tolist()
+            row["seedlings_along_x"] = np.histogram(xs[h < 2.0], bins=bins)[0].tolist()
+        return row
+
     def measure(self):
         if not self.alive:
             return {"year": self.year, "trees": 0, "stems_per_ha": 0,
@@ -377,6 +529,8 @@ class Plot:
                # the same under the sky alone (overcast), the light target's measure
                "subcanopy_diffuse_light_pct": (round(100.0 * self._subcanopy_diffuse_light, 2)
                                                if getattr(self, "_subcanopy_diffuse_light", None) is not None else None)}
+        if getattr(self, "measures", False):
+            row.update(self._stand_row(d, h))
         if getattr(self, "regen", None) is not None:
             # everything above counts the recruits too
             row["recruits_alive"] = sum(1 for k in self.alive if self.info[k].get("recruit"))
