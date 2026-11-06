@@ -61,11 +61,14 @@ def main(argv=None):
         plot = Plot.resume(out)
         sp = plot.trees[plot.alive[0]].sp
         print(f"resumed at year {plot.year}: {len(plot.alive)} trees", flush=True)
-        if args.mode:
-            plot.mode = args.mode
-        for item in args.set:   # a scenario: every living tree, and the template for recruits
-            for target in [plot.trees[k].sp for k in plot.alive] + [plot.species]:
-                checkpoint.set_values(target, [item])
+        if args.branch_from:   # a scenario; a plain --resume carries on as the run was
+            if args.mode:
+                plot.mode = args.mode
+            for item in args.set:   # every living tree, and the template for recruits
+                for target in [plot.trees[k].sp for k in plot.alive] + [plot.species]:
+                    checkpoint.set_values(target, [item])
+        elif args.mode or args.set:
+            print("--mode and --set are ignored on a plain --resume; use --branch-from for a scenario", flush=True)
     else:
         sp, _ = cli.load_species(args.species)
         checkpoint.set_values(sp, args.set)

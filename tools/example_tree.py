@@ -16,6 +16,7 @@ Mesh exports are heavy runs (PROTOCOL.md section 6): one at a time, on the main 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -43,6 +44,10 @@ def differences(ours: list, theirs: list) -> list:
     return out
 
 
+def sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def export_ages(seed: int, ages: list, out: Path, check: Path | None, species: str, environment: str, scenario: list, budget: float) -> None:
     import cli
     from treegen import export
@@ -67,8 +72,9 @@ def export_ages(seed: int, ages: list, out: Path, check: Path | None, species: s
             print("\n".join(wrong[:10]), file=sys.stderr)
             sys.exit(1)
         print(f"same tree as {check}: every scored value identical in all {len(other['per_year'])} years", flush=True)
-    summary = {"seed": seed, "checked_against": None if check is None else check.as_posix(), "machine": meta["run_manifest"].get("machine"),
-               "code": meta["run_manifest"].get("git_commit"), "ages": {}}
+    summary = {"seed": seed, "checked_against": None if check is None else check.as_posix(),
+               "checked_stats_sha256": None if check is None else sha256(check / "stats.json"),
+               "machine": meta["run_manifest"].get("machine"), "code": meta["run_manifest"].get("git_commit"), "ages": {}}
     for age in ages:
         g_crown = export.GLBWriter(out / f"tree_age{age:02d}.glb", f"tree_age{age}", meta, cli.CROWN_ATTRS)
         g_roots = export.GLBWriter(out / f"roots_age{age:02d}.glb", f"roots_age{age}", meta, cli.ROOT_ATTRS, base_color=(115, 84, 56))
@@ -81,7 +87,8 @@ def export_ages(seed: int, ages: list, out: Path, check: Path | None, species: s
         cli.stream(skel, np.ones(skel.n, bool), rad, is_root, orig, sp, [write], budget)
         crown_info, root_info = g_crown.close(), g_roots.close()
         s = model.stats[age]
-        summary["ages"][str(age)] = {"height_m": s["height_m"], "dbh_cm": s["dbh_cm"], "leaf_area_m2": s.get("leaf_area_m2"), "crown": crown_info, "roots": root_info}
+        summary["ages"][str(age)] = {"height_m": s["height_m"], "dbh_cm": s["dbh_cm"], "leaf_area_m2": s.get("leaf_area_m2"), "crown": crown_info, "roots": root_info,
+                                     "crown_sha256": sha256(out / f"tree_age{age:02d}.glb"), "roots_sha256": sha256(out / f"roots_age{age:02d}.glb")}
         print(f"age {age}: height {s['height_m']:.2f} m, DBH {s['dbh_cm']:.1f} cm, crown {crown_info}, peak {cli.peak_memory_mb():.0f} MB", flush=True)
     (out / "example.json").write_text(json.dumps(summary, indent=1), encoding="utf-8")
 
