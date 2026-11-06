@@ -35,6 +35,34 @@ The maintainer, 2026-11-06: don't change them in M1. What each page actually say
 - **LIGNUM form,** J. Perttunen 2008, TKK Report A102, thesis summary, https://sal.aalto.fi/publications/pdf-files/rper09.pdf: Eq. 3 p. 17, P - M = dWn + dWo + dWr, P - M > 0; Eq. 18 p. 23, R_Mi = k_i W_i; Eq. 21 p. 26, P - M = G; Eq. 23 p. 27, G(lambda) = dWn(lambda) + dWo(lambda) + dWr(lambda). Text layer was garbled; symbols decoded, not seen rendered. P and M are "first summed up for the whole tree".
 - **Palubicki et al. 2009:** lambda illustrated at 0.46-0.54 only (Sec. 4.2, Fig. 7, p. 4).
 
+## M2b: fertility and season length (subagent, 2026-11-06; files in the scratchpad's research_m2b folder)
+
+**Fertility.** The only published Nordic mechanism read that includes silver birch and isn't a carbon multiplier:
+- **CROBAS/PREBAS, Minunno et al. 2019,** For. Ecol. Manage. 440:208, doi:10.1016/j.foreco.2019.02.041 (publisher PDF deposited by the University of Helsinki, hdl:10138/310559). Eq. A10, p. 224: W_R = a_Rs W_F (fine-root mass from foliage mass, by site type s). "Site effects are described as an impact on the fine-root to foliage ratio"; "we ignore any other edaphic site effects ... as their role is smaller than that of below-ground allocation". Costs enter through G = (P_T - R_M)/(1 + c), with R_M including m_R W_R (Table A1). Site types OMT, MT, VT, CT.
+- **Gaps:** birch a_Rs values aren't in that paper (Table 1 prints "-", cites Helmisaari 2007); the method is in Makela et al. 2016, doi:10.1016/j.foreco.2016.03.059, closed. It uses site type, not site index, and no map from one to the other was seen. So a_R(SI) would be calibrated. That it keeps the Eriksson shape is the subagent's inference, not stated by any source: the cost scales with foliage, which plateaus at canopy closure, while wood respiration keeps growing. Test it.
+- **Rejected forms:** 3-PG f_N alone and PRELES beta alone: one multiplier at all ages (the phase 34 objection). Peltoniemi et al. 2015 and Tian et al. 2020, doi:10.1111/gcb.14992, adjust potential LUE that way.
+- **Fallback:** 3-PG f_N = 1 - (1 - f_N0)(1 - FR)^n_fN and m = m_0 + (1 - m_0) FR, with FR from site index (Subedi 2015, Virginia Tech thesis, pp. 15-16, 24, Eq. 2.1). All values are for loblolly pine; its endpoints are an assumption; f_N is still multiplicative.
+- **Direction supported by:** Makela et al. 2008 New Phytol., doi:10.1111/j.1469-8137.2008.02558.x, abstract: "Carbon allocation to fine roots decreases, allocation to wood increases, and allocation to foliage remains stable" with N. Steady state only.
+- **CROBAS crown term, varies with age:** Eq. A1, p. 223: P = (1 - s_1 L_C) P_0 fAPAR, "reduction of photosynthesis with impaired water transport in the crowns"; s_1 prior for birch 0.015-0.06. Not tied to fertility.
+
+**Season.**
+- **PRELES f_S,** Peltoniemi et al. 2015, Boreal Env. Res. 20:151, p. 157: X_k is a first-order delay of temperature T_k with delay tau; S_k rises once X_k passes X_0; f_S reaches 1 at S_max. The printed Eq. 9 wasn't readable from the text layer: view journal p. 157 before coding it. Values are Scots pine only (p. 160: X_0 -3.57 to -2.72, S_max 18.5-19.5, tau 12.7-13.1 at Hyytiala). Tian et al. 2020: deciduous forests "needed higher temperatures to start" and longer delays; values not seen. No Betula values.
+- **Budburst:** Hakkinen et al. 1998, doi:10.1093/treephys/18.10.707, abstract: thermal time from a fixed calendar date works for mature B. pendula, SE 2.4 d. Parameters not seen.
+- **Measured dates, silver birch, Siljansfors 60.53 N, 2010-2020** (Swedish Forest Phenology, doi:10.5878/jbab-cy46, Tree_phases.csv; first day seen per year; subagent's table): bud burst median day 132 (116-141, 11 years); leaves unfolded 140 (122-150); full size 168 (155-181); colours begin 248 (233-263); 50 % yellowed 272 (252-284); 100 % yellowed 279; 50 % fallen 289 (259-296); 100 % fallen 298. Uppsala isn't a station. The model's season is day 130-273.
+
+**Productivity ladder as a fit target (Liziniewicz et al. 2022, Table 6, p. 13).** MAI 6.0, 7.9, 10.5, 12.8 at SI 22, 25, 28, 32. These are model output from their simulation, not measurements: planted improved stock, 2200 trees/ha at age 10, three thinnings of 30 % of basal area, no mortality, rotations 60, 51, 45, 31 years, so not at a common age. SI 32 is outside their data (max 31.6). Their SI is "mean height of the 100 thickest trees per hectare at 50 years", by Johansson et al. 2013 curves, not opened, so it may not be on Eriksson's scale.
+
+**Shape target, computed from the Elfving equation (subagent; recheck before use):**
+
+| SI at 50 | H10 | H20 | H30 | H40 | H50 | H60 | H10/H50 | H60/H50 |
+|---|---|---|---|---|---|---|---|---|
+| 22 | 6.5 | 12.7 | 17.0 | 19.9 | 22.0 | 23.5 | 0.296 | 1.068 |
+| 25 | 8.6 | 15.8 | 20.2 | 23.1 | 25.0 | 26.3 | 0.345 | 1.054 |
+| 28 | 11.1 | 19.1 | 23.6 | 26.3 | 28.0 | 29.2 | 0.397 | 1.043 |
+| 32 | 14.8 | 23.6 | 28.0 | 30.5 | 32.0 | 33.0 | 0.463 | 1.032 |
+
+The SI 32 / SI 22 height ratio falls with age: about 2.28 at 10, 1.65 at 30, 1.45 at 50, 1.40 at 60. Any fertility term has to reproduce that.
+
 ## M2: carbon
 - **SLA falls with age:** Rosenvald et al. 2013, 10.1007/s10342-012-0669-7, Fig. 3, as reprinted in the Varik thesis (PDF p. 114): SLA = 15 - 0.075 A, so 14.25 at 10, 12.75 at 30, 11.25 at 50, 10.5 at 60 (subagent's arithmetic). Lintunen 2013 p. 28: mean SLA 13.6 for B. pendula in southern Finland.
 - **CUE falls with age and is not one value:** DeLucia et al. 2007 abstract: "CUE decreased with increasing age", 0.23-0.83, lowest for boreal forests. Collalti & Prentice 2019 (accepted manuscript): boreal 0.42 (n 48), temperate 0.48 (n 162), deciduous broadleaf 0.50 +- 0.13. Ryan et al. 1997 abstract: CUE 0.44 for aspen.
