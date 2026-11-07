@@ -29,6 +29,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 
 STEM_DENSITY = 530.0   # kg/m3, as tools/tree_table.py
+OVER_BARK = 1.098      # over-bark over wood diameter: species file, damage.dbh_over_bark_factor
 AGES = (20, 30, 40, 50, 60)
 # Kalliokoski 2008, Betula pendula.  stage, age, stump diameter D0 (cm), height (m), RelSumD2 Table 3, proximal number, mean d (cm),
 # SD of d, mean depth of insertion (cm), adventitious number, max radial extension (m), mean of maxima (m), depth max, depth mean,
@@ -69,7 +70,8 @@ def unit_grams(model) -> float:
 
 
 def root_density(model) -> float:
-    return float(getattr(model.sp.roots, "wood_density_kg_m3", None) or STEM_DENSITY)
+    paid = getattr(model.sp.roots, "paid", None)
+    return float(paid.wood_density_kg_m3) if paid is not None and bool(paid.enabled) else STEM_DENSITY
 
 
 def wood_kg(model) -> float:
@@ -151,10 +153,16 @@ def architecture(model) -> dict:
         mid = R.pos[c[np.searchsorted(along, min(1.0, along[-1]), side="left").clip(0, len(c) - 1)]]
         rows.append({"d_cm": 200.0 * float(r[s]), "depth_m": float(-p0[2]), "length_m": float(along[-1] + 0.5 * L[c[-1]]), "reach_m": horiz,
                      "r": [at(x) for x in (0.25, 0.5, 1.0, 2.0, 5.0)], "depth_at_1m": float(-mid[2]),
+                     "tips": float(Rs.P[s]) if len(Rs.P) > s else 0.0,
+                     "tips_at": [float(np.interp(x, along, Rs.P[c], right=0.0)) if len(Rs.P) >= n else 0.0 for x in (1.0, 2.0, 5.0)],
+                     "depth_at": [float(np.interp(x, along, -R.pos[c, 2], right=float("nan"))) for x in (0.5, 1.0, 2.0, 3.0, 5.0)],
                      "azimuth": float(math.degrees(math.atan2(*(R.pos[c[-1], 1::-1] - p0[1::-1]))))})
     rows.sort(key=lambda x: -x["d_cm"])
     d0 = 2.0 * float(model.tree.radius[0])
     sum_d2 = sum((x["d_cm"] / 100.0) ** 2 for x in rows)
+    stump = float(getattr(Rs, "stump_d_m", 0.0)) or d0
+    chain = np.nonzero(alive & collar_axis)[0]
+    thick = rows[0]["d_cm"] if rows else 0.0
     horiz = np.hypot(R.pos[:n, 0], R.pos[:n, 1])
     live_pos = R.pos[:n][alive & (idx > 0)]
     depth = -live_pos[:, 2] if len(live_pos) else np.zeros(1)
@@ -162,6 +170,10 @@ def architecture(model) -> dict:
     mean_depth = float((depth * ll).sum() / max(ll.sum(), 1e-9)) if len(live_pos) else 0.0
     out.update({
         "d0_cm": 100.0 * d0,
+        "stump_d_cm": 100.0 * stump,
+        "stump_kg": float(vol[chain].sum()) * rho,
+        "rel_sum_stump": sum_d2 / max(stump * stump, 1e-12),
+        "dominant_n": sum(1 for x in rows if x["d_cm"] >= 0.2 * thick),
         "proximal": rows[:40],
         "proximal_n": len(rows),
         "proximal_n_ge1cm": sum(1 for x in rows if x["d_cm"] >= 1.0),
@@ -228,7 +240,7 @@ def mass(labels: list) -> None:
                     continue
                 a = s["root_arch"]
                 py = r["per_year"][age]
-                dbh = (py.get("dbh_over_bark_cm") or py.get("dbh_cm") or 0.0)
+                dbh = (py.get("dbh_cm") or 0.0) * OVER_BARK
                 h = py["height_m"]
                 rep = repola_below(dbh, h)
                 rows.append({"all": a["total_kg"], "ge5": a["mass_kg"]["5_10"] + a["mass_kg"]["10_50"] + a["mass_kg"]["ge50"], "ge10": a["mass_kg"]["10_50"] + a["mass_kg"]["ge50"],
@@ -252,8 +264,9 @@ def mass(labels: list) -> None:
 
 def form(labels: list) -> None:
     print("Proximal roots.  Published: Kalliokoski 2008, silver birch, mature MT, age 48, stump 30 cm: 25 (SD 8) proximal roots, mean d 5.0 cm (SD 2.9), mean insertion depth 35 cm (SD 12), Sum d2 / D0^2 = 0.88, radial extension mean of maxima 11.6 m, largest 20.5 m.")
-    print("| Set | Age | Seeds | D0 (cm) | Roots at the collar | Of them at least 1 cm | Mean d (cm) | Thickest six d (cm) | Sum d2 / D0^2 | Mean depth at insertion (m) | Reach, max (m) | Depth, max (m) |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|---|")
+    print("Laitakari 1934 p. 182: 7-12 dominant main roots (base at least 20 % of the thickest's) in most trees, 6-17 in all; thickest 68-87 % of DBH its widest way.")
+    print("| Set | Age | Seeds | Stem base, wood (cm) | Stump, Repola's dS (cm) | Roots at the collar | Dominant | Mean d (cm) | SD of d (cm) | Thickest six d (cm) | Sum d2 / stump^2 | Mean depth at insertion (m) | Reach, max (m) | Depth, max (m) | Mean depth along roots (m) |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for label in labels:
         runs = _load(label)
         for age in (20, 30, 50, 60):
@@ -261,9 +274,9 @@ def form(labels: list) -> None:
             if not rows:
                 continue
             top = [_mean(x["proximal"][i]["d_cm"] if len(x["proximal"]) > i else 0.0 for x in rows) for i in range(6)]
-            print(f"| `{label}` | {age} | {len(rows)} | {_mean(x['d0_cm'] for x in rows):.1f} | {_mean(x['proximal_n'] for x in rows):.1f} | {_mean(x['proximal_n_ge1cm'] for x in rows):.1f} | "
-                  f"{_mean(_mean(p['d_cm'] for p in x['proximal']) for x in rows):.1f} | {', '.join(f'{v:.1f}' for v in top)} | {_mean(x['rel_sum_d2'] for x in rows):.2f} | "
-                  f"{_mean(_mean(p['depth_m'] for p in x['proximal']) for x in rows):.2f} | {_mean(x['reach_max_m'] for x in rows):.1f} | {_mean(x['depth_max_m'] for x in rows):.2f} |")
+            print(f"| `{label}` | {age} | {len(rows)} | {_mean(x['d0_cm'] for x in rows):.1f} | {_mean(x.get('stump_d_cm', x['d0_cm']) for x in rows):.1f} | {_mean(x['proximal_n'] for x in rows):.1f} | {_mean(x.get('dominant_n', 0) for x in rows):.1f} | "
+                  f"{_mean(_mean(p['d_cm'] for p in x['proximal']) for x in rows):.1f} | {_mean(statistics.pstdev(p['d_cm'] for p in x['proximal']) for x in rows):.1f} | {', '.join(f'{v:.1f}' for v in top)} | {_mean(x.get('rel_sum_stump', x['rel_sum_d2']) for x in rows):.2f} | "
+                  f"{_mean(_mean(p['depth_m'] for p in x['proximal']) for x in rows):.2f} | {_mean(x['reach_max_m'] for x in rows):.1f} | {_mean(x['depth_max_m'] for x in rows):.2f} | {_mean(x['depth_mean_m'] for x in rows):.2f} |")
     print("\nTaper along the six thickest roots: radius over base radius.  Published main axes (Kalliokoski Eq. 2, Table 7), mature MT: 0.74 at 0.25 m, 0.65 at 0.5 m, 0.48 at 1 m, 0.32 at 2 m, 0.17 at 5 m; pole MT: 0.63, 0.47, 0.33, 0.22, 0.13")
     print("| Set | Age | Seeds | 0.25 m | 0.5 m | 1 m | 2 m | 5 m |")
     print("|---|---|---|---|---|---|---|---|")

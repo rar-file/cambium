@@ -1284,8 +1284,44 @@ class GrowthModel:
         f = (1.3 - z[j - 1]) / max(z[j] - z[j - 1], 1e-9)
         return 2.0 * float(r[j - 1] + f * (r[j] - r[j - 1]))
 
+    def _pay_roots(self, t: int) -> None:
+        """roots.paid: the root share's carbon goes to real things.  Out of what's left after the fine roots'
+        upkeep come this year's fine roots with their growth respiration (they turn over, and they grow with
+        the leaves), then root wood with its growth respiration (RootSystem.update_radii_paid).  What's left
+        after that stays in the log, as the share's unresolved rest: respiration of woody roots, exudates and
+        mycorrhiza, none of which is modelled.  It goes to nothing else, so the crown's carbon doesn't move."""
+        res = self.sp.resource
+        cfg, lc = self.sp.roots.paid, res.leaf_costs
+        g_resp = 1.0 + float(getattr(res, "growth_respiration_coefficient", 0.0))
+        unit_volume = float(self.sp.pipe_model.wood_volume_per_carbon)
+        g_per_unit = unit_volume * float(lc.wood_basic_density_kg_m3) * 1000.0
+        carbon = getattr(self, "carbon", None) or {}
+        grown = t > 0 and float(carbon.get("root", 0.0)) > 0.0      # a year with no leaves has no root carbon
+        net = float(getattr(self, "_root_carbon", 0.0)) if grown else 0.0
+        stock = float(carbon.get("leaf_dm_g", 0.0)) * float(lc.fine_root_to_leaf_mass) if grown else 0.0
+        grew = max(stock - float(getattr(self, "_fine_stock_g", 0.0)), 0.0)
+        self._fine_stock_g = stock
+        fine_cost = (float(cfg.fine_root_turnover_per_year) * stock + grew) / g_per_unit * g_resp
+        pay_fine = min(fine_cost, net)
+        wood_with_resp = net - pay_fine
+        # the stump: Repola's dS = 2 + 1.25 d, over bark; his 2 cm fades under 5 cm, where he warns against the equation
+        d_ob_cm = 100.0 * (self.dbh_m() or 0.0) * float(self.sp.damage.dbh_over_bark_factor)
+        stump_cm = float(cfg.stump_d_per_dbh) * d_ob_cm + float(cfg.stump_d_intercept_cm) * min(d_ob_cm / 5.0, 1.0)
+        stump_d = max(stump_cm / 100.0, 2.0 * float(self.tree.radius[0]) * float(self.sp.damage.dbh_over_bark_factor))
+        self.roots.carbon_log = {"fine_upkeep": float(carbon.get("fine_root_maint", 0.0)), "fine_build": pay_fine, "fine_wanted": fine_cost}
+        self.roots.update_radii_paid(t, stump_d, wood_with_resp / g_resp, unit_volume, float(lc.wood_basic_density_kg_m3))
+        log = self.roots.carbon_log
+        built = log["new_root_wood"] + log["rings"]
+        log["wood_respiration"] = built * (g_resp - 1.0)
+        log["rest"] = max(wood_with_resp - built * g_resp, 0.0)
+
     def _update_roots(self, t: int):
         rp = self.sp.roots
+        if bool(getattr(getattr(rp, "paid", None), "enabled", False)):
+            self._pay_roots(t)
+            if self._fine_root_mass(np.zeros(0, np.int64), np.zeros(0)) is None:
+                self.roots.update_uptake(t, float(self.sp.hydraulics.root_xylem_conductivity))
+            return
         # zone of rapid taper: its radius scales with stem diameter [D05]
         d = self.dbh_m() or 2.0 * float(self.tree.radius[0])
         zrt = float(getattr(rp, "zrt_radius_per_dbh", 0.0)) * d * float(getattr(rp, "zrt_fade_fraction", 0.5))

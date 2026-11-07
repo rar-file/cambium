@@ -1,0 +1,103 @@
+"""roots.paid: root wood and fine roots cost carbon, and the books close.  Off by default."""
+from __future__ import annotations
+
+import math
+import sys
+from pathlib import Path
+
+import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+
+import root_measure  # noqa: E402
+
+from treegen import checkpoint  # noqa: E402
+from treegen.environment import make_environment, make_soil  # noqa: E402
+from treegen.growth import GrowthModel  # noqa: E402
+from treegen.params import load_environment, load_species  # noqa: E402
+
+
+def _model(paid: bool, seed: int = 4, sets: tuple = ()):
+    sp, _ = load_species("betula_pendula")
+    if paid:
+        checkpoint.set_values(sp, ["roots.paid.enabled=true", *sets])
+    env, _ = load_environment("sweden_open_field")
+    return GrowthModel(sp, make_environment(env), seed, stand=True, soil=make_soil(env), lean=True)
+
+
+def test_it_is_off_by_default():
+    sp, _ = load_species("betula_pendula")
+    assert sp.roots.paid.enabled is False
+    model = _model(False)
+    for _ in range(3):
+        model.step()
+    assert model.roots.carbon_log == {}
+
+
+def test_the_root_carbon_goes_where_the_log_says():
+    model = _model(True)
+    g_resp = 1.0 + float(model.sp.resource.growth_respiration_coefficient)
+    for _ in range(14):
+        model.step()
+        log = model.roots.carbon_log
+        net = float(model._root_carbon)
+        # everything left after the fine roots' upkeep is fine roots, wood with its respiration, or the logged rest
+        spent = log["fine_build"] + (log["new_root_wood"] + log["rings"]) * g_resp + log["rest"]
+        assert math.isclose(spent, net, rel_tol=1e-9, abs_tol=1e-9) or log["new_root_wood"] * g_resp > net - log["fine_build"]
+        assert log["rings"] <= log["rings_wanted"] + 1e-12
+
+
+def test_the_wood_gained_is_the_wood_paid_for():
+    model = _model(True)
+    unit_g = root_measure.unit_grams(model)
+    for _ in range(12):
+        before = root_measure.wood_kg(model)
+        n_before = model.roots.tree.n
+        model.step()
+        R = model.roots.tree
+        # roots shed this year take their wood with them, so add it back
+        shed = (R.death[: n_before] == model.year)
+        lost = float((math.pi * R.radius[: n_before][shed] ** 2 * R.length[: n_before][shed]).sum()) * root_measure.root_density(model)
+        gain = root_measure.wood_kg(model) + lost - before
+        paid = (model.roots.carbon_log["new_root_wood"] + model.roots.carbon_log["rings"]) * unit_g / 1000.0
+        assert abs(gain - paid) < 1e-4 + 0.02 * paid
+
+
+def test_root_radii_never_shrink():
+    model = _model(True)
+    last = None
+    for _ in range(14):
+        model.step()
+        R = model.roots.tree
+        now = R.radius[: R.n].copy()
+        if last is not None:
+            alive = R.death[: len(last)] < 0
+            assert np.all(now[: len(last)][alive] >= last[alive] - 1e-12)
+        last = now
+
+
+def test_with_carbon_to_spare_the_collar_sums_to_the_stump():
+    model = _model(True)
+    for _ in range(14):
+        model.step()
+    log = model.roots.carbon_log
+    assert log["rings"] >= log["rings_wanted"] * (1.0 - 1e-9)
+    a = root_measure.architecture(model)
+    assert a["rel_sum_stump"] <= float(model.sp.roots.paid.rel_sum_d2) * 1.02
+    assert a["rel_sum_stump"] >= float(model.sp.roots.paid.rel_sum_d2) * 0.6
+
+
+def test_no_carbon_no_rings():
+    """A root system that can't pay is thinner, and gets no free wood."""
+    model = _model(True)
+    for _ in range(8):
+        model.step()
+    R = model.roots
+    T = R.tree
+    before = T.radius[: T.n].copy()
+    R.carbon_log = {}
+    R.update_radii_paid(9, R.stump_d_m * 1.2, 0.0, float(model.sp.pipe_model.wood_volume_per_carbon), 530.0)
+    assert R.carbon_log["rings"] == 0.0
+    assert R.carbon_log["rings_wanted"] > 0.0
+    alive = T.death[: T.n] < 0
+    assert np.allclose(T.radius[: T.n][alive], before[alive])
