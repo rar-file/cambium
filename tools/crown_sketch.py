@@ -39,7 +39,12 @@ def limb_table(model) -> dict:
     la = T.basipetal(T.levels(alive), leaves) * float(model.light.leaf_area)
     length = np.bincount(T.axis[:n][alive], weights=T.length[:n][alive], minlength=int(T.axis[:n].max()) + 1)
     rows = sorted(((round(200.0 * float(T.radius[i]), 2), round(float(length[T.axis[i]]), 2), round(float(la[i]), 2), round(float(T.pos[T.parent[i], 2]), 2)) for i in limbs), reverse=True)
-    return {"age": int(model.year), "height_m": float(model.stats[-1]["height_m"]), "dbh_cm": model.stats[-1]["dbh_cm"], "limbs": rows}
+    # where the branch wood is, kg, by the thickness of the wood: under 1, 1-2, 2-5, over 5 cm
+    vol = np.where(alive & ~on, math.pi * T.radius[:n] ** 2 * T.length[:n], 0.0) * 530.0
+    d = 200.0 * T.radius[:n]
+    by_d = [round(float(vol[(d >= a) & (d < b)].sum()), 1) for a, b in ((0.0, 1.0), (1.0, 2.0), (2.0, 5.0), (5.0, 1e9))]
+    metres = [round(float(np.where(alive & ~on, T.length[:n], 0.0)[(d >= a) & (d < b)].sum()), 0) for a, b in ((0.0, 1.0), (1.0, 2.0), (2.0, 5.0), (5.0, 1e9))]
+    return {"age": int(model.year), "height_m": float(model.stats[-1]["height_m"]), "dbh_cm": model.stats[-1]["dbh_cm"], "limbs": rows, "wood_by_d": by_d, "metres_by_d": metres}
 
 
 def draw(model, ppm: float, leaves: bool, label: str, width_m: float, height_m: float):
