@@ -31,7 +31,7 @@ SETS = {
     "A_base": (TEST_A, 1), "A_base2": (TEST_A, 21), "A_base3": (TEST_A, 41),
     "D_rows": (ROWS, 1), "D_rows2": (ROWS, 21),
     "A_rows": (TEST_A + ROWS, 1), "A_rows2": (TEST_A + ROWS, 21),
-    "A_drop": (TEST_A + ROWS + DROP, 1), "A_drop2": (TEST_A + ROWS + DROP, 21), "D_drop": (ROWS + DROP, 1), "A_droponly": (TEST_A + DROP, 1),
+    "A_droponly": (TEST_A, 1), "D_droponly": ([], 1),
     "A_k26": (TEST_A + ROWS + K26, 1), "A_k14": (TEST_A + ROWS + K14, 1),
     "A_every2": (TEST_A + ROWS + ["speed.light_every=2"], 1), "A_every3": (TEST_A + ROWS + ["speed.light_every=3"], 1),
     "A_vox15": (TEST_A + ROWS + ["light.voxel_size=0.15"], 1), "A_vox20": (TEST_A + ROWS + ["light.voxel_size=0.2"], 1),
@@ -40,11 +40,16 @@ SETS = {
 }
 
 
+def speedy(name: str) -> list:
+    """Every set runs on the lossless settings; all but the two baselines the drop is checked against also drop dead nodes."""
+    return LOSSLESS if name in ("A_base", "D_base") else LOSSLESS + DROP
+
+
 def trees(name: str) -> int:
     sets, first = SETS[name]
     label = f"node_speed_t_{name}"
     cmd = [sys.executable, str(ROOT / "tools" / "tree_table.py"), "run", "--label", label, "--seeds", "20", "--first-seed", str(first), "--years", "60"]
-    for s in LOSSLESS + sets:
+    for s in speedy(name) + sets:
         cmd += ["--set", s]
     return subprocess.run(cmd, cwd=str(ROOT)).returncode
 
@@ -54,7 +59,7 @@ def plots(name: str) -> int:
     label = f"node_speed_p_{name}"
     cmd = [sys.executable, str(ROOT / "tools" / "ensemble.py"), "plots", "--label", label, "--seeds", "5", "--first-seed", str(1 if first == 1 else 6), "--years", "60",
            "--mode", "natural", "--trees", "25", "--no-saves"]
-    for s in LOSSLESS + sets:
+    for s in speedy(name) + sets:
         cmd += ["--set", s]
     return subprocess.run(cmd, cwd=str(ROOT)).returncode
 
