@@ -58,6 +58,10 @@ def measure(model, raw, age: int, seed: int) -> dict:
     area = np.pi * d_ob * seg
     mean_white = np.array([float((white[idx] * area[idx])[cl[idx] == k].sum() / max(area[idx][cl[idx] == k].sum(), 1e-12)) for k in range(len(classes))])
     step = float(look["bark"]["uneven_top"]["limbs"]["level_step"])
+    # what a rule of whichever says white first, thickness or the plain 4-10 years of age, would whiten: thin parts past 10 years
+    branch = idx[axis[idx] != 0]
+    thin_old = float(area[branch][(d_ob[branch] < 0.025) & (part_age[branch] >= 10.0)].sum() / max(area[branch][d_ob[branch] < 0.025].sum(), 1e-12))
+    thick_young = float(area[branch][(d_ob[branch] >= 0.05) & (part_age[branch] < 10.0)].sum() / max(area[branch][d_ob[branch] >= 0.05].sum(), 1e-12))
     limbs, crossings, reversals, widen, old_jump, new_jump = 0, [], [], [], [], []
     for a in np.unique(axis[idx]):
         nodes = idx[axis[idx] == a]
@@ -71,7 +75,7 @@ def measure(model, raw, age: int, seed: int) -> dict:
         widen.append(float((np.diff(d_ob[nodes]) > 0.0002).mean()))
         old_jump.append(float(np.abs(np.diff(mean_white[c])).max()))
         new_jump.append(float(np.abs(np.diff(np.rint(white[nodes] / step) * step)).max()))
-    return {"seed": seed, "age": age, "by_class": [{"round_m": float(classes[k]), "d_ob_cm": [round(float((edges[k - 1] if k else 0.0) / np.pi * 100.0), 1), round(float((edges[k] if k < len(edges) else 1.0) / np.pi * 100.0), 1)],
+    return {"seed": seed, "age": age, "thin_parts_past_10_years_share": round(thin_old, 3), "thick_parts_under_10_years_share": round(thick_young, 3), "by_class": [{"round_m": float(classes[k]), "d_ob_cm": [round(float((edges[k - 1] if k else 0.0) / np.pi * 100.0), 1), round(float((edges[k] if k < len(edges) else 1.0) / np.pi * 100.0), 1)],
                                                     "white_in_column": round(float(mean_white[k]), 3),
                                                     "white_of_its_parts_p5_p95": [round(float(np.percentile(white[idx][cl[idx] == k], q)), 3) for q in (5, 95)] if (cl[idx] == k).any() else None} for k in range(len(classes))],
             "limbs": limbs, "class_crossings_mean": round(float(np.mean(crossings)), 2), "limbs_that_go_back_up_a_class": round(float(np.mean(np.array(reversals) > 0)), 3),
@@ -86,8 +90,9 @@ def one(seed: int, sets: list, ages: list, stand: bool) -> list:
     return [measure(model, raw, a, seed) for a in ages]
 
 
-def close_views(seed: int, sets: list, ages: list, stand: bool, out: Path, res: int) -> None:
-    """The same frame as tools/leaf_placement.py's twig view, then a limb close to, with its leaves off."""
+def close_views(seed: int, sets: list, ages: list, stand: bool, out: Path, res: int, before: list | None = None, name: str = "limbs") -> None:
+    """The same frame as tools/leaf_placement.py's twig view, then a limb close to, with its leaves off.
+    ``before``: look values for the 'before' panels; without it, before is one column to a circumference."""
     import game_export as ge
     from treegen import look_render as lr
 
@@ -96,10 +101,14 @@ def close_views(seed: int, sets: list, ages: list, stand: bool, out: Path, res: 
     last = max(ages)
     rows = {}
     tgt, limb_tgt = None, None
-    for name, step, age in (("before", 0, last), ("after", 0.125, last), ("after", 0.125, min(ages))):
-        sub = folder / f"{step}_{age}"
+    if before is None:
+        runs = (("before", ["bark.uneven_top.limbs.level_step=0"], last), ("after", [], last), ("after", [], min(ages)))
+    else:
+        runs = (("before", before, last), ("after", [], last), ("before", before, min(ages)), ("after", [], min(ages)))
+    for k, (label, extra, age) in enumerate(runs):
+        sub = folder / f"{k}_{age}"
         a = argparse.Namespace(species="betula_pendula", environment="sweden_open_field", seed=seed, ages=str(age) if state.exists() else ",".join(str(x) for x in ages), seasons="summer", out=str(sub), stand=stand, set=list(sets), budget=[], target="unreal",
-                               look=["bark.uneven_top.strength=1", f"bark.uneven_top.limbs.level_step={step}"], state=str(state), levels="")
+                               look=["bark.uneven_top.strength=1"] + list(extra), state=str(state), levels="")
         ge.main_export(a)
         doc = json.loads((sub / "game_manifest.json").read_text(encoding="utf-8"))
         s = next(x for x in doc["stages"] if x["age"] == age)
@@ -121,15 +130,15 @@ def close_views(seed: int, sets: list, ages: list, stand: bool, out: Path, res: 
             limb_tgt = np.median(near[d > np.percentile(d, 90.0)], axis=0)
         eye = tgt + ge.CAM * 2.0 + np.array([0.0, 0.0, -0.25])
         lights = lr.Lights(prims, ge.sun_for_camera(), res=4096, sky_res=640, sky_dirs=8, focus=(tgt, 6.0))
-        whole = ge._label(lr.render(prims, lr.View(eye, tgt, res, res, fov_deg=34.0), lights, ss=2), f"seed {seed}, age {age}: {name}", 22)
+        whole = ge._label(lr.render(prims, lr.View(eye, tgt, res, res, fov_deg=34.0), lights, ss=2), f"seed {seed}, age {age}: {label}", 22)
         woods = ge.wood_only(prims)
         eye2 = limb_tgt + ge.CAM * 3.0 + np.array([0.0, 0.0, -0.5])
         lights2 = lr.Lights(woods, ge.sun_for_camera(), res=4096, sky_res=640, sky_dirs=8, focus=(limb_tgt, 6.0))
-        bare = ge._label(lr.render(woods, lr.View(eye2, limb_tgt, res, res, fov_deg=34.0), lights2, ss=2), f"no leaves: {name}, age {age}", 22)
-        rows[(name, age)] = (whole, bare)
+        bare = ge._label(lr.render(woods, lr.View(eye2, limb_tgt, res, res, fov_deg=34.0), lights2, ss=2), f"no leaves: {label}, age {age}", 22)
+        rows[k] = (whole, bare)
         del prims, woods, leaf
     keys = list(rows)
-    ge._save(np.concatenate([ge._row([rows[k][0] for k in keys]), ge._row([rows[k][1] for k in keys])], axis=0), out / f"limbs_s{seed}.png")
+    ge._save(np.concatenate([ge._row([rows[k][0] for k in keys]), ge._row([rows[k][1] for k in keys])], axis=0), out / f"{name}_s{seed}.png")
     shutil.rmtree(folder, ignore_errors=True)
 
 
@@ -141,6 +150,8 @@ def main(argv=None) -> int:
     ap_.add_argument("--open", action="store_true")
     ap_.add_argument("--close", type=int, default=None, help="also the close views of this seed")
     ap_.add_argument("--res", type=int, default=800)
+    ap_.add_argument("--before", action="append", default=None, metavar="KEY=JSON", help="look values for the close views' 'before'")
+    ap_.add_argument("--name", default="limbs", help="the close views' file name")
     ap_.add_argument("--set", action="append", default=[], metavar="KEY=JSON")
     ap_.add_argument("--sets", help="a file of KEY=JSON lines, read before --set")
     a = ap_.parse_args(argv)
@@ -156,7 +167,7 @@ def main(argv=None) -> int:
     for r in rows:
         print(json.dumps(r), flush=True)
     if a.close is not None:
-        close_views(a.close, a.set, ages, not a.open, out, a.res)
+        close_views(a.close, a.set, ages, not a.open, out, a.res, a.before, a.name)
     return 0
 
 
