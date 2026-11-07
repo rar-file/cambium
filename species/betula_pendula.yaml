@@ -1615,12 +1615,15 @@ height_driver:
 #   mechanics.pendulous_radius=0.012           TUNED, against the look: twigs thinner than about this hang; 0.006 sprayed outward, and hung only at their ends.
 #   crown_frame.twig_shoot_max_m=0.5           TUNED, against the look and leaf area in the open.
 #   crown_frame.limb_shoot_floor_m=0.2         TUNED, against the outline: 0.3 let an old tree's top limbs go flat; 0.15 left open trees narrow.
-#   crown_frame.crown_lai_max=7                As before: TUNED, a sink limit in the open.  With it the crown sheds old short shoots (full_crown_spur_years).
-#   crown_frame.surplus_to_stem=0.22           TUNED, against the open-grown stem band and Hemery's width at that stem: 0.1-0.13 starves the crown and the stem together.  Bears only on trees with no neighbours.
+#   crown_frame.crown_lai_max=7                As before: TUNED, a sink limit.  With it the crown sheds old short shoots (full_crown_spur_years).
+#   crown_frame.open_lai_max=5                 TUNED, against the look: sky between the curtains.  7 gave a dark mass.  Bears only on trees with no neighbours.
+#   crown_frame.surplus_to_stem=0.4            TUNED, against the open-grown stem band at 60 and the thin 30-year tree: stops at stem_cm_per_height_m, so 0.4 gives 21.9, 47.5 cm at 30, 60 where 0.22 gave 17.7, 44.5.  Bears only on trees with no neighbours.
+#   crown_frame.limb_sag_deg=45                TUNED, against the look: limbs curve up from a low start.  On stand trees wider crowns, and 0.2 less LAI at 60 (6 PC seeds).
+#   crown_frame.twigs_browsed=true             Rates DERIVED, see below.  Against the look: a clear foot to the stem, curtains stopping above the ground.  Bears only on trees with no neighbours.
 #   crown_frame.stem_cm_per_height_m=2.4       TUNED, with height_driver.open_grown_share: the same 45 cm cap on a shorter tree.
 #   crown_frame.reach_scatter=0.2              TUNED, against an even outline, now capped at the published crown.
 #   crown_frame.spacing_overlap=1.15           TUNED, against stand light and width: limbs now carry the width themselves; 1.0 gave 0.25 less LAI.
-#   crown_frame.peak_depth=0.65, .base_share=0.4, .profile_power=1.0
+#   crown_frame.peak_depth=0.65, .base_share=0.4, .profile_power=0.6
 #                                              TUNED, against the outline in both settings: a crown whose length is all the tree's is widest about a third of the way up, one in a stand about 0.7 of the way up.
 #   crown_frame.full_crown_spur_years=12, .hanging_share=0.35   TUNED: see those values below.
 #   pipe_model.branch_sapwood_thick_m=0.02     TUNED, against the thickest limbs in the open: 23 cm on a 44 cm stem without it, 16 with it.
@@ -1718,8 +1721,10 @@ crown_frame:
   fork_leaf_area_m2: 1.5
   # TUNED, against nothing: how many limbs on each side count as a limb's neighbours (_frame_earned): about a metre of stem.
   limb_rivals: 5
-  # TUNED, against the look: a limb's old wood settles this many degrees below its set-point as it ages (over resource.branch_aging_years), so limbs leave the stem low and curve up.  null: straight.
+  # TUNED, against the look: how far a limb's posture target moves with the age of its wood (over resource.branch_aging_years): new wood stands a third of this above the limb's own set-point, old wood settles towards two thirds below it, so limbs leave the stem low and curve up.  null: straight.
   limb_sag_deg: null
+  # With earned, for a tree with no neighbours: twigs within a moose's reach get bitten off, at leader_damage.events' height range and yearly chance, a rate measured on leaders in young stands, not on twigs (DERIVED).  false: none.
+  twigs_browsed: false
   # TUNED, against the look: when the crown has all the leaf area it can hold (crown_lai_max), short shoots this old die, so new shoots have room and the foliage moves out.
   # 8 left 71 % of an open tree's twig length leafless, the dark brooms; 12 leaves about 60 %.  Birch short shoots live several years (Maillette 1982, abstract only).  null: none die of age.
   full_crown_spur_years: 12

@@ -832,6 +832,8 @@ class GrowthModel:
                 g_ax = g_ax[T.birth[g_ax] <= t - sh.min_branch_age]
                 if g_ax.size:
                     shed = np.union1d(shed, g_ax)
+        if self._frame_earns() and getattr(sp.crown_frame, "twigs_browsed", False) and not (self.stand or getattr(self, "_plot_view", None) is not None):
+            shed = np.union1d(shed, self._browsed_twigs(t, alive, stem))
         if shed.size:
             self._shed(t, shed, levels)
             alive = T.death[:n0] < 0
@@ -1516,6 +1518,27 @@ class GrowthModel:
         chance = np.divide(under, float(soft) * line, out=np.zeros_like(under, dtype=float), where=(line * np.ones_like(under)) > 0.0)
         return rng.random(len(under)) < chance
 
+    def _browsed_twigs(self, t: int, alive: np.ndarray, stem: np.ndarray) -> np.ndarray:
+        """A tree on its own stands where grazers reach it.  A twig with a shoot thin enough to bite (leader_damage.bite_diameter_m) inside a browsing event's height range goes at that
+        event's yearly chance.  Only twigs: a low limb that has lost them dies of its own carbon, if it does."""
+        T, ld = self.tree, self.sp.leader_damage
+        n0 = len(alive)
+        rng = self.__dict__.get("_browse_rng")
+        if rng is None:
+            rng = self._browse_rng = np.random.default_rng([self.seed, 6607])
+        firsts = np.nonzero(alive & T.is_lateral[:n0] & (T.order[:n0] >= 2) & ~stem & (T.birth[:n0] <= t - int(self.sp.shedding.min_branch_age)))[0]
+        out = [np.zeros(0, np.int64)]
+        if firsts.size:
+            first_of = np.full(int(T.axis[:n0].max()) + 1, -1, np.int64)
+            first_of[T.axis[firsts]] = firsts
+            thin = alive & (T.radius[:n0] <= 0.5 * float(ld.bite_diameter_m))
+            for ev in ld.events:
+                reach = thin & (T.pos[:n0, 2] >= float(ev.min_height_m)) & (T.pos[:n0, 2] <= float(ev.max_height_m))
+                axes = first_of[T.axis[:n0][reach]]
+                axes = np.unique(axes[axes >= 0])
+                out.append(axes[rng.random(axes.size) < float(ev.probability_per_year)])
+        return np.concatenate(out)
+
     def _shed(self, t: int, roots: np.ndarray, levels: list):
         T = self.tree
         n = T.n
@@ -1914,9 +1937,7 @@ class GrowthModel:
                             b = mid
                     lo = a
                     self._unspent = max(target - parts(lo)[0], 0.0)
-                    share_stem = float(getattr(getattr(sp, "crown_frame", None), "surplus_to_stem", 0.0) or 0.0)
-                    if self._frame_earns() and (self.stand or getattr(self, "_plot_view", None) is not None):
-                        share_stem = 0.0    # this is a tree in the open's: a tree with neighbours doesn't thicken on what its crown can't use, or plots outrun their basal area
+                    share_stem = self._surplus_share()
                     if full_crown and share_stem > 0.0 and self._unspent > 0.0:
                         # what a full crown can't use goes on the stem, as a tree in the open has it: rings by the leaf area above
                         stem = T.trunk_chain(self.leader_axes)
@@ -1931,7 +1952,7 @@ class GrowthModel:
                             return lo, ring_out
             if lead_at is not None and self._frame_earns() and not self.stand and getattr(self, "_plot_view", None) is None:
                 # with no neighbours, whatever the crown can't use goes the same way, whichever limit it met: else a crown short of its limits starves the stem that sets them
-                share_stem = float(sp.crown_frame.surplus_to_stem or 0.0)
+                share_stem = self._surplus_share()
                 unspent = max(target - parts(lo)[0], 0.0)
                 stem = T.trunk_chain(self.leader_axes)
                 stem = stem[stem < n0]
@@ -2158,6 +2179,19 @@ class GrowthModel:
             T.no_axil[node] = False
             self._frame_fork_buds[node] = limb
             self._frame_named[node] = self._frame_gsa.get(int(T.axis[limb]), math.radians(float(cf.angle_mean_deg)))
+
+    def _surplus_share(self) -> float:
+        """The share of what the crown can't use that goes on the stem.  With earned, only for a tree in the open: a tree with neighbours doesn't thicken on it, or plots
+        outrun their basal area; and only while the stem is under the most a birch of this height has (crown_frame.stem_cm_per_height_m)."""
+        cf = getattr(self.sp, "crown_frame", None)
+        share = float(getattr(cf, "surplus_to_stem", 0.0) or 0.0)
+        if self._frame_earns():
+            if self.stand or getattr(self, "_plot_view", None) is not None:
+                return 0.0
+            d_wood = self.dbh_m()
+            if d_wood is not None and 100.0 * float(cf.over_bark_ratio) * d_wood >= float(cf.stem_cm_per_height_m) * self._frame_crown()[0]:
+                return 0.0
+        return share
 
     def _frame_reach_max(self) -> float:
         """The crown's radius, from the stem and the height (m)."""

@@ -327,3 +327,35 @@ def test_earned_limb_sag_makes_a_limb_low_at_the_stem_and_rising_at_its_end():
     straight_old, straight_young = lean_of_old_and_young(grow(30, EARNED))
     sag_old, sag_young = lean_of_old_and_young(grow(30, EARNED + ["crown_frame.limb_sag_deg=45"]))
     assert sag_old - sag_young > straight_old - straight_young
+
+
+def test_earned_twigs_browsed_only_on_a_lone_tree_and_only_within_reach():
+    """Twigs within a moose's reach go at the leader's yearly chance.  A stand tree grown with the switch is the same tree, and a lone tree's crown above the reach is not touched in the year."""
+    off = grow(14, EARNED)
+    on = grow(14, EARNED + ["crown_frame.twigs_browsed=true"])
+    assert off.tree.n == on.tree.n
+    assert (off.tree.pos[: off.tree.n] == on.tree.pos[: on.tree.n]).all()
+    model = grow(24, EARNED + ["crown_frame.twigs_browsed=true"], stand=False)
+    T = model.tree
+    n = T.n
+    alive = T.death[:n] < 0
+    stem = np.isin(T.axis[:n], np.fromiter(model.leader_axes, np.int64))
+    gone = np.zeros(0, np.int64)
+    for _ in range(12):
+        gone = np.union1d(gone, model._browsed_twigs(model.year, alive, stem))
+    assert gone.size > 0
+    assert (T.is_lateral[gone] & (T.order[gone] >= 2)).all()
+    reach = T.radius[:n] <= 0.5 * float(model.sp.leader_damage.bite_diameter_m)
+    ev = model.sp.leader_damage.events[0]
+    reach &= (T.pos[:n, 2] >= float(ev.min_height_m)) & (T.pos[:n, 2] <= float(ev.max_height_m))
+    for k in gone[:200]:
+        assert reach[T.axis[:n] == T.axis[k]].any()
+
+
+def test_earned_surplus_stops_at_the_most_stem_for_the_height():
+    """A lone tree thickens on what its crown can't use only up to crown_frame.stem_cm_per_height_m."""
+    free = grow(26, EARNED + ["crown_frame.surplus_to_stem=0.8", "crown_frame.stem_cm_per_height_m=9"], stand=False)
+    capped = grow(26, EARNED + ["crown_frame.surplus_to_stem=0.8", "crown_frame.stem_cm_per_height_m=1.0"], stand=False)
+    assert float(capped.stats[-1]["dbh_cm"]) < float(free.stats[-1]["dbh_cm"])
+    assert capped._surplus_share() == 0.0
+    assert grow(6, EARNED + ["crown_frame.surplus_to_stem=0.8"])._surplus_share() == 0.0
