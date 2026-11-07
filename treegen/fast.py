@@ -177,11 +177,12 @@ def _subtree(up, par, acc):
 
 
 @njit(cache=True)
-def carbon_parts(lam, lead_at, lead_v, ahead, share, thr, caps, full, per_met, early, lma, extra_per_node, starts, z_start,
+def carbon_parts(v, grow, lead, ahead, caps, full, per_met, early, lma, extra_per_node, starts, z_start,
                  up, alive, par, la_now, hv, keep, L, f_wind, a_wind_coef, laz_now, z_base, wood_keep, ring_cap, has_ring_cap,
                  tip_area, unit, g_per_unit, g_resp, ring, dla, dlaz, buf_a, buf_b):
     """One evaluation of the carbon solve, as GrowthModel._growth_factor's parts(): shoots' wood, leaves, rings and the wind's
-    extra.  Fills ring; returns (carbon units used, sapwood units, wind units).  buf_a, buf_b: as long as starts; ring, dla, dlaz:
+    extra.  v, grow: what shoots() says each bud makes; the model's own function, not a copy, so its leader and frame limbs are
+    its own.  lead: the height limit is on.  Fills ring; returns (carbon units used, sapwood units, wind units).  buf_a, buf_b: as long as starts; ring, dla, dlaz:
     as L, zero at dead nodes, and only living nodes are worked on: at a dead node every term of parts() is zero, and the sums
     still run over all nodes, since where a value sits decides how numpy's sum rounds.  The wind's cube root, the costly step, is
     taken only where the result could count: a_wind > need exactly when coef^3 m^2 > need^3, and the margin covers rounding."""
@@ -194,15 +195,8 @@ def carbon_parts(lam, lead_at, lead_v, ahead, share, thr, caps, full, per_met, e
             dlaz[alive[q]] = 0.0
     k = 0
     for i in range(m):
-        v = lam * share[i]
-        grow = (v >= thr[i]) and (share[i] > 0.0)
-        if lead_at >= 0:
-            grow = grow and (caps[i] >= thr[i])
-            if i == lead_at:
-                v = lead_v
-                grow = lead_v > 0.0
-        vc = v if v < caps[i] else caps[i]
-        if grow:
+        vc = v[i] if v[i] < caps[i] else caps[i]
+        if grow[i]:
             buf_a[k] = full[i] * vc
             k += 1
             fl = np.floor(vc)
@@ -228,7 +222,6 @@ def carbon_parts(lam, lead_at, lead_v, ahead, share, thr, caps, full, per_met, e
     if wind:
         _subtree(up, par, dlaz)
         coef3 = a_wind_coef * a_wind_coef * a_wind_coef
-        lead = lead_at >= 0
         for q in range(na):
             j = alive[q]
             dlaz[j] = laz_now[j] + dlaz[j]      # now the leaf area x height beyond each node
@@ -501,12 +494,12 @@ def sweep_rows(H, has, top, bottom, Tr, Ti, wk, diff_z, wd, Dfr, Dfi):
                             fi[y] += w * bi[y]
 
 
-def parts_function(hd, lead_at, ahead, share, thr, caps, full, per_met, early, lma, extra_per_node, starts, z_node, levels, alive, par,
+def parts_function(shoots, hd, lead_at, ahead, caps, full, per_met, early, lma, extra_per_node, starts, z_node, levels, alive, par,
                    la_now, hv, keep, L, f_wind, a_wind_coef, laz_now, z_base, wood_keep, ring_cap, tip_area, unit, g_per_unit, g_resp):
-    """GrowthModel._growth_factor's parts(), compiled: the same inputs, once, and a function of lambda."""
+    """GrowthModel._growth_factor's parts(), compiled: the same inputs, once, and a function of lambda.  shoots: the model's own."""
     n, m = len(L), len(starts)
-    la = -1 if lead_at is None else int(lead_at)
-    args = dict(share=share, thr=thr, full=full, per_met=per_met, early=early, lma=lma, la_now=la_now, keep=keep, L=L,
+    lead = lead_at is not None
+    args = dict(full=full, per_met=per_met, early=early, lma=lma, la_now=la_now, keep=keep, L=L,
                 laz_now=laz_now, z_base=z_base, wood_keep=wood_keep)
     a = {k: np.ascontiguousarray(v, dtype=np.float64) for k, v in args.items()}
     caps_a = np.full(m, float(caps)) if np.ndim(caps) == 0 else np.ascontiguousarray(caps, dtype=np.float64)
@@ -522,11 +515,12 @@ def parts_function(hd, lead_at, ahead, share, thr, caps, full, per_met, early, l
     f, coef = float(f_wind), float(a_wind_coef)
 
     def parts(lam):
-        total, sap, wind = carbon_parts(float(lam), la, float(hd["v"]) if la >= 0 else 0.0, bool(ahead), a["share"], a["thr"], caps_a, a["full"],
+        v, grow = shoots(lam)
+        total, sap, wind = carbon_parts(np.asarray(v, np.float64), np.asarray(grow, np.bool_), lead, bool(ahead), caps_a, a["full"],
                                         a["per_met"], a["early"], a["lma"], extra_a, starts_a, z_start, up, live, par, a["la_now"], hv_a, a["keep"],
                                         a["L"], f, coef, a["laz_now"], a["z_base"], a["wood_keep"], cap, has_cap, float(tip_area), float(unit),
                                         float(g_per_unit), float(g_resp), ring, dla, dlaz, buf_a, buf_b)
-        if la >= 0 and f > 0.0:
+        if lead and f > 0.0:
             hd["sap_units"], hd["wind_units"] = sap, wind
         return total, ring.copy()
 

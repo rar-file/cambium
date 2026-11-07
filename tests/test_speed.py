@@ -13,11 +13,14 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 
 import cli  # noqa: E402
-from speed_compare import ARRAYS, TEST_A  # noqa: E402
+from speed_compare import ARRAYS, CROWN, TEST_A  # noqa: E402
 from treegen import checkpoint, fast  # noqa: E402
 from treegen.growth import GrowthModel  # noqa: E402
 from treegen.plot import Plot  # noqa: E402
 
+# every set of settings the model is really run on.  A path that's on in none of these isn't tested by any run below: that's what
+# test_nothing_the_compiled_code_copies_has_changed is for.
+BASES = [pytest.param([], id="default"), pytest.param(TEST_A, id="testA"), pytest.param(CROWN, id="crown")]
 LOSSLESS = ["speed.compiled_carbon=true", "speed.compiled_mechanics=true", "speed.light_layers=true", "speed.keep_soil_grids=true", "speed.quick_solve=true", "speed.quick_levels=true"]
 
 
@@ -114,18 +117,18 @@ def tree(seed, years, sets):
     return json.dumps(m.stats, sort_keys=True, default=str), digest(m)
 
 
-@pytest.mark.parametrize("base", [[], TEST_A], ids=["default", "testA"])
+@pytest.mark.parametrize("base", BASES)
 def test_a_tree_is_the_same_with_the_settings_on(base):
     assert tree(2, 16, base) == tree(2, 16, base + LOSSLESS)
 
 
-@pytest.mark.parametrize("base", [[], TEST_A], ids=["default", "testA"])
+@pytest.mark.parametrize("base", BASES)
 def test_dropping_dead_nodes_keeps_every_yearly_stat(base):
     sets = base + ["speed.compiled_carbon=true"]
     assert tree(3, 24, sets)[0] == tree(3, 24, sets + ["speed.drop_dead=true"])[0]
 
 
-@pytest.mark.parametrize("base", [[], TEST_A], ids=["default", "testA"])
+@pytest.mark.parametrize("base", BASES)
 def test_dropping_dead_nodes_keeps_the_count_of_what_fell_and_the_new_shoots(base):
     from tree_table import shed_events
 
@@ -144,7 +147,10 @@ def test_dropping_dead_nodes_keeps_the_count_of_what_fell_and_the_new_shoots(bas
 
     plain, dropped = run([]), run(["speed.drop_dead=true"])
     assert sum(r["twigs"] + r["branches"] for r in plain[0].values()) > 0      # something fell, or this shows nothing
-    assert plain == dropped
+    assert plain[0] == dropped[0]
+    # sums round by position, so lengths can part in the last digits (1e-13 on the crown settings): it isn't a lossless setting
+    assert [x[0] for x in plain[1]] == [x[0] for x in dropped[1]]
+    assert [x[1] for x in plain[1]] == pytest.approx([x[1] for x in dropped[1]], rel=1e-9)
 
 
 def test_a_run_that_can_export_ignores_the_drop():
@@ -198,10 +204,11 @@ def test_a_dropped_tree_holds_only_what_it_needs():
         assert (T.parent[link[ok]] == np.nonzero(ok)[0]).all()
 
 
-def test_a_plot_is_the_same_with_the_settings_on():
+@pytest.mark.parametrize("base", BASES)
+def test_a_plot_is_the_same_with_the_settings_on(base):
     def run(sets):
         sp, _ = cli.load_species("betula_pendula")
-        checkpoint.set_values(sp, sets)
+        checkpoint.set_values(sp, base + sets)
         env_p, _ = cli.load_environment("sweden_open_field")
         stages = sorted(sp.stand.thinning, key=lambda s: float(s.from_height_m))
         n_final = 6 * float(stages[-1].stems_per_ha) / float(stages[0].stems_per_ha)
@@ -211,3 +218,55 @@ def test_a_plot_is_the_same_with_the_settings_on():
         return json.dumps(p.stats, sort_keys=True, default=str), {k: digest(p.trees[k]) for k in p.alive}
 
     assert run([]) == run(LOSSLESS)
+
+
+# What the compiled code copies, and what it assumes.  A run only catches a drift on a path that's switched on, so these catch any
+# edit at all.  If one fails: change the copy named in the message to match, run tools/speed_drift.py on the settings in use, and
+# only then put the new hash here.
+COPIED = {
+    "parts() in _growth_factor: fast.carbon_parts copies it. shoots() is shared, not copied": ("treegen/growth.py", "        def parts(lam):\n", '        if fast.on(sp, "compiled_carbon"):', "7595d988b0383b1e"),
+    "solve_for's bisection: fast.quick_bisect must reach its answer": ("treegen/growth.py", "                lo, hi = 0.0, 1.0\n                while parts(hi)", '            if lead_at is not None and getattr(sp.height_driver, "leaf_growth_max"', "5c50bb4dfe5d1226"),
+    "bending's sub-steps: fast.bend_steps copies them": ("treegen/mechanics.py", "    # 1. bending under this year's added load", "    # 2. posture control", "e2a61dc6a1b05a89"),
+    "_quat, _qrot: fast.bend_steps and fast.apply_rotation copy them": ("treegen/mechanics.py", "def _quat(", "def setpoint_directions(", "9a1d0817498d2f03"),
+    "_apply: fast.apply_rotation copies it": ("treegen/mechanics.py", "def _apply(", "def bend_and_correct(", "c6677b45b7320271"),
+    "Tree.levels: fast.level_order must give its order": ("treegen/structure.py", "        idx = np.nonzero(mask)[0]\n        d = self.depth[idx]", "    def basipetal(", "41a8307d960a4a40"),
+    "the plain light sweep: ShadowPropagation._sweep_layers, fast.deposit and fast.blur_layers copy it": ("treegen/light.py", "        D = np.zeros(shape, dtype=np.float32)", "    def __getstate__(", "f3377d2a4da8455e"),
+    "LightField.sample: fast.sample_wrap copies its periodic path": ("treegen/light.py", "    def sample(self, pts", "    def relative_light_at_heights(", "443b76339333f1cd"),
+    "_soil_grids: speed.keep_soil_grids assumes it depends only on its arguments": ("treegen/roots.py", "def _soil_grids(", "def _root_density(", "09b99662818d2051"),
+}
+
+
+def copied_hash(path, start, end):
+    text = (ROOT / path).read_bytes().decode("utf-8").replace("\r\n", "\n")
+    a = text.index(start)
+    return hashlib.sha256(text[a:text.index(end, a)].encode("utf-8")).hexdigest()[:16]
+
+
+@pytest.mark.parametrize("what", list(COPIED))
+def test_nothing_the_compiled_code_copies_has_changed(what):
+    path, start, end, want = COPIED[what]
+    assert copied_hash(path, start, end) == want, f"{what}. See the note above COPIED in this file."
+
+
+# State that holds no node numbers, or that treegen/compact.py renumbers.  Found by shape: a dict with whole-number keys, or an array
+# about as long as the tree.  If this fails: does the new name hold node numbers?  Then compact() must renumber it, or dropping dead
+# nodes breaks it.  Add it here once that's settled.
+NODE_STATE_CHECKED = {"_established", "_limb_draw", "_r_last", "_r_pipe", "_psi", "_stem_pipe_prev", "_starving", "spur_rec", "reit", "_relay_buds", "_relay_first",
+                      "_frame_named", "_frame_reach", "_frame_gsa", "_frame_axis_reach", "keyframes", "radius_history", "_bud_q", "_bud_leaf_cost", "_ring", "_clone_angle"}
+
+
+def test_no_new_state_might_hold_node_numbers():
+    sp, _ = cli.load_species("betula_pendula")
+    checkpoint.set_values(sp, CROWN)
+    env_p, _ = cli.load_environment("sweden_open_field")
+    m = GrowthModel(sp, cli.make_environment(env_p), 1, stand=True, soil=cli.make_soil(env_p), lean=True)
+    for _ in range(14):
+        m.step()
+    n = m.tree.n
+    found = set()
+    for name, value in vars(m).items():
+        if isinstance(value, dict) and any(isinstance(k, (int, np.integer)) for k in value):
+            found.add(name)
+        elif isinstance(value, np.ndarray) and value.ndim >= 1 and len(value) >= n // 2:
+            found.add(name)
+    assert found <= NODE_STATE_CHECKED, f"new: {sorted(found - NODE_STATE_CHECKED)}"

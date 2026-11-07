@@ -25,6 +25,12 @@ TEST_A = ["height_driver.enabled=true", "height_driver.ring_share_max=0.5", "hei
           "pipe_model.heartwood_by_own_foliage=true", "pipe_model.branch_sapwood_senescence=0.30", "resource.apical_dominance=0.75",
           "bud_fate.long_shoot_threshold=5", "bud_fate.density_control.enabled=true", "bud_fate.density_control.after_growth=true",
           "shedding.shade_softness=0.5", "shedding.light_per_leaf_threshold=0.18", "bud_fate.short_shoot_survival_light=0.18"]
+# the Crown agent's settings, as run on plots (node_int_P): crown frame and paid roots on
+CROWN = ["height_driver.enabled=true", "height_driver.ring_share_max=0.5", "stats.limbs_on_leader=true", "pipe_model.heartwood_by_own_foliage=true",
+         "pipe_model.branch_sapwood_senescence=0.30", "resource.apical_dominance=0.75", "resource.reiteration.setpoint_angle_deg=20", "bud_fate.long_shoot_threshold=5",
+         "bud_fate.short_shoot_light=0.18", "bud_fate.short_shoot_survival_light=0.18", "bud_fate.density_control.enabled=true", "bud_fate.density_control.after_growth=true",
+         "bud_fate.density_control.af_zero=1.7", "shedding.shade_softness=0.5", "shedding.light_per_leaf_threshold=0.18", "mechanics.pendulous_radius_limb=0.0025",
+         "crown_frame.enabled=true", "roots.paid.enabled=true", "geometry.root_flare_min_share=0.5", "roots.lateral_setpoint_deg=92", "roots.lateral_gravitropism_per_m=3.0"]
 ARRAYS = ("pos", "dir", "ref", "term_dir", "lat_dir", "sym_side", "parent", "main_child", "lat_child", "birth", "death", "order", "axis", "length",
           "term", "lat", "lat_age", "spur_birth", "own_pipe", "radius", "leaf_scale", "leaves", "leaf_size", "lma", "wood_area", "sap_area", "no_axil")
 
