@@ -1087,9 +1087,12 @@ regeneration:
     # fields whose far edge, 391-776 m from a birch seed stand, holds 256-740 stems/ha at
     # 21-24 years, only 0-4 years younger than near it, with under 5 % cover at 200-600 m
     # at 8-9 years.  Point estimate from a grown edge (tools/spread_estimate.py --patch-age):
-    # 0.002 gives 190-280 stems/ha at 700 m at year 22, this 375-610, 0.01 680-810, and
-    # 0.01 already holds 540-1,210 at 200-600 m by year 9.
-    far_share: 0.005
+    # 0.002 gives 190-280 stems/ha at 700 m at year 22, 0.005 375-610, 0.01 680-810, and
+    # 0.01 already holds 540-1,210 at 200-600 m by year 9.  Then on whole trees, 600 m
+    # strips on the server, 18 years after the first seed (two strips each): 0.005 holds
+    # 1,050-1,130 at 400-500 m and 830-880 at 500-600 m, over the band; this 650-1,050 and
+    # 330-500 (node_f3_strip, node_f3_strip2).
+    far_share: 0.003
     # Tiebel et al. 2020 mapped as seed trees those of DBH at least 12 cm over bark (after
     # Popadyuk et al. 1995, Roloff & Pietzarka 2010, not opened): 11 cm of wood here.
     seed_min_dbh_wood_cm: 11.0

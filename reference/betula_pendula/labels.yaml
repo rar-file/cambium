@@ -392,7 +392,7 @@ mortality.vigour.floor: {status: TUNED, value: 0.02, against: 'base plots whose 
 mortality.vigour.suppressed_hazard: {status: TUNED, value: 0.1, against: 'base plots whose trees stood still for decades'}
 plot.natural_start.stems_per_ha: {status: TUNED, value: 16000, against: '11,633 stems/ha at age 8 in Aosaar et al. 2016 Table 3, with alpha 3.0 standing in for slower young growth'}
 regeneration.spread.far_mean_m: {status: sourced, value: 370.0, source: 'Tiebel et al. 2020, Eur. J. For. Res. 139:731: 367-380 m, their long case', checked: page}
-regeneration.spread.far_share: {status: TUNED, value: 0.005, against: 'Fedorov et al. 2024, Forests 15:34: stems at 391-776 m from a birch seed stand, 256-740 a ha at 21-24 years, and under 5 % cover at 200-600 m at 8-9 years; point estimate from a grown edge'}
+regeneration.spread.far_share: {status: TUNED, value: 0.003, against: 'Fedorov et al. 2024, Forests 15:34: stems at 391-776 m from a birch seed stand, 256-740 a ha at 21-24 years, and under 5 % cover at 200-600 m at 8-9 years; whole-tree strips on the server, 2 each at 0.005 and 0.003'}
 regeneration.spread.seed_min_dbh_wood_cm: {status: sourced, value: 11.0, source: 'Tiebel et al. 2020: seed trees mapped from 12 cm DBH over bark', checked: page}
 regeneration.spread.mast_share: {status: sourced, value: 0.333, source: 'Sarvas 1948 as cited in Tiebel et al. 2020: good seed years about every 3 years; Sarvas not opened', checked: page}
 regeneration.spread.mast_factor: {status: sourced, value: 4.3, source: 'Tiebel et al. 2020: 1,500,000 against 350,000 seeds at DBH 20 cm, 2016 against 2015', checked: page}
