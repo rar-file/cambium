@@ -1908,6 +1908,8 @@ class GrowthModel:
                     lo = a
                     self._unspent = max(target - parts(lo)[0], 0.0)
                     share_stem = float(getattr(getattr(sp, "crown_frame", None), "surplus_to_stem", 0.0) or 0.0)
+                    if self._frame_earns() and (self.stand or getattr(self, "_plot_view", None) is not None):
+                        share_stem = 0.0    # this is a tree in the open's: a tree with neighbours doesn't thicken on what its crown can't use, or plots outrun their basal area
                     if full_crown and share_stem > 0.0 and self._unspent > 0.0:
                         # what a full crown can't use goes on the stem, as a tree in the open has it: rings by the leaf area above
                         stem = T.trunk_chain(self.leader_axes)
