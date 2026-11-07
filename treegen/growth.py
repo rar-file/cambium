@@ -813,7 +813,7 @@ class GrowthModel:
         cand = np.nonzero(alive & T.is_lateral[:n0] & ~stem & (T.birth[:n0] <= t - sh.min_branch_age))[0]
         ratio = QWtot[cand] / np.maximum(Wtot[cand], 1e-12)
         shed = cand[(Wtot[cand] <= 0.0) | self._falls(ratio, sh.light_per_leaf_threshold)]
-        relative = getattr(sp.crown_frame, "limb_relative_light", None) if self._frame_on() else None
+        relative = getattr(sp.crown_frame, "limb_relative_light", None) if self._frame_earns() else None
         if relative and Wtot[0] > 0.0:
             # a limb whose leaves get much less light than the crown's leaves do is in the crown's own shade, and goes, however bright the sky is
             is_limb = stem[np.maximum(T.parent[cand], 0)]
@@ -1239,7 +1239,7 @@ class GrowthModel:
         sm = ~g_lat_mask & is_spur
         sn = lat_nodes[sm]
         old = (t - T.spur_birth[sn] >= bf.spur_lifespan) if bf.spur_lifespan is not None else np.zeros(sn.size, bool)
-        full_age = getattr(sp.crown_frame, "full_crown_spur_years", None) if self._frame_on() else None
+        full_age = getattr(sp.crown_frame, "full_crown_spur_years", None) if self._frame_earns() else None
         if full_age and getattr(self, "_frame_crown_full", False):
             # a crown with all the leaves it can hold makes room at the back: its oldest short shoots go, so the foliage moves out with the new shoots
             old = old | (t - T.spur_birth[sn] >= int(full_age))
