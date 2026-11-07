@@ -225,6 +225,12 @@ def shed_events(model) -> dict:
     for year, branch in zip(T.death[roots].tolist(), on_lead[T.parent[roots]].tolist()):
         row = out.setdefault(int(year), {"branches": 0, "twigs": 0, "short_shoots": 0})
         row["branches" if branch else "twigs"] += 1
+    # what speed.drop_dead has dropped: the same count, kept as it went
+    leaders = np.fromiter(model.leader_axes, np.int64)
+    for years, axes in getattr(model, "shed_dropped", []):
+        for year, branch in zip(years.tolist(), np.isin(axes, leaders).tolist()):
+            row = out.setdefault(int(year), {"branches": 0, "twigs": 0, "short_shoots": 0})
+            row["branches" if branch else "twigs"] += 1
     for year in model.spurs.death:
         if year is not None and year >= 0:
             row = out.setdefault(int(year), {"branches": 0, "twigs": 0, "short_shoots": 0})

@@ -10,6 +10,7 @@ node_speed_t_<name> and node_speed_p_<name>.  A set that's finished is skipped, 
 """
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -51,7 +52,8 @@ PREFIX = "pc_speed" if sys.platform == "win32" else "node_speed"      # PC and s
 def trees(name: str) -> int:
     sets, first = SETS[name]
     label = f"{PREFIX}_t_{name}"
-    cmd = [sys.executable, str(ROOT / "tools" / "tree_table.py"), "run", "--label", label, "--seeds", "20", "--first-seed", str(first), "--years", "60"]
+    seeds = os.environ.get("SPEED_SEEDS", "20")     # 20 on the node for a verdict; the PC while working can use fewer
+    cmd = [sys.executable, str(ROOT / "tools" / "tree_table.py"), "run", "--label", label, "--seeds", seeds, "--first-seed", str(first), "--years", "60"]
     for s in speedy(name) + sets:
         cmd += ["--set", s]
     return subprocess.run(cmd, cwd=str(ROOT)).returncode
