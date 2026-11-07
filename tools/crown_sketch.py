@@ -7,6 +7,7 @@ on every attempt; the real look is still tools/game_export.py.  It only reads th
 """
 from __future__ import annotations
 
+import numpy as np
 import argparse
 import json
 import math
@@ -45,6 +46,53 @@ def limb_table(model) -> dict:
     by_d = [round(float(vol[(d >= a) & (d < b)].sum()), 1) for a, b in ((0.0, 1.0), (1.0, 2.0), (2.0, 5.0), (5.0, 1e9))]
     metres = [round(float(np.where(alive & ~on, T.length[:n], 0.0)[(d >= a) & (d < b)].sum()), 0) for a, b in ((0.0, 1.0), (1.0, 2.0), (2.0, 5.0), (5.0, 1e9))]
     return {"age": int(model.year), "height_m": float(model.stats[-1]["height_m"]), "dbh_cm": model.stats[-1]["dbh_cm"], "limbs": rows, "wood_by_d": by_d, "metres_by_d": metres}
+
+
+def foliage_table(model) -> dict:
+    """Where the leaves are: by order of axis, by age of the wood, and how far out from the stem.  For judging whether a crown is thin for want of short shoots, of side shoots, or of leaves."""
+    import numpy as np
+
+    T = model.tree
+    n = T.n
+    alive = T.death[:n] < 0
+    on = np.isin(T.axis[:n], np.fromiter(model.leader_axes, np.int64))
+    la = np.where(alive, T.leaves[:n], 0.0).astype(float) * float(model.light.leaf_area)
+    length = np.where(alive, T.length[:n], 0.0)
+    order = np.where(on, 0, np.minimum(T.order[:n], 5))
+    spur = alive & (T.lat[:n] == 2)
+    out = {"la_m2": round(float(la.sum()), 1), "by_order": {}, "by_wood_age": {}, "by_reach": {}}
+    for k in range(6):
+        hit = order == k
+        m = float(length[hit].sum())
+        out["by_order"][k] = {"metres": round(m, 1), "la_m2": round(float(la[hit].sum()), 1), "la_per_m": round(float(la[hit].sum()) / max(m, 1e-9), 3),
+                              "spurs_per_m": round(float((spur & hit).sum()) / max(m, 1e-9), 2), "axes": int(np.unique(T.axis[:n][hit & alive]).size)}
+    age = int(model.year) - T.birth[:n]
+    limb_axis = order == 1
+    for name, lo, hi in (("0-2", 0, 3), ("3-5", 3, 6), ("6-10", 6, 11), ("11-20", 11, 21), ("21+", 21, 10000)):
+        hit = (age >= lo) & (age < hi)
+        m = float(length[hit].sum())
+        mb = float(length[hit & limb_axis].sum())
+        out["by_wood_age"][name] = {"metres": round(m, 1), "la_m2": round(float(la[hit].sum()), 1), "la_per_m": round(float(la[hit].sum()) / max(m, 1e-9), 3),
+                                    "limb_axis_metres": round(mb, 1), "limb_axis_spurs_per_m": round(float((spur & hit & limb_axis).sum()) / max(mb, 1e-9), 2), "limb_axis_la_per_m": round(float(la[hit & limb_axis].sum()) / max(mb, 1e-9), 3)}
+    stem = np.nonzero(on & alive)[0]
+    r = np.hypot(T.pos[:n, 0] - np.interp(T.pos[:n, 2], *_sorted_xy(T, stem, 0)), T.pos[:n, 1] - np.interp(T.pos[:n, 2], *_sorted_xy(T, stem, 1)))
+    rmax = float(np.percentile(r[la > 0.0], 95)) if (la > 0.0).any() else 1.0
+    for name, lo, hi in (("0-25", 0.0, 0.25), ("25-50", 0.25, 0.5), ("50-75", 0.5, 0.75), ("75-100", 0.75, 1.0), ("beyond", 1.0, 99.0)):
+        hit = (r / max(rmax, 1e-6) >= lo) & (r / max(rmax, 1e-6) < hi)
+        out["by_reach"][name] = round(float(la[hit].sum()) / max(float(la.sum()), 1e-9), 3)
+    out["radius_95_m"] = round(rmax, 2)
+    # how long a strand runs on a twig axis, and how many strands a limb has
+    axes = T.axis[:n]
+    twig = alive & (order >= 2)
+    lens = np.bincount(axes[twig], weights=length[twig]) if twig.any() else np.zeros(1)
+    lens = lens[lens > 0.0]
+    out["twig_axis_len_m"] = {"n": int(lens.size), "median": round(float(np.median(lens)), 2) if lens.size else 0.0, "p90": round(float(np.percentile(lens, 90)), 2) if lens.size else 0.0}
+    return out
+
+
+def _sorted_xy(T, stem, c):
+    order = np.argsort(T.pos[stem, 2])
+    return T.pos[stem, 2][order], T.pos[stem, c][order]
 
 
 def draw(model, ppm: float, leaves: bool, label: str, width_m: float, height_m: float):
@@ -104,7 +152,7 @@ def one(seed: int, sets: list, ages: list, stand: bool, out: Path) -> str:
             ppm = 28.0
             panels.append(draw(model, ppm, False, tag, 16.0, 26.0))
             panels.append(draw(model, ppm, True, "", 16.0, 26.0))
-            tables.append(limb_table(model))
+            tables.append({**limb_table(model), "foliage": foliage_table(model)})
     W = sum(p.size[0] for p in panels)
     H = max(p.size[1] for p in panels)
     im = Image.new("RGB", (W, H), (255, 255, 255))
