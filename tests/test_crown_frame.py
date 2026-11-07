@@ -237,3 +237,28 @@ def test_earned_on_a_tree_that_forks_one_limb_goes_up_as_a_second_top():
     nodes = np.nonzero((T.axis[: T.n] == tops[0]) & (T.death[: T.n] < 0))[0]
     assert np.degrees(model._frame_setpoints()[tops[0]]) == float(model.sp.resource.reiteration.setpoint_angle_deg)
     assert float(T.pos[nodes, 2].max()) > float(T.pos[T.parent[nodes[0]], 2]) + 1.0
+
+
+def test_earned_a_browsed_stem_has_no_sharp_crook():
+    """A replacement leader leaves the wound from a bud, nearly in line: seed 3 lost its leader at 1.4 m, and the old way left 44 degrees in the wood for good."""
+    model = grow(12, [s for s in EARNED if not s.startswith("leader_damage")], seed=3)
+    assert model.leader_losses
+    T = model.tree
+    stem = np.asarray(T.trunk_chain(model.leader_axes), dtype=np.int64)
+    d = np.diff(T.pos[stem], axis=0)
+    d /= np.maximum(np.linalg.norm(d, axis=1, keepdims=True), 1e-9)
+    assert float(np.degrees(np.arccos(np.clip((d[1:] * d[:-1]).sum(1), -1.0, 1.0))).max()) < 20.0
+
+
+def test_thick_limbs_sapwood_turns_over_more_slowly():
+    sets = ON + ["pipe_model.branch_sapwood_senescence=0.3", "pipe_model.branch_sapwood_thick_m=0.01"]
+    model = grow(16, sets, stand=False)
+    T = model.tree
+    n = T.n
+    on = np.isin(T.axis[:n], np.fromiter(model.leader_axes, np.int64))
+    loss = model._sapwood_loss(n)
+    thin = ~on & (T.radius[:n] <= 0.01) & (T.death[:n] < 0)
+    thick = ~on & (T.radius[:n] > 0.01) & (T.death[:n] < 0)
+    assert thin.any() and thick.any()
+    assert np.allclose(loss[thin], 0.3) and (loss[thick] < 0.3).all()
+    assert np.allclose(loss[on], float(model.sp.pipe_model.sapwood_senescence_per_year))

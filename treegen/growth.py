@@ -2162,6 +2162,10 @@ class GrowthModel:
             med = np.array([float(np.median(vals[max(i - k, 0): i + k + 1])) for i in range(len(vals))])
             x = vals / np.maximum(med, 1e-9)
             vig[by_z] = 2.0 * x / (1.0 + x)
+            behind = getattr(self.sp.crown_frame, "limb_left_behind", None)
+            if behind:
+                # a limb with next to nothing against its neighbours is on its way out: a long bare limb with a tuft at its end doesn't stay.  Shed before next season's flush, as a starving one is
+                self._starving = np.union1d(self._starving, by_z[x < float(behind)])
         self._frame_vig = vig
 
     def _frame_goal(self, base) -> np.ndarray:

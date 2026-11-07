@@ -1666,6 +1666,8 @@ crown_frame:
   fork_leaf_area_m2: 1.5
   # TUNED, against nothing: how many limbs on each side count as a limb's neighbours (_frame_earned): about a metre of stem.
   limb_rivals: 5
+  # TUNED, against bare limbs ending in a tuft: a limb with less than this share of its neighbours' median leaf area is shed.  null: none.
+  limb_left_behind: null
   # TUNED, against the look: when the crown has all the leaf area it can hold (crown_lai_max), short shoots this old die, so new shoots have room and the foliage moves out.
   # Birch short shoots live several years (Maillette 1982, abstract only).  null: none die of age.
   full_crown_spur_years: 8
