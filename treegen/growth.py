@@ -947,6 +947,11 @@ class GrowthModel:
         # a node grown by less than one metamer has its leaf but no axillary
         # bud (bud_fate.axillary_buds_below_one_metamer): no sink
         Glat[lat_nodes[T.no_axil[lat_nodes]]] = 0.0
+        every = getattr(sp.bud_fate, "stem_bud_every", None)
+        if every:
+            # only one bud in so many on the stem can start a limb; the rest stay short shoots
+            on_stem = np.isin(T.axis[lat_nodes], np.fromiter(self.leader_axes, np.int64))
+            Glat[lat_nodes[on_stem & (T.phyllo[lat_nodes] % int(every) != 0)]] = 0.0
         self._hd = self._height_limit_plan(t, term_nodes, lat_nodes, Qterm, Qlat, 1.0 - stress) if self._height_limit_on() else None
         if self._hd is not None:
             self._leader_phi = float((phi_t if self._hd["is_tip"] else phi_l)[self._hd["bud"]])
@@ -1889,7 +1894,9 @@ class GrowthModel:
             is_twig = (T.order[starts].astype(np.int64) + (np.arange(len(starts)) >= n_term)) >= 2
             caps = np.where(is_twig, np.minimum(caps, float(twig_ratio) * lead_len / full), caps)
         if ratio is not None:
-            caps = np.minimum(caps, float(ratio) * lead_len / full)
+            # with a floor: an old leader's short shoots don't hold the whole crown to them
+            floor_m = float(getattr(self.sp.height_driver, "lateral_cap_floor_m", None) or 0.0)
+            caps = np.minimum(caps, max(float(ratio) * lead_len, floor_m) / full)
             if self.reit_axes and bool(getattr(self.sp.height_driver, "leader_lost_in_crown", False)):
                 # a reiterated limb is a small tree on the tree: only the top of the crown holds it back
                 caps = np.where(np.isin(T.axis[starts], np.fromiter(self.reit_axes, np.int64)) & (np.arange(len(starts)) < n_term), float(nmax), caps)

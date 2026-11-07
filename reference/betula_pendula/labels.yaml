@@ -371,3 +371,8 @@ soil_water_balance.dry_year_precipitation_mm:
   status: sourced
   value: [6.8, 26.5, 89.1, 105.1, 44.6]
   source: 'drought_scenario: use the 2018 precipitation, Uppsala 97520, SMHI open data (parameter 23, monthly sums): dry May-June, wet July-August; its May-Sep total (272 mm) is close to the normal (280 mm). PET'
+# The tree agent's settings, all off or null by default; the values in test A, and what each was set against (reports/tree_handover.md).
+height_driver.site_index: {status: TUNED, value: 23.0, against: 'the middle of the target band SI 20-26; a plain setting, not fixed anywhere'}
+height_driver.reference_age_years: {status: sourced, value: 50.0, source: 'Elfving 2010 Appendix 9, as reference/targets.yaml'}
+height_driver.t13_numerator: {status: sourced, value: 150.0, source: 'Elfving 2010 Appendix 7 p. 56, as reference/targets.yaml'}
+height_driver.sis_total_age_years: {status: sourced, value: 100.0, source: 'Elfving 2010 p. 55, as reference/targets.yaml'}
