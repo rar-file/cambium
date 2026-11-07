@@ -39,7 +39,8 @@ def test_shed_events_count_each_axis_once():
     dead_firsts = ((T.death[: T.n] >= 0) & T.is_lateral[: T.n]).sum()
     counted = sum(row["branches"] + row["twigs"] for row in events.values())
     assert 0 < counted <= dead_firsts
-    assert all(int(year) <= model.year for year in events)
+    # a short shoot's leaves have this season's flush, so its death is logged for next year
+    assert all(int(year) <= model.year + 1 for year in events)
 
 
 def test_a_flip_is_a_year_far_under_the_years_around_it():
