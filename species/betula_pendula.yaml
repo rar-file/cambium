@@ -1797,3 +1797,30 @@ appearance:
       days: {spring: 142, summer: 200, early_autumn: 270, autumn: 283}
       # linear luminance a bark stage's tile is scaled to; a stage not named stays as it is
       bark_mean_y: {papery: 0.32}
+
+# Ways of running faster, all off by default.  The lossless ones change no number: tests/test_speed.py and
+# tools/golden.py show it; reports/speed_research.md has the gains.
+speed:
+  # the carbon solve's repeated evaluation, compiled (treegen/fast.py carbon_parts)
+  compiled_carbon: false
+  # bending under load, compiled (fast.bend_steps)
+  compiled_mechanics: false
+  # the light sweep holds its grids layer by layer, each layer's cells together, and the leaves' spread before it is compiled
+  light_layers: false
+  # the soil's stones and rootable depth are kept instead of being laid out again each year
+  keep_soil_grids: false
+  # the carbon solve reaches the same answer in fewer evaluations (fast.quick_bisect)
+  quick_solve: false
+  # the tree's order of passes from a compiled count, and the per-level lists only when something walks them (fast.level_order)
+  quick_levels: false
+  # NOT lossless, needs the maintainer's approval: the same light sums in another order, with scipy's ffts.  The field agrees to float32
+  # rounding (at most 1e-6 in a field of up to 2), so a seed makes a different tree, as it does on another machine
+  light_rows: false
+  # NOT lossless either, the same way: lean runs drop dead nodes (treegen/compact.py)
+  drop_dead: false
+  # LOSSY, each needs the maintainer's approval (reports/speed_research.md).  One light field lasts this many years
+  light_every: 1
+  # Fewer light directions: null keeps the environment's own (sky 44, sun 16)
+  sky_elevations_deg: null
+  sky_azimuth_count: null
+  sun_hour_step: null

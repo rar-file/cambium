@@ -753,3 +753,18 @@ soil_water_balance:
   dry_year_precipitation_mm: [6.8, 26.5, 89.1, 105.1, 44.6]
   # use the drought year's rain
   drought_scenario: false
+
+# Ways of running, all off: none is a fact about a species (reports/speed_research.md)
+speed:
+  compiled_carbon: false
+  quick_solve: false
+  quick_levels: false
+  compiled_mechanics: false
+  light_layers: false
+  keep_soil_grids: false
+  light_rows: false
+  drop_dead: false
+  light_every: 1
+  sky_elevations_deg: null
+  sky_azimuth_count: null
+  sun_hour_step: null

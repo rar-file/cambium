@@ -50,7 +50,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from . import hydraulics, mechanics
+from . import fast, hydraulics, mechanics
+from .compact import compact
 from .light import SUBCANOPY_LIGHT_HEIGHTS_M, ShadowPropagation
 from .reference import eriksson_1997_height
 from .roots import RootSystem
@@ -87,7 +88,7 @@ class GrowthModel:
         self.keyframe_step = int(keyframe_step)
         self.rng = np.random.default_rng(self.seed)
         st = species.stand
-        self.light = ShadowPropagation(environment, species.light,
+        self.light = ShadowPropagation(fast.light_environment(species, environment), species.light,
                                        float(st.shadow_horizontal_reach) if self.stand else None,
                                        (float(st.shadow_decay_length) if getattr(st, "shadow_decay_length", None) else None)
                                        if self.stand else None)
@@ -125,6 +126,12 @@ class GrowthModel:
         self.roots = RootSystem(species.roots, soil, seed, self.light.vs, soil_frame) if soil is not None else None
         if self.roots is not None:
             self.roots.lean = self.lean
+            self.roots.keep_soil_grids = fast.on(species, "keep_soil_grids")
+        self.tree.quick_levels = fast.on(species, "quick_levels")
+        if self.roots is not None:
+            self.roots.tree.quick_levels = self.tree.quick_levels
+        self.light.fast_rows = fast.on(species, "light_rows")
+        self.light.fast_layers = fast.on(species, "light_layers") or self.light.fast_rows
         if self.stand:
             nrng = np.random.default_rng([self.seed, 7919])
             k = int(st.cell_trees)
@@ -719,8 +726,12 @@ class GrowthModel:
         elif self.stand:
             height = float(T.pos[:n0][alive, 2].max())
             cpos, cw, cell, c_wpos, c_warea = self._stand_cell(src, src_w, height, wpos, warea)
-            field = self.light.compute(cpos, cw, region, periodic=cell, wood_pos=c_wpos, wood_area=c_warea, k_wood=k_wood,
-                                       diffuse_heights=SUBCANOPY_LIGHT_HEIGHTS_M)
+            old = getattr(self, "_field", None)
+            if (t - 1) % fast.light_every(sp) != 0 and old is not None and old.S.shape[:2] == (cell[2], cell[3]):
+                field = old     # lossy, speed.light_every: last year's light
+            else:
+                field = self.light.compute(cpos, cw, region, periodic=cell, wood_pos=c_wpos, wood_area=c_warea, k_wood=k_wood,
+                                           diffuse_heights=SUBCANOPY_LIGHT_HEIGHTS_M)
         else:
             field = self.light.compute(src, src_w, region, wood_pos=wpos, wood_area=warea, k_wood=k_wood)
         self._field = field   # kept for diagnostics until the next season
@@ -748,7 +759,7 @@ class GrowthModel:
         # size and LMA from their light (sun and shade leaves)
         for nodes, q in ((term_nodes, Qterm[term_nodes]), (lat_nodes, Qlat[lat_nodes])):
             T.leaf_size[nodes], T.lma[nodes] = self.leaf_traits(q)
-        self._bud_q = (Qterm, Qlat)
+        self._bud_q = None if fast.on(sp, "drop_dead") else (Qterm, Qlat)     # nothing in the model reads it
         self._crown_light = self._crown_light_asymmetry(term_nodes, lat_nodes, Qterm, Qlat, w_term, w_lat)
 
         # 2. shedding ------------------------------------------------------
@@ -1237,11 +1248,14 @@ class GrowthModel:
             setpoint = np.where(stem, gsa_o[0], setpoint)
             mechanics.bend_and_correct(T, levels, alive, mp, leaves_now, T.leaves[:n].astype(float),
                                        r_prev, setpoint, float(self.sp.shoot.min_height_above_ground),
-                                       self._stem_posture_target(n), stem, self._limb_nodes(n))
+                                       self._stem_posture_target(n), stem, self._limb_nodes(n),
+                                       compiled=fast.on(self.sp, "compiled_mechanics"))
         T.leaves[:n] = leaves_now
         if not self.lean and self.keyframe_step > 0 and t % self.keyframe_step == 0:
             self.keyframes[t] = T.pos[:n].astype(np.float32).copy()
         self.stats.append(self.measure())
+        if fast.on(self.sp, "drop_dead"):
+            compact(self)
 
     def dbh_m(self) -> float | None:
         """Stem diameter at 1.3 m (m), None while the tree is shorter."""
@@ -1703,6 +1717,9 @@ class GrowthModel:
                     ring = np.maximum(ring, a_wind - wood_keep)
             return (shoot_vol + float((ring * L).sum())) / unit + leaf_units, ring
 
+        if fast.on(sp, "compiled_carbon"):
+            parts = fast.parts_function(hd, lead_at, ahead, share, thr, caps, full, per_met, early, lma, extra_per_node, starts, z_node, levels, alive, T.parent,
+                                        la_now, hv, keep, L, f_wind, a_wind_coef, laz_now, z_base, wood_keep, ring_cap, tip_area, unit, g_per_unit, g_resp)
         c0, r0 = parts(0.0)
         self._ring_need = c0
         if lead_at is not None:
@@ -1728,15 +1745,19 @@ class GrowthModel:
             return 0.0, r0 * (pool / c0 if c0 > 0.0 else 0.0)
 
         def solve_for(target):
-            lo, hi = 0.0, 1.0
-            while parts(hi)[0] < target and hi < 1e7:
-                lo, hi = hi, 2.0 * hi
-            for _ in range(40):
-                mid = 0.5 * (lo + hi)
-                if parts(mid)[0] < target:
-                    lo = mid
-                else:
-                    hi = mid
+            if fast.on(sp, "quick_solve"):
+                lo, hi = fast.quick_bisect(parts, target, getattr(self, "_lam_guess", 1.0))
+                self._lam_guess = lo
+            else:
+                lo, hi = 0.0, 1.0
+                while parts(hi)[0] < target and hi < 1e7:
+                    lo, hi = hi, 2.0 * hi
+                for _ in range(40):
+                    mid = 0.5 * (lo + hi)
+                    if parts(mid)[0] < target:
+                        lo = mid
+                    else:
+                        hi = mid
             if lead_at is not None and getattr(sp.height_driver, "leaf_growth_max", None) is not None:
                 # the crown can't add more leaf area in a year than this many times what it has (sink
                 # limit, standing in for nutrients and competition); what's left goes to the store or is lost

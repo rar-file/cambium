@@ -37,6 +37,7 @@ from pathlib import Path
 
 import numpy as np
 
+from . import fast
 from .growth import GrowthModel
 from .light import SUBCANOPY_LIGHT_HEIGHTS_M
 from .regeneration import Regeneration, SpreadRegeneration
@@ -332,9 +333,14 @@ class Plot:
         if srcs:
             allp = np.concatenate(srcs)
             pts_for_region = allp if all_wpos is None or len(all_wpos) == 0 else np.concatenate([allp, all_wpos])
-            field = self.light.compute(allp, np.concatenate(ws), np.stack([pts_for_region.min(0), pts_for_region.max(0)]),
-                                       periodic=self.cell, wood_pos=all_wpos, wood_area=all_warea, k_wood=k_wood,
-                                       diffuse_heights=SUBCANOPY_LIGHT_HEIGHTS_M)
+            old = getattr(self, "_field_kept", None)
+            if (t - 1) % fast.light_every(self.species) != 0 and old is not None:
+                field = old     # lossy, speed.light_every: last year's light
+            else:
+                field = self.light.compute(allp, np.concatenate(ws), np.stack([pts_for_region.min(0), pts_for_region.max(0)]),
+                                           periodic=self.cell, wood_pos=all_wpos, wood_area=all_warea, k_wood=k_wood,
+                                           diffuse_heights=SUBCANOPY_LIGHT_HEIGHTS_M)
+                self._field_kept = field if fast.light_every(self.species) > 1 else None
         if getattr(self, "measures", False):
             lx, ly = self._sides()
             cfg = self.species.plot
@@ -484,6 +490,7 @@ class Plot:
         """Move every living tree's history to out_dir/tree_XXX/ and pickle
         the plot to out_dir/checkpoint.pkl (written atomically)."""
         out = Path(out_dir)
+        self._field_kept = None
         for k in self.alive:
             m = self.trees[k]
             m._plot_view = None
