@@ -1740,6 +1740,11 @@ class GrowthModel:
             self._frame_earned(starts, q_bud, bud_leaf)
             sc_ = T.scaffold[starts].astype(np.int64)
             light_share = np.where(share > 0.0, np.minimum(q_bud, 1.0) * np.where(sc_ > 0, self._frame_vig[np.minimum(sc_, len(self._frame_vig) - 1)], 1.0), 0.0)
+            # and with the age of its limb (Barthelemy & Caraglio 2007, _scaffold_vigour): an old low limb's buds lose out to a young one's, so in a crown with no room it stops
+            # renewing its foliage, falls behind the limbs above it, and goes
+            light_share *= self._scaffold_vigour(self.year + 1, starts)
+            # gravimorphism (Wareing & Nasr 1961, resource.gravimorphism): a bud on a shoot that hangs doesn't start a long shoot, so curtains are single strands, not brooms
+            light_share[len(term_nodes):] *= np.maximum(0.05, 1.0 + float(sp.resource.gravimorphism) * T.dir[lat_nodes, 2])
             share = light_share / max(float(light_share.sum()), 1e-12)
             self._frame_share = share
         thr = np.concatenate([np.full(len(term_nodes), float(getattr(bf, "min_tip_extension", 1.0))),
@@ -2153,6 +2158,16 @@ class GrowthModel:
         la = np.zeros(T.n)
         np.add.at(la, sc[on], bud_leaf[on])
         self._frame_la = la
+        # how far each limb's own axes reach from the stem
+        n = T.n
+        whole = T.scaffold[:n].astype(np.int64)
+        fork = np.zeros(int(T.axis[:n].max()) + 1, bool)
+        if self.__dict__.get("_frame_fork_of"):
+            fork[np.fromiter(self._frame_fork_of.keys(), np.int64)] = True
+        own = np.nonzero((whole > 0) & (T.death[:n] < 0) & ((T.axis[:n] == T.axis[whole]) | fork[T.axis[:n]]))[0]
+        off = T.pos[own, :2] - T.pos[T.parent[whole[own]], :2]
+        self._frame_limb_reach = np.zeros(n)
+        np.maximum.at(self._frame_limb_reach, whole[own], np.hypot(off[:, 0], off[:, 1]))
         vig = np.ones(T.n)
         firsts = np.nonzero(la > 0.0)[0]
         if firsts.size >= 3:
@@ -2164,8 +2179,10 @@ class GrowthModel:
             vig[by_z] = 2.0 * x / (1.0 + x)
             behind = getattr(self.sp.crown_frame, "limb_left_behind", None)
             if behind:
-                # a limb with next to nothing against its neighbours is on its way out: a long bare limb with a tuft at its end doesn't stay.  Shed before next season's flush, as a starving one is
-                self._starving = np.union1d(self._starving, by_z[x < float(behind)])
+                # a limb with next to nothing against the younger limbs above it is on its way out: a long bare limb with a tuft at its end doesn't stay.  Shed before next season's
+                # flush, as a starving one is.  Against those above only, so a young limb at the top isn't measured against the old ones under it
+                above = np.array([float(np.median(vals[i + 1: i + 1 + k])) if i + 1 < len(vals) else 0.0 for i in range(len(vals))])
+                self._starving = np.union1d(self._starving, by_z[vals < float(behind) * above])
         self._frame_vig = vig
 
     def _frame_goal(self, base) -> np.ndarray:
@@ -2208,7 +2225,11 @@ class GrowthModel:
         off = T.pos[node, :2] - T.pos[base, :2]
         r = np.maximum(np.hypot(off[:, 0], off[:, 1]), 1e-6)
         outward = (d * off).sum(1) / r
-        goal = self._frame_goal(base) * self._frame_shares()[T.axis[first]] * (1.0 if self._frame_earns() else float(cf.twig_overshoot))
+        if self._frame_earns():
+            # a twig goes no further than a year's shoot past its limb's own tip, so the outline is the limbs', and a limb's reach comes of its age and its light
+            goal = np.minimum(self._frame_goal(base) * self._frame_shares()[T.axis[first]], self._frame_limb_reach[first] + float(cf.twig_shoot_max_m))
+        else:
+            goal = self._frame_goal(base) * self._frame_shares()[T.axis[first]] * float(cf.twig_overshoot)
         room = np.maximum(goal - r, 0.0) / np.maximum(outward, 0.05)
         lim[i] = np.where(outward > 0.05, np.minimum(lim[i], room / full[i]), lim[i])
         return lim
@@ -2219,7 +2240,8 @@ class GrowthModel:
         lead_len = float(full[hd["lead_at"]]) * float(min(hd["v"], nmax)) if "lead_at" in hd else 0.0
         n_term = hd.get("n_term", 0)
         dz = np.concatenate([T.term_dir[starts[:n_term], 2], T.lat_dir[starts[n_term:], 2]])
-        top = max(hd["z"] + lead_len * hd["dz"], float(hd["ref"]))
+        # with earned: apical control, nothing ends above where the leader was last year, so the leader stands clear
+        top = float(hd["z"]) if self._frame_earns() else max(hd["z"] + lead_len * hd["dz"], float(hd["ref"]))
         room = np.maximum(top - T.pos[starts, 2], 0.0)
         return np.where(dz > 0.02, room / (np.maximum(dz, 0.02) * full), float(nmax))
 
@@ -2295,17 +2317,10 @@ class GrowthModel:
         # a limb loses vigour as it ages (resource.branch_aging_years, Barthelemy & Caraglio 2007), so the crown's old lower limbs fall
         # behind the younger ones above them, as a crown in the open needs, or it's a cone
         age = np.where(limb_tip[at], np.maximum(self.year + 1.0 - T.scaffold_birth[node], 0.0), 0.0)
-        if earns:
-            # all a tree's limbs slow as the tree ages, whenever they were born: a limb born young has had longer to reach, so the outline rounds off above, and the crown is widest
-            # where the limbs had time and light.  Barthelemy & Caraglio 2007's physiological ageing, with a limb starting at the stem's age; the years are tuned
-            grow = grow * light * float(hd["water"]) * np.where(limb_tip[at], math.exp(-(self.year + 1.0) / float(cf.limb_ageing_years)), 1.0)
-        else:
-            grow = grow * light * float(hd["water"]) * np.exp(-age / float(self.sp.resource.branch_aging_years))
+        grow = grow * light * float(hd["water"]) * np.exp(-age / float(self.sp.resource.branch_aging_years))
         # the tree's one second top keeps up with the leader, and may catch it: only the room under the tree's top holds it (_frame_room)
         rise = np.maximum(np.where(limb_tip[at], T.term_dir[node, 2], 1.0), 0.5)
-        # it stops short of the top by a little, since later bending can still lift it: the curve gives the tree's height, and no limb goes over it
-        short = np.maximum(float(hd.get("ref", math.inf)) - 0.3 - T.pos[node, 2], 0.0) / rise
-        grow = np.where(second_top, np.minimum(float(self.sp.height_driver.catch_up) * longest / rise, short), grow)
+        grow = np.where(second_top, float(self.sp.height_driver.catch_up) * longest / rise, grow)
         plan = np.minimum(grow / full[at], float(nmax))
         if earns:
             # each year a limb's and a fork's newest bud breaks by its own light, however little the rest of the crown leaves it: a limb in the sun is never a bare whip
@@ -2432,7 +2447,7 @@ class GrowthModel:
         if ratio is not None:
             caps = np.minimum(caps, float(ratio) * lead_len / full)
         dz = np.concatenate([T.term_dir[starts[:n_term], 2], T.lat_dir[starts[n_term:], 2]])
-        top = max(hd["z"] + lead_len * hd["dz"], float(hd["ref"]))
+        top = float(hd["z"]) if self._frame_earns() else max(hd["z"] + lead_len * hd["dz"], float(hd["ref"]))
         room = np.maximum(top - T.pos[starts, 2], 0.0)
         caps = np.where(dz > 0.02, np.minimum(caps, room / (np.maximum(dz, 0.02) * full)), caps)
         caps[lead_at] = float(nmax)

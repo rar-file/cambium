@@ -1654,8 +1654,9 @@ crown_frame:
   twig_bud_every: 10
   # -- with earned on: limbs and twigs go by what they earn -----------------------------------------------------------------
   # What changes (Crown 2): limbs reach the published crown themselves, and it's the widest they go.  No table by place in the crown (top_share, peak_depth,
-  # base_share, profile_power, length_per_reach, steep_limit, twig_overshoot, twig_bud_every aren't read): age and light make the outline.  A bud's share goes with its own
-  # light and its limb's standing against its neighbours, not the split down the branches (so resource.apical_dominance does nothing).  Only the bud at the end of last
+  # base_share, profile_power, length_per_reach, steep_limit, twig_overshoot, twig_bud_every aren't read): age and light make the outline, and a twig goes no further than a
+  # year's shoot past its limb's tip.  A bud's share goes with its own light, its limb's standing against its neighbours and its limb's age (_scaffold_vigour), not the split down
+  # the branches (so resource.apical_dominance does nothing); a bud on a shoot that hangs doesn't start a long shoot (gravimorphism).  Only the bud at the end of last
   # year's shoot can start a long shoot on anything finer than the stem, and on a limb or a fork it's paid first, by its own light.  Thin twigs turn neither up nor to the
   # light (mechanics.pendulous_radius), so they hang.
   # One limb on a forking tree (fork_share_of_trees) goes up as a second top.  Off: the frame as it was.
@@ -1666,14 +1667,11 @@ crown_frame:
   fork_leaf_area_m2: 1.5
   # TUNED, against nothing: how many limbs on each side count as a limb's neighbours (_frame_earned): about a metre of stem.
   limb_rivals: 5
-  # TUNED, against bare limbs ending in a tuft: a limb with less than this share of its neighbours' median leaf area is shed.  null: none.
-  limb_left_behind: null
+  # TUNED, against bare limbs ending in a tuft and limbs to the ground: a limb with less than this share of the leaf area of the limbs above it is shed (_frame_earned).  null: none.
+  limb_left_behind: 0.3
   # TUNED, against the look: when the crown has all the leaf area it can hold (crown_lai_max), short shoots this old die, so new shoots have room and the foliage moves out.
   # Birch short shoots live several years (Maillette 1982, abstract only).  null: none die of age.
   full_crown_spur_years: 8
-  # TUNED, against the outline in the open and light in stands: all a tree's limbs' yearly shoots fall with the tree's age over this many years.  Shorter: a more pointed top and
-  # thinner stands (45 cost 0.3 LAI); no ageing: a flat-topped column.
-  limb_ageing_years: 80
   # TUNED, against stem size in stands: below the crown, this share of the sapwood last year's new leaves asked for isn't retired and rebuilt each year.  0: all of it is, as heartwood_by_own_foliage has it.
   sapwood_kept: 0.3
   # TUNED, against lone low limbs: a limb dies when the light on its leaves is under this share of the crown's mean: it's in the crown's own shade, however bright the sky.  null: off.

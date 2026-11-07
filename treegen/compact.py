@@ -70,7 +70,7 @@ def compact(model, every: int = 3, min_share: float = 0.2) -> bool:
     def sliced(a):
         return a[idx[idx < len(a)]]
 
-    for name in ("_established", "_limb_draw", "_r_last", "_r_pipe", "_psi", "_stem_pipe_prev"):
+    for name in ("_established", "_limb_draw", "_r_last", "_r_pipe", "_psi", "_stem_pipe_prev", "_frame_la_tot"):
         a = getattr(model, name, None)
         if isinstance(a, np.ndarray) and len(a):
             setattr(model, name, sliced(a))
@@ -85,6 +85,8 @@ def compact(model, every: int = 3, min_share: float = 0.2) -> bool:
     if "_frame_named" in model.__dict__:     # crown_frame: buds named to start a limb, and each one's share of the reach
         model._frame_named = {int(new[k]): v for k, v in model._frame_named.items() if keep[k]}
         model._frame_reach = {int(new[k]): v for k, v in model._frame_reach.items() if keep[k]}
+        model._frame_fork_of = {a: int(new[v]) for a, v in model._frame_fork_of.items() if keep[v]}
+        model._frame_fork_buds = {int(new[k]): int(new[v]) for k, v in model._frame_fork_buds.items() if keep[k] and keep[v]}
     # this year's working values, read by no one next year, with old numbers in them
     model._bud_q = None
     model._bud_leaf_cost = None
