@@ -421,14 +421,16 @@ def table(labels: list) -> None:
             si = reads_as(item, statistics.fmean(h), age)
             lai = [a["lai"] for a in at]
             light = [a["subcanopy_diffuse_light_pct"] for a in at]
-            ks = [-math.log(max(x, 1e-6) / 100.0) / max(y, 1e-6) for x, y in zip(light, lai)]
+            # a tree in the open has no canopy above a floor to read
+            has_light = None not in light
+            ks = [-math.log(max(x, 1e-6) / 100.0) / max(y, 1e-6) for x, y in zip(light, lai)] if has_light else []
             ob = [float(dbh_over_bark(a["dbh_cm"])) for a in at]
             rep = [repola(d, a["height_m"]) for d, a in zip(ob, at)]
             ev = [evo_median(d, evo) for d in ob]
             ev = [x for x in ev if x is not None]
             crown = [a["crown_ratio"] or 0.0 for a in at]
             per10 = [s["branches"] / 10.0 for s in sn]
-            print(f"| `{label}` | {age} | {len(rows)} | {fmt(h)} | {'-' if si is None else f'{si:.1f}'} | {statistics.fmean(ob):.1f} | {fmt(lai)} | {fmt(light, '.1f')} | {statistics.fmean(ks):.3f} | "
+            print(f"| `{label}` | {age} | {len(rows)} | {fmt(h)} | {'-' if si is None else f'{si:.1f}'} | {statistics.fmean(ob):.1f} | {fmt(lai)} | {fmt(light, '.1f') if has_light else '-'} | {f'{statistics.fmean(ks):.3f}' if has_light else '-'} | "
                   f"{statistics.fmean(s['stem_kg'] for s in sn):.0f} | {statistics.fmean(x[0] for x in rep):.0f} | {statistics.fmean(s['branch_kg'] for s in sn):.1f} | {statistics.fmean(x[1] for x in rep):.1f} | "
                   f"{fmt([a['crown_width_m'] for a in at])} | {statistics.fmean(ev) if ev else float('nan'):.1f} | {statistics.fmean(s['mean_branch_m'] for s in sn):.2f}, {statistics.fmean(s['median_branch_m'] for s in sn):.2f} | {fmt(per10, '.1f')} |")
     print("\nYears under 2 cm of height growth (all seeds), and whole-crown flips: years where side shoots total under a fifth of the median of the 5 years around them, or none at all.\n")
