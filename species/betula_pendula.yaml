@@ -978,18 +978,16 @@ damage:
     # severe (Solantie, in Nykanen Fig. 1).  Evenly spread within that, a choice.
     load_range_kg_m2: [20.0, 60.0]
     # TUNED against about 31 % of a young stand damaged in a severe event (Donis et
-    # al. 2024, in KNOWN_ISSUES.md; publisher 403, not reopened), on real stems:
-    # share of the crown's projected area that holds the load, the stem's lean under
-    # it as a share of height, and the width of the line between overloaded and not.
-    crown_catch_fraction: 0.10
+    # al. 2024, in KNOWN_ISSUES.md; publisher 403, not reopened), on real stems of
+    # logged plots, and against snow staying under wind's rate at 50 and 60: share of
+    # the crown's projected area that holds the load, the stem's lean under it as a
+    # share of height, and the width of the line between overloaded and not.
+    crown_catch_fraction: 0.06
     lever_fraction: 0.02
     spread: 0.25
-    # An overloaded stem under this DBH bends and an overloaded bigger one breaks;
-    # small stems bend (Nykanen p. 195).  TUNED, no target: the size is a choice.
-    bend_max_dbh_cm: 10.0
-    # Share of those small overloaded stems that break or uproot instead: 93.7 % of
-    # damaged trees were bent (Donis et al. 2024, as above).
-    small_stem_break_share: 0.063
+    # Share of overloaded stems that break or uproot; the rest bend: 93.7 % of damaged
+    # trees were bent (Donis et al. 2024, as above).
+    break_share: 0.063
   uproot:
     # TUNED, no target, looks only: mound radius per plate radius, the mound's
     # distance past the hinge per plate radius, and how fast the relief fades.

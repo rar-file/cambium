@@ -24,11 +24,11 @@ What each part rests on (full sources and labels: reference/<species>/labels.yam
 * Where it snaps.  Kitenberga Table 3 for the mean, her Fig. 4 for the spread.  A
   stem broken below the living crown dies; broken within it, it lives on with a
   new leader (Nykanen p. 195).
-* Snow.  The load sits on the crown's projected area; the real stem's Rayleigh buckling
-  factor (as tools/snow_buckling.py) amplifies the off-centre moment, compared
-  with the stem's strength.  Slender stems and off-centre crowns go first
-  (Nykanen pp. 201-202).  An overloaded small stem mostly bends: 93.7 % of damaged
-  birches did in Donis et al. 2024.  An overloaded big one breaks.
+* Snow.  The load sits on the crown's projected area, at most the tree's share of the
+  ground; the real stem's Rayleigh buckling factor (as tools/snow_buckling.py) amplifies
+  the off-centre moment, compared with the stem's strength.  Slender stems and off-centre
+  crowns go first (Nykanen pp. 201-202).  An overloaded stem mostly bends: 93.7 % of
+  damaged birches did in Donis et al. 2024.
 * Pit and mound.  The plate from RootSystem.anchorage tips over about its leeward
   edge.  The mound holds the soil the pit lost.
 
@@ -222,7 +222,10 @@ def snow_loading(state: TreeState, load_kg_m2: float, sp) -> tuple[float, float]
     factor of 1 the stem can't stand the load at all."""
     dp = sp.damage
     H = float(state.height_m)
-    m_load = load_kg_m2 * float(dp.snow.crown_catch_fraction) * math.pi / 4.0 * float(state.crown_width_m) ** 2 + float(state.crown_wood_kg)
+    area = math.pi / 4.0 * float(state.crown_width_m) ** 2
+    if state.stems_per_ha > 0.0:
+        area = min(area, 1e4 / float(state.stems_per_ha))      # no tree holds more snow than falls on its share of the ground
+    m_load = load_kg_m2 * float(dp.snow.crown_catch_fraction) * area + float(state.crown_wood_kg)
     z = np.linspace(0.0, H, 121)
     if state.stem_z is not None:
         r = np.interp(z, state.stem_z, state.stem_r, right=0.0)
@@ -336,9 +339,8 @@ def assess_year(state: TreeState, weather: Weather, sp, rng, load_anchorage=None
         return _failure(state, weather, sp, rng, kind, share_above)
 
     if state.dbh_cm and weather.snow_load_kg_m2 > 0.0 and rng.random() < snow_overload_probability(state, weather.snow_load_kg_m2, sp):
-        # small stems bend and few break (Nykanen p. 195; 93.7 % of damaged birches bent, Donis 2024); big ones break
-        small = float(state.dbh_cm) < float(dp.snow.bend_max_dbh_cm)
-        if small and rng.random() >= float(dp.snow.small_stem_break_share):
+        # an overloaded stem bends and few break: 93.7 % of damaged birches bent in Donis 2024
+        if rng.random() >= float(dp.snow.break_share):
             return Event("snow bend", False)
         return fail("snow")
     if weather.storm and state.dbh_cm and rng.random() < storm_hit_probability(state, dp):

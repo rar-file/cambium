@@ -488,15 +488,13 @@ damage:
     # load of a damaging snowfall; 0 to 500 kg/m2 of crown
     load_range_kg_m2: [20.0, 60.0]
     # share of the crown's area that holds the load; 0 to 1
-    crown_catch_fraction: 0.1
+    crown_catch_fraction: 0.06
     # the load's offset from the stem, per height; 0 to 1
     lever_fraction: 0.02
     # width of the line between overloaded and not; 0.01 to 10
     spread: 0.25
-    # overloaded stems under this DBH bend, bigger ones break; 0 to 500 cm
-    bend_max_dbh_cm: 10.0
-    # share of those small stems that break instead; 0 to 1
-    small_stem_break_share: 0.063
+    # share of overloaded stems that break or uproot; the rest bend; 0 to 1
+    break_share: 0.063
   uproot:
     # mound radius per plate radius; 0.1 to 10
     mound_radius_factor: 1.0

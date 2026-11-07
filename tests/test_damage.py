@@ -225,18 +225,24 @@ def test_a_thin_stem_that_cant_carry_it_is_overloaded_and_a_stand_tree_isnt(sp):
     assert damage.snow_overload_probability(stand, 60.0, sp) < 0.01
 
 
-def test_an_overloaded_small_stem_bends_and_few_break_and_a_big_one_breaks(sp):
+def test_an_overloaded_stem_bends_and_few_break(sp):
     """Donis 2024: 93.7 % of damaged trees were bent, so even a stand all overloaded loses few to the snow."""
     snow = Weather(False, 0.0, 60.0)
     sp.damage.old_age.enabled = False
-    small = TreeState(9, 9.0, 3.0, crown_base_m=3.0, crown_width_m=2.0, crown_wood_kg=2.0)
-    assert damage.snow_overload_probability(small, 60.0, sp) == 1.0
+    thin = TreeState(9, 12.0, 3.0, crown_base_m=3.0, crown_width_m=4.0, crown_wood_kg=2.0)
+    assert damage.snow_overload_probability(thin, 60.0, sp) == 1.0
     rng = np.random.default_rng(1)
-    causes = [damage.assess_year(small, snow, sp, rng).cause for _ in range(4000)]
+    causes = [damage.assess_year(thin, snow, sp, rng).cause for _ in range(4000)]
     assert causes.count("snow bend") / 4000 == pytest.approx(0.937, abs=0.015)
-    big = TreeState(50, 40.0, 12.0, crown_base_m=20.0, crown_width_m=5.0, crown_wood_kg=40.0)
-    assert damage.snow_overload_probability(big, 60.0, sp) == 1.0
-    assert all(damage.assess_year(big, snow, sp, rng).cause in ("snow snap", "snow uproot") for _ in range(50))
+    assert set(causes) <= {"snow bend", "snow snap", "snow uproot"}
+
+
+def test_no_tree_holds_more_snow_than_falls_on_its_share_of_the_ground(sp):
+    wide = TreeState(30, 16.0, 8.0, crown_base_m=4.0, crown_width_m=4.0, crown_wood_kg=5.0)
+    packed = TreeState(30, 16.0, 8.0, crown_base_m=4.0, crown_width_m=4.0, crown_wood_kg=5.0, stems_per_ha=4000.0)      # 2.5 m2 each against 12.6
+    roomy = TreeState(30, 16.0, 8.0, crown_base_m=4.0, crown_width_m=4.0, crown_wood_kg=5.0, stems_per_ha=100.0)
+    assert damage.snow_loading(packed, 60.0, sp)[1] > damage.snow_loading(wide, 60.0, sp)[1]
+    assert damage.snow_loading(roomy, 60.0, sp)[1] == damage.snow_loading(wide, 60.0, sp)[1]
 
 
 # -- pit and mound -------------------------------------------------------------
@@ -487,9 +493,12 @@ def test_a_bent_stem_isnt_prior_damage_but_a_broken_one_is(sp):
     sp.damage.old_age.enabled = sp.damage.wind.enabled = False
     sp.damage.snow.return_years = 1
     sp.damage.snow.load_range_kg_m2 = [60.0, 60.0]
+    sp.damage.snow.crown_catch_fraction = 1.0
     p = FakePlot(sp, [_grown(copy.deepcopy(sp), 7, seed) for seed in (1, 2, 3)])
     p.year += 1
     damage.plot_year(p, list(p.alive))
+    causes = [rec["cause"] for i in p.info for rec in i.get("damage", [])]
+    assert "snow bend" in causes
     for i in p.info:
         for rec in i.get("damage", []):
             if rec["cause"] == "snow bend":

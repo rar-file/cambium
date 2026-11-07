@@ -162,79 +162,6 @@ leader_damage.events:
   - {name: moose browsing, min_height_m: 0.3, max_height_m: 3.0, probability_per_year: 0.168}
   source: Bergqvist, Bergstrom & Wallgren 2014, Silva Fennica 48:1077
   checked: page
-damage.dbh_over_bark_factor: {status: sourced, value: 1.098, source: 'Hansen et al. 2023, coefficients as in tools/bark.py; intercept dropped'}
-damage.stem_form_factor: {status: sourced, value: 0.45, source: 'Krisans et al. 2022 Tables 1-2, site means: V / (pi/4 D2 H) = 0.45 at both sites'}
-damage.old_age.amax_b0: {status: sourced, value: 4.6246, source: 'Elfving 2010 p. 67 Table 3, birch', checked: page}
-damage.old_age.amax_b1: {status: sourced, value: -0.02192, source: 'Elfving 2010 p. 67 Table 3, birch', checked: page}
-damage.old_age.amax_b2: {status: sourced, value: 0.1742, source: 'Elfving 2010 p. 67 Table 3, birch', checked: page}
-damage.old_age.amax_n: {status: sourced, value: 10000, source: 'Elfving 2010 p. 67: read at n = 10 000', checked: page}
-damage.old_age.site_index_sis_m: {status: VERIFY, value: 27.5, note: 'a choice of site, about SI 23; the band SI 20-26 is 25.08-29.93 m on this scale (targets.yaml)'}
-damage.old_age.ageing_a: {status: sourced, value: 10.0, source: 'Elfving 2010 p. 68, from Hynynen et al. 2002', checked: page}
-damage.old_age.ageing_b: {status: sourced, value: 12.0, source: 'Elfving 2010 p. 68, from Hynynen et al. 2002', checked: page}
-damage.old_age.years_to_breast_height: {status: sourced, value: 5.5, source: 'Elfving 2010 p. 56: T13 = 150 / SIS, at this site index', checked: page}
-damage.wind.intercept: {status: sourced, value: -5.03, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1; at the means, as her Figs. 1-2 confirm', checked: page}
-damage.wind.site_effect: {status: sourced, value: 0.0, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1: dry mineral soil is the reference level', checked: page}
-damage.wind.prior_damage: {status: sourced, value: 1.46, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1', checked: page}
-damage.wind.period_years: {status: sourced, value: 5, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 p. 3: five-year remeasurement', checked: page}
-damage.wind.population_offset: {status: TUNED, value: 1.23, against: 2.9-3.4 % of all birches damaged per 5-year period (Kitenberga 2021 p. 6); her fixed effects alone give 0.9 % on the mean tree and soil mix}
-damage.wind.storm_return_years: {status: TUNED, value: 5, against: 'no target: a storm year in five, so that trees go in groups; the damage per year doesn''t change with it'}
-damage.wind.wind_from_deg: {status: TUNED, value: 240.0, against: 'no target, looks only'}
-damage.wind.wind_from_sd_deg: {status: TUNED, value: 40.0, against: 'no target, looks only'}
-damage.wind.min_dbh_cm: {status: VERIFY, value: 14.0, note: 'Kitenberga 2021 p. 3 prints ''DBH; 14 cm'': the sign is lost in the PDF''s text, read as 14 cm and over'}
-damage.wind.age.per_sd: {status: sourced, value: 0.39, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1', checked: page}
-damage.wind.age.mean: {status: sourced, value: 57.35, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
-damage.wind.age.sd: {status: sourced, value: 21.35, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
-damage.wind.age.range:
-  status: sourced
-  value: [11.0, 216.0]
-  source: Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2
-  checked: page
-damage.wind.stems_per_ha.per_sd: {status: sourced, value: -0.7, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1', checked: page}
-damage.wind.stems_per_ha.mean: {status: sourced, value: 1128.0, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
-damage.wind.stems_per_ha.sd: {status: sourced, value: 890.0, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
-damage.wind.stems_per_ha.range:
-  status: sourced
-  value: [100.0, 11520.0]
-  source: Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2
-  checked: page
-damage.wind.basal_area_m2_ha.per_sd: {status: sourced, value: 0.21, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1', checked: page}
-damage.wind.basal_area_m2_ha.mean: {status: sourced, value: 27.5, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
-damage.wind.basal_area_m2_ha.sd: {status: sourced, value: 10.05, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
-damage.wind.basal_area_m2_ha.range:
-  status: sourced
-  value: [3.0, 67.0]
-  source: Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2
-  checked: page
-damage.wind.slenderness.per_sd: {status: sourced, value: 0.39, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1', checked: page}
-damage.wind.slenderness.mean: {status: sourced, value: 1.0, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
-damage.wind.slenderness.sd: {status: sourced, value: 0.2, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
-damage.wind.slenderness.range:
-  status: sourced
-  value: [0.3, 1.9]
-  source: Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2
-  checked: page
-damage.failure.mor_green_mpa: {status: sourced, value: 44.0, source: 'Nykanen et al. 1997 p. 198, from Peltola et al. 1997: 70 % of clear-wood MOR, birch', checked: page}
-damage.failure.even_odds_log_ratio: {status: TUNED, value: -0.46, against: '31-35 % of damaged birches uprooted (Kitenberga 2021 p. 6), on her mean tree'}
-damage.failure.spread: {status: TUNED, value: 0.5, against: 'the same; a width chosen, not fitted, since no share by tree size is published for birch'}
-damage.snap.intercept: {status: sourced, value: 0.532, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 3', checked: page}
-damage.snap.slenderness: {status: sourced, value: -0.097, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 3', checked: page}
-damage.snap.prior_damage: {status: sourced, value: -0.09, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 3', checked: page}
-damage.snap.beta_concentration: {status: sourced, value: 3.2, source: 'read from Kitenberga et al. 2021, Silva Fennica 55(2):10483 Fig. 4: SD 24 % of height', checked: page}
-damage.snow.return_years: {status: sourced, value: 5, source: 'Solantie 1994 in Nykanen et al. 1997 p. 201: every 5 years in southern Finland; a stand-in for Uppland', checked: page}
-damage.snow.load_range_kg_m2:
-  status: sourced
-  value: [20.0, 60.0]
-  source: 'Zubizarreta-Gerendiain et al. 2012 p. 192: 20-40 kg/m2; Solantie 1994 in Nykanen et al. 1997 Fig. 1: over 60 mm is severe'
-  checked: page
-damage.snow.crown_catch_fraction: {status: TUNED, value: 0.1, against: 'a 12 m birch at taper 1:120 stands 60 kg/m2 (Nykanen 1997 Fig. 2); about 2 % of a young stand broken in one severe event (Donis 2024, in KNOWN_ISSUES.md, not reopened); saved plots base_plots ages 8-15 give 1-4 %'}
-damage.snow.lever_fraction: {status: TUNED, value: 0.02, against: 'the same as crown_catch_fraction; barely matters, since most failures are buckling'}
-damage.snow.spread: {status: TUNED, value: 0.5, against: 'the same as crown_catch_fraction; barely matters, since most failures are buckling'}
-damage.snow.bend_buckling_factor: {status: TUNED, value: 6.0, against: 'about 29 % of a young stand bent in one severe event (Donis 2024, in KNOWN_ISSUES.md, not reopened); saved plots base_plots ages 8-15 give 18-39 %'}
-damage.snow.bend_max_dbh_cm: {status: TUNED, value: 10.0, against: the same; bending is a trait of small stems (Nykanen 1997 p. 195)}
-damage.snow.min_break_dbh_cm: {status: TUNED, value: 2.0, against: 'the same as crown_catch_fraction: without it stems under 2 cm, too tall for their age in this model, are most of the failures'}
-damage.uproot.mound_radius_factor: {status: TUNED, value: 1.0, against: 'no target, looks only'}
-damage.uproot.mound_distance_factor: {status: TUNED, value: 1.0, against: 'no target, looks only'}
-damage.uproot.relief_half_life_years: {status: TUNED, value: 20.0, against: 'no target, looks only'}
 plot.germination_years:
   status: VERIFY
   value: [0, 1, 2, 3]
@@ -376,3 +303,79 @@ height_driver.site_index: {status: TUNED, value: 23.0, against: 'the middle of t
 height_driver.reference_age_years: {status: sourced, value: 50.0, source: 'Elfving 2010 Appendix 9, as reference/targets.yaml'}
 height_driver.t13_numerator: {status: sourced, value: 150.0, source: 'Elfving 2010 Appendix 7 p. 56, as reference/targets.yaml'}
 height_driver.sis_total_age_years: {status: sourced, value: 100.0, source: 'Elfving 2010 p. 55, as reference/targets.yaml'}
+damage.dbh_over_bark_factor: {status: sourced, value: 1.098, source: 'Hansen et al. 2023, coefficients as in tools/bark.py; intercept dropped'}
+damage.stem_form_factor: {status: sourced, value: 0.45, source: 'Krisans et al. 2022 Tables 1-2, site means: V / (pi/4 D2 H) = 0.45 at both sites'}
+damage.old_age.amax_b0: {status: sourced, value: 4.6246, source: 'Elfving 2010 p. 67 Table 3, birch', checked: page}
+damage.old_age.amax_b1: {status: sourced, value: -0.02192, source: 'Elfving 2010 p. 67 Table 3, birch', checked: page}
+damage.old_age.amax_b2: {status: sourced, value: 0.1742, source: 'Elfving 2010 p. 67 Table 3, birch', checked: page}
+damage.old_age.amax_n: {status: sourced, value: 10000, source: 'Elfving 2010 p. 67: read at n = 10 000', checked: page}
+damage.old_age.site_index_sis_m: {status: VERIFY, value: 27.5, note: 'a choice of site, about SI 23; the band SI 20-26 is 25.08-29.93 m on this scale (targets.yaml)'}
+damage.old_age.ageing_a: {status: sourced, value: 10.0, source: 'Elfving 2010 p. 68, from Hynynen et al. 2002', checked: page}
+damage.old_age.ageing_b: {status: sourced, value: 12.0, source: 'Elfving 2010 p. 68, from Hynynen et al. 2002', checked: page}
+damage.old_age.years_to_breast_height: {status: sourced, value: 5.5, source: 'Elfving 2010 p. 56: T13 = 150 / SIS, at this site index', checked: page}
+damage.wind.intercept: {status: sourced, value: -5.03, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1; at the means, as her Figs. 1-2 confirm', checked: page}
+damage.wind.site_effect: {status: sourced, value: 0.0, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1: dry mineral soil is the reference level', checked: page}
+damage.wind.prior_damage: {status: sourced, value: 1.46, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1', checked: page}
+damage.wind.period_years: {status: sourced, value: 5, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 p. 3: five-year remeasurement', checked: page}
+damage.wind.population_offset: {status: TUNED, value: 1.23, against: '2.9-3.4 % of all birches damaged per 5-year period (Kitenberga 2021 p. 6); her fixed effects alone give 0.9 % on the mean tree and soil mix. On plots from 16,000 stems/ha: see reports of node_dmg_* runs'}
+damage.wind.storm_return_years: {status: TUNED, value: 10, against: 'no target: a storm year in ten, so that trees go in groups; the damage per year doesn''t change with it'}
+damage.wind.gap_radius_m: {status: TUNED, value: 6.0, against: 'no target: visible gaps in a 1000 m2 plot; the damage doesn''t change with it'}
+damage.wind.gap_area_share: {status: TUNED, value: 0.1, against: 'no target: visible gaps in a 1000 m2 plot; the damage doesn''t change with it'}
+damage.wind.gap_damage_share: {status: TUNED, value: 0.8, against: 'no target: visible gaps in a 1000 m2 plot; the damage doesn''t change with it'}
+damage.wind.canopy_height_share: {status: TUNED, value: 0.5, against: 'no target: who counts in her ''overstory''; her densities run to 11,520 stems/ha, so small trees do, and seedlings shouldn''t'}
+damage.wind.wind_from_deg: {status: TUNED, value: 240.0, against: 'no target, looks only'}
+damage.wind.wind_from_sd_deg: {status: TUNED, value: 40.0, against: 'no target, looks only'}
+damage.wind.min_dbh_cm: {status: VERIFY, value: 14.0, note: 'Kitenberga 2021 p. 3 prints ''DBH; 14 cm'': the sign is lost in the PDF''s text, read as 14 cm and over; her densities show smaller trees count in stems/ha'}
+damage.wind.age.per_sd: {status: sourced, value: 0.39, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1', checked: page}
+damage.wind.age.mean: {status: sourced, value: 57.35, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
+damage.wind.age.sd: {status: sourced, value: 21.35, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
+damage.wind.age.range:
+  status: sourced
+  value: [11.0, 216.0]
+  source: Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2
+  checked: page
+damage.wind.stems_per_ha.per_sd: {status: sourced, value: -0.7, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1', checked: page}
+damage.wind.stems_per_ha.mean: {status: sourced, value: 1128.0, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
+damage.wind.stems_per_ha.sd: {status: sourced, value: 890.0, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
+damage.wind.stems_per_ha.range:
+  status: sourced
+  value: [100.0, 11520.0]
+  source: Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2
+  checked: page
+damage.wind.basal_area_m2_ha.per_sd: {status: sourced, value: 0.21, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1', checked: page}
+damage.wind.basal_area_m2_ha.mean: {status: sourced, value: 27.5, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
+damage.wind.basal_area_m2_ha.sd: {status: sourced, value: 10.05, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
+damage.wind.basal_area_m2_ha.range:
+  status: sourced
+  value: [3.0, 67.0]
+  source: Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2
+  checked: page
+damage.wind.slenderness.per_sd: {status: sourced, value: 0.39, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1', checked: page}
+damage.wind.slenderness.mean: {status: sourced, value: 1.0, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
+damage.wind.slenderness.sd: {status: sourced, value: 0.2, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
+damage.wind.slenderness.range:
+  status: sourced
+  value: [0.3, 1.9]
+  source: Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2
+  checked: page
+damage.failure.mor_green_mpa: {status: sourced, value: 44.0, source: 'Nykanen et al. 1997 p. 198, from Peltola et al. 1997: 70 % of clear-wood MOR, birch', checked: page}
+damage.failure.even_odds_log_ratio: {status: TUNED, value: -0.46, against: '31-35 % of damaged birches uprooted (Kitenberga 2021 p. 6), on the wind-damaged trees of the logged plots with paid roots'}
+damage.failure.spread: {status: TUNED, value: 0.5, against: 'the same; a width chosen, not fitted, since no share by tree size is published for birch'}
+damage.snap.intercept: {status: sourced, value: 0.532, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 3', checked: page}
+damage.snap.slenderness: {status: sourced, value: -0.097, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 3', checked: page}
+damage.snap.prior_damage: {status: sourced, value: -0.09, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 3', checked: page}
+damage.snap.beta_concentration: {status: sourced, value: 3.2, source: 'read from Kitenberga et al. 2021, Silva Fennica 55(2):10483 Fig. 4: SD 24 % of height', checked: page}
+damage.snap.min_leaves_left: {status: TUNED, value: 0.5, against: 'mean height staying near the undamaged plots''; trees losing over half their crown are likely to be attacked (Juutinen 1953, in Nykanen 1997 p. 196, pine and spruce)'}
+damage.snow.return_years: {status: sourced, value: 5, source: 'Solantie 1994 in Nykanen et al. 1997 p. 201: every 5 years in southern Finland; a stand-in for Uppland', checked: page}
+damage.snow.load_range_kg_m2:
+  status: sourced
+  value: [20.0, 60.0]
+  source: 'Zubizarreta-Gerendiain et al. 2012 p. 192: 20-40 kg/m2; Solantie 1994 in Nykanen et al. 1997 Fig. 1: over 60 mm is severe'
+  checked: page
+damage.snow.crown_catch_fraction: {status: TUNED, value: 0.06, against: 'about 31 % of a young stand damaged in a severe event (Donis et al. 2024, Forests 15:275, as in KNOWN_ISSUES.md; the publisher''s page returned 403, so not reopened), on real stems of logged plots; and snow staying under wind at 50 and 60'}
+damage.snow.lever_fraction: {status: TUNED, value: 0.02, against: 'the same as crown_catch_fraction; barely matters, since most overloads are buckling'}
+damage.snow.spread: {status: TUNED, value: 0.25, against: 'the same as crown_catch_fraction; narrow, so a big stem well inside its strength isn''t overloaded'}
+damage.snow.break_share: {status: VERIFY, value: 0.063, note: '93.7 % of damaged trees were bent: Donis et al. 2024, Forests 15:275, as in KNOWN_ISSUES.md; the publisher''s page returned 403, so not reopened'}
+damage.uproot.mound_radius_factor: {status: TUNED, value: 1.0, against: 'no target, looks only'}
+damage.uproot.mound_distance_factor: {status: TUNED, value: 1.0, against: 'no target, looks only'}
+damage.uproot.relief_half_life_years: {status: TUNED, value: 20.0, against: 'no target, looks only'}
