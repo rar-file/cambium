@@ -1735,3 +1735,15 @@ appearance:
     # colour and packed maps as jpeg to keep files small; png wherever alpha is needed
     jpeg_quality: 88
     texture_seed: 4177
+
+# Ways of running faster, all off by default.  The lossless ones change no number: tests/test_speed.py and
+# tools/golden.py show it; reports/speed_research.md has the gains.
+speed:
+  # the carbon solve's repeated evaluation, compiled (treegen/fast.py carbon_parts)
+  compiled_carbon: false
+  # bending under load, compiled (fast.bend_steps)
+  compiled_mechanics: false
+  # the light sweep holds its grids layer by layer, each layer's cells together, and the leaves' spread before it is compiled
+  light_layers: false
+  # the soil's stones and rootable depth are kept instead of being laid out again each year
+  keep_soil_grids: false

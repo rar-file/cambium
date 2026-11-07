@@ -228,7 +228,14 @@ class RootSystem:
             nx, ny = int(hi[0] - lo[0] + 1), int(hi[1] - lo[1] + 1)
         nz = -zlo + 1
         rld = _root_density(pts, ls, lo, (nx, ny, nz), vs, p, cell is not None)
-        static, stone = _soil_grids(self.soil, sseed, lo, nx, ny, nz, vs)
+        key = (int(lo[0]), int(lo[1]), int(lo[2]), nx, ny, nz, sseed)
+        kept = getattr(self, "_kept_soil", None)
+        if kept is not None and kept[0] == key:
+            static, stone = kept[1], kept[2]
+        else:
+            static, stone = _soil_grids(self.soil, sseed, lo, nx, ny, nz, vs)
+            if getattr(self, "keep_soil_grids", False):
+                self._kept_soil = (key, static, stone)
         A = static * np.exp(-float(p.depletion_coefficient) * rld)
         self.field = (A.astype(np.float32), lo, stone, cell)
         return self.field

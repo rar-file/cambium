@@ -63,7 +63,8 @@ def strip_metadata(o):
             if k in METADATA_KEYS:
                 continue
             if k == "options" and isinstance(v, dict):
-                v = {name: value for name, value in v.items() if value is not False and value is not None}
+                # (speed.*: ways of running.  If one changes a result, the result's own files differ)
+                v = {name: value for name, value in v.items() if value is not False and value is not None and not name.startswith("speed.")}
             out[k] = strip_metadata(v)
         return out
     if isinstance(o, list):
@@ -139,9 +140,9 @@ def peak_of_run(folder: Path) -> float | None:
     return round(max(peaks), 1) if peaks else None
 
 
-def run_one(name: str, folder: Path) -> dict:
+def run_one(name: str, folder: Path, sets: list | None = None) -> dict:
     command, peak_gb = RUNS[name]
-    return run_case(name, command, peak_gb, folder)
+    return run_case(name, command + [x for s in sets or [] for x in ("--set", s)], peak_gb, folder)
 
 
 def run_case(name: str, command: list, peak_gb: float, folder: Path) -> dict:
@@ -166,7 +167,7 @@ def run_case(name: str, command: list, peak_gb: float, folder: Path) -> dict:
     return {"seconds": seconds, "peak_mb": peak_of_run(folder) or peak, "free_gb_at_launch": round(free, 2), "files": hash_tree(folder)}
 
 
-def record(label: str, only: list | None, root: Path = GOLDEN) -> dict:
+def record(label: str, only: list | None, root: Path = GOLDEN, sets: list | None = None) -> dict:
     """Run the golden runs one at a time (they count as heavy) and save the hashes."""
     base = root / label
     target = base / "hashes.json"
@@ -174,7 +175,7 @@ def record(label: str, only: list | None, root: Path = GOLDEN) -> dict:
                                                                                   "code_version": code_version(), "runs": {}}
     for name in only or list(RUNS):
         print(f"{name}: running...", flush=True)
-        doc["runs"][name] = run_one(name, base / name)
+        doc["runs"][name] = run_one(name, base / name, sets)
         r = doc["runs"][name]
         print(f"{name}: {r['seconds']} s, peak {r['peak_mb']} MB, {len(r['files'])} files hashed", flush=True)
         target.write_text(json.dumps(doc, indent=1), encoding="utf-8")
@@ -228,6 +229,7 @@ def main():
     r = sub.add_parser("record")
     r.add_argument("label")
     r.add_argument("--only", default=None, help="comma-separated run names")
+    r.add_argument("--set", action="append", default=[], metavar="KEY=JSON", help="run with a setting changed, to prove it changes no result")
     c = sub.add_parser("compare")
     c.add_argument("first")
     c.add_argument("second")
@@ -237,7 +239,7 @@ def main():
     h.add_argument("folder")
     a = ap.parse_args()
     if a.what == "record":
-        record(a.label, a.only.split(",") if a.only else None)
+        record(a.label, a.only.split(",") if a.only else None, sets=a.set)
     elif a.what == "rehash":
         rehash(a.label)
     elif a.what == "hash":

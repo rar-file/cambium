@@ -32,7 +32,7 @@ import math
 
 import numpy as np
 
-from . import kernels
+from . import fast, kernels
 
 G = 9.81
 
@@ -83,7 +83,7 @@ def _apply(tree, levels, alive, qtot: np.ndarray, zmin: float):
 
 
 def bend_and_correct(tree, levels, alive, mp, leaves_now, leaves_prev, r_prev, setpoint, zmin, target_dir=None,
-                     stem=None, limbs=None):
+                     stem=None, limbs=None, compiled=False):
     """One year of mechanics on the living structure.
 
     leaves_now/leaves_prev: leaves carried at each node this and last season.
@@ -91,6 +91,7 @@ def bend_and_correct(tree, levels, alive, mp, leaves_now, leaves_prev, r_prev, s
     setpoint: gravitropic set-point angle (rad from vertical) of each node.
     stem: nodes of the stem's axes (with replacement leaders); default order 0.
     limbs: nodes of limbs, soft only below mp.pendulous_radius_limb; default none, one radius for all.
+    compiled: the same steps through fast.py (speed.compiled_mechanics).
     """
     T = tree
     n = T.n
@@ -117,8 +118,13 @@ def bend_and_correct(tree, levels, alive, mp, leaves_now, leaves_prev, r_prev, s
     ident = np.zeros((n, 4))
     ident[:, 0] = 1.0
 
+    alive_idx = np.nonzero(alive)[0]
+    if compiled:
+        fast.bend_steps(steps, cap, G, idx, alive_idx, levels.down, levels.up, par, T.pos, T.dir, T.term_dir, T.lat_dir, T.ref,
+                        T.length, dm, EI, float(zmin), ident.copy())
+
     # 1. bending under this year's added load, in sub-steps
-    for _ in range(steps):
+    for _ in range(0 if compiled else steps):
         c = T.pos[:n] - 0.5 * L[:, None] * T.dir[:n]           # internode centroids
         acc = np.zeros((n, 4))
         acc[:, 0] = dm / steps
@@ -156,4 +162,7 @@ def bend_and_correct(tree, levels, alive, mp, leaves_now, leaves_prev, r_prev, s
     td = np.zeros((1, 3)) if target_dir is None else np.ascontiguousarray(target_dir, dtype=float)
     kernels.posture(levels.down, par, T.dir, np.ascontiguousarray(setpoint, dtype=float), td, target_dir is not None,
                     budget, sine, sin_sat, qtot)
-    _apply(T, levels, alive, qtot, zmin)
+    if compiled:
+        fast.apply_rotation(alive_idx, levels.down, par, qtot, T.pos, T.dir, T.term_dir, T.lat_dir, T.ref, T.length, float(zmin))
+    else:
+        _apply(T, levels, alive, qtot, zmin)

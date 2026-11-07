@@ -50,7 +50,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from . import hydraulics, mechanics
+from . import fast, hydraulics, mechanics
 from .light import SUBCANOPY_LIGHT_HEIGHTS_M, ShadowPropagation
 from .reference import eriksson_1997_height
 from .roots import RootSystem
@@ -125,6 +125,8 @@ class GrowthModel:
         self.roots = RootSystem(species.roots, soil, seed, self.light.vs, soil_frame) if soil is not None else None
         if self.roots is not None:
             self.roots.lean = self.lean
+            self.roots.keep_soil_grids = fast.on(species, "keep_soil_grids")
+        self.light.fast_layers = fast.on(species, "light_layers")
         if self.stand:
             nrng = np.random.default_rng([self.seed, 7919])
             k = int(st.cell_trees)
@@ -1232,7 +1234,8 @@ class GrowthModel:
             setpoint = np.where(stem, gsa_o[0], setpoint)
             mechanics.bend_and_correct(T, levels, alive, mp, leaves_now, T.leaves[:n].astype(float),
                                        r_prev, setpoint, float(self.sp.shoot.min_height_above_ground),
-                                       self._stem_posture_target(n), stem, self._limb_nodes(n))
+                                       self._stem_posture_target(n), stem, self._limb_nodes(n),
+                                       compiled=fast.on(self.sp, "compiled_mechanics"))
         T.leaves[:n] = leaves_now
         if not self.lean and self.keyframe_step > 0 and t % self.keyframe_step == 0:
             self.keyframes[t] = T.pos[:n].astype(np.float32).copy()
@@ -1698,6 +1701,9 @@ class GrowthModel:
                     ring = np.maximum(ring, a_wind - wood_keep)
             return (shoot_vol + float((ring * L).sum())) / unit + leaf_units, ring
 
+        if fast.on(sp, "compiled_carbon"):
+            parts = fast.parts_function(hd, lead_at, ahead, share, thr, caps, full, per_met, early, lma, extra_per_node, starts, z_node, levels, T.parent,
+                                        la_now, hv, keep, L, f_wind, a_wind_coef, laz_now, z_base, wood_keep, ring_cap, tip_area, unit, g_per_unit, g_resp)
         c0, r0 = parts(0.0)
         self._ring_need = c0
         if lead_at is not None:
