@@ -2298,7 +2298,10 @@ class GrowthModel:
         else:
             grow = grow * light * float(hd["water"]) * np.exp(-age / float(self.sp.resource.branch_aging_years))
         # the tree's one second top keeps up with the leader, and may catch it: only the room under the tree's top holds it (_frame_room)
-        grow = np.where(second_top, float(self.sp.height_driver.catch_up) * longest / np.maximum(np.where(limb_tip[at], T.term_dir[node, 2], 1.0), 0.5), grow)
+        rise = np.maximum(np.where(limb_tip[at], T.term_dir[node, 2], 1.0), 0.5)
+        # it stops short of the top by a little, since later bending can still lift it: the curve gives the tree's height, and no limb goes over it
+        short = np.maximum(float(hd.get("ref", math.inf)) - 0.3 - T.pos[node, 2], 0.0) / rise
+        grow = np.where(second_top, np.minimum(float(self.sp.height_driver.catch_up) * longest / rise, short), grow)
         plan = np.minimum(grow / full[at], float(nmax))
         if earns:
             # each year a limb's and a fork's newest bud breaks by its own light, however little the rest of the crown leaves it: a limb in the sun is never a bare whip
