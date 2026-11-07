@@ -1661,6 +1661,8 @@ crown_frame:
   earned_power: null
   # TUNED: and with its leaf area over the largest limb's, to this power.  Over about 0.4 only limbs that start first ever grow.
   earned_size: 0.0
+  # TUNED, against the look: a limb carrying more than this leaf area (m2) per axis of its own makes another axis, a fork.  null: none.
+  fork_leaf_area_m2: null
   # TUNED, against the look: thin twigs don't turn to the light any more than they turn up (mechanics.pendulous_radius), so they hang instead of spraying outward.
   limp_twigs: false
 

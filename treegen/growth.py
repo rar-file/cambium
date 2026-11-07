@@ -1176,6 +1176,7 @@ class GrowthModel:
             self._height_limit_log(_n_before)
         if self._frame_on():
             self._frame_name_buds(t, _n_before)
+            self._frame_name_forks(t, _n_before)
         # descending shoot apices that reach the ground layer stop growing
         tips = np.nonzero((T.term[:T.n] == 1) & (T.death[:T.n] < 0))[0]
         down = (T.pos[tips, 2] < float(sp.shoot.ground_contact_height)) & (
@@ -1941,6 +1942,8 @@ class GrowthModel:
             self._frame_since = 0.0    # stem grown since the last named bud (m)
             self._frame_azimuth = 0.0
             self._frame_rng = np.random.default_rng([self.seed, 7741])
+            self._frame_fork_of = {}   # fork's axis -> first node of the limb it's on
+            self._frame_fork_buds = {}  # named bud for a fork -> first node of its limb
             # does this tree fork?  Drawn once, as clones differ (Zeltins et al. 2018): reiterated limbs of the others stay limbs
             self._frame_forks = bool(self._frame_rng.random() < float(self.sp.crown_frame.fork_share_of_trees))
         return d
@@ -1980,6 +1983,7 @@ class GrowthModel:
         # those that became something else, or whose node died
         for node in [k for k in named if T.lat[k] != LAT_DORMANT or T.death[k] >= 0]:
             named.pop(node)
+            self._frame_fork_buds.pop(node, None)
         new = np.arange(n_before, T.n)
         stem = new[np.isin(T.axis[new], np.fromiter(self.leader_axes, np.int64)) & (T.birth[new] == t)]
         if not stem.size:
@@ -2006,6 +2010,56 @@ class GrowthModel:
             T.no_axil[node] = False
             named[node] = theta
 
+    def _frame_name_forks(self, t: int, n_before: int) -> None:
+        """A limb carrying more leaf area than its axes can hold forks: its brightest new node's bud is named for another axis, stiff like the limb and rising like it, and it
+        goes on as the limb does.  So a limb that wins light gets thicker and forks, and one that loses it stays thin and single."""
+        cf = self.sp.crown_frame
+        per_axis = getattr(cf, "fork_leaf_area_m2", None)
+        la = getattr(self, "_frame_la", None)
+        if not per_axis or la is None:
+            return
+        T = self.tree
+        self._frame_buds()
+        n = T.n
+        new = np.arange(n_before, n)
+        new = new[(T.birth[new] == t) & (T.death[new] < 0) & (T.lat[new] == LAT_DORMANT) & (T.scaffold[new] > 0) & ~np.isin(T.axis[new], np.fromiter(self.leader_axes, np.int64))]
+        if not new.size:
+            return
+        alive_axis = np.zeros(int(T.axis[:n].max()) + 1, bool)
+        alive_axis[T.axis[:n][T.death[:n] < 0]] = True
+        forks = {}
+        for ax, limb in self._frame_fork_of.items():
+            if alive_axis[ax]:
+                forks[limb] = forks.get(limb, 0) + 1
+        for limb in self._frame_fork_buds.values():
+            forks[limb] = forks.get(limb, 0) + 1
+        sc = T.scaffold[new].astype(np.int64)
+        # only on the limb's own axis or on a fork of it
+        own = np.zeros(int(T.axis[:n].max()) + 1, bool)
+        own[T.axis[np.unique(sc)]] = True
+        if self._frame_fork_of:
+            own[np.fromiter(self._frame_fork_of.keys(), np.int64)] = True
+        on_axes = own[T.axis[new]]
+        new, sc = new[on_axes], sc[on_axes]
+        if not new.size:
+            return
+        q = self._field.exposure(T.pos[new], np.zeros(len(new)))
+        spread = math.radians(float(self.sp.architecture.branch_angle_deg[1]))
+        for limb in np.unique(sc).tolist():
+            if limb >= len(la) or la[limb] <= float(per_axis) * (1 + forks.get(limb, 0)):
+                continue
+            at = np.nonzero(sc == limb)[0]
+            node = int(new[at[np.argmax(q[at])]])
+            d = T.dir[node] / max(float(np.linalg.norm(T.dir[node])), 1e-12)
+            side = np.cross(d, np.array([0.0, 0.0, 1.0]))
+            side /= max(float(np.linalg.norm(side)), 1e-12)
+            side *= float(self._frame_rng.choice((-1.0, 1.0)))
+            T.lat_dir[node] = math.cos(spread) * d + math.sin(spread) * side
+            T.lat[node] = LAT_DORMANT
+            T.no_axil[node] = False
+            self._frame_fork_buds[node] = limb
+            self._frame_named[node] = self._frame_gsa.get(int(T.axis[limb]), math.radians(float(cf.angle_mean_deg)))
+
     def _frame_reach_max(self) -> float:
         """The crown's radius, from the stem and the height (m)."""
         cf = self.sp.crown_frame
@@ -2022,8 +2076,8 @@ class GrowthModel:
         compares with the largest limb's.  A limb's reach and its side shoots go with this, so that one that wins light grows on and thickens, and one that loses it
         stops short."""
         cf = self.sp.crown_frame
-        self._frame_rel = self._frame_q = None
-        if getattr(cf, "earned_power", None) is None:
+        self._frame_rel = self._frame_q = self._frame_la = None
+        if getattr(cf, "earned_power", None) is None and not getattr(cf, "fork_leaf_area_m2", None):
             return
         T = self.tree
         sc = T.scaffold[starts].astype(np.int64)
@@ -2033,6 +2087,9 @@ class GrowthModel:
         np.add.at(e, sc[on], (q_bud * bud_leaf)[on])
         np.add.at(la, sc[on], bud_leaf[on])
         q = np.divide(e, la, out=np.ones(T.n), where=la > 0.0)
+        self._frame_la = la
+        if getattr(cf, "earned_power", None) is None:
+            return
         self._frame_q = np.minimum(q, 1.0)
         rel = np.power(self._frame_q, float(cf.earned_power))
         size = float(getattr(cf, "earned_size", 0.0) or 0.0)
@@ -2114,6 +2171,10 @@ class GrowthModel:
         firsts = np.nonzero((T.death[:n] < 0) & T.is_lateral[:n] & ~on & on[par])[0]
         first_of = np.full(len(self.axis_phase), -1, np.int64)
         first_of[T.axis[firsts]] = firsts
+        fork_of = self.__dict__.get("_frame_fork_of") or {}
+        for ax, limb in fork_of.items():
+            if ax < len(first_of):
+                first_of[ax] = limb
         is_tip = np.arange(len(starts)) < n_term
         limb_tip = is_tip & (first_of[T.axis[starts]] >= 0) & ~on[starts]
         named = self._frame_buds()
@@ -2168,7 +2229,11 @@ class GrowthModel:
         T = self.tree
         on = np.isin(T.axis[:n], np.fromiter(self.leader_axes, np.int64))
         first = T.is_lateral[:n] & ~on & on[np.maximum(T.parent[:n], 0)]
-        return np.isin(T.axis[:n], T.axis[:n][first])
+        limb_axes = T.axis[:n][first]
+        forks = self.__dict__.get("_frame_fork_of")
+        if forks:
+            limb_axes = np.concatenate([limb_axes, np.fromiter(forks.keys(), np.int64)])
+        return np.isin(T.axis[:n], limb_axes)
 
     def _sapwood_loss(self, n: int):
         """The share of last year's sapwood that stops conducting this year, on the first n nodes.  With
@@ -2378,6 +2443,15 @@ class GrowthModel:
                 if drawn is not None:
                     self._frame_gsa[int(axis[i])] = drawn
                     self._frame_axis_reach[int(axis[i])] = self._frame_reach.pop(int(starts[i]), 1.0)
+            forks_named = np.zeros(len(starts), bool)
+            for i in np.nonzero(is_lat & ~on_lead)[0]:
+                limb = self._frame_fork_buds.pop(int(starts[i]), None)
+                if limb is not None:
+                    drawn = self._frame_buds().pop(int(starts[i]), None)
+                    self._frame_gsa[int(axis[i])] = drawn
+                    self._frame_fork_of[int(axis[i])] = limb
+                    self._frame_axis_reach[int(axis[i])] = self._frame_axis_reach.get(int(T.axis[limb]), 1.0)
+                    forks_named[i] = True
             own = self._frame_setpoints()[axis]
             gsa = np.where(np.isfinite(own), own, gsa)
         if self.reit_axes:
@@ -2408,7 +2482,7 @@ class GrowthModel:
         limbs = self._limb_nodes(T.n)
         if limbs is not None:
             # a limb's own shoots, new or continuing, have its radius for softness, not the twigs'
-            limb_start = np.where(is_lat, on_lead, limbs[starts])
+            limb_start = np.where(is_lat, on_lead | (forks_named if self._frame_on() else False), limbs[starts])
             weak = np.where(limb_start, mechanics.pendulous_factor(r_ref, float(mp.pendulous_radius_limb), float(mp.pendulous_sharpness)), weak)
         if bool(getattr(tr, "twigs_keep_gravitropism", False)):
             # twigs turn towards their own set-point however thin they are; with a set-point below level, they grow down

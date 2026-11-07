@@ -571,9 +571,10 @@ def limbsheet(labels: list) -> None:
     """Limb sizes and where the carbon goes.  Shows open or stand trees alike: the two are judged apart.  d8 is the crown's diameter as Dubois et al. 2021 measured it (eight radii);
     Hemery et al. 2005 (0.932 + 0.177 D) and Dubois (0.761 + 0.186 D) are for open-grown or crown-released trees, D the stem over bark in cm."""
     from bark import dbh_over_bark
+    from m3_wood import repola
 
-    print("| Set | Age | Seeds | Stem over bark (cm) | Crown d8 (m) | Hemery, Dubois at that stem (m) | Widest, share of crown | Widest, share of height | Top third over widest | Thickest limb (cm) | 5th | Median | Top 5 over median | Limbs half as thick as the thickest | Forks | Limbs with a fork | Double tops | Pool lost (%) | Fixed lost (%) | Twigs at their cap (%) |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    print("| Set | Age | Seeds | Stem over bark (cm) | Crown d8 (m) | Hemery, Dubois at that stem (m) | Widest, share of crown | Widest, share of height | Top third over widest | Thickest limb (cm) | 5th | Median | Top 5 over median | Limbs half as thick as the thickest | Forks | Limbs with a fork | Double tops | Pool lost (%) | Fixed lost (%) | Twigs at their cap (%) | Stem wood, branch wood (kg) | Repola at that size | Crown ratio | Lowest live (m) | Leaf area (m2) |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for label in labels:
         runs = load(label)
         for age in (30, 50, 60):
@@ -593,12 +594,15 @@ def limbsheet(labels: list) -> None:
                     fix = float(r["per_year"][y].get("carbon", {}).get("fixed", 0.0))
                     fixed.append(max(u["pool"] - spent, 0.0) / max(fix, 1e-9))
                     cap.append(u["at_cap"] / max(u["twig_shoots"], 1))
+            rep = [repola(d, r["per_year"][age]["height_m"]) for d, r in zip(ob, rows)]
             hem = statistics.fmean(0.932 + 0.177 * d for d in ob)
             dub = statistics.fmean(0.761 + 0.186 * d for d in ob)
             print(f"| `{label}` | {age} | {len(rows)} | {fmt(ob, '.1f')} | {fmt([x['crown_d8'] for x in sh])} | {hem:.2f}, {dub:.2f} | {fmt([x['widest_at'] for x in sh])} | {fmt([x['wide_peak_at'] for x in sh])} | {fmt([x['width_ratio_top'] for x in sh])} | "
                   f"{fmt([x['limb_d'][0] for x in sh], '.1f')} | {statistics.fmean(x['limb_d'][min(4, len(x['limb_d']) - 1)] for x in sh):.1f} | {statistics.fmean(x['limb_d_med'] for x in sh):.1f} | {fmt([x['limb_top5'] for x in sh], '.1f')} | "
                   f"{statistics.fmean(x['limb_thick'] for x in sh):.1f} | {statistics.fmean(x['limb_forks'] for x in sh):.1f} | {statistics.fmean(x['forked'] for x in sh):.2f} | {sum(1 for x in sh if x.get('double_tops', 0) > 0)}/{len(sh)} | "
-                  f"{100.0 * statistics.fmean(lost) if lost else 0.0:.0f} | {100.0 * statistics.fmean(fixed) if fixed else 0.0:.0f} | {100.0 * statistics.fmean(cap) if cap else 0.0:.0f} |")
+                  f"{100.0 * statistics.fmean(lost) if lost else 0.0:.0f} | {100.0 * statistics.fmean(fixed) if fixed else 0.0:.0f} | {100.0 * statistics.fmean(cap) if cap else 0.0:.0f} | "
+                  f"{statistics.fmean(r['snap'][age]['stem_kg'] for r in rows):.0f}, {statistics.fmean(r['snap'][age]['branch_kg'] for r in rows):.0f} | {statistics.fmean(rp[0] for rp in rep):.0f}, {statistics.fmean(rp[1] for rp in rep):.0f} | "
+                  f"{statistics.fmean(r['snap'][age].get('crown_ratio_stem') or 0.0 for r in rows):.2f} | {statistics.fmean(r['snap'][age].get('lowest_stem_branch_m') or 0.0 for r in rows):.1f} | {statistics.fmean(r['per_year'][age]['leaf_area_m2'] for r in rows):.0f} |")
 
 
 def crownheight(labels: list) -> None:
