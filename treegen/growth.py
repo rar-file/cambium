@@ -2196,10 +2196,11 @@ class GrowthModel:
             spacing = float(getattr(self, "_plot_spacing", 0.0) or (self.stand_spacing(h) if self.stand else 0.0))
             if spacing > 0.0:
                 reach_max = min(reach_max, 0.5 * float(overlap) * spacing)
-        if self._frame_earns():
-            return np.full(len(base), reach_max)    # no table by place in the crown: age and light make the outline
         depth = np.clip((h - T.pos[base, 2]) / crown, 0.0, 1.0)
         peak = float(cf.peak_depth)
+        if self._frame_earns():
+            # an egg, widest at peak_depth of the crown: one value in place of the table below.  The limit the limbs grow to, not a shape: age and light decide how much of it they fill
+            return reach_max * np.sqrt(np.maximum(1.0 - ((depth - peak) / max(peak, 1.0 - peak)) ** 2, 0.04))
         top = float(cf.top_share)
         above = top + (1.0 - top) * np.power(np.minimum(depth / peak, 1.0), float(cf.profile_power))
         # below the widest point the frame falls again, to base_share at the crown base: a crown is not a cone
