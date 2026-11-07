@@ -707,7 +707,10 @@ def main(argv=None) -> int:
     ap.add_argument("--open", action="store_true", help="grow in the open, no neighbours; the folder keeps its _stand name so the readers find it")
     ap.add_argument("--out")
     ap.add_argument("--set", action="append", default=[])
+    ap.add_argument("--sets", help="a file of KEY=JSON lines, read before --set")
     a = ap.parse_args(argv)
+    if a.sets:
+        a.set = Path(a.sets).read_text(encoding="utf-8").split() + a.set
     if a.what == "one":
         return one(a.seed, a.set, Path(a.out), a.years, not a.open)
     if a.what == "run":

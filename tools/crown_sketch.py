@@ -120,7 +120,10 @@ def main(argv=None) -> int:
     ap.add_argument("--ages", default="30,60")
     ap.add_argument("--open", action="store_true")
     ap.add_argument("--set", action="append", default=[], metavar="KEY=JSON")
+    ap.add_argument("--sets", help="a file of KEY=JSON lines, read before --set")
     a = ap.parse_args(argv)
+    if a.sets:
+        a.set = Path(a.sets).read_text(encoding="utf-8").split() + a.set
     seeds = [int(x) for x in a.seeds.split(",")]
     ages = [int(x) for x in a.ages.split(",")]
     workers = min(int(os.environ.get("ORIGIN_MAX_WORKERS", "2")), len(seeds))
