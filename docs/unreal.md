@@ -26,11 +26,11 @@ Variant names: `betula_pendula_grown_age060` is the nearest level in the base se
 | Age | Height, m | Leaves | Nearest level | of which wood | roots with the tree | bark strips | leaves | `_lod1` | `_lod2` | `_roots` | Nearest, MB |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 5 | 5.7 | 8,711 | 297,960 | 36,402 | 228 | 0 | 261,330 | 15,999 | 12 | 4,742 | 27 |
-| 15 | 12.0 | 10,436 | 363,638 | 48,840 | 1,270 | 448 | 313,080 | 16,000 | 12 | 16,318 | 33 |
-| 30 | 18.8 | 34,856 | 1,290,933 | 239,722 | 2,843 | 2,688 | 1,045,680 | 15,999 | 12 | 61,327 | 114 |
-| 50 | 24.6 | 46,312 | 1,835,565 | 434,981 | 5,848 | 5,376 | 1,389,360 | 15,999 | 12 | 152,267 | 158 |
-| 60 | 26.1 | 47,728 | 1,947,669 | 502,453 | 7,104 | 6,272 | 1,431,840 | 16,000 | 12 | 191,929 | 165 |
-| 100 | 29.7 | 49,408 | 2,330,252 | 826,302 | 11,406 | 10,304 | 1,482,240 | 15,999 | 12 | 395,854 | 187 |
+| 15 | 12.0 | 10,436 | 365,174 | 50,376 | 1,270 | 448 | 313,080 | 16,000 | 12 | 16,318 | 33 |
+| 30 | 18.8 | 34,856 | 1,371,733 | 320,522 | 2,843 | 2,688 | 1,045,680 | 15,999 | 12 | 61,327 | 118 |
+| 50 | 24.6 | 46,312 | 1,983,629 | 583,045 | 5,848 | 5,376 | 1,389,360 | 15,999 | 12 | 152,267 | 165 |
+| 60 | 26.1 | 47,728 | 2,159,029 | 713,813 | 7,104 | 6,272 | 1,431,840 | 16,000 | 12 | 191,929 | 176 |
+| 100 | 29.7 | 49,408 | 2,691,180 | 1,187,230 | 11,406 | 10,304 | 1,482,240 | 15,999 | 12 | 395,854 | 205 |
 
 The game's own birch, `betula_pendula_a`, is 1,771,416 triangles, read back in Unreal. Budgets are settings: `--budget lod1=8000`, or `appearance.game` in the species file.
 
@@ -65,12 +65,12 @@ Since then the bark has real depth and the leaves real outlines (section 8), whi
 
 | | Age 50 cleaned | now | Age 60 cleaned | now |
 |---|---|---|---|---|
-| Wood | 241,584 | 434,981 | 265,630 | 502,453 |
+| Wood | 241,584 | 583,045 | 265,630 | 713,813 |
 | Roots with the tree | 6,571 | 5,848 | 7,874 | 7,104 |
 | Bark strips | 5,376 | 5,376 | 6,272 | 6,272 |
 | Leaves | 1,296,736 | 1,389,360 | 1,336,384 | 1,431,840 |
-| **With the tree** | **1,550,267** | **1,835,565** | **1,616,160** | **1,947,669** |
-| File, MB | 120 | 158 | 124 | 165 |
+| **With the tree** | **1,550,267** | **1,983,629** | **1,616,160** | **2,159,029** |
+| File, MB | 120 | 165 | 124 | 176 |
 
 ## 3. Importing with the game's own scripts
 
@@ -90,7 +90,7 @@ The game's scripts took these files in the test project without being changed. T
 
 4. Add the lines from `fragments/` to `SourceArt/PolyHaven_split/trunks.json` and `Content/Data/Science/flora.json`, then run the import again with `GAME_FINISH=1` to rewrite `WorldAssets.json`.
 
-Age 60's nearest level needed about 6 to 6.7 GB of memory and took about 85 seconds, with distance fields off in the test project. With them on, as in the game, it needs more: free memory fell from 8.6 GB to 1.2 GB on a 1.85 million triangle try, when the runner stopped it. Import one heavy variant per run, as `import_all.py` does, with at least 8 GB free.
+Age 60's nearest level needs about 7 GB of memory, with distance fields off in the test project. With them on, as in the game, it needs more: free memory fell from 8.6 GB to 1.2 GB on a 1.85 million triangle try, when the runner stopped it. Import one heavy variant per run, as `import_all.py` does, with at least 8.6 GB free.
 
 ### What the game's scripts would need added
 
@@ -104,7 +104,7 @@ None of this has been changed in the game. Numbers 1-4 let the tree in. The rest
 | 4 | `Content/Data/Science/flora.json` | A rule with these variants and `sink_m: 0.10` | The game seats a tree by its lowest point, which here is 10 cm below the ground line. Its `min_z_cm` is about 32, not about 0, on purpose: section 5 |
 | 5 | `Source/<Game>/World/WorldGenerator.cpp` line 1176 | Don't add `root_flare_tile` to a rule that has its own roots | Otherwise a made-up flare sits over the real one |
 | 6 | `set_tree_looks.py`, `BRANCH` | `"betula_pendula_grown": (1.6, 3.0)` | Same branch sway and flutter as the game's birch |
-| 7 | `build_materials.py`, M_Foliage | A `ThroughGain` parameter on line 562, default 0.25 | Fixed at 0.25 of the leaf's colour. Our measured leaves pass about as much light as they reflect, so 1.0 would be right for them. Leaves in shade or seen from below come out black without it, the game's birch too. Tried on the test project's copy: section 9 |
+| 7 | `build_materials.py`, M_Foliage | A `ThroughGain` parameter on line 562, default 0.25 | Fixed at 0.25 of the leaf's colour. Our measured leaves pass about as much light as they reflect, so 1.0 would be right for them. Not why leaves come out black in the test pictures: section 9 |
 | 8 | `build_materials.py`, M_Foliage | Section 6's one line, and `MPC_Season` | Season change while the game runs |
 | 9 | M_Surface | A third bark layer from UV3 (white, rough) | Full white-to-black from our ageing rules. See section 8 |
 | 10 | `build_materials.py`, `rounded_normal` | A separate switch from `PlantKitWind` | Turning on the `COLOR_0` wind (Kit 1) also turns on "round mound" shading, made for ground plants. Until then leave Kit at 0, as the game's birch does |
@@ -113,7 +113,7 @@ None of this has been changed in the game. Numbers 1-4 let the tree in. The rest
 
 | What the plain export carried | Kept or lost | Where it goes now |
 |---|---|---|
-| Positions, normals, triangles | Kept, **tested**: 363,638 and 1,947,669 triangles come back exactly, by the Nanite count on the saved asset | Same. Metres become cm, y-up becomes z-up |
+| Positions, normals, triangles | Kept, **tested**: 365,174 and 2,159,029 triangles come back exactly, by the Nanite count on the saved asset | Same. Metres become cm, y-up becomes z-up |
 | Tangents | Kept on normal meshes. Nanite doesn't store them (**documented**) | Nothing to do |
 | Base colour, normal map | Kept, **tested** | The game's script makes its own material and sets them |
 | Roughness and occlusion map | The game reads roughness from a separate map's red | `_rough_2k.png`: red roughness, green height, blue occlusion |
@@ -248,13 +248,13 @@ The nearest level's stem has the bark's own height map in its mesh, so plates st
 | Age | Deepest crack in the mesh, mm | Highest plate, mm | Wood triangles |
 |---|---|---|---|
 | 5 | 0.1 | 0.2 | 36,402 |
-| 15 | 3.8 | 1.5 | 48,840 |
-| 30 | 15.1 | 1.5 | 239,722 |
-| 50 | 19.7 | 1.6 | 434,981 |
-| 60 | 21.2 | 1.5 | 502,453 |
-| 100 | 27.0 | 1.5 | 826,302 |
+| 15 | 4.1 | 1.5 | 50,376 |
+| 30 | 15.1 | 1.5 | 320,522 |
+| 50 | 19.7 | 1.6 | 583,045 |
+| 60 | 21.2 | 1.5 | 713,813 |
+| 100 | 27.0 | 1.5 | 1,187,230 |
 
-The mesh is finest where the cracks are deep: 5 mm at the old base, 3 cm up on young white bark (`appearance.game.unreal.stem_relief`). `edge_fine_m: 0` turns it off. The normal map holds everything the mesh can't, and half of what it can, as a mesh shades only as sharply as its edges are short (`normal_keeps_deep_share`). `_lod1` has a smooth stem and its own map, `<slot>_lod1`, with everything in it.
+The mesh is finest where the cracks can be deep, up to the highest of the base's tongues: 5 mm at the old base, 3 cm up on young white bark (`appearance.game.unreal.stem_relief`). `edge_fine_m: 0` turns it off. The normal map holds everything the mesh can't, and half of what it can, as a mesh shades only as sharply as its edges are short (`normal_keeps_deep_share`). `_lod1` has a smooth stem and its own map, `<slot>_lod1`, with everything in it.
 
 Rough bark's plates are larger than in the plain export, in the Unreal target only: 3 cm across and 16 cm long, with few breaks across them, by eye from photographs of old birch.
 
@@ -263,15 +263,40 @@ Rough bark's plates are larger than in the plain export, in the Unreal target on
 | | Relief in the mesh (used) | Nanite Static Displacement, build-time |
 |---|---|---|
 | Looks | Real outline, plates, cracks in shadow | The same, near enough to call a tie |
-| Leafless triangles at age 60 | 515,829 | 310,873, from 280,567 before the build |
+| Leafless triangles at age 60 | 727,189 | 310,873, from 280,567 before the build, on the level base |
 | Through the game's scripts | Yes, unchanged | Needs one more step on every stage, after import: set a height texture on the mesh, and rebuild |
 | Other levels and other engines | It's in the file | Nanite only. `_lod1`, a fallback or anything else sees the smooth tube |
 | Epic's status | Plain mesh | Experimental |
 | How exact | To the mesh's edge length, chosen by height | One error for the whole mesh and all its slots, by its size (`NaniteDisplace.cpp`) |
 
-So relief in the mesh, for now. If triangles come to matter, displacement saves about 40 % of the leafless tree and looks the same: `tools/unreal/game_route.py`, job key `static_displacement`.
+So relief in the mesh, for now. If triangles come to matter, displacement saves about 57 % of the leafless tree and looks the same: `tools/unreal/game_route.py`, job key `static_displacement`.
 
 **Runtime tessellation wasn't tried.** It needs `r.Nanite.AllowTessellation=1`, read only at start, in the game's config, plus `Enable Tessellation` and a Displacement input on `M_Surface`. Epic's "Working with Nanite-Enabled Content" says it doesn't change shading, is experimental, and has "serious impacts on performance, especially with virtual shadow maps". That's a change to the game, with a cost at run time, for a picture that build-time already gets.
+
+### The top of the black base
+
+**What was wrong.** The rough stage climbed to one height all round the stem, so the black base stopped at a nearly level line, like a sock, the same on every tree. Real birches break up unevenly.
+
+**Now.** `bark.uneven_top`, read by the same ageing rules for each texel of the stem's map, not each row:
+
+- **Tongues.** The top reaches further in places, up to about twice its level on the highest, with some islands above.
+- **One side.** It gets further up one side of a stem than the other.
+- **Tree to tree.** Each `--seed` makes its own stem: its pattern, which way it faces, and how dark it is. The pattern is the tree's, so it stays in place as it climbs from age to age.
+- **White plates.** Below the top the stage has taken the furrows and left the plates, so black cracks run between white plates, with patches of more of each. Solid black takes most of the lowest metre on dark trees and about half of it on light ones.
+
+| Age | Level top, before, m | Top round one stem, m, lowest place to highest (mean of 6 trees) | Tree's mean top: lightest of 6 trees to darkest, m | Share of the first metre that's solid black, lightest to darkest |
+|---|---|---|---|---|
+| 15 | 0.3 | 0.1 to 0.9 | 0.3 to 0.6 | 0 % to 0 % |
+| 30 | 1.2 | 1.1 to 2.1 | 1.2 to 1.9 | 32 % to 75 % |
+| 50 | 2.2 | 1.8 to 4.0 | 2.0 to 3.5 | 46 % to 92 % |
+| 60 | 2.6 | 2.2 to 4.7 | 2.3 to 4.0 | 52 % to 94 % |
+| 100 | 3.8 | 3.1 to 6.0 | 2.9 to 6.3 | 64 % to 97 % |
+
+(Top: the highest place, column by column, where the stage's weight is over 0.4, by which point most of the bark is black.)
+
+All of these are shares of how high the stage has climbed, so a young stem has little and an old one more. The values are `TUNED`, by eye against `reference/brastad_sweden_first_snow.jpg`, `reference/gullmarsskogen_stand_5.jpg` and the Arnhem-Delhuyzen photo in `birch-data/summer_reference`. I found no measurement of it.
+
+**Where it's on.** In this target, by `game.unreal.stem_relief.uneven_top: 1`. In the plain export it's off, so its bytes don't change. `--look bark.uneven_top.strength=1` turns it on there, and each export's `--seed` then gives its stem its own base.
 
 ### Leaves
 
@@ -324,14 +349,16 @@ All in `out/unreal_test/TreeTest`, an empty project, Unreal 5.8.4, no window. Th
 
 | File | Triangles in Unreal | UV sets | Vertex colour | Slots | Lowest point, cm |
 |---|---|---|---|---|---|
-| Age 15, nearest | 363,638 | 4 | Yes | 5 | 32.0 |
+| Age 15, nearest | 365,174 | 4 | Yes | 5 | 32.0 |
 | Age 15, `_lod1` | 16,000 | 4 | Yes | 4 | 32.0 |
 | Age 15, `_lod2` | 12 | 1 | Yes | 1 | 32.0 |
 | Age 15, `_roots` | 16,318 | 4 | Yes | 1 | -54.2 |
-| Age 60, nearest | 1,947,669 | 4 | Yes | 5 | 32.0 |
+| Age 60, nearest | 2,159,029 in the file; see below | 4 | Yes | 5 | 32.0 |
 | Age 60, `_lod1` | 16,000 | 4 | Yes | 4 | 32.0 |
 | Age 60, `_lod2` | 12 | 1 | Yes | 1 | 32.0 |
 | Age 60, `_roots` | 191,929 | 4 | Yes | 1 | -79.9 |
+
+Age 60's nearest level came back whole at 1,947,669 triangles. Since then the uneven base has made it 2,159,029, and I couldn't save that one here: Unreal's log shows its Nanite build finishing, then free memory fell to 1.21 GB from 8 GB and the runner stopped it, and 8.6 GB didn't come free in the half hour I waited to try again. The pictures of age 60 since then use its leafless file, `_winter`, which came back whole.
 
 The game seats each mesh by its own lowest point, and every level of these ages now has it in the same place, so they stay in line. (They were up to 9 cm apart before.)
 
@@ -340,9 +367,19 @@ The game seats each mesh by its own lowest point, and every level of these ages 
 - The bark, its depth, normal maps, shadows and our moss at the foot all work through the game's materials.
 - Nanite's fallback mesh is small: under 900 triangles at age 60, 1,336 for the game's birch. Where anything uses the fallback, such as ray tracing that doesn't trace Nanite itself, it sees a rough blob of the crown. Same for both trees. I didn't look further.
 - `_lod1`'s leaf cards came out darker than the nearest level's leaves: more of each card sits in other cards' shadow. Not fixed. With Nanite you won't draw them.
-- Leaves in shade, and leaves seen from below, come out black in this scene, ours and the game's birch alike. At the measured angles more of them are seen from below than before, so ours look darker from under the crown. The game's `M_Foliage` passes 0.25 of a leaf's colour through it, and this scene has no cloud or forest to light the shade. Tried on the test project's copy with 1.0 in place of 0.25, then put back: shaded leaves pick up some dark green, but most stay near black, so most of it is this scene's shade, not the material.
+- Leaves in shade, and leaves seen from below, come out black in these pictures, ours and the game's birch alike. **That's the test scene, not the leaves or `M_Foliage`.** See below.
 - `DistanceFields` are off in the test project (`r.GenerateMeshDistanceFields=False`) to save memory on this PC. The game has them on.
 - `_lod2` close up shows its crossed sheets, as expected. It's for far away.
+
+**Why shade is black in these pictures.** They're all scene captures, because a windowless editor has nothing else to draw. A scene capture can't update a real-time sky light: `AllocateAndCaptureFrameSkyEnvMap` returns at once for one (`ReflectionEnvironmentRealTimeCapture.cpp`, **read in source**). So the sky light stays empty, and shade gets no sky at all. The game's sky light is real-time too (`WorldClock.cpp`, line 97), but the game has a real view to update it.
+
+| Same trees, same cameras | Ground in shade, as a share of ground in sun | Age 15 leaves picture, near-black pixels | The game's birch, near-black pixels |
+|---|---|---|---|
+| As in all these pictures | 0.3 % | 64 % | 70 % |
+| 1.0 in place of 0.25 for light through a leaf (test copy of `M_Foliage`) | not measured | looks about the same | not measured |
+| Stand-in for the missing sky: 15,000 lux down and 8,000 up, no shadows (`fill_lux` in a job) | 9 % | 53 %, and those left have colour and veins close up | 62 % |
+
+The ground has no leaves and no `M_Foliage`, and it's as black as they are. Real open shade on a clear day is more like 10 to 25 % of full sun, from memory, not measured here. Two tries at a real sky failed: capturing the sky light the old way, with Lumen on and off (0.5 %), and turning on the level viewport (0.3 %; a windowless editor doesn't appear to draw it). So the stand-in is only a stand-in, and I haven't seen the real sky on these leaves. That needs the game, or an editor with a window.
 
 **Beside the game's birch.** Same project, same sun, sky and camera. Pictures: `out/unreal_test/sheets/`, `out/unreal_test/shots_final/` (this comparison, and the "before" of the bark and leaf work) and `out/unreal_test/shots_f/` (now), kept out of the repository because they hold scanned textures.
 
@@ -355,7 +392,7 @@ The game seats each mesh by its own lowest point, and every level of these ages 
 
 The game's birch looks better, and the crown is why. It isn't close. Bark and leaves through the same materials hold up; the tree's shape doesn't yet. The file used is from before the Tree agent's current crown work, so this should change. Open-grown stems are also far too thick: 31 cm at age 15.
 
-**How this differs from the real game:** no clouds, no moving time, no forest around the tree, no terrain or `M_Ground`, a plain ground with one scanned colour map, a fixed exposure instead of the game's eye model, trees as single meshes rather than instances. So wind runs from each tree's own position. Sun, atmosphere, sky light, fog density, Lumen, virtual shadow maps and Nanite settings are the game's. Shaded sides look darker here than they would among other trees and under cloud.
+**How this differs from the real game:** no clouds, no moving time, no forest around the tree, no terrain or `M_Ground`, a plain ground with one scanned colour map, a fixed exposure instead of the game's eye model, trees as single meshes rather than instances. So wind runs from each tree's own position. Sun, atmosphere, sky light, fog density, Lumen, virtual shadow maps and Nanite settings are the game's. Shaded sides are far too dark here, as above.
 
 **Not tested:**
 
@@ -363,6 +400,7 @@ The game's birch looks better, and the crown is why. It isn't close. Bark and le
 - Distance fields on the bigger mesh, and so Lumen's software tracing with it.
 - Our stem on real terrain, with the game's grass and its `root_flare_tile` taken off. Only on a flat plane.
 - Runtime tessellation (section 8).
+- Any of this under the game's real sky: pictures here have no sky light in them (above).
 - A packaged game. Everything ran in the editor.
 - The game itself, its world and its forest. Nothing was run in the game.
 - Instancing, wind in motion, and frame times. Pictures are still, from a scene capture.

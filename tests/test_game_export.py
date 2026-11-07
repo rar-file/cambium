@@ -625,6 +625,60 @@ def test_a_root_lies_on_the_ground_and_its_thin_end_is_under_it():
     assert np.array_equal(out.vertices[:, :2], md.vertices[:, :2])
 
 
+def _rough_at(look, seed, age, z):
+    """The rough stage's weight round a stem at these heights, 256 places round."""
+    edge = tx.UnevenTop(look, age, seed)
+    u = (np.arange(256) + 0.5) / 256.0
+    n, W = len(z), len(u)
+    at = edge.heights(u, z, z)
+    return ap.part_state(look, np.full((n, W), float(age)), np.full((n, W), 0.3), at, 25.0, 30.0)["weights"][-1]
+
+
+@pytest.fixture(scope="module")
+def uneven(look):
+    out = copy.deepcopy(look)
+    out["bark"]["uneven_top"]["strength"] = 1.0
+    return out
+
+
+def test_the_rough_base_is_level_unless_asked(look):
+    assert float(look["bark"]["uneven_top"]["strength"]) == 0.0
+    assert tx.uneven_top(look, 60.0, 5) is None
+
+
+def test_the_unreal_target_asks_for_an_uneven_base(look):
+    import treegen.game_unreal as gu
+
+    assert tx.uneven_top(gu.unreal_look(look), 60.0, 5) is not None
+
+
+def test_the_rough_base_stops_at_no_one_level_and_differs_by_tree(uneven):
+    z = np.linspace(0.05, 7.0, 400)
+    tops = {}
+    for seed in range(1, 7):
+        w = _rough_at(uneven, seed, 60, z)
+        # the highest it's half way on, column by column
+        tops[seed] = z[(w > 0.5).shape[0] - 1 - np.argmax((w > 0.5)[::-1], axis=0)]
+        # round one stem, more than a metre between its lowest and its highest
+        assert np.percentile(tops[seed], 95) - np.percentile(tops[seed], 5) > 1.0
+    means = [float(t.mean()) for t in tops.values()]
+    assert max(means) - min(means) > 0.5
+
+
+def test_the_rough_base_leaves_white_plates_and_grows_with_the_tree(uneven):
+    z = np.linspace(0.05, 7.0, 400)
+    w = _rough_at(uneven, 5, 60, z)
+    # part way: the stage has taken the furrows and left the plates
+    assert ((w > 0.2) & (w < 0.8))[z < 4.0].mean() > 0.1
+    # solid black only low down, somewhere on the stem, and nothing near the top of the range
+    assert w[z < 0.3].max() > 0.9 and w[z > 6.5].max() < 0.5
+    # an older tree has more of it, in the same place: the pattern is the tree's
+    young, old = _rough_at(uneven, 5, 30, z), _rough_at(uneven, 5, 60, z)
+    assert old.sum() > 1.5 * young.sum()
+    rows = z < 3.0
+    assert np.corrcoef(young[rows].ravel(), old[rows].ravel())[0, 1] > 0.5
+
+
 def test_leaves_hang_at_the_measured_angles(look):
     import treegen.game_unreal as gu
 

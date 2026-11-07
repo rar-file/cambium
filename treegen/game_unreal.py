@@ -62,6 +62,9 @@ def unreal_look(look: dict) -> dict:
     out["leaves"]["season"] = {"chlorophyll_by_day": u["chlorophyll_by_day"], "days": u["days"]}
     out["leaves"]["shape"] = u["leaf"]["shape"]
     out["leaves"]["texture_size_px"] = int(u["leaf"]["texture_px"])
+    # the rough base's top, uneven
+    if out["bark"].get("uneven_top"):
+        out["bark"]["uneven_top"] = {**out["bark"]["uneven_top"], "strength": float(u["stem_relief"]["uneven_top"])}
     # rough bark's plates at their real size, which is also one the stem's mesh can carry
     for stage in out["bark"]["stages"]:
         if stage.get("plates"):
@@ -296,11 +299,12 @@ def as_stem(foot: meshlib.MeshData | None, stem_node: int) -> meshlib.MeshData |
     return meshlib.MeshData(foot.vertices, foot.faces, foot.normals, attrs)
 
 
-def stem_edges(wood: game.WoodParts, z_nodes: np.ndarray, age_nodes: np.ndarray, d_nodes: np.ndarray, line: float, surface_depth: float, cfg: dict) -> tuple:
+def stem_edges(wood: game.WoodParts, z_nodes: np.ndarray, age_nodes: np.ndarray, d_nodes: np.ndarray, line: float, surface_depth: float, cfg: dict, reach: float = 0.0) -> tuple:
     """How fine the stem's mesh must be at each height: by how deep the ageing rules make its cracks
-    there.  Almost none on young white bark, finest on the old black base."""
+    there.  Almost none on young white bark, finest on the old black base.  ``reach``: how far above its
+    level the rough base's top gets, somewhere round the stem."""
     grid = np.arange(line - surface_depth, float(z_nodes.max()) + 0.25, 0.05)
-    fissure = wood.state(np.interp(grid, z_nodes, age_nodes), np.interp(grid, z_nodes, d_nodes), grid)["fissure_m"]
+    fissure = wood.state(np.interp(grid, z_nodes, age_nodes), np.interp(grid, z_nodes, d_nodes), grid - reach)["fissure_m"]
     t = np.clip(fissure / float(cfg["full_at_fissure_m"]), 0.0, 1.0)
     t = t * t * (3.0 - 2.0 * t)
     coarse, fine = float(cfg["edge_coarse_m"]), float(cfg["edge_fine_m"])
@@ -536,11 +540,12 @@ def seat_sheets(f: dict, lowest: float) -> dict:
     return {**f, "V": V, "UV": UV}
 
 
-def black_zone(wood: game.WoodParts, origin_z: float = 0.0) -> dict:
+def black_zone(wood: game.WoodParts, origin_z: float = 0.0, reach: float = 0.0) -> dict:
     """Up the stem, where the rough base gives way to what's above it: BarkStartCm and BarkBlendCm for
-    M_Surface's UpperBark, which fades from the colour map to a tiled scan."""
+    M_Surface's UpperBark, which fades from the colour map to a tiled scan.  ``reach``: as ``stem_edges``,
+    so the scan starts above the highest of the base's tongues."""
     prof = wood.profile
-    w = wood.state(prof.part_age, prof.d_wood, prof.z)["weights"]
+    w = wood.state(prof.part_age, prof.d_wood, prof.z - reach)["weights"]
     rough = w[2] if len(w) > 2 else np.zeros(len(prof.z))
     z = np.maximum.accumulate(prof.z)
     hi = z[rough >= 0.9]
@@ -895,6 +900,7 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
     clean = {k: u[k] for k in ("ring_tolerance", "ring_tolerance_m", "ring_longest_span")}
     clean["drop_hidden_rings"] = float(u["ring_tolerance"]) > 0.0 or float(u["ring_tolerance_m"]) > 0.0
     wood = game.WoodParts(look, tiles, age, height, dbh_w, T.birth[: T.n], r_wood)
+    wood.tree_seed = int(ctx["seed"])
     alive = (T.birth[: T.n] <= age) & ((T.death[: T.n] < 0) | (T.death[: T.n] > age))
     relief_cfg = u["stem_relief"]
     surface_depth = float(root_cfg["surface_depth_m"])
@@ -902,9 +908,11 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
     stem_ids = np.nonzero((np.asarray(T.axis[: T.n]) == 0) & alive)[0]
     stem_ids = stem_ids[np.argsort(pos[stem_ids, 2])]
     stem_node = int(stem_ids[0])
+    edge_top = tx.uneven_top(look, float(age - T.birth[stem_ids].min()), wood.tree_seed)
+    edge_reach = 0.0 if edge_top is None else edge_top.reach
     table = None
     if float(relief_cfg["edge_fine_m"]) > 0.0:
-        table = stem_edges(wood, pos[stem_ids, 2], age - T.birth[stem_ids].astype(float), 2.0 * r_wood[stem_ids], line, surface_depth, relief_cfg)
+        table = stem_edges(wood, pos[stem_ids, 2], age - T.birth[stem_ids].astype(float), 2.0 * r_wood[stem_ids], line, surface_depth, relief_cfg, edge_reach)
     # the ridges hold down to below where the ground can reach, so the foot only ever widens towards it
     clean["buttress_hold_m"] = surface_depth - line
     settings0 = meshlib.MeshSettings(ring_attributes=True, stem_sides_by_radius=True, sides_allowed=tuple(gfull["sides_allowed"]), stem_edge_by_height=table or (),
@@ -1001,7 +1009,7 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
     days = look["leaves"]["season"]["days"]
     out_stage = {"age": age, "height_m": height, "dbh_wood_cm": dbh_w, "dbh_over_bark_cm": round(ap.over_bark_dbh_cm(look, dbh_w), 2), "exported_leaves": int(len(leaves.node)),
                  "roots": {**root_table(model, age), "ground_line_m": round(line, 3), "showing": roots_showing(surface0, line, centre), "files": root_files_out},
-                 "upper_bark": black_zone(wood, origin_z), "origin": {"model_zero_in_file_m": round(origin_z, 4), "ground_in_file_m": round(origin_z + line, 4), "lowest_in_file_m": round(origin_z + line - surface_depth, 4)},
+                 "upper_bark": black_zone(wood, origin_z, edge_reach), "origin": {"model_zero_in_file_m": round(origin_z, 4), "ground_in_file_m": round(origin_z + line, 4), "lowest_in_file_m": round(origin_z + line - surface_depth, 4)},
                  "model_leaf_area_m2": st["leaf_area_m2"], "exported_leaf_area_m2": round(float(leaves.area.sum()), 3), "peel_strips": 0 if strips is None else strips.count,
                  "bark_texture_y": _texture_y(wood), "stem_height_range_m": stem_files["height_range_m"], "seasons": {}}
     for season in seasons:
