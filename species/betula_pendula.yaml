@@ -1646,7 +1646,7 @@ crown_frame:
   # base_share, profile_power, length_per_reach, steep_limit, twig_overshoot, twig_bud_every aren't read): age and light make the outline.  A bud's share goes with its own
   # light and its limb's standing against its neighbours, not the split down the branches (so resource.apical_dominance does nothing).  Only the bud at the end of last
   # year's shoot can start a long shoot on anything finer than the stem, and on a limb or a fork it's paid first, by its own light.  Thin twigs turn neither up nor to the
-  # light (mechanics.pendulous_radius), so they hang.  A limb's shoot falls with the stem's age when it was born (resource.stem_aging_years), so an old tree's top rounds off.
+  # light (mechanics.pendulous_radius), so they hang.
   # One limb on a forking tree (fork_share_of_trees) goes up as a second top.  Off: the frame as it was.
   earned: false
   # TUNED, against the look: a twig heading straight down makes this share of a level twig's shoot, so curtains reach a few metres, not the ground.  Gravimorphism's form (Wareing & Nasr 1961); no birch value.
@@ -1658,14 +1658,11 @@ crown_frame:
   # TUNED, against the look: when the crown has all the leaf area it can hold (crown_lai_max), short shoots this old die, so new shoots have room and the foliage moves out.
   # Birch short shoots live several years (Maillette 1982, abstract only).  null: none die of age.
   full_crown_spur_years: 8
-  # TUNED, against the width of open-grown trees and the outline: a limb's yearly shoot falls with its age over this many years.  null: resource.branch_aging_years.
+  # TUNED, against the outline in the open and light in stands: all a tree's limbs' yearly shoots fall with the tree's age over this many years.  Shorter: a more pointed top and
+  # thinner stands (45 cost 0.3 LAI); no ageing: a flat-topped column.
   limb_ageing_years: 80
-  # TUNED, under test: a limb's carbon balance counts the sapwood its leaves ask for.
-  limb_pays_sapwood: false
   # TUNED, against stem size in stands: below the crown, this share of the sapwood last year's new leaves asked for isn't retired and rebuilt each year.  0: all of it is, as heartwood_by_own_foliage has it.
-  sapwood_kept: 0.0
-  # TUNED, against the look and the light: a limb's shoot falls with the stem's age when it was born, over this many years.  null: resource.stem_aging_years.
-  limb_born_years: null
+  sapwood_kept: 0.3
   # TUNED, against lone low limbs: a limb dies when the light on its leaves is under this share of the crown's mean: it's in the crown's own shade, however bright the sky.  null: off.
   limb_relative_light: 0.5
 

@@ -1093,14 +1093,6 @@ class GrowthModel:
             leaf_c = np.zeros(n0)
             np.add.at(leaf_c, *self._bud_leaf_cost)
             upkeep_c = mu * T.basipetal(levels, ones_c) + T.basipetal(levels, leaf_c)
-            if self._frame_earns() and bool(getattr(sp.crown_frame, "limb_pays_sapwood", False)):
-                # and the sapwood its leaves ask for each year, over its whole length: a long limb with a tuft at its end doesn't pay
-                la_c = np.zeros(n0)
-                np.add.at(la_c, bud_nodes, bud_leaf)
-                la_c = T.basipetal(levels, la_c)
-                unit_c = float(sp.pipe_model.wood_volume_per_carbon) / g_resp
-                need = self._sapwood_loss(n0) * float(sp.hydraulics.huber_value) * la_c * np.where(alive, T.length[:n0], 0.0) / unit_c
-                upkeep_c = upkeep_c + T.basipetal(levels, need)
             br = np.nonzero(alive & T.is_lateral[:n0] & (T.birth[:n0] <= t - sh.min_branch_age))[0]
             self._starving = np.union1d(self._starving, br[self._falls(own_c[br], upkeep_c[br])])
         def flow(fm):
@@ -2212,7 +2204,7 @@ class GrowthModel:
         off = T.pos[node, :2] - T.pos[base, :2]
         r = np.maximum(np.hypot(off[:, 0], off[:, 1]), 1e-6)
         outward = (d * off).sum(1) / r
-        goal = self._frame_goal(base) * self._frame_shares()[T.axis[first]] * float(cf.twig_overshoot)
+        goal = self._frame_goal(base) * self._frame_shares()[T.axis[first]] * (1.0 if self._frame_earns() else float(cf.twig_overshoot))
         room = np.maximum(goal - r, 0.0) / np.maximum(outward, 0.05)
         lim[i] = np.where(outward > 0.05, np.minimum(lim[i], room / full[i]), lim[i])
         return lim
@@ -2299,11 +2291,12 @@ class GrowthModel:
         # a limb loses vigour as it ages (resource.branch_aging_years, Barthelemy & Caraglio 2007), so the crown's old lower limbs fall
         # behind the younger ones above them, as a crown in the open needs, or it's a cone
         age = np.where(limb_tip[at], np.maximum(self.year + 1.0 - T.scaffold_birth[node], 0.0), 0.0)
-        limb_years = getattr(cf, "limb_ageing_years", None)
-        grow = grow * light * float(hd["water"]) * np.exp(-age / float(limb_years if limb_years else self.sp.resource.branch_aging_years))
-        if earns and bool(getattr(self.sp.resource, "limbs_inherit_stem_age", False)):
-            # a limb starts at the physiological age the stem had when it made it (Barthelemy & Caraglio 2007, as _scaffold_vigour has it), so the top of an old tree's crown rounds off
-            grow = grow * np.where(limb_tip[at], np.exp(-T.scaffold_birth[node] / float(getattr(cf, "limb_born_years", None) or self.sp.resource.stem_aging_years)), 1.0)
+        if earns:
+            # all a tree's limbs slow as the tree ages, whenever they were born: a limb born young has had longer to reach, so the outline rounds off above, and the crown is widest
+            # where the limbs had time and light.  Barthelemy & Caraglio 2007's physiological ageing, with a limb starting at the stem's age; the years are tuned
+            grow = grow * light * float(hd["water"]) * np.where(limb_tip[at], math.exp(-(self.year + 1.0) / float(cf.limb_ageing_years)), 1.0)
+        else:
+            grow = grow * light * float(hd["water"]) * np.exp(-age / float(self.sp.resource.branch_aging_years))
         # the tree's one second top keeps up with the leader, and may catch it: only the room under the tree's top holds it (_frame_room)
         grow = np.where(second_top, float(self.sp.height_driver.catch_up) * longest / np.maximum(np.where(limb_tip[at], T.term_dir[node, 2], 1.0), 0.5), grow)
         plan = np.minimum(grow / full[at], float(nmax))
