@@ -164,6 +164,7 @@ class Plot:
         if mp is not None and bool(getattr(mp, "enabled", False)):
             lx, ly = self._sides()
             self.mort = Mortality(mp, lx, ly, self.cell[0], self.cell[1])
+            self.mort.old_age_elsewhere = damage._is_on(species) and bool(getattr(species.damage.old_age, "enabled", False))
             self.mort_rng = np.random.default_rng([seed, 5381])
             self.rings = {}
 

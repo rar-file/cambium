@@ -138,7 +138,7 @@ def plots(a) -> int:
                 cmd += ["--tree-lists", a.tree_lists]
             if a.gap_at:
                 cmd += ["--gap-at", str(a.gap_at), "--gap-radius", str(a.gap_radius)]
-            for extra in list(a.set) + ([item] if item else []):
+            for extra in list(a.set) + ([x for x in item.split(";") if x] if item else []):
                 cmd += ["--set", extra]
             jobs.append(Job(f"{name} plot {s}".strip(), cmd, folder / f"plot_{s}" / "done.txt"))
     return run_batch(jobs, a.peak_gb, log=top / "runs.csv")
@@ -168,7 +168,7 @@ def main():
     ap.add_argument("--stop-free-gb", type=float, default=None, help="stop and save if free memory falls under this, on a shared machine")
     ap.add_argument("--set", action="append", default=[], metavar="KEY=JSON")
     ap.add_argument("--sets", help="a file of KEY=JSON lines, read before --set")
-    ap.add_argument("--scenario", action="append", default=[], metavar="NAME=KEY=JSON", help="plots: a folder of seeds with this one change; NAME= for none")
+    ap.add_argument("--scenario", action="append", default=[], metavar="NAME=KEY=JSON", help="plots: a folder of seeds with these changes, split by ;  NAME= for none")
     ap.add_argument("--out", default=None)
     ap.add_argument("--label", default=None)
     ap.add_argument("--seeds", type=int, default=5)

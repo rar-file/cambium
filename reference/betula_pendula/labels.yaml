@@ -379,3 +379,26 @@ damage.snow.break_share: {status: VERIFY, value: 0.063, note: '93.7 % of damaged
 damage.uproot.mound_radius_factor: {status: TUNED, value: 1.0, against: 'no target, looks only'}
 damage.uproot.mound_distance_factor: {status: TUNED, value: 1.0, against: 'no target, looks only'}
 damage.uproot.relief_half_life_years: {status: TUNED, value: 20.0, against: 'no target, looks only'}
+mortality.self_thinning_slope: {status: sourced, value: 1.5848, source: 'Lee, Siipilehto & Hynynen 2025, For. Ecol. Manage. 575:122374: silver birch plantations, Finland; abstract only', checked: abstract}
+mortality.sdi_max: {status: TUNED, value: 763.0, against: 'the highest SDI of unmanaged natural stands at this slope: Aosaar et al. 2016 Table 3, 763; Martinik et al. 2018 Table 1, 731 and 743'}
+mortality.onset: {status: sourced, value: 0.7, source: 'Lee et al. 2025: lower edge of the self-thinning zone, RD 0.7 at Dq up to 18.65 cm; abstract only; applied at all sizes', checked: abstract}
+mortality.rate_at_max: {status: TUNED, value: 0.247, against: 'least squares to the yearly stem losses of Aosaar et al. 2016 Table 3 and Martinik et al. 2018 stands 17 to 22, at their own RD'}
+mortality.shape: {status: TUNED, value: 1.0, against: 'as rate_at_max; the data do not separate shapes; this one holds a stand losing 3 % a year at RD 0.74, near Hagemeier and Leuschner 2019b'}
+mortality.rate_cap: {status: TUNED, value: 0.5, against: 'the worst year of Aosaar et al. 2016 Table 3, hazard 0.44'}
+mortality.neighbourhood_sigma_m: {status: TUNED, value: 5.0, against: 'a crown or two; a judgement, small enough for a gap and a thicket to differ'}
+mortality.vigour.window_years: {status: TUNED, value: 5, against: 'base plots whose trees stood still for decades'}
+mortality.vigour.ring_scale_mm: {status: TUNED, value: 0.5, against: 'base plots whose trees stood still for decades'}
+mortality.vigour.floor: {status: TUNED, value: 0.02, against: 'base plots whose trees stood still for decades'}
+mortality.vigour.suppressed_hazard: {status: TUNED, value: 0.1, against: 'base plots whose trees stood still for decades'}
+plot.natural_start.stems_per_ha: {status: TUNED, value: 16000, against: '11,633 stems/ha at age 8 in Aosaar et al. 2016 Table 3, with alpha 3.0 standing in for slower young growth'}
+regeneration.spread.far_mean_m: {status: sourced, value: 370.0, source: 'Tiebel et al. 2020, Eur. J. For. Res. 139:731: 367-380 m, their long case', checked: page}
+regeneration.spread.far_share: {status: TUNED, value: 0.005, against: 'Fedorov et al. 2024, Forests 15:34: stems at 391-776 m from a birch seed stand, 256-740 a ha at 21-24 years, and under 5 % cover at 200-600 m at 8-9 years; point estimate from a grown edge'}
+regeneration.spread.seed_min_dbh_wood_cm: {status: sourced, value: 11.0, source: 'Tiebel et al. 2020: seed trees mapped from 12 cm DBH over bark', checked: page}
+regeneration.spread.mast_share: {status: sourced, value: 0.333, source: 'Sarvas 1948 as cited in Tiebel et al. 2020: good seed years about every 3 years; Sarvas not opened', checked: page}
+regeneration.spread.mast_factor: {status: sourced, value: 4.3, source: 'Tiebel et al. 2020: 1,500,000 against 350,000 seeds at DBH 20 cm, 2016 against 2015', checked: page}
+regeneration.spread.ln_mean_m: {status: sourced, value: 4.18, source: 'Liu & Evans 2021, Forests 12:929, Table 1: 65 m in the open', checked: page}
+regeneration.spread.ln_mean_per_tree: {status: sourced, value: -0.18, source: 'Liu & Evans 2021, Table 1: 38 m at 3 trees a 10 m cell', checked: page}
+regeneration.spread.establishment_light: {status: TUNED, value: [0.3, 0.6], against: 'recruits dying at 25-30 % light; gaps and open ground taking in full'}
+regeneration.spread.canopy_cover_max: {status: TUNED, value: 0.5, against: 'one windthrow plot, where the light field could not tell a gap from a canopy'}
+regeneration.spread.canopy_radius_m: {status: TUNED, value: 3.0, against: 'as canopy_cover_max; about a crown width'}
+regeneration.spread.cell_m: {status: TUNED, value: 2.0, against: 'memory, not biology: the densest a young stand can be is one recruit per 4 m2 a year'}

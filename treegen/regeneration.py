@@ -155,9 +155,13 @@ class SpreadRegeneration(Regeneration):
     * The ground can be a long rectangle.  Seed carried past the two ends of x
       is lost, where the plain class brings it back round; the sides repeat, so a
       strip stands for a long forest edge.
-    * Each tree throws its seed on the fitted kernel of Liu & Evans 2021: lognormal
-      with mean distance u = exp(u0 + ut T) and shape p = exp(p0 + pt T), T the
-      big trees in its 10 m cell.  Trees at an open edge throw furthest.
+    * Each tree throws its seed with a mean distance u = exp(u0 + ut T), T the big
+      trees in its 10 m cell, as Liu & Evans 2021 fitted: trees at an open edge throw
+      furthest.  The shape is Tiebel et al. 2020's negative exponential in distance,
+      most seed nearest the tree, with a small share on a far kernel; Liu & Evans's
+      lognormal has a hole at the tree and too thin a tail (``kernel``).
+    * Crops differ between years, the same year for every tree: mast years, and a tree
+      sheds seed only from a stem diameter on, so a cohort doesn't start all at once.
     * A germinant's chance rises with light between two values, and it needs a sky
       over it: none takes where the canopy covers most of the ground around it.  The
       plain class has one cut-off, the light at which birch leaves die, and that
@@ -240,6 +244,11 @@ class SpreadRegeneration(Regeneration):
         u = math.exp(float(s.ln_mean_m) + float(s.ln_mean_per_tree) * t)
         p = math.exp(float(s.ln_shape) + float(s.ln_shape_per_tree) * t)
         mu = math.log(u) - 0.5 * p * p
+        mix = str(getattr(s, "kernel", "lognormal")) == "exponential_mix"
+        far_share = float(getattr(s, "far_share", 0.0)) if mix else 0.0
+        far_mean = float(getattr(s, "far_mean_m", u))
+        # the cell at the tree: 1/r averaged over its disc is 1/(R/2), which gives its seed correctly
+        r_near = 0.5 * math.sqrt(self.csx * self.csy / math.pi)
         nxp, ny = self.nx_pad, self.ny
         ix = np.arange(nxp)
         dx = np.minimum(ix, nxp - ix) * self.csx
@@ -252,8 +261,12 @@ class SpreadRegeneration(Regeneration):
         for m in images_x:
             for n in range(-reach, reach + 1):
                 r = np.hypot(dx[:, None] + m * self.lx, dy[None, :] + n * self.ly)
-                r = np.maximum(r, 0.25 * min(self.csx, self.csy))
-                K += np.exp(-((np.log(r) - mu) ** 2) / (2.0 * p * p)) / ((2.0 * math.pi) ** 1.5 * p * r * r)
+                if mix:
+                    r = np.maximum(r, r_near)
+                    K += ((1.0 - far_share) * np.exp(-r / u) / u + far_share * np.exp(-r / far_mean) / far_mean) / (2.0 * math.pi * r)
+                else:
+                    r = np.maximum(r, 0.25 * min(self.csx, self.csy))
+                    K += np.exp(-((np.log(r) - mu) ** 2) / (2.0 * p * p)) / ((2.0 * math.pi) ** 1.5 * p * r * r)
         K *= self.csx * self.csy
         if bool(s.repeat_ends):
             K /= K.sum()       # every seed lands somewhere in the repeating ground
@@ -290,6 +303,18 @@ class SpreadRegeneration(Regeneration):
         inside = np.hypot(dx, dy) <= radius
         self.mineral[inside] = np.maximum(self.mineral[inside], share)
 
+    def fecundity(self, dbh_m: float, age: int) -> float:
+        """As the plain class, from a stem diameter on as well as an age."""
+        least = getattr(self.p.spread, "seed_min_dbh_wood_cm", None)
+        if least is not None and dbh_m * 100.0 < float(least):
+            return 0.0
+        return super().fecundity(dbh_m, age)
+
+    def seed_crop(self) -> float:
+        """This year's crop against a poor year's; one draw for the whole ground."""
+        share = getattr(self.p.spread, "mast_share", None)
+        return float(self.p.spread.mast_factor) if share and self.rng.random() < float(share) else 1.0
+
     def light_chance(self, light: np.ndarray) -> np.ndarray:
         """Share of germinants that live through the first season, by light at 0.1 m."""
         lo, hi = (float(x) for x in self.p.spread.establishment_light)
@@ -299,7 +324,8 @@ class SpreadRegeneration(Regeneration):
              occupied: np.ndarray):
         """One year, as Regeneration.step, with the light ramp and the kernels."""
         p = self.p
-        rain = self.seed_rain(trees_xy, seeds)
+        crop = self.seed_crop()
+        rain = self.seed_rain(trees_xy, seeds * crop)
         organic = np.maximum(1.0 - self.mineral - self.surface_stone, 0.0)
         # the organic layer's rate was measured under its field layer in full light, so it
         # already holds that shade: both seedbeds read only the canopy's light here
@@ -328,7 +354,7 @@ class SpreadRegeneration(Regeneration):
         keep_m = 0.5 ** (1.0 / self._half_life())
         self.mineral = self.mineral * keep_m + float(p.mineral_new_per_year) * (1.0 - self.mineral * keep_m)
         area = self.lx * self.ly
-        self.last = {"seed_rain_per_m2": float(rain.sum() / area),
+        self.last = {"seed_rain_per_m2": float(rain.sum() / area), "seed_crop": crop,
                      "ground_light_mean": float(canopy_light.mean()),
                      "ground_light_p10": float(np.percentile(canopy_light, 10)),
                      "ground_light_p90": float(np.percentile(canopy_light, 90)),
