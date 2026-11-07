@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from speed_compare import TEST_A  # noqa: E402
 
-LOSSLESS = ["speed.compiled_carbon=true", "speed.compiled_mechanics=true", "speed.light_layers=true", "speed.keep_soil_grids=true"]
+LOSSLESS = ["speed.compiled_carbon=true", "speed.compiled_mechanics=true", "speed.light_layers=true", "speed.keep_soil_grids=true", "speed.quick_solve=true"]
 ROWS = ["speed.light_rows=true"]
 K26 = ["speed.sky_elevations_deg=[15,45,75]", "speed.sky_azimuth_count=8", "speed.sun_hour_step=2.0"]     # 16 sky, 8 sun at this site
 K14 = ["speed.sky_elevations_deg=[25,65]", "speed.sky_azimuth_count=6", "speed.sun_hour_step=3.0"]        # 8 sky, 6 sun

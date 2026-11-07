@@ -1734,15 +1734,19 @@ class GrowthModel:
             return 0.0, r0 * (pool / c0 if c0 > 0.0 else 0.0)
 
         def solve_for(target):
-            lo, hi = 0.0, 1.0
-            while parts(hi)[0] < target and hi < 1e7:
-                lo, hi = hi, 2.0 * hi
-            for _ in range(40):
-                mid = 0.5 * (lo + hi)
-                if parts(mid)[0] < target:
-                    lo = mid
-                else:
-                    hi = mid
+            if fast.on(sp, "quick_solve"):
+                lo, hi = fast.quick_bisect(parts, target, getattr(self, "_lam_guess", 1.0))
+                self._lam_guess = lo
+            else:
+                lo, hi = 0.0, 1.0
+                while parts(hi)[0] < target and hi < 1e7:
+                    lo, hi = hi, 2.0 * hi
+                for _ in range(40):
+                    mid = 0.5 * (lo + hi)
+                    if parts(mid)[0] < target:
+                        lo = mid
+                    else:
+                        hi = mid
             if lead_at is not None and getattr(sp.height_driver, "leaf_growth_max", None) is not None:
                 # the crown can't add more leaf area in a year than this many times what it has (sink
                 # limit, standing in for nutrients and competition); what's left goes to the store or is lost

@@ -1747,6 +1747,8 @@ speed:
   light_layers: false
   # the soil's stones and rootable depth are kept instead of being laid out again each year
   keep_soil_grids: false
+  # the carbon solve reaches the same answer in fewer evaluations (fast.quick_bisect)
+  quick_solve: false
   # NOT lossless, needs the maintainer's approval: the same light sums in another order, with scipy's ffts.  The field agrees to float32
   # rounding (at most 1e-6 in a field of up to 2), so a seed makes a different tree, as it does on another machine
   light_rows: false

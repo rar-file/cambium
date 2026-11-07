@@ -533,6 +533,78 @@ def parts_function(hd, lead_at, ahead, share, thr, caps, full, per_met, early, l
     return parts
 
 
+def quick_bisect(parts, target: float, guess: float, iterations: int = 40) -> tuple:
+    """The (lo, hi) of _growth_factor's solve_for: lo, hi = 0, 1, doubling hi until parts(hi) reaches the target (or hi reaches
+    1e7), then that many halvings; with far fewer evaluations.  parts rises with lambda, so a value's side of the target
+    settles the side of every point beyond it: only comparisons no earlier value settles are evaluated, and a secant step tightens
+    what's known before each one.  guess: a lambda to start the doubling from.  (If parts ever fell with lambda across the target
+    this could differ from the plain loop; tools/golden.py and tests/test_speed.py show the same bits on the runs tested.)"""
+    hi = 1.0
+    if guess > 1.0:
+        hi = 2.0 ** math.ceil(math.log2(guess))
+        hi = min(hi, 16777216.0)    # the first power of two that reaches 1e7
+    v = parts(hi)[0]
+    a, fa = 0.0, None               # largest point known below the target, and its value
+    b, fb = None, None              # smallest point known at or over it
+    if v < target:
+        a, fa = hi, v
+        while hi < 1e7:
+            hi *= 2.0
+            v = parts(hi)[0]
+            if v >= target:
+                b, fb = hi, v
+                break
+            a, fa = hi, v
+    else:
+        b, fb = hi, v
+        while hi > 1.0:
+            half = 0.5 * hi
+            w = parts(half)[0]
+            if w < target:
+                a, fa = half, w
+                break
+            b, fb = half, w
+            hi = half
+    lo = 0.5 * hi if hi > 1.0 else 0.0
+    if fa is None:
+        fa = parts(0.0)[0]
+    below = True
+    for _ in range(iterations):
+        mid = 0.5 * (lo + hi)
+        if mid <= a:
+            lo = mid
+            continue
+        if b is not None and mid >= b:
+            hi = mid
+            continue
+        if b is not None and fb > fa:
+            # the function is piecewise straight: aim just past the secant's root, on the side not moved last, so both ends close
+            room = b - a
+            x = a + (target - fa) * room / (fb - fa) + (0.02 * room if below else -0.02 * room)
+            if a < x < b and x != mid:
+                w = parts(x)[0]
+                below = w < target
+                if below:
+                    a, fa = x, w
+                else:
+                    b, fb = x, w
+                if mid <= a:
+                    lo = mid
+                    continue
+                if mid >= b:
+                    hi = mid
+                    continue
+        w = parts(mid)[0]
+        below = w < target
+        if below:
+            lo = mid
+            a, fa = mid, w
+        else:
+            hi = mid
+            b, fb = mid, w
+    return lo, hi
+
+
 def gaussian_weights(sigma: float, truncate: float = 3.0) -> np.ndarray:
     """scipy.ndimage.gaussian_filter1d's weights."""
     sd = float(sigma)

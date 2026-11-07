@@ -59,14 +59,16 @@ def one(seed: int, years: int, sets: list, plot_trees: int = 0) -> dict:
         for _ in range(years):
             plot.step()
         seconds = time.perf_counter() - t0
+        tree_years = sum(int(s.get("trees", 0)) for s in plot.stats)
         return {"seconds": seconds, "stats": [hashlib.sha256(json.dumps(s, sort_keys=True, default=str).encode()).hexdigest() for s in plot.stats],
-                "trees": {str(k): digest(plot.trees[k]) for k in plot.alive}, "alive": len(plot.alive), "nodes": sum(plot.trees[k].tree.n for k in plot.alive)}
+                "trees": {str(k): digest(plot.trees[k]) for k in plot.alive}, "alive": len(plot.alive), "nodes": sum(plot.trees[k].tree.n for k in plot.alive),
+                "tree_years": tree_years, "peak_mb": cli.peak_memory_mb()}
     model = GrowthModel(sp, cli.make_environment(env_p), seed, stand=True, soil=cli.make_soil(env_p), lean=True)
     for _ in range(years):
         model.step()
     seconds = time.perf_counter() - t0
     return {"seconds": seconds, "stats": [hashlib.sha256(json.dumps(s, sort_keys=True, default=str).encode()).hexdigest() for s in model.stats],
-            "trees": {"0": digest(model)}, "alive": 1, "nodes": int(model.tree.n)}
+            "trees": {"0": digest(model)}, "alive": 1, "nodes": int(model.tree.n), "peak_mb": cli.peak_memory_mb()}
 
 
 def child(seed, years, sets, plot_trees) -> dict:
@@ -83,7 +85,8 @@ def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("what", choices=["one", "lossless"])
+    ap.add_argument("what", choices=["one", "lossless", "times"])
+    ap.add_argument("--sets", default="", help="times: names from tools/speed_queue.py SETS, comma separated; each is run with the lossless settings")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--seeds", default="1")
     ap.add_argument("--years", type=int, default=30)
@@ -95,6 +98,32 @@ def main():
     base = TEST_A if a.testA else []
     if a.what == "one":
         print(json.dumps(one(a.seed, a.years, a.set, a.plot_trees)))
+        return
+    if a.what == "times":
+        # each set in turn, round after round, so the PC's other work falls on all of them; the quickest of each is the table
+        from speed_queue import LOSSLESS, SETS
+
+        names = a.sets.split(",")
+        seeds = [int(x) for x in a.seeds.split(",")]
+        best = {n: {} for n in names}
+        peak = {n: 0.0 for n in names}
+        for _ in range(a.repeats):
+            for seed in seeds:
+                for n in names:
+                    if n.startswith("OFF_"):
+                        sets = SETS[n[4:]][0]        # settings of that name with no speed settings at all
+                    else:
+                        sets = LOSSLESS + SETS[n][0]
+                    r = child(seed, a.years, sets, a.plot_trees)
+                    best[n][seed] = min(best[n].get(seed, 1e9), r["seconds"])
+                    peak[n] = max(peak[n], r.get("peak_mb") or 0.0)
+                    print(f"{n} seed {seed}: {r['seconds']:.1f} s, peak {r.get('peak_mb', 0):.0f} MB", flush=True)
+        print("\n| Set | " + " | ".join(f"Seed {s} (s)" for s in seeds) + " | Mean (s) | Against the first | Peak (MB) |")
+        print("|---|" + "---|" * (len(seeds) + 3))
+        first = sum(best[names[0]].values())
+        for n in names:
+            total = sum(best[n].values())
+            print(f"| `{n}` | " + " | ".join(f"{best[n][s]:.1f}" for s in seeds) + f" | {total / len(seeds):.1f} | {first / total:.2f}x | {peak[n]:.0f} |")
         return
     all_same = True
     print(f"settings on: {a.set}; {'Test A' if a.testA else 'default'}; {a.plot_trees or 'stand tree'}; to {a.years}")
