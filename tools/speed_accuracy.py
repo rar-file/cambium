@@ -1,6 +1,7 @@
 """Does a speed setting move the results by more than the noise?  Tree ensembles at ages 50 and 60, and plots.
 
     python tools/speed_accuracy.py trees node_speed_t_A_base node_speed_t_A_base2 -- node_speed_t_A_rows node_speed_t_A_k26
+    python tools/speed_accuracy.py trees node_speed_t_A_base+node_speed_t_A_base2 -- node_speed_t_A_rows+node_speed_t_A_rows2     # draws pooled
     python tools/speed_accuracy.py plots node_speed_p_A_base node_speed_p_A_base2 -- node_speed_p_A_rows
 
 The first label is the baseline; any more before -- are the same settings on fresh seeds, which show what a second draw does by
@@ -30,7 +31,13 @@ TREE_METRICS = (("Height (m)", lambda r, a: r["per_year"][a]["height_m"], ".2f")
                 ("Crown width (m)", lambda r, a: r["per_year"][a]["crown_width_m"], ".2f"),
                 ("Crown ratio", lambda r, a: r["per_year"][a]["crown_ratio"], ".3f"),
                 ("Limb angle, low (deg)", lambda r, a: r["snap"][a]["shape"].get("angle_low"), ".1f"),
-                ("Limb angle, mid (deg)", lambda r, a: r["snap"][a]["shape"].get("angle_mid"), ".1f"))
+                ("Limb angle, mid (deg)", lambda r, a: r["snap"][a]["shape"].get("angle_mid"), ".1f"),
+                ("Limb angle, upper (deg)", lambda r, a: r["snap"][a]["shape"].get("angle_up"), ".1f"),
+                ("Widest at (0 base, 1 top)", lambda r, a: r["snap"][a]["shape"].get("widest_at"), ".3f"),
+                ("Crown side fill", lambda r, a: r["snap"][a]["shape"].get("fill"), ".3f"),
+                ("Hanging share of leaves", lambda r, a: r["snap"][a]["shape"].get("hang_leaves"), ".3f"),
+                ("Branches, count", lambda r, a: r["snap"][a]["branches"], ".1f"),
+                ("Mean branch (m)", lambda r, a: r["snap"][a]["mean_branch_m"], ".2f"))
 PLOT_METRICS = (("Stems/ha", "stems_ha", ".0f"), ("Mean height (m)", "mean_height_m", ".2f"), ("Top height (m)", "top_height_m", ".2f"),
                 ("Basal area (m2/ha)", "basal_area", ".1f"), ("LAI", "lai", ".2f"), ("Light (%)", "light", ".1f"))
 
@@ -64,7 +71,14 @@ def compare_row(name, age, base_vals, draws, tests, f):
 def trees(base, tests):
     from tree_table import load
 
-    runs = {label: load(label) for label in base + tests}
+    def loaded(label):
+        # a+b is one set: draws on other seeds, pooled
+        out = {}
+        for part in label.split("+"):
+            out.update(load(part))
+        return out
+
+    runs = {label: loaded(label) for label in base + tests}
     head = [f"`{base[0]}`, mean +- SE (seeds)"] + [f"`{x}` minus baseline" for x in base[1:]] + [f"`{x}` minus baseline" for x in tests]
     print("| Metric | Age | " + " | ".join(head) + " |")
     print("|---|---|" + "---|" * len(head))
