@@ -798,6 +798,7 @@ def write_stats(path: Path, model, metadata: dict, reference: dict, anchorage: d
     doc = {
         "format": "treegen.stats/1",
         **metadata,
+        **({"damage_log": model.damage_log} if getattr(model, "damage_log", None) else {}),
         "units": {"height": "m", "dbh": "cm (diameter at 1.3 m)", "crown_width": "m"},
         "definitions": {
             "crown_width_m": "mean of the east-west and north-south extents of living wood",

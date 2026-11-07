@@ -96,6 +96,7 @@ def main(argv=None):
         (out / "plot.json").write_text(json.dumps({"area_m2": plot.area, "side_m": plot.L, "mode": plot.mode, "year": plot.year,
                                                    "run_manifest": manifest, "options": options,
                                                    "trees": plot.info, "stats": plot.stats,
+                                                   **({"damage_log": plot.damage_log} if getattr(plot, "damage_log", None) else {}),
                                                    "runtime_s": round(time.time() - t0), "peak_mb": round(cli.peak_memory_mb())},
                                                   indent=1))
 

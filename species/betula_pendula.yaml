@@ -867,6 +867,8 @@ damage:
   # Old age, wind and snow (treegen/damage.py).  Off by default.  Labels and
   # sources for every value: reference/betula_pendula/labels.yaml.
   enabled: false
+  # For tuning: keep every tree's size and buckling sum in each snow year, in plot.json.
+  log_snow_trees: false
   # Over-bark DBH per wood DBH, from Hansen et al. 2023 as in tools/bark.py
   # (the small intercept dropped); the wind data are over bark.
   dbh_over_bark_factor: 1.098

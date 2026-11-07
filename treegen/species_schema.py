@@ -259,6 +259,7 @@ _n("leader_damage.bite_diameter_m", "m", 0.0, 0.2, "browsing clips down to this 
 _r("leader_damage.events", ("name", "min_height_m", "max_height_m", "probability_per_year"), "what can take the leader")
 # ----------------------------------------------------------------------- damage
 _b("damage.enabled", "old age, wind and snow can act (treegen/damage.py)")
+_b("damage.log_snow_trees", "keep every tree's size and buckling sum in each snow year, in plot.json; for tuning", optional=True)
 _n("damage.dbh_over_bark_factor", "cm/cm", 1.0, 2.0, "over-bark DBH per wood DBH")
 _n("damage.stem_form_factor", "-", 0.2, 1.0, "stem volume over pi/4 DBH^2 H")
 _b("damage.old_age.enabled", "ageing can kill")
