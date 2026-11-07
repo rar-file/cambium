@@ -114,6 +114,9 @@ def _axis_marks(wood: WoodParts, stem_md, shoot, pos: np.ndarray, age: int, radi
     on_stem[stem_nodes[stem_nodes < shoot.n]] = True
     idx = np.nonzero(shoot.is_lateral[:n].astype(bool) & (shoot.parent[:n] >= 0) & (shoot.birth[:n] <= age))[0]
     idx = idx[on_stem[shoot.parent[idx]]]
+    if ap.stem_stub_share(wood.look) > 0.0:
+        # the lateral that took over from a lost leader is the stem, and leaves no mark on it
+        idx = idx[~on_stem[idx]]
     if idx.size == 0:
         return []
     order = np.argsort(stem_md["s"])

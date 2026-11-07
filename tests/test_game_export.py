@@ -401,7 +401,7 @@ def test_a_stem_passing_a_doubling_keeps_most_of_its_pattern(look):
 def test_the_new_mesh_settings_are_off_unless_asked():
     s = mesh.MeshSettings()
     assert s.drop_hidden_rings is False and s.ring_tolerance == 0.0 and s.ring_tolerance_m == 0.0
-    assert s.stem_edge_by_height == () and s.buttress_hold_m == 0.0 and s.no_stem_ridges is False
+    assert s.stem_edge_by_height == () and s.buttress_hold_m == 0.0 and s.no_stem_ridges is False and s.stem_stub_share == 0.0
 
 
 def test_a_dense_run_of_ring_samples_doesnt_drop_itself_whole():
@@ -768,8 +768,10 @@ def _rough_at(look, seed, age, z):
     edge = tx.UnevenTop(look, age, seed)
     u = (np.arange(256) + 0.5) / 256.0
     n, W = len(z), len(u)
-    at = edge.heights(u, z, z)
-    return ap.part_state(look, np.full((n, W), float(age)), np.full((n, W), 0.3), at, 25.0, 30.0)["weights"][-1]
+    # a stem whose parts high up are a little younger, as a tree's are
+    ages = float(age) * (1.0 - 0.01 * z)
+    at = edge.heights(u, z, z, ages)
+    return ap.part_state(look, np.broadcast_to(ages[:, None], (n, W)), np.full((n, W), 0.3), at, 25.0, 30.0)["weights"][-1]
 
 
 @pytest.fixture(scope="module")
@@ -782,39 +784,98 @@ def uneven(look):
 def test_the_rough_base_is_level_unless_asked(look):
     assert float(look["bark"]["uneven_top"]["strength"]) == 0.0
     assert tx.uneven_top(look, 60.0, 5) is None
+    assert ap.stem_stub_share(look) == 0.0
 
 
 def test_the_unreal_target_asks_for_an_uneven_base(look):
     import treegen.game_unreal as gu
 
     assert tx.uneven_top(gu.unreal_look(look), 60.0, 5) is not None
+    assert ap.stem_stub_share(gu.unreal_look(look)) > 0.0
 
 
-def test_the_rough_base_stops_at_no_one_level_and_differs_by_tree(uneven):
+@pytest.mark.parametrize("seed", range(1, 11))
+def test_every_old_stem_has_a_rough_base_and_stops_at_no_one_level(uneven, seed):
     z = np.linspace(0.05, 7.0, 400)
-    tops = {}
-    for seed in range(1, 7):
-        w = _rough_at(uneven, seed, 60, z)
-        # the highest it's half way on, column by column
-        tops[seed] = z[(w > 0.5).shape[0] - 1 - np.argmax((w > 0.5)[::-1], axis=0)]
-        # round one stem, more than a metre between its lowest and its highest
-        assert np.percentile(tops[seed], 95) - np.percentile(tops[seed], 5) > 1.0
-    means = [float(t.mean()) for t in tops.values()]
-    assert max(means) - min(means) > 0.5
+    w = _rough_at(uneven, seed, 60, z)
+    # black low down on every tree, whatever its seed
+    assert w[z < 0.5].mean() > 0.7
+    # the highest it's on, column by column: more than half a metre between low and high round one stem
+    on = w > 0.5
+    top = z[on.shape[0] - 1 - np.argmax(on[::-1], axis=0)]
+    assert np.percentile(top, 95) - np.percentile(top, 5) > 0.5
+    # and in hard-edged patches: where it's between all and nothing, the bark is one or the other, with little between
+    assert ((w > 0.2) & (w < 0.8))[z < 4.0].mean() < 0.12
+    changing = (z > 1.0) & (z < 2.5)
+    assert 0.1 < w[changing].mean() < 0.95
 
 
-def test_the_rough_base_leaves_white_plates_and_grows_with_the_tree(uneven):
+def test_the_rough_base_differs_by_tree_and_grows_with_it(uneven):
     z = np.linspace(0.05, 7.0, 400)
-    w = _rough_at(uneven, 5, 60, z)
-    # part way: the stage has taken the furrows and left the plates
-    assert ((w > 0.2) & (w < 0.8))[z < 4.0].mean() > 0.1
-    # solid black only low down, somewhere on the stem, and nothing near the top of the range
-    assert w[z < 0.3].max() > 0.9 and w[z > 6.5].max() < 0.5
+    black = [float(_rough_at(uneven, seed, 60, z).mean()) for seed in range(1, 11)]
+    assert max(black) > 1.3 * min(black)
     # an older tree has more of it, in the same place: the pattern is the tree's
     young, old = _rough_at(uneven, 5, 30, z), _rough_at(uneven, 5, 60, z)
     assert old.sum() > 1.5 * young.sum()
     rows = z < 3.0
-    assert np.corrcoef(young[rows].ravel(), old[rows].ravel())[0, 1] > 0.5
+    assert np.corrcoef(young[rows].ravel(), old[rows].ravel())[0, 1] > 0.3
+    # a young stem has next to none
+    assert _rough_at(uneven, 5, 12, z).mean() < 0.02
+
+
+def test_thin_limbs_are_dark_only_with_the_look_on(look, uneven):
+    d = np.array([0.02, 0.03, 0.05, 0.08])
+    n = len(d)
+
+    def white(lk):
+        return ap.part_state(lk, np.full(n, 40.0), d, np.full(n, 15.0), 25.0, 30.0)["weights"][1]
+
+    off, on = white(look), white(uneven)
+    assert off[2] > 0.9                 # as it was
+    assert on[0] < 0.05 and on[1] < 0.4 and on[3] > 0.8
+    assert np.all(np.diff(on) > 0.0)
+
+
+def _forked_tree():
+    """A stem up 10 nodes; a lateral from node 6 that goes on to the top; the old leader's last thread above it."""
+    from types import SimpleNamespace
+
+    n = 22
+    parent = np.r_[-1, np.arange(0, 7), [7], np.arange(7, 20)][:n]
+    parent = np.array([-1, 0, 1, 2, 3, 4, 5, 6, 7, 6, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+    axis = np.array([0] * 9 + [9] * 13)
+    is_lat = np.zeros(n, bool)
+    is_lat[9] = True
+    depth = np.zeros(n, np.int64)
+    for k in range(1, n):
+        depth[k] = depth[parent[k]] + 1
+    pos = np.zeros((n, 3))
+    pos[:, 2] = 0.5 * depth
+    zeros = np.zeros(n, np.int64)
+    radius = np.r_[np.full(7, 0.12), [0.001, 0.001], np.linspace(0.12, 0.01, 13)]
+    return SimpleNamespace(n=n, pos=pos, parent=parent, axis=axis, is_lateral=is_lat, order=zeros, birth=zeros, death=zeros - 1, depth=depth), radius
+
+
+def test_a_stem_is_one_tube_past_the_lost_leaders_last_thread():
+    tree, radius = _forked_tree()
+    select = np.ones(tree.n, bool)
+    # as it was, unless asked: the thread counts as the stem going on, and the rest of the trunk is a branch
+    assert mesh.continue_trunk(tree, select) is tree
+    assert mesh.continue_trunk(tree, select, radius, 0.0) is tree
+    view = mesh.continue_trunk(tree, select, radius, 0.25)
+    assert np.all(np.asarray(view.axis)[:7] == 0) and np.all(np.asarray(view.axis)[9:] == 0)
+    assert not view.is_lateral[9]
+    # the thread is a side shoot of its own now
+    assert view.axis[7] == view.axis[8] != 0 and view.is_lateral[7] and not view.is_lateral[8]
+    # and the tree itself is as it was
+    assert tree.axis[9] == 9 and tree.is_lateral[9]
+
+
+def test_a_real_fork_is_left_as_it_is():
+    tree, radius = _forked_tree()
+    radius = radius.copy()
+    radius[7:9] = 0.06
+    assert mesh.continue_trunk(tree, np.ones(tree.n, bool), radius, 0.25) is tree
 
 
 def test_leaves_hang_at_the_measured_angles(look):

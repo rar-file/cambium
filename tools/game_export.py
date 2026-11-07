@@ -88,7 +88,7 @@ def export_stage(model, sp, look: dict, tiles: list, age: int, snap: ap.LeafSnap
     z = np.asarray(skel.pos[:n, 2], float)
     rad_ob = np.asarray(rad[:n], float).copy()
     rad_ob = ap.add_bark_radius(look, rad_ob, part_age, z, np.asarray(is_root[:n]), height, dbh_w)
-    settings0 = mesh.MeshSettings(ring_attributes=True, stem_sides_by_radius=True, sides_allowed=tuple(gcfg_full["sides_allowed"]))
+    settings0 = mesh.MeshSettings(ring_attributes=True, stem_sides_by_radius=True, sides_allowed=tuple(gcfg_full["sides_allowed"]), stem_stub_share=ap.stem_stub_share(look))
     crown0 = game.crown_mesh(skel, np.ones(n, bool), rad_ob, is_root, orig, sp.geometry, settings0)
     wood = game.WoodParts(look, tiles, age, height, dbh_w, T.birth[: T.n], r_wood)
     wood.tree_seed = int(meta["seed"])

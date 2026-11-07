@@ -26,11 +26,11 @@ Variant names: `betula_pendula_grown_age060` is the nearest level in the base se
 | Age | Height, m | Leaves | Nearest level | of which wood | roots with the tree | bark strips | leaves | `_lod1` | `_lod2` | `_roots` | Nearest, MB |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 5 | 5.7 | 8,711 | 297,930 | 36,372 | 228 | 0 | 261,330 | 15,999 | 12 | 4,772 | 27 |
-| 15 | 12.0 | 10,436 | 365,194 | 50,396 | 1,270 | 448 | 313,080 | 16,000 | 12 | 16,394 | 33 |
-| 30 | 18.8 | 34,856 | 1,371,158 | 319,947 | 2,843 | 2,688 | 1,045,680 | 16,000 | 12 | 62,366 | 118 |
-| 50 | 24.6 | 46,312 | 1,986,463 | 585,879 | 5,848 | 5,376 | 1,389,360 | 16,000 | 12 | 155,765 | 165 |
-| 60 | 26.1 | 47,728 | 2,163,455 | 718,249 | 7,094 | 6,272 | 1,431,840 | 15,999 | 12 | 192,647 | 176 |
-| 100 | 29.7 | 49,408 | 2,701,790 | 1,197,863 | 11,383 | 10,304 | 1,482,240 | 16,000 | 12 | 396,116 | 205 |
+| 15 | 12.0 | 10,436 | 365,674 | 50,876 | 1,270 | 448 | 313,080 | 16,000 | 12 | 16,394 | 33 |
+| 30 | 18.8 | 34,856 | 1,392,278 | 341,067 | 2,843 | 2,688 | 1,045,680 | 16,000 | 12 | 62,366 | 119 |
+| 50 | 24.6 | 46,312 | 2,023,679 | 623,095 | 5,848 | 5,376 | 1,389,360 | 16,000 | 12 | 155,765 | 167 |
+| 60 | 26.1 | 47,728 | 2,208,447 | 763,241 | 7,094 | 6,272 | 1,431,840 | 15,999 | 12 | 192,647 | 178 |
+| 100 | 29.7 | 49,408 | 2,787,678 | 1,283,751 | 11,383 | 10,304 | 1,482,240 | 16,000 | 12 | 396,116 | 210 |
 
 The game's own birch, `betula_pendula_a`, is 1,771,416 triangles, read back in Unreal. Budgets are settings: `--budget lod1=8000`, or `appearance.game` in the species file.
 
@@ -65,12 +65,12 @@ Since then the bark has real depth and the leaves real outlines (section 8), whi
 
 | | Age 50 cleaned | now | Age 60 cleaned | now |
 |---|---|---|---|---|
-| Wood | 241,584 | 585,879 | 265,630 | 718,249 |
+| Wood | 241,584 | 623,095 | 265,630 | 763,241 |
 | Roots with the tree | 6,571 | 5,848 | 7,874 | 7,094 |
 | Bark strips | 5,376 | 5,376 | 6,272 | 6,272 |
 | Leaves | 1,296,736 | 1,389,360 | 1,336,384 | 1,431,840 |
-| **With the tree** | **1,550,267** | **1,986,463** | **1,616,160** | **2,163,455** |
-| File, MB | 120 | 165 | 124 | 176 |
+| **With the tree** | **1,550,267** | **2,023,679** | **1,616,160** | **2,208,447** |
+| File, MB | 120 | 167 | 124 | 178 |
 
 ## 3. Importing with the game's own scripts
 
@@ -113,7 +113,7 @@ None of this has been changed in the game. Numbers 1-4 let the tree in. The rest
 
 | What the plain export carried | Kept or lost | Where it goes now |
 |---|---|---|
-| Positions, normals, triangles | Kept, **tested**: 365,194 triangles come back exactly at age 15, and the same at each age I could import, by the Nanite count on the saved asset | Same. Metres become cm, y-up becomes z-up |
+| Positions, normals, triangles | Kept, **tested**: 365,674 triangles come back exactly at age 15, and the same at each age I could import, by the Nanite count on the saved asset | Same. Metres become cm, y-up becomes z-up |
 | Tangents | Kept on normal meshes. Nanite doesn't store them (**documented**) | Nothing to do |
 | Base colour, normal map | Kept, **tested** | The game's script makes its own material and sets them |
 | Roughness and occlusion map | The game reads roughness from a separate map's red | `_rough_2k.png`: red roughness, green height, blue occlusion |
@@ -275,15 +275,13 @@ The nearest level's stem has the bark's own height map in its mesh, so plates st
 | Age | Deepest crack in the mesh, mm | Highest plate, mm | Wood triangles |
 |---|---|---|---|
 | 5 | 0.1 | 0.2 | 36,372 |
-| 15 | 4.1 | 1.5 | 50,396 |
-| 30 | 15.1 | 1.5 | 319,947 |
-| 50 | 19.7 | 1.5 | 585,879 |
-| 60 | 21.2 | 1.5 | 718,249 |
-| 100 | 27.0 | 1.6 | 1,197,863 |
+| 15 | 4.1 | 1.5 | 50,876 |
+| 30 | 15.1 | 1.5 | 341,067 |
+| 50 | 19.7 | 1.6 | 623,095 |
+| 60 | 21.2 | 1.5 | 763,241 |
+| 100 | 27.0 | 1.6 | 1,283,751 |
 
 The mesh is finest where the cracks can be deep, up to the highest of the base's tongues: 5 mm at the old base, 3 cm up on young white bark (`appearance.game.unreal.stem_relief`). `edge_fine_m: 0` turns it off. The normal map holds everything the mesh can't, and half of what it can, as a mesh shades only as sharply as its edges are short (`normal_keeps_deep_share`). `_lod1` has a smooth stem and its own map, `<slot>_lod1`, with everything in it.
-
-Rough bark's plates are larger than in the plain export, in the Unreal target only: 3 cm across and 16 cm long, with few breaks across them, by eye from photographs of old birch.
 
 **Nanite displacement tested against it.** Same camera, same age 60 stem.
 
@@ -302,28 +300,31 @@ So relief in the mesh, for now. If triangles come to matter, displacement saves 
 
 ### The top of the black base
 
-**What was wrong.** The rough stage climbed to one height all round the stem, so the black base stopped at a nearly level line, like a sock, the same on every tree. Real birches break up unevenly.
+**What was wrong, twice.** The rough stage climbed to one height all round the stem, so the black base stopped at a nearly level line, the same on every tree. Then, with that fixed, about half the stand trees still had a plain black sock that faded out at the top. Those were trees whose leader was lost when they were young. The old leader's last node lived on as a thread about 1 mm thick, so the mesher took it as a living fork and drew the real trunk as a branch. A branch gets no stem map: no tongues, no plates, just a smooth tint by height. The trunk now stays the stem past a thread no thicker than a quarter of the replacement's radius (`stem_stub_share`, `mesh.continue_trunk`).
 
 **Now.** `bark.uneven_top`, read by the same ageing rules for each texel of the stem's map, not each row:
 
-- **Tongues.** The top reaches further in places, up to about twice its level on the highest, with some islands above.
-- **One side.** It gets further up one side of a stem than the other.
+- **Tongues.** The top reaches further in places, and further up one side of the stem than the other.
+- **Hard edges.** At each height a share of the bark has gone over, more low down. Which bark goes first is a field of patches longer than they're wide (`islands`), so what shows is black tongues and white plates at a size you can see from a distance, not a soft fade.
+- **Every old stem.** All of it has gone over below `solid_share`, whatever the tree, and most of it for some way above that, with a few white plates left.
 - **Tree to tree.** Each `--seed` makes its own stem: its pattern, which way it faces, and how dark it is. The pattern is the tree's, so it stays in place as it climbs from age to age.
-- **White plates.** Below the top the stage has taken the furrows and left the plates, so black cracks run between white plates, with patches of more of each. Solid black takes most of the lowest metre on dark trees and about half of it on light ones.
+- **Plates.** Rough bark's plates at their real size, 3 cm across and 16 cm long, lighter on their faces, so the fissures show.
 
-| Age | Level top, before, m | Top round one stem, m, lowest place to highest (mean of 6 trees) | Tree's mean top: lightest of 6 trees to darkest, m | Share of the first metre that's solid black, lightest to darkest |
+| Age | Level top, plain export, m | Top round one stem, m, lowest place to highest (mean of 6 trees) | Tree's mean top: lightest of 6 trees to darkest, m | Rough bark in the lowest metre, lightest to darkest |
 |---|---|---|---|---|
-| 15 | 0.3 | 0.1 to 0.9 | 0.3 to 0.6 | 0 % to 0 % |
-| 30 | 1.2 | 1.1 to 2.1 | 1.2 to 1.9 | 32 % to 75 % |
-| 50 | 2.2 | 1.8 to 4.0 | 2.0 to 3.5 | 46 % to 92 % |
-| 60 | 2.6 | 2.2 to 4.7 | 2.3 to 4.0 | 52 % to 94 % |
-| 100 | 3.8 | 3.1 to 6.0 | 2.9 to 6.3 | 64 % to 97 % |
+| 15 | 0.3 | 0.1 to 0.7 | 0.4 to 0.5 | 17 % to 22 % |
+| 30 | 1.2 | 0.4 to 1.5 | 0.8 to 1.3 | 70 % to 83 % |
+| 50 | 2.2 | 0.9 to 3.4 | 1.7 to 2.6 | 89 % to 97 % |
+| 60 | 2.6 | 1.2 to 4.6 | 2.2 to 3.2 | 93 % to 99 % |
+| 100 | 3.8 | 2.2 to 6.3 | 3.2 to 5.5 | 99 % to 100 % |
 
-(Top: the highest place, column by column, where the stage's weight is over 0.4, by which point most of the bark is black.)
+(Top: the highest place, column by column, where the stage's weight is over 0.4.)
 
-All of these are shares of how high the stage has climbed, so a young stem has little and an old one more. The values are `TUNED`, by eye against `reference/brastad_sweden_first_snow.jpg`, `reference/gullmarsskogen_stand_5.jpg` and the Arnhem-Delhuyzen photo in `birch-data/summer_reference`. I found no measurement of it.
+**Thin limbs.** White now starts at about 2.5 cm over bark and is complete at about 7 cm (`uneven_top.stage_ramps`), where it was 1.2 and 4.2 cm. By eye, from `reference/meilen_switzerland_solitary.jpg`, `oslo_norway.jpg` and `hallinden_sweden.jpg`, judging limb widths against the stem's in the same photo: limbs of about 5 cm and over are white, and those of 2 to 3 cm are dark. `birch-data/REPORT.md` says branches stay white, with no source, and the photos don't bear that out for thin ones.
 
-**Where it's on.** In this target, by `game.unreal.stem_relief.uneven_top: 1`. In the plain export it's off, so its bytes don't change. `--look bark.uneven_top.strength=1` turns it on there, and each export's `--seed` then gives its stem its own base.
+The values are `TUNED`, by eye against those photos and `reference/brastad_sweden_first_snow.jpg`, `reference/gullmarsskogen_stand_5.jpg` and the Arnhem-Delhuyzen, Bouleau verruqueux and Hange-Birke photos in `birch-data/summer_reference`. I found no measurement of any of it.
+
+**Where it's on.** In this target, by `game.unreal.stem_relief.uneven_top: 1`. In the plain export it's off, so its bytes don't change. `--look bark.uneven_top.strength=1` turns all of this on there, and each export's `--seed` then gives its stem its own base. `tools/crown_look.py` does so.
 
 ### Leaves
 
@@ -376,16 +377,16 @@ All in `out/unreal_test/TreeTest`, an empty project, Unreal 5.8.4, no window. Th
 
 | File | Triangles in Unreal | UV sets | Vertex colour | Slots | Lowest point, cm |
 |---|---|---|---|---|---|
-| Age 15, nearest | 365,194 | 4 | Yes | 5 | 32.0 |
+| Age 15, nearest | 365,674 | 4 | Yes | 5 | 32.0 |
 | Age 15, `_lod1` | 16,000 | 4 | Yes | 4 | 32.0 |
 | Age 15, `_lod2` | 12 | 1 | Yes | 1 | 32.0 |
 | Age 15, `_roots` | 16,318 | 4 | Yes | 1 | -54.2 |
-| Age 60, nearest | 2,163,455 in the file; see below | 4 | Yes | 5 | 32.0 |
+| Age 60, nearest | 2,208,447 in the file; see below | 4 | Yes | 5 | 32.0 |
 | Age 60, `_lod1` | 16,000 | 4 | Yes | 4 | 32.0 |
 | Age 60, `_lod2` | 12 | 1 | Yes | 1 | 32.0 |
 | Age 60, `_roots` | 191,929 | 4 | Yes | 1 | -79.9 |
 
-Age 60's nearest level came back whole at 1,947,669 triangles. Since then the uneven base and the foot have made it 2,163,455, and I couldn't save that one here: Unreal's log shows its Nanite build finishing, then free memory fell to 1.21 GB from 8 GB and the runner stopped it, and 8.6 GB didn't come free in the half hour I waited to try again. The pictures of age 60 since then use its leafless file, `_winter`, which came back whole.
+Age 60's nearest level came back whole at 1,947,669 triangles. Since then the uneven base and the foot have made it 2,208,447, and I couldn't save that one here: Unreal's log shows its Nanite build finishing, then free memory fell to 1.21 GB from 8 GB and the runner stopped it, and 8.6 GB didn't come free in the half hour I waited to try again. The pictures of age 60 since then use its leafless file, `_winter`, which came back whole.
 
 The game seats each mesh by its own lowest point, and every level of these ages now has it in the same place, so they stay in line. (They were up to 9 cm apart before.)
 
