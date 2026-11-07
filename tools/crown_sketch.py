@@ -49,7 +49,8 @@ def limb_table(model) -> dict:
 
 
 def foliage_table(model) -> dict:
-    """Where the leaves are: by order of axis, by age of the wood, and how far out from the stem.  For judging whether a crown is thin for want of short shoots, of side shoots, or of leaves."""
+    """Where the leaves are, and how twigs start and live.  Orders count from the stem as it is now: a replacement leader is stem, so T.order can't be used.  A limb is an axis off the stem, a twig an axis off a limb.
+    Places: how far out a leaf stands against the crown's radius at its own height (a crown that tapers has few leaves far out at its top for that reason alone), and how far out a twig starts along its own limb."""
     import numpy as np
 
     T = model.tree
@@ -58,88 +59,81 @@ def foliage_table(model) -> dict:
     on = np.isin(T.axis[:n], np.fromiter(model.leader_axes, np.int64))
     la = np.where(alive, T.leaves[:n], 0.0).astype(float) * float(model.light.leaf_area)
     length = np.where(alive, T.length[:n], 0.0)
-    order = np.where(on, 0, np.minimum(T.order[:n], 5))
+    par = T.parent[:n]
+    # every node once made, dead ones included, by parent before child: node numbers grow outward
+    rel = np.zeros(n, np.int64)
+    limb_of = np.full(n, -1, np.int64)
+    twig_of = np.full(n, -1, np.int64)
+    lat = T.is_lateral[:n]
+    for i in range(1, n):
+        pi = par[i]
+        if on[i]:
+            continue
+        rel[i] = rel[pi] + (1 if (lat[i] or on[pi]) else 0)
+        limb_of[i] = i if on[pi] else limb_of[pi]
+        twig_of[i] = i if (rel[i] == 2 and lat[i] and rel[pi] == 1) else twig_of[pi]
+    order = np.minimum(rel, 5)
     spur = alive & (T.lat[:n] == 2)
-    out = {"la_m2": round(float(la.sum()), 1), "by_order": {}, "by_wood_age": {}, "by_reach": {}}
+    out = {"la_m2": round(float(la.sum()), 1), "by_order": {}, "by_wood_age": {}}
     for k in range(6):
         hit = order == k
         m = float(length[hit].sum())
-        out["by_order"][k] = {"metres": round(m, 1), "la_m2": round(float(la[hit].sum()), 1), "la_per_m": round(float(la[hit].sum()) / max(m, 1e-9), 3),
-                              "spurs_per_m": round(float((spur & hit).sum()) / max(m, 1e-9), 2), "axes": int(np.unique(T.axis[:n][hit & alive]).size)}
+        nodes = int((hit & alive).sum())
+        out["by_order"][k] = {"metres": round(m, 1), "la_m2": round(float(la[hit].sum()), 1), "la_per_m": round(float(la[hit].sum()) / max(m, 1e-9), 3), "spurs_per_m": round(float((spur & hit).sum()) / max(m, 1e-9), 2),
+                              "axes": int(np.unique(T.axis[:n][hit & alive]).size), "nodes_per_m": round(nodes / max(m, 1e-9), 1), "spur_share": round(float((spur & hit).sum()) / max(nodes, 1), 3)}
     age = int(model.year) - T.birth[:n]
-    limb_axis = order == 1
     for name, lo, hi in (("0-2", 0, 3), ("3-5", 3, 6), ("6-10", 6, 11), ("11-20", 11, 21), ("21+", 21, 10000)):
         hit = (age >= lo) & (age < hi)
         m = float(length[hit].sum())
+        limb_axis = order == 1
         mb = float(length[hit & limb_axis].sum())
-        out["by_wood_age"][name] = {"metres": round(m, 1), "la_m2": round(float(la[hit].sum()), 1), "la_per_m": round(float(la[hit].sum()) / max(m, 1e-9), 3),
-                                    "limb_axis_metres": round(mb, 1), "limb_axis_spurs_per_m": round(float((spur & hit & limb_axis).sum()) / max(mb, 1e-9), 2), "limb_axis_la_per_m": round(float(la[hit & limb_axis].sum()) / max(mb, 1e-9), 3)}
+        out["by_wood_age"][name] = {"metres": round(m, 1), "la_m2": round(float(la[hit].sum()), 1), "la_per_m": round(float(la[hit].sum()) / max(m, 1e-9), 3), "limb_axis_metres": round(mb, 1),
+                                    "limb_axis_spurs_per_m": round(float((spur & hit & limb_axis).sum()) / max(mb, 1e-9), 2)}
     stem = np.nonzero(on & alive)[0]
     r = np.hypot(T.pos[:n, 0] - np.interp(T.pos[:n, 2], *_sorted_xy(T, stem, 0)), T.pos[:n, 1] - np.interp(T.pos[:n, 2], *_sorted_xy(T, stem, 1)))
-    rmax = float(np.percentile(r[la > 0.0], 95)) if (la > 0.0).any() else 1.0
-    for name, lo, hi in (("0-25", 0.0, 0.25), ("25-50", 0.25, 0.5), ("50-75", 0.5, 0.75), ("75-100", 0.75, 1.0), ("beyond", 1.0, 99.0)):
-        hit = (r / max(rmax, 1e-6) >= lo) & (r / max(rmax, 1e-6) < hi)
-        out["by_reach"][name] = round(float(la[hit].sum()) / max(float(la.sum()), 1e-9), 3)
-    out["radius_95_m"] = round(rmax, 2)
-    # how long a strand runs on a twig axis, and how many strands a limb has
-    axes = T.axis[:n]
-    twig = alive & (order >= 2)
-    lens = np.bincount(axes[twig], weights=length[twig]) if twig.any() else np.zeros(1)
-    lens = lens[lens > 0.0]
-    out["twig_axis_len_m"] = {"n": int(lens.size), "median": round(float(np.median(lens)), 2) if lens.size else 0.0, "p90": round(float(np.percentile(lens, 90)), 2) if lens.size else 0.0}
-    # where twigs start, and how long they live.  A twig is an axis off a limb's own axis; its place is how far out from the stem its base stands, as a share of the crown's radius
-    n_all = np.arange(n)
-    all_first = n_all[T.is_lateral[:n] & (T.order[:n] == 2)]
-    rr = r / max(rmax, 1e-6)
-    base_rr = rr[T.parent[all_first]]
-    leaf_rr_w = np.bincount(axes, weights=la * rr, minlength=int(axes.max()) + 1)
-    leaf_w = np.bincount(axes, weights=la, minlength=int(axes.max()) + 1)
-    scaffold_la = np.zeros(n)
-    np.add.at(scaffold_la, n_all, la)
-    whole = T.basipetal(T.levels(alive), scaffold_la)
-    now = int(model.year)
-    rows = {}
-    for name, lo, hi in (("inner third", 0.0, 1.0 / 3.0), ("middle third", 1.0 / 3.0, 2.0 / 3.0), ("outer third", 2.0 / 3.0, 99.0)):
-        hit = all_first[(base_rr >= lo) & (base_rr < hi)]
-        live = hit[alive[hit]]
-        dead = hit[~alive[hit]]
-        life = T.death[dead] - T.birth[dead]
-        rows[name] = {"born": int(hit.size), "alive": int(live.size), "dead": int(dead.size), "median_life_of_dead": round(float(np.median(life)), 1) if dead.size else 0.0, "median_age_of_live": round(float(np.median(now - T.birth[live])), 1) if live.size else 0.0,
-                      "la_m2": round(float(whole[live].sum()), 1), "la_per_live_twig": round(float(whole[live].mean()), 3) if live.size else 0.0}
-    out["twigs_by_place"] = rows
-    # the light on the leaves, by how far out they are and by where their twig starts
+    leafy = la > 0.0
+    H = float(T.pos[:n, 2][alive].max())
+    band = np.clip((T.pos[:n, 2] / H * 20).astype(np.int64), 0, 19)
+    rlocal = np.ones(n)
+    for b in range(20):
+        hit = leafy & (band == b)
+        if hit.sum() >= 20:
+            rlocal[band == b] = max(float(np.percentile(r[hit], 95)), 1e-3)
+    rr = r / rlocal
     q = np.zeros(n)
     dg = model.diag
     q[np.minimum(dg["term_nodes"], n - 1)] = dg["Qterm"]
     q[np.minimum(dg["lat_nodes"], n - 1)] = dg["Qlat"]
-    bud = la > 0.0
-    first_of_axis = np.full(int(axes.max()) + 1, -1, np.int64)
-    first_of_axis[T.axis[:n][T.is_lateral[:n] & alive]] = n_all[T.is_lateral[:n] & alive]
-    out["light_by_radius"] = {}
-    for name, lo, hi in (("0-25", 0.0, 0.25), ("25-50", 0.25, 0.5), ("50-75", 0.5, 0.75), ("75-100", 0.75, 1.0), ("beyond", 1.0, 99.0)):
-        hit = bud & (q > 0.0) & (rr >= lo) & (rr < hi)
-        out["light_by_radius"][name] = round(float(np.average(q[hit], weights=la[hit])), 3) if hit.any() else 0.0
-    # the same leaves, by where the twig of order 2 they stand on starts
-    sc2 = np.full(n, -1, np.int64)
-    for seg, _, _ in T.levels(alive):
-        hit = seg[(order[seg] == 2) & T.is_lateral[:n][seg]]
-        sc2[hit] = hit
-        rest = seg[(sc2[seg] < 0) & (order[seg] >= 2) & (T.parent[seg] >= 0)]
-        sc2[rest] = sc2[T.parent[rest]]
-    own = sc2 >= 0
-    place = np.where(own, rr[T.parent[np.maximum(sc2, 0)]], -1.0)
-    out["leaves_by_twig_start"] = {}
-    for name, lo, hi in (("inner third", 0.0, 1.0 / 3.0), ("middle third", 1.0 / 3.0, 2.0 / 3.0), ("outer third", 2.0 / 3.0, 99.0)):
-        hit = bud & own & (place >= lo) & (place < hi)
-        if hit.any():
-            out["leaves_by_twig_start"][name] = {"la_m2": round(float(la[hit].sum()), 1), "light": round(float(np.average(q[hit], weights=la[hit])), 3), "radius_share": round(float(np.average(rr[hit], weights=la[hit])), 2), "below_start_m": round(float(np.average(T.pos[T.parent[np.maximum(sc2[hit], 0)], 2] - T.pos[:n, 2][hit], weights=la[hit])), 2)}
-    # spurs and buds: of the nodes on twigs, how many carry living short shoots, by order, and how many nodes a metre
-    nodes_per_m = {}
-    for k in range(2, 6):
-        hit = (order == k) & alive
-        m = float(length[hit].sum())
-        nodes_per_m[k] = {"nodes_per_m": round(float(hit.sum()) / max(m, 1e-9), 1), "spur_share": round(float((spur & hit).sum()) / max(float(hit.sum()), 1.0), 3), "leaves_per_node": round(float(T.leaves[:n][hit].sum()) / max(float(hit.sum()), 1.0), 2)}
-    out["nodes"] = nodes_per_m
+    out["by_radius_at_height"] = {}
+    for name, lo, hi, plan in (("0-25", 0.0, 0.25, 0.0625), ("25-50", 0.25, 0.5, 0.1875), ("50-75", 0.5, 0.75, 0.3125), ("75-100", 0.75, 1.0, 0.4375), ("beyond", 1.0, 99.0, 0.0)):
+        hit = leafy & (rr >= lo) & (rr < hi)
+        lit = hit & (q > 0.0)
+        out["by_radius_at_height"][name] = {"share": round(float(la[hit].sum()) / max(float(la.sum()), 1e-9), 3), "plan": plan, "light": round(float(np.average(q[lit], weights=la[lit])), 3) if lit.any() else 0.0}
+    # how far each limb reaches, then where along it each twig starts
+    limb_reach = np.zeros(n)
+    limb_nodes = limb_of >= 0
+    np.maximum.at(limb_reach, limb_of[limb_nodes & (rel == 1)], r[limb_nodes & (rel == 1)])
+    twigs = np.nonzero((twig_of == np.arange(n)))[0]
+    start = r[par[twigs]] / np.maximum(limb_reach[limb_of[twigs]], 1e-3)
+    now = int(model.year)
+    live_leaf = np.bincount(twig_of[(twig_of >= 0) & leafy], weights=la[(twig_of >= 0) & leafy], minlength=n)
+    live_light = np.bincount(twig_of[(twig_of >= 0) & leafy], weights=(la * q)[(twig_of >= 0) & leafy], minlength=n)
+    rows = {}
+    for name, lo, hi in (("inner third", -1.0, 1.0 / 3.0), ("middle third", 1.0 / 3.0, 2.0 / 3.0), ("outer third", 2.0 / 3.0, 99.0)):
+        hit = twigs[(start >= lo) & (start < hi)]
+        live = hit[alive[hit]]
+        dead = hit[~alive[hit]]
+        life = T.death[dead] - T.birth[dead]
+        rows[name] = {"born": int(hit.size), "alive": int(live.size), "dead": int(dead.size), "median_life_of_dead": round(float(np.median(life)), 1) if dead.size else 0.0, "median_age_of_live": round(float(np.median(now - T.birth[live])), 1) if live.size else 0.0,
+                      "la_m2": round(float(live_leaf[live].sum()), 1), "la_per_live_twig": round(float(live_leaf[live].mean()), 3) if live.size else 0.0, "light": round(float(live_light[live].sum() / max(live_leaf[live].sum(), 1e-9)), 3)}
+    out["twigs_by_start"] = rows
+    out["limbs_alive"] = int((alive & (limb_of == np.arange(n))).sum())
+    out["limb_reach_median_m"] = round(float(np.median(limb_reach[(limb_of == np.arange(n)) & alive])), 2) if (alive & (limb_of == np.arange(n))).any() else 0.0
+    axes = T.axis[:n]
+    tw = alive & (order >= 2)
+    lens = np.bincount(axes[tw], weights=length[tw]) if tw.any() else np.zeros(1)
+    lens = lens[lens > 0.0]
+    out["twig_axis_len_m"] = {"n": int(lens.size), "median": round(float(np.median(lens)), 2) if lens.size else 0.0, "p90": round(float(np.percentile(lens, 90)), 2) if lens.size else 0.0}
     return out
 
 
