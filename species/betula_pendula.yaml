@@ -1729,6 +1729,8 @@ crown_frame:
   # How many buds at the end of last year's shoot, on anything finer than the stem, can start a long shoot.  1: one, so twigs only lengthen and a curtain is single strands.
   # Lintunen 2013 Fig. 6C (model output) has 2-4 long shoots per second-order branch.
   twig_end_buds: 1
+  # TUNED, against the look, no source: a twig's buds lose out as the twig itself ages, over resource.branch_aging_years, as a limb's do.  Oslo and Meilen have limbs nearly bare on their inner part.  false: only the limb's age counts.
+  twigs_age: false
   # What a bud on a shoot heading straight down gets, as a share of a level one's: gravimorphism's floor.  TUNED.
   hanging_bud_share: 0.05
   # TUNED, against the look: a limb carrying more than this leaf area (m2) per axis of its own makes another axis, a fork, stiff like the limb and rising like it.  null: none.
