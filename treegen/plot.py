@@ -37,7 +37,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import fast
+from . import damage, fast
 from .growth import GrowthModel
 from .light import SUBCANOPY_LIGHT_HEIGHTS_M
 from .regeneration import Regeneration, SpreadRegeneration
@@ -369,6 +369,7 @@ class Plot:
             m._plot_view = m._plot_soil = None
         self.year = t
         self._starve(active)
+        damage.plot_year(self, active)
         if self.mode == "natural":
             self._die([k for k in active if k in self.alive])
             if getattr(self, "mort", None) is not None:

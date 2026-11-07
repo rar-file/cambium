@@ -244,6 +244,40 @@ def ground_line(model, age: int, cfg: dict) -> float:
     return -min(float(cfg["ground_line_max_m"]), float(cfg["ground_line_radii"]) * collar)
 
 
+def flow_shape(r: float, foot_r: float, cfg: dict) -> tuple:
+    """A swell for a root of radius ``r`` at the stem: how far out (m), half width (rad), how far up above
+    the root's crest (m), and the root's crest over the ground (m).  Its ridge comes down the stem and
+    lands on that crest at the swell's end, over the root, which stays low and comes out from under it."""
+    out = min(float(cfg["flow_out_radii"]) * r, float(cfg["flow_max_share"]) * foot_r)
+    return out, min(float(cfg["flow_width_radii"]) * r / foot_r, 0.9), float(cfg["flow_up_radii"]) * r, root_crest(r, out / max(r, 1e-6), cfg)
+
+
+def root_crest(r, along_radii, cfg: dict):
+    """How far a root's top stands over the ground, ``along_radii`` of its first radius out from the stem:
+    it sinks along all it shows, a little faster as it goes, and is gone by ``visible_radii``."""
+    g = np.clip(np.asarray(along_radii, float) / float(cfg["visible_radii"]), 0.0, 1.0)
+    return (1.0 + float(cfg["centre_above_ground_radii"])) * r * (1.0 - g ** float(cfg["sink_power"]))
+
+
+def _goes_under(placed: np.ndarray, rc: np.ndarray, rho: np.ndarray, along: np.ndarray, foot_r: float, thr: float, line: float, cfg: dict) -> np.ndarray:
+    """One root's ring heights, so that it's under the soil before it's thin, and goes there as a real
+    one does: lying part buried, and sinking along all it shows.  A tube that keeps its thickness cuts a
+    level plane in a long rounded tongue; it's a thin one tapering as it crosses that draws a spike."""
+    outside = rho >= foot_r
+    if not outside.any():
+        return placed
+    i0 = int(np.argmax(outside))
+    t = along - along[i0]
+    r0 = float(rc[i0])
+    # it may have to be gone sooner than its thickness says, if it thins too fast
+    thin = (t > 0.0) & (rc < float(cfg["under_share"]) * thr)
+    run = float(t[int(np.argmax(thin))]) if thin.any() else float(cfg["visible_radii"]) * r0
+    run = min(run, float(cfg["visible_radii"]) * r0)
+    crest = root_crest(rc, t / max(run, 1e-6) * float(cfg["visible_radii"]), cfg)
+    limit = np.where(t >= run, line - rc - 0.025, line - rc + crest)
+    return np.where(t >= 0.0, np.minimum(placed, limit), placed)
+
+
 def sink_roots(md: meshlib.MeshData | None, line: float, centre: np.ndarray, foot_r: float, collar: float, cfg: dict) -> meshlib.MeshData | None:
     """The ground meets the tree below the model's zero at the stem, and at it further out: so a root's
     place in the soil holds out there, and it comes out of the foot and sinks along its length.  Each
@@ -274,11 +308,16 @@ def sink_roots(md: meshlib.MeshData | None, line: float, centre: np.ndarray, foo
     above = float(cfg["centre_above_ground_radii"]) - float(cfg.get("bury_per_sink_length", 0.0)) * np.maximum(rho - foot_r, 0.0) / L
     highest = line + s * above * rc - (1.0 - s) * (rc + 0.01)
     placed = np.minimum(sunk, highest)
+    # rings come out of np.unique by axis, then along it
+    first = np.unique(rings[:, 0], return_index=True)[1]
+    ends = np.r_[first[1:], len(placed)]
+    along = rings[:, 1] / 1.0e5
+    for a, b in zip(first.tolist(), ends.tolist()):
+        if rc[a:b].max() >= thr:
+            placed[a:b] = _goes_under(placed[a:b], rc[a:b], rho[a:b], along[a:b], foot_r, thr, line, cfg)
     if cfg.get("never_rises"):
-        # rings come out of np.unique by axis, then along it.  A root that shows goes down along its length, none of its
-        # rings higher than the one before; once it's under, it keeps the model's path and stays under
-        first = np.unique(rings[:, 0], return_index=True)[1]
-        ends = np.r_[first[1:], len(placed)]
+        # a root that shows goes down along its length, none of its rings higher than the one before; once it's
+        # under, it keeps the model's path and stays under
         for a, b in zip(first.tolist(), ends.tolist()):
             if rc[a:b].max() < thr:
                 continue
@@ -292,11 +331,70 @@ def sink_roots(md: meshlib.MeshData | None, line: float, centre: np.ndarray, foo
     return meshlib.MeshData(V, md.faces, md.normals, md.attributes)
 
 
+def root_flows(surface: meshlib.MeshData | None, centre: np.ndarray, foot_r: float, cfg: dict) -> np.ndarray:
+    """A swell on the stem for each thick root that leaves its foot, so the stem's surface runs out along
+    the root and lands on it, and the two are one shape, with no line where they meet (``flow_shape``).
+    Rows: direction (rad), how far out at the ground (m), half width (rad), how
+    above it (m), the root's crest over the ground (m).  It's the stem's surface that moves: the root
+    keeps its path and its radius."""
+    if surface is None:
+        return np.zeros((0, 5))
+    axis = surface.attributes["axis_id"]
+    along = np.round(surface.attributes["ring_along"] * 1.0e5).astype(np.int64)
+    exits = []
+    for a in np.unique(axis):
+        sel = axis == a
+        keys, inv = np.unique(along[sel], return_inverse=True)
+        inv = np.ravel(inv)
+        count = np.bincount(inv).astype(float)
+        cx = np.bincount(inv, surface.vertices[sel, 0]) / count - centre[0]
+        cy = np.bincount(inv, surface.vertices[sel, 1]) / count - centre[1]
+        rho = np.hypot(cx, cy)
+        # a branch further out along a root isn't at the stem
+        if rho.min() > 1.6 * foot_r or not (rho >= foot_r).any():
+            continue
+        i = int(np.argmax(rho >= foot_r))
+        exits.append((float(np.arctan2(cy[i], cx[i])), float(np.bincount(inv, surface.attributes["radius"][sel])[i] / count[i])))
+    if not exits:
+        return np.zeros((0, 5))
+    biggest = max(r for _, r in exits)
+    rows = []
+    for az, r in exits:
+        if r < float(cfg["flow_min_share"]) * biggest:
+            continue
+        rows.append((az, *flow_shape(r, foot_r, cfg)))
+    return np.array(rows, float).reshape(-1, 5)
+
+
+def flow_offset(theta: np.ndarray, above: np.ndarray, flows: np.ndarray) -> np.ndarray:
+    """How far the stem's surface moves out, at these directions and heights above the ground line: the
+    ridge comes down the stem, ever flatter, and lands on the root's crest at ``out``, over the root,
+    which comes out from under it there; lower down the flanks spread on to the ground, so there's no
+    upright lip.  A swell doesn't pile on its neighbour."""
+    total = np.zeros_like(theta)
+    for az, out_m, width, up_m, crest in flows:
+        d = (theta - az + np.pi) % (2.0 * np.pi) - np.pi
+        rise = _swell_rise(above, up_m, crest, out_m)
+        total = total + (out_m * np.exp(-0.5 * (d / width) ** 2) * rise) ** 4
+    return total ** 0.25
+
+
+def _swell_rise(above: np.ndarray, up_m: float, crest: float, out_m: float) -> np.ndarray:
+    """A swell's reach by height, as a share of how far it goes at the root's crest.  Below the crest it
+    slopes on to the ground, over twice the crest's height, whatever the size of the root: a thick root's
+    swell ends in a slope, not a wall."""
+    ridge = (1.0 - np.clip((above - crest) / max(up_m, 1e-6), 0.0, 1.0)) ** 2.2
+    flank = 1.0 + (2.0 * crest / max(out_m, 1e-6)) * np.clip((crest - above) / max(crest, 1e-6), 0.0, 1.0)
+    return ridge * flank
+
+
 def split_roots(md: meshlib.MeshData | None, cfg: dict, line: float, collar: float) -> tuple:
     """The roots as three parts: the stem's foot and the thick roots, which go with the tree, down to a
     little below the ground line so uneven ground meets them without a gap, and everything else, which
     is under ground.  They share their rings' vertices, so no seam.  A thick root stays until it sinks;
-    a root never thick stays in the last part, shallow or not: drawn, it'd be a hair on the soil."""
+    a root never thick stays in the last part, shallow or not: drawn, it'd be a hair on the soil.  The
+    stem's foot takes whole rings, cut by each ring's mean height: below the cut the stem leans off along
+    the taproot, its rings tilt, and one side of them can come up to the ground, as an open flap."""
     if md is None:
         return None, None, None
     z = md.vertices[md.faces][..., 2]
@@ -305,7 +403,13 @@ def split_roots(md: meshlib.MeshData | None, cfg: dict, line: float, collar: flo
     stem = axis == 0
     thr = max(float(cfg["surface_min_radius_m"]), float(cfg["surface_min_radius_share"]) * collar)
     near = z.min(1) >= line - float(cfg["surface_depth_m"])
-    foot = near & stem
+    level = np.full(len(md.vertices), -np.inf)
+    on_stem = md.attributes["axis_id"] == 0
+    if on_stem.any():
+        _, ring = np.unique(np.round(md.attributes["ring_along"][on_stem] * 1.0e5).astype(np.int64), return_inverse=True)
+        ring = np.ravel(ring)
+        level[on_stem] = (np.bincount(ring, md.vertices[on_stem, 2]) / np.bincount(ring))[ring]
+    foot = near & stem & (level[md.faces].min(1) >= line - float(cfg["surface_depth_m"]))
     thick_axes = np.unique(axis[radius >= thr])
     surface = near & ~stem & np.isin(axis, thick_axes) & ((radius >= thr) | (z.max(1) > line - 0.01))
     return _face_subset(md, foot), _face_subset(md, surface), _face_subset(md, ~(foot | surface))
@@ -381,21 +485,35 @@ def _bilinear(m: np.ndarray, u: np.ndarray, v: np.ndarray) -> np.ndarray:
     return (m[y0, x0] * (1 - fx) + m[y0, x1] * fx) * (1 - fy) + (m[y1, x0] * (1 - fx) + m[y1, x1] * fx) * fy
 
 
-def shape_stem(a: dict, wood: game.WoodParts, line: float, floor: float, swell: tuple, table: tuple | None, cfg: dict) -> dict:
+def shape_stem(a: dict, wood: game.WoodParts, line: float, floor: float, swell: tuple, table: tuple | None, cfg: dict, flows: np.ndarray | None = None, centre: np.ndarray | None = None) -> dict:
     """The stem's real surface: the butt swell into the ground, steepest at the ground as on a real
-    butt, and, on the nearest level, the bark's own height map in the mesh, so plates stand out of the
-    outline and cracks hold shadow.  Depth is what the bake holds: what the ageing rules gave each
-    height.  Nothing goes below ``floor``, since the game seats a tree by its lowest point."""
+    butt, a swell for each root that leaves it (``root_flows``), and, on the nearest level, the bark's
+    own height map in the mesh, so plates stand out of the outline and cracks hold shadow.  Depth is
+    what the bake holds: what the ageing rules gave each height.  Nothing goes below ``floor``, since
+    the game seats a tree by its lowest point."""
     V, N, UV, F = a["V"], a["N"], a["UV"], a["F"]
     extra, reach = swell
     above = np.maximum(V[:, 2] - line, 0.0) / max(reach, 1e-6)
     out = V + N * (a["radius"] * extra * np.exp(-2.0 * above))[:, None]
+    on_swell = np.zeros(len(V))
+    if flows is not None and len(flows):
+        low = np.nonzero(out[:, 2] - line < float((flows[:, 3] + flows[:, 4]).max()))[0]
+        dx, dy = out[low, 0] - centre[0], out[low, 1] - centre[1]
+        rho = np.maximum(np.hypot(dx, dy), 1e-6)
+        push = flow_offset(np.arctan2(dy, dx), out[low, 2] - line, flows)
+        out[low, 0] += push * dx / rho
+        out[low, 1] += push * dy / rho
+        on_swell[low] = np.clip(push / (0.5 * float(flows[:, 1].max())), 0.0, 1.0)
+        # the bark's relief stands out from the surface as it now is
+        N = weld_normals(out, F, N)
     if table is not None:
         t = np.asarray(table, float)
         edge = np.interp(V[:, 2], t[:, 0], t[:, 1])
         lim, fine = float(cfg["rings_under_m"]), float(cfg["edge_fine_m"])
         w = np.clip((lim - edge) / max(lim - fine, 1e-6), 0.0, 1.0)
         depth = w * _bilinear(wood.deep_height, UV[:, 0], UV[:, 1]) + (1.0 - w) * game._relief(wood, UV[:, 0], UV[:, 1])
+        # a swell's face is slanted, so the map's stretched over it, and full relief there folds the surface
+        depth = depth * (1.0 - (1.0 - float(cfg["relief_on_swell"])) * on_swell * on_swell * (3.0 - 2.0 * on_swell))
         out = out + N * depth[:, None]
     out[:, 2] = np.maximum(out[:, 2], floor)
     N2 = weld_normals(out, F, N)
@@ -415,6 +533,63 @@ def split_detail(wood: game.WoodParts, cfg: dict) -> dict:
     return {**bake, "normal": fine["normal"]}
 
 
+def stain_foot(wood: game.WoodParts, a: dict, flows: np.ndarray, line: float, centre: np.ndarray, cfg: dict, look: dict, seed: int) -> None:
+    """The stem's bark goes the colour of the roots' down each swell, and a little all round at the
+    ground, as soil and rain do: patchily.  So the foot and the roots meet in colour.  ``a``: the stem's
+    mesh, which says which way round its map each direction is."""
+    bake = wood.stem_bake
+    alb = bake["albedo"]
+    H, W = alb.shape[:2]
+    s = tx.stem_s(look, (np.arange(H) + 0.5) / H, wood.stem_length)
+    prof = wood.profile
+    above = np.interp(s, prof.s, np.maximum.accumulate(prof.z)) - line
+    tallest = float((flows[:, 3] + flows[:, 4]).max()) if len(flows) else 0.0
+    rows = np.nonzero(above < max(tallest, 3.0 * float(cfg["stain_ground_m"])))[0]
+    if not len(rows):
+        return
+    h = int(rows[-1]) + 1
+    up = np.maximum(above[:h], 0.0)
+    field = np.broadcast_to((float(cfg["stain_ground_share"]) * np.exp(-up / float(cfg["stain_ground_m"])))[:, None], (h, W)).copy()
+    if len(flows):
+        low = np.nonzero(a["V"][:, 2] < line + 0.3)[0]
+        theta = np.arctan2(a["V"][low, 1] - centre[1], a["V"][low, 0] - centre[0])
+        turn = 2.0 * np.pi * a["UV"][low, 0]
+        same, opposite = np.exp(1j * (turn - theta)).mean(), np.exp(1j * (turn + theta)).mean()
+        sign, phase = (1.0, np.angle(same)) if abs(same) >= abs(opposite) else (-1.0, np.angle(opposite))
+        u = (np.arange(W) + 0.5) / W
+        for az, out_m, width, up_m, crest in flows:
+            d = (2.0 * np.pi * u - (sign * az + phase) + np.pi) % (2.0 * np.pi) - np.pi
+            rise = np.minimum(_swell_rise(up, up_m, crest, out_m), 1.0)
+            field = np.maximum(field, np.exp(-0.5 * (d / (1.3 * width)) ** 2)[None, :] * rise[:, None])
+    n = tx.rank01(0.6 * tx.noise((h, W), seed, (60.0, 24.0), 2.2) + 0.4 * tx.noise((h, W), seed + 1, (10.0, 6.0), 1.8))
+    # the noise scales with the field, so where there's none to give there's no stain, and no edge
+    amount = tx.smooth(0.12, 0.5, field * (0.4 + 1.2 * n)) * float(cfg["stain_opacity"])
+    colour = np.asarray(cfg["root_colour"], np.float32) * (0.75 + 0.5 * n[..., None])
+    alb[:h] = alb[:h] + (colour - alb[:h]) * amount[..., None].astype(np.float32)
+
+
+def moss_amount(above: np.ndarray, u: np.ndarray, rough: np.ndarray, cfg: dict, seed: int) -> tuple:
+    """How much moss at each texel, rows x columns, for rows at ``above`` reaches over the ground line:
+    tufts and clumps, not a coat.  Their share of the bark falls off with height and round the stem,
+    so there's no edge to see, and it's all but gone on the far side.  Also its tone, 0-1."""
+    H, W = len(above), len(u)
+    toward = float(ap.hash01(np.array([seed]), 72)[0])
+    side = (0.5 + 0.5 * np.cos(2.0 * np.pi * (u - toward))) ** float(cfg["moss_side_power"])
+    elsewhere = float(cfg["moss_elsewhere"])
+    # how far up it gets wanders round the stem
+    wander = 0.55 + 0.75 * tx.rank01(tx.noise((H, W), seed, (260.0, 90.0), 2.4))
+    x = np.clip(above[:, None] / wander, 0.0, 1.0)
+    fall = 1.0 - x * x * (3.0 - 2.0 * x)
+    on_bark = float(cfg["moss_on_white"]) + (1.0 - float(cfg["moss_on_white"])) * rough[:, None]
+    cover = float(cfg["moss_cover"]) * (elsewhere + (1.0 - elsewhere) * side[None, :]) * fall * on_bark
+    clumps = tx.rank01(0.65 * tx.noise((H, W), seed + 1, (70.0, 34.0), 2.2) + 0.35 * tx.noise((H, W), seed + 2, (16.0, 9.0), 2.0))
+    tuft = tx.rank01(tx.noise((H, W), seed + 3, (5.0, 4.0), 1.6))
+    soft = 0.035
+    amount = tx.smooth(1.0 - cover - soft, 1.0 - cover + soft, clumps) * (cover > 0.002)
+    # thin on white bark, which shows it pale
+    return (amount * float(cfg["moss_opacity"]) * (0.7 + 0.3 * tuft) * (0.4 + 0.6 * rough[:, None])).astype(np.float32), tuft
+
+
 def moss_on_stem(look: dict, wood: game.WoodParts, line: float, cfg: dict, seed: int) -> None:
     """Moss at the foot, in the stem's own colour map.  The game's M_Surface would add it by world
     position, which smears up any upright surface, so the file's origin keeps that off (``origin_z``)."""
@@ -428,20 +603,12 @@ def moss_on_stem(look: dict, wood: game.WoodParts, line: float, cfg: dict, seed:
     reach = min(float(cfg["moss_reach_m"]) + float(cfg["moss_reach_per_year_m"]) * wood.age, float(cfg["moss_reach_max_m"]))
     above = (z - line) / max(reach, 1e-6)
     rough = wood.state(np.interp(s, prof.s, prof.part_age), np.interp(s, prof.s, prof.d_wood), z)["weights"][-1]
-    rows = np.nonzero(above < 1.6)[0]
+    rows = np.nonzero(above < 1.3)[0]
     if not len(rows):
         return
     h = int(rows[-1]) + 1
-    n1 = tx.noise((h, W), seed, (28.0, 28.0))
-    n2 = tx.noise((h, W), seed + 1, (5.0, 5.0))
-    # on one side of the stem, as on real ones, and only a little way up the others
-    u = (np.arange(W) + 0.5) / W
-    toward = float(ap.hash01(np.array([seed]), 72)[0])
-    side = (0.5 + 0.5 * np.cos(2.0 * np.pi * (u - toward))) ** float(cfg["moss_side_power"])
-    share = float(cfg["moss_elsewhere"]) + (1.0 - float(cfg["moss_elsewhere"])) * side
-    fade = 1.0 - np.clip(above[:h, None] / share[None, :] + float(cfg["moss_patchiness"]) * n1 + 0.12 * n2, 0.0, 1.0)
-    amount = (fade * fade * (3.0 - 2.0 * fade) * (float(cfg["moss_on_white"]) + (1.0 - float(cfg["moss_on_white"])) * rough[:h, None])).astype(np.float32)
-    colour = np.asarray(cfg["moss_colour"], np.float32) * (1.0 + 0.25 * n2[..., None])
+    amount, tone = moss_amount(above[:h], (np.arange(W) + 0.5) / W, rough[:h], cfg, seed)
+    colour = np.asarray(cfg["moss_colour"], np.float32) * (0.55 + 0.9 * tone[..., None])
     alb[:h] = alb[:h] + (colour - alb[:h]) * amount[..., None]
     bake["rough"][:h] = bake["rough"][:h] + (0.9 - bake["rough"][:h]) * amount
 
@@ -476,13 +643,13 @@ def root_radii(look: dict, model, age: int, rad_ob: np.ndarray, skel, is_root: n
     return out
 
 
-def root_state(wood: game.WoodParts, part_age, d_wood) -> dict:
-    """A root's bark, the stem's rough stage whatever its age: no root shows a shoot's red or a stem's
-    white under the soil.  TUNED."""
+def root_state(wood: game.WoodParts, part_age, d_wood, rough: float = 1.0) -> dict:
+    """A root's bark: the stem's own white and rough stages, by ``rough``, whatever its age, so it's the
+    bark of the foot it comes out of, and no root shows a shoot's red.  TUNED."""
     st = wood.state(part_age, d_wood, np.zeros(len(np.atleast_1d(part_age))))
     w = np.zeros_like(np.asarray(st["weights"], float))
-    w[0] = 1.0
-    w[-1] = 1.0
+    w[:-1] = 1.0
+    w[-1] = float(rough)
     return {**st, "weights": w, "peel": np.zeros_like(st["peel"])}
 
 
@@ -494,7 +661,7 @@ def root_atlas(look: dict, wood: game.WoodParts, tiles: list, md: meshlib.MeshDa
     V = md.vertices
     cl = game._face_class(md.attributes["radius"], F, classes)
     area = 0.5 * np.linalg.norm(np.cross(V[F[:, 1]] - V[F[:, 0]], V[F[:, 2]] - V[F[:, 0]]), axis=1)
-    st = root_state(wood, wood.age - birth[node], 2.0 * radius_now[node])
+    st = root_state(wood, wood.age - birth[node], 2.0 * radius_now[node], float(cfg["root_rough"]))
     states = [None] * len(classes)
     for k in range(len(classes)):
         sel = cl == k
@@ -503,7 +670,9 @@ def root_atlas(look: dict, wood: game.WoodParts, tiles: list, md: meshlib.MeshDa
             wts = area[sel] / max(area[sel].sum(), 1e-12)
             states[k] = {"weights": (st["weights"][:, v0] * wts).sum(1), "peel": 0.0, "grime": float((st["grime"][v0] * wts).sum()), "fissure_m": float((st["fissure_m"][v0] * wts).sum())}
     atlas = tx.bake_branch_atlas(look, tiles, states)
-    atlas["albedo"] = atlas["albedo"] * np.asarray(cfg["soil_tint"], np.float32)
+    # low contrast: a root seen against the soil is one colour, near enough, and the foot's stain is that colour
+    colour = np.asarray(cfg["root_colour"], np.float32)
+    atlas["albedo"] = colour + (atlas["albedo"] - colour) * float(cfg["root_contrast"])
     W = look["bark"]["atlas_px"][0]
     atlas["layout_uv"] = [(x0 / W, x1 / W, c) for x0, x1, c in atlas["layout"]]
     return atlas
@@ -962,6 +1131,8 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
         table = stem_edges(wood, pos[stem_ids, 2], age - T.birth[stem_ids].astype(float), 2.0 * r_wood[stem_ids], line, surface_depth, relief_cfg, edge_reach)
     # the ridges hold down to below where the ground can reach, so the foot only ever widens towards it
     clean["buttress_hold_m"] = surface_depth - line
+    # the foot's shape here is the butt swell and a swell for each root that shows (root_flows)
+    clean["no_stem_ridges"] = True
     settings0 = meshlib.MeshSettings(ring_attributes=True, stem_sides_by_radius=True, sides_allowed=tuple(gfull["sides_allowed"]), stem_edge_by_height=table or (),
                                      stem_along_factor=float(relief_cfg["along_factor"]), stem_rings_under=float(relief_cfg["rings_under_m"]), **clean)
     crown0, roots0 = tree_meshes(skel, np.ones(n, bool), rad_ob, is_root, orig, sp.geometry, settings0)
@@ -977,10 +1148,12 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
     if foot0 is not None:
         wood.stem_y_offset = float(crown0.attributes["ring_along"][crown0.attributes["axis_id"] == 0].min() - foot0.attributes["ring_along"].min())
     game.bake_wood(wood, merged0, T, pos, model.radius_history)
-    moss_on_stem(look, wood, line, root_cfg, int(look["game"]["texture_seed"]) + 910)
     stem_near = split_detail(wood, relief_cfg) if table is not None else wood.stem_bake
     arrays0 = game.wood_arrays(wood, merged0)
-    arrays0["stem"] = shape_stem(arrays0["stem"], wood, line, line - surface_depth, swell, table, relief_cfg)
+    flows = root_flows(surface0, centre, foot_r, root_cfg)
+    stain_foot(wood, arrays0["stem"], flows, line, centre, root_cfg, look, int(look["game"]["texture_seed"]) + 920)
+    moss_on_stem(look, wood, line, root_cfg, int(look["game"]["texture_seed"]) + 910)
+    arrays0["stem"] = shape_stem(arrays0["stem"], wood, line, line - surface_depth, swell, table, relief_cfg, flows, centre)
     origin_z = float(root_cfg["origin_below_lowest_m"]) - (line - surface_depth)
     flex = wind_flex(pos, np.asarray(T.parent[: T.n]), alive, np.asarray(T.depth[: T.n]))
     phase = float(ap.hash01(np.array([int(ctx["seed"])]), 71)[0])
@@ -999,7 +1172,7 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
         crown1, roots1 = tree_meshes(skel, game.reduced_selection(skel, rad_ob, thr), rad_ob, is_root, orig, sp.geometry, settings1)
         foot1, surface1, below1 = split_roots(sink_roots(roots1, line, centre, foot_r, collar, root_cfg), root_cfg, line, collar)
         arrays1 = game.wood_arrays(wood, game.join_meshes([crown1, as_stem(foot1, stem_node)]))
-        arrays1["stem"] = shape_stem(arrays1["stem"], wood, line, line - surface_depth, swell, None, relief_cfg)
+        arrays1["stem"] = shape_stem(arrays1["stem"], wood, line, line - surface_depth, swell, None, relief_cfg, flows, centre)
     base_name = f"{asset}_age{age:03d}"
     maps = Maps(out, asset)
     split = out / "SourceArt" / "PolyHaven_split" / asset

@@ -80,6 +80,8 @@ def run(a) -> None:
                "trees_ever": len(plot.trees), "runtime_s": round(time.time() - t0), "peak_mb": round(cli.peak_memory_mb())}
         if a.tree_table:
             doc["trees"] = plot.info
+        if getattr(plot, "damage_log", None):
+            doc["damage_log"] = plot.damage_log
         tmp = out / "plot.json.tmp"
         tmp.write_text(json.dumps(doc), encoding="utf-8")
         tmp.replace(out / "plot.json")

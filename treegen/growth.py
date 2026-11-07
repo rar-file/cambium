@@ -50,7 +50,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from . import fast, hydraulics, mechanics
+from . import damage, fast, hydraulics, mechanics
 from .compact import compact
 from .light import SUBCANOPY_LIGHT_HEIGHTS_M, ShadowPropagation
 from .reference import eriksson_1997_height
@@ -720,6 +720,7 @@ class GrowthModel:
     def step(self):
         t = self.year + 1
         self._leader_damage(t)
+        damage.tree_year(self, t)
         sp, T = self.sp, self.tree
         n0 = T.n
         alive = T.death[:n0] < 0
