@@ -2241,8 +2241,11 @@ class GrowthModel:
         lead_len = float(full[hd["lead_at"]]) * float(min(hd["v"], nmax)) if "lead_at" in hd else 0.0
         n_term = hd.get("n_term", 0)
         dz = np.concatenate([T.term_dir[starts[:n_term], 2], T.lat_dir[starts[n_term:], 2]])
-        # with earned: apical control, nothing ends above where the leader was last year, so the leader stands clear
-        top = float(hd["z"]) if self._frame_earns() else max(hd["z"] + lead_len * hd["dz"], float(hd["ref"]))
+        if self._frame_earns():
+            # apical control: no limb's tip ends above where the leader was two years ago, near enough, so the leader stands clear; a new limb can start, just under last year's top
+            top = np.where(np.arange(len(starts)) < n_term, float(hd["z"]) - 2.0 * lead_len * hd["dz"], float(hd["z"]))
+        else:
+            top = max(hd["z"] + lead_len * hd["dz"], float(hd["ref"]))
         room = np.maximum(top - T.pos[starts, 2], 0.0)
         return np.where(dz > 0.02, room / (np.maximum(dz, 0.02) * full), float(nmax))
 
@@ -2319,7 +2322,7 @@ class GrowthModel:
         # behind the younger ones above them, as a crown in the open needs, or it's a cone
         age = np.where(limb_tip[at], np.maximum(self.year + 1.0 - T.scaffold_birth[node], 0.0), 0.0)
         grow = grow * light * float(hd["water"]) * np.exp(-age / float(self.sp.resource.branch_aging_years))
-        # the tree's one second top keeps up with the leader, and may catch it: only the room under the tree's top holds it (_frame_room)
+        # the tree's one second top keeps up with the leader, and may come close to it: only the room under the tree's top holds it (_frame_room)
         rise = np.maximum(np.where(limb_tip[at], T.term_dir[node, 2], 1.0), 0.5)
         grow = np.where(second_top, float(self.sp.height_driver.catch_up) * longest / rise, grow)
         plan = np.minimum(grow / full[at], float(nmax))
@@ -2423,6 +2426,9 @@ class GrowthModel:
         ref_alpha = getattr(hd, "reference_alpha", None)
         vigour = float(self.sp.resource.alpha) / float(ref_alpha) if ref_alpha else 1.0
         inc = self._curve_height(t) - self._curve_height(t - 1)
+        alone = getattr(hd, "open_grown_share", None)
+        if alone and not self.stand and getattr(self, "_plot_view", None) is None:
+            inc = inc * float(alone)    # with no neighbours to race, a tree isn't drawn up as the stand's curve has it
         self._hd_ref = getattr(self, "_hd_ref", 0.0) + inc * f_light * f_water * vigour
         allowed = float(np.clip(self._hd_ref - z, 0.0, float(hd.catch_up) * inc))
         v = allowed / max(dz, 0.5) / self.l0
@@ -2448,7 +2454,7 @@ class GrowthModel:
         if ratio is not None:
             caps = np.minimum(caps, float(ratio) * lead_len / full)
         dz = np.concatenate([T.term_dir[starts[:n_term], 2], T.lat_dir[starts[n_term:], 2]])
-        top = float(hd["z"]) if self._frame_earns() else max(hd["z"] + lead_len * hd["dz"], float(hd["ref"]))
+        top = float(hd["z"]) - 2.0 * lead_len * hd["dz"] if self._frame_earns() else max(hd["z"] + lead_len * hd["dz"], float(hd["ref"]))
         room = np.maximum(top - T.pos[starts, 2], 0.0)
         caps = np.where(dz > 0.02, np.minimum(caps, room / (np.maximum(dz, 0.02) * full)), caps)
         caps[lead_at] = float(nmax)

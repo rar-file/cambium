@@ -1540,6 +1540,8 @@ height_driver:
   # TUNED, against whole-crown flips: the most of the pool the year's rings may take; sapwood comes first, and only the
   # wind's thickening waits.  Test A: 0.5.  Without it flips were 116 in 448 seed-years (8 PC seeds); with it, 42, both before density control.  null = no limit.
   ring_share_max: null
+  # TUNED, against photos of open-grown birches, no measurement read: a tree with no neighbours grows this share of the stand's yearly height.  The curve is for stands.  null: all of it.
+  open_grown_share: null
   # TUNED, against nothing: never needed, so never tested with the rest; the brief allowed it for flips, and density control did that.
   # The share of each year's pool that waits for next year (a small carbon store).  null = none.
   store_fraction: null
