@@ -45,6 +45,7 @@ import numpy as np
 G = 9.81
 # one stream per tree or plot, apart from the model's others
 RNG_TAG = 86011
+WEATHER_TAG = 86012
 
 
 # -- the year's weather --------------------------------------------------------
@@ -478,6 +479,14 @@ def _rng(holder, seed: int):
     return holder._damage_rng
 
 
+def _weather_rng(holder, seed: int):
+    """The years' weather has its own stream, so a seed has the same storms and snowfalls however
+    many trees stand or fall: two runs on one seed can be compared, storm for storm."""
+    if getattr(holder, "_weather_rng_state", None) is None:
+        holder._weather_rng_state = np.random.default_rng([int(seed), WEATHER_TAG])
+    return holder._weather_rng_state
+
+
 def _is_on(sp) -> bool:
     dp = getattr(sp, "damage", None)
     return dp is not None and bool(dp.enabled)
@@ -522,7 +531,7 @@ def tree_year(model, t: int) -> Event | None:
     if not _is_on(model.sp) or hasattr(model, "_plot_spacing") or not model.stats:
         return None
     rng = _rng(model, model.seed)
-    weather = draw_weather(rng, model.sp.damage)
+    weather = draw_weather(_weather_rng(model, model.seed), model.sp.damage)
     log = model.__dict__.setdefault("damage_log", [])
     any_blow = weather.storm or weather.snow_load_kg_m2 > 0.0
     if any_blow:
@@ -573,7 +582,7 @@ def plot_year(plot, active: list) -> list:
         return []
     dp = plot.species.damage
     rng = _rng(plot, plot.seed)
-    weather = draw_weather(rng, dp)
+    weather = draw_weather(_weather_rng(plot, plot.seed), dp)
     factor = float(dp.dbh_over_bark_factor)
     ha = plot.area / 1e4
     log = plot.__dict__.setdefault("damage_log", {"years": [], "events": [], "snow_trees": {}})

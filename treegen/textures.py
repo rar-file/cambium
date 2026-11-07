@@ -177,7 +177,8 @@ def make_tile(stage: dict, tile_m: float, px_count: int, seed: int) -> Tile:
         cfg = stage["plates"]
         plate, furrow = _plates(shape, tile_m, seed + 5, cfg)
         fc = srgb_to_linear(cfg["furrow_colour"])
-        lit = (0.6 + 0.55 * plate)[..., None]
+        lit_low, lit_gain = cfg.get("lit", (0.6, 0.55))
+        lit = (float(lit_low) + float(lit_gain) * plate)[..., None]
         a[..., ALB] = a[..., ALB] * lit
         dark = (furrow ** 1.6)[..., None]
         a[..., ALB] = a[..., ALB] * (1.0 - dark) + fc * dark
@@ -209,7 +210,12 @@ def make_tile(stage: dict, tile_m: float, px_count: int, seed: int) -> Tile:
 def make_tiles(look: dict) -> list:
     bark = look["bark"]
     seed = int(look["game"]["texture_seed"])
-    return [make_tile(st, float(bark["tile_size_m"]), int(bark["tile_px"]), seed + 100 * i) for i, st in enumerate(bark["stages"])]
+    stages = bark["stages"]
+    edge = bark.get("uneven_top")
+    if edge and float(edge["strength"]) > 0.0:
+        # with the uneven base, rough bark's plates at their real size, which can be seen and can go in a mesh
+        stages = [{**st, "plates": {**st["plates"], **edge["plates"]}} if st.get("plates") else st for st in stages]
+    return [make_tile(st, float(bark["tile_size_m"]), int(bark["tile_px"]), seed + 100 * i) for i, st in enumerate(stages)]
 
 
 def _sample(mip: np.ndarray, px: float, x_m: np.ndarray, y_m: np.ndarray) -> np.ndarray:
@@ -374,8 +380,10 @@ def stem_s(look: dict, v, length: float):
 
 
 class UnevenTop:
-    """Where a climbing stage has got to at each place on a stem: how far above or below its level its
-    top reaches, and how far down its plates stay uncovered.  The same at every age of one tree, growing
+    """Where a climbing stage has got to at each place on a stem.  At a given height a share of the bark
+    has gone over, more low down and more on one side; which bark goes first is a field of islands
+    longer than they're wide, so what shows is hard-edged black tongues and white plates at a scale
+    that can be seen, on every tree, and not a soft fade.  The same at every age of one tree, growing
     with the climb itself, and different from tree to tree."""
 
     SPAN_M, ROWS, COLUMNS = 8.0, 1024, 256
@@ -384,31 +392,34 @@ class UnevenTop:
         from .appearance import climb_top, hash01
 
         self.cfg = cfg = look["bark"]["uneven_top"]
-        climb = next(r["climbs"] for r in look["bark"]["stage_ramps"].values() if r.get("climbs"))
-        self.band = float(climb["band_m"])
-        self.top = float(climb_top(climb, part_age))
+        self.climb = next(r["climbs"] for r in look["bark"]["stage_ramps"].values() if r.get("climbs"))
+        self.band = float(self.climb["band_m"])
+        self.top = float(climb_top(self.climb, part_age))
         key = int(look["game"]["texture_seed"]) + 7919 * (int(tree_seed) + 1)
         self.tree = 2.0 * float(hash01(np.array([key]), 91)[0]) - 1.0
         self.toward = float(hash01(np.array([key]), 92)[0])
-        rows_per_m = self.ROWS / self.SPAN_M
-        field = 0.0
-        for k, (turns, along_m, weight) in enumerate(cfg["tongues"]):
-            field = field + float(weight) * noise((self.ROWS, self.COLUMNS), key + 11 * k, (float(along_m) * rows_per_m, float(turns) * self.COLUMNS), 2.2)
-        p = float(cfg["tongue_power"])
-        t = rank01(field) ** p
+        self.tongue = self._field(cfg["tongues"], key)
+        t = rank01(self.tongue) ** float(cfg["tongue_power"])
         self.tongue = ((t - t.mean()) / (1.0 - t.mean())).astype(np.float32)
-        patch = 0.0
-        for k, (turns, along_m, weight) in enumerate(cfg["patches"]):
-            patch = patch + float(weight) * noise((self.ROWS, self.COLUMNS), key + 97 + k, (float(along_m) * rows_per_m, float(turns) * self.COLUMNS), 2.0)
-        self.patch = patch.astype(np.float32)
+        # which bark goes over first: 0 first, 1 last, evenly, so a share of the bark means that share
+        self.islands = rank01(self._field(cfg["islands"], key + 97)).astype(np.float32)
         self.scale = float(cfg["strength"]) * self.top
         # how far up the highest tongue gets, on this tree
         self.reach = max(self.scale * (float(cfg["tree_share"]) * self.tree + float(cfg["side_share"]) + float(cfg["tongue_share"])), 0.0)
-        # below this the stage has covered everything; a darker tree has it higher
+        # below this it has all gone over, whatever the tree; a darker tree has it higher, and holds on longer above it
         low, high = cfg["solid_share"]
-        self.solid = self.top * (float(low) + (float(high) - float(low)) * (0.5 + 0.5 * self.tree))
-        low, high = cfg["leaves_covered"]
-        self.leaves = float(low) + (float(high) - float(low)) * (0.5 + 0.5 * self.tree)
+        dark = 0.5 + 0.5 * self.tree
+        self.solid = self.top * (float(low) + (float(high) - float(low)) * dark)
+        low, high = cfg["falls_off"]
+        self.falls_off = float(low) + (float(high) - float(low)) * dark
+
+    def _field(self, layers: list, key: int) -> np.ndarray:
+        """Noise, from layers of turns round the stem, metres up it, weight."""
+        rows_per_m = self.ROWS / self.SPAN_M
+        field = 0.0
+        for k, (turns, along_m, weight) in enumerate(layers):
+            field = field + float(weight) * noise((self.ROWS, self.COLUMNS), key + 11 * k, (float(along_m) * rows_per_m, float(turns) * self.COLUMNS), 2.2)
+        return field
 
     def _read(self, field: np.ndarray, u: np.ndarray, s: np.ndarray) -> np.ndarray:
         """A field at ``s`` metres up (rows) and ``u`` round (columns), bilinear, wrapping both ways."""
@@ -423,32 +434,42 @@ class UnevenTop:
         return (field[np.ix_(y0, x0)] * (1 - fx) + field[np.ix_(y0, x1)] * fx) * (1 - fy) + (field[np.ix_(y1, x0)] * (1 - fx) + field[np.ix_(y1, x1)] * fx) * fy
 
     def shift(self, u: np.ndarray, s: np.ndarray) -> np.ndarray:
-        """Metres, rows x columns, for ``s`` metres up the stem (rows) and ``u`` round it (columns)."""
+        """How far above or below its level the stage's top is, metres, rows x columns, for ``s`` metres up
+        the stem (rows) and ``u`` round it (columns)."""
         cfg = self.cfg
         tongue = self._read(self.tongue, u, s)
         side = np.cos(2.0 * np.pi * (np.asarray(u, float) - self.toward)).astype(np.float32)
         total = float(cfg["tree_share"]) * self.tree + float(cfg["side_share"]) * side[None, :] + float(cfg["tongue_share"]) * tongue
         return self.scale * np.maximum(total, -float(cfg["lowest_share"]))
 
-    def heights(self, u: np.ndarray, s: np.ndarray, z: np.ndarray) -> np.ndarray:
+    def coverage(self, u: np.ndarray, s: np.ndarray, z: np.ndarray) -> np.ndarray:
+        """The share of the bark gone over at each place, rows x columns: all of it below ``solid``, none of
+        it above the top as ``shift`` moves it."""
+        z = np.asarray(z, float)[:, None]
+        top = np.maximum(self.top + self.shift(u, s), self.solid + self.band)
+        return np.clip((top - z) / np.maximum(top - self.solid, 1e-6), 0.0, 1.0) ** self.falls_off
+
+    def gone_over(self, u: np.ndarray, s: np.ndarray, z: np.ndarray) -> np.ndarray:
+        """Whether the bark's gone over, 0 or 1 with a short step between, rows x columns."""
+        k = float(self.cfg["island_edge"])
+        share = self.coverage(u, s, z) * (1.0 + 2.0 * k) - k
+        here = self._read(self.islands, u, s)
+        return smooth(here - k, here + k, share)
+
+    def heights(self, u: np.ndarray, s: np.ndarray, z: np.ndarray, part_age) -> np.ndarray:
         """The height, rows x columns, at which the ageing rule should read each texel of a stem with
-        heights ``z`` by row: it's moved by ``shift``, and the rule's short band from covered to bare is
-        drawn out over all the height from ``solid`` to the top, leaving covered quickly and bare slowly.
-        Part-way through a band a stage has taken the furrows and left the plates, so that's a long
-        stretch of black cracks and white plates, with patches of more of each."""
-        cfg = self.cfg
-        at = z[:, None] - self.shift(u, s)
-        low, high = self.top - self.band, self.top + self.band
-        f0 = np.clip((at - self.solid) / max(high - self.solid, 1e-6), 0.0, 1.0)
-        # patches go to nothing at both ends of the band, so nothing jumps there
-        f = f0 + float(cfg["patch_share"]) * self._read(self.patch, u, s) * smooth(0.0, 0.15, f0) * (1.0 - smooth(0.85, 1.0, f0))
-        drawn = low + np.clip(f, 0.0, 1.0) ** self.leaves * (high - low)
-        return np.where(at >= high, at, np.where(at <= self.solid, low + (at - self.solid), drawn))
+        heights ``z`` and ages ``part_age`` by row: under the stage's band where the bark's gone over,
+        above it where it hasn't.  So everything else in the rule, the part's age and size, still holds."""
+        from .appearance import climb_top
+
+        top = np.asarray(climb_top(self.climb, part_age), float)[:, None]
+        return (top - self.band) + (1.0 - self.gone_over(u, s, z)) * 2.0 * self.band
 
 
 def uneven_top(look: dict, part_age, tree_seed: int = 0) -> UnevenTop | None:
     """``None`` unless ``bark.uneven_top.strength`` asks for it: then a stem's rough base stops at no one
-    level.  It climbs in tongues, further on one side, to a different height on each tree."""
+    level.  It climbs in tongues, further on one side, to a different height on each tree, with white
+    plates left between."""
     cfg = look["bark"].get("uneven_top")
     climbs = any(r.get("climbs") for r in look["bark"].get("stage_ramps", {}).values())
     if not cfg or float(cfg["strength"]) <= 0.0 or not climbs:
@@ -526,7 +547,7 @@ def bake_stem(look: dict, tiles: list, profile: StemProfile, part_state_fn, mark
         if edge is not None and z_row[rows].min() - edge.reach < edge.top + edge.band:
             # the same rules, at the height each texel's bark behaves as if it's at
             shape2 = (n, W)
-            at = part_state_fn(np.broadcast_to(age_row[rows, None], shape2), np.broadcast_to(d_row[rows, None], shape2), edge.heights(u, s[rows], z_row[rows]))
+            at = part_state_fn(np.broadcast_to(age_row[rows, None], shape2), np.broadcast_to(d_row[rows, None], shape2), edge.heights(u, s[rows], z_row[rows], age_row[rows]))
             st = {"weights": at["weights"], "fissure_m": at["fissure_m"], "peel": at["peel"], "grime": st["grime"]}
         m = compose(tiles, samples, st, (n, W))
         alb[rows] = m["albedo"]

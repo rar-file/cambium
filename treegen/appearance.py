@@ -83,6 +83,12 @@ def _ramp(spec, name, x):
     return 1.0 if pair is None else smooth(pair[0], pair[1], x)
 
 
+def stem_stub_share(look: dict) -> float:
+    """What the mesher should take as the lost leader's last thread: nothing, unless the bark's look is on."""
+    edge = look["bark"].get("uneven_top")
+    return float(edge["stem_stub_share"]) if edge and float(edge["strength"]) > 0.0 else 0.0
+
+
 def climb_top(climb: dict, part_age) -> np.ndarray:
     """How high a stage that climbs has reached on a part this old, in metres."""
     return float(climb["height_max_m"]) * (1.0 - np.exp(-np.maximum(np.asarray(part_age, float) - float(climb["onset_age"]), 0.0) / float(climb["time_constant_years"])))
@@ -101,6 +107,10 @@ def part_state(look: dict, part_age, d_wood_m, height_m, tree_height_m: float, d
     d0 = d_wood + 2.0 * bark_wall_m(look, d_wood, dbh_ob_cm)
     stages = bark["stages"]
     ramps = bark.get("stage_ramps", {})
+    look2 = bark.get("uneven_top")
+    if look2 and float(look2["strength"]) > 0.0 and look2.get("stage_ramps"):
+        # the same setting: how thick a limb has to be before it's white
+        ramps = {name: {**spec, **look2["stage_ramps"].get(name, {})} for name, spec in ramps.items()}
     weights = [np.ones_like(d0)]
     rough = np.zeros_like(d0)
     for st in stages[1:]:

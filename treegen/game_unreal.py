@@ -27,6 +27,7 @@ from __future__ import annotations
 import copy
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -65,10 +66,6 @@ def unreal_look(look: dict) -> dict:
     # the rough base's top, uneven
     if out["bark"].get("uneven_top"):
         out["bark"]["uneven_top"] = {**out["bark"]["uneven_top"], "strength": float(u["stem_relief"]["uneven_top"])}
-    # rough bark's plates at their real size, which is also one the stem's mesh can carry
-    for stage in out["bark"]["stages"]:
-        if stage.get("plates"):
-            stage["plates"] = {**stage["plates"], **u["stem_relief"]["plates"]}
     return out
 
 
@@ -1120,8 +1117,10 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
     alive = (T.birth[: T.n] <= age) & ((T.death[: T.n] < 0) | (T.death[: T.n] > age))
     relief_cfg = u["stem_relief"]
     surface_depth = float(root_cfg["surface_depth_m"])
-    # the stem's nodes, foot upwards
-    stem_ids = np.nonzero((np.asarray(T.axis[: T.n]) == 0) & alive)[0]
+    # the stem's nodes, foot upwards, as the mesher will have it
+    clean["stem_stub_share"] = ap.stem_stub_share(look)
+    view = meshlib.continue_trunk(SimpleNamespace(n=T.n, pos=pos, parent=T.parent, axis=T.axis, is_lateral=T.is_lateral, order=T.order, birth=T.birth, death=T.death, depth=T.depth), alive, r_wood, clean["stem_stub_share"])
+    stem_ids = np.nonzero((np.asarray(view.axis[: T.n]) == 0) & alive)[0]
     stem_ids = stem_ids[np.argsort(pos[stem_ids, 2])]
     stem_node = int(stem_ids[0])
     edge_top = tx.uneven_top(look, float(age - T.birth[stem_ids].min()), wood.tree_seed)
