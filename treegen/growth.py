@@ -1942,6 +1942,12 @@ class GrowthModel:
         T, cf = self.tree, self.sp.crown_frame
         h, _, crown = self._frame_crown()
         reach_max = self._frame_reach_max()
+        overlap = getattr(cf, "spacing_overlap", None)
+        if overlap:
+            # neighbours: a limb that meets the next crown stops there.  The spacing here is the stand's mean, not this tree's own gap
+            spacing = float(getattr(self, "_plot_spacing", 0.0) or (self.stand_spacing(h) if self.stand else 0.0))
+            if spacing > 0.0:
+                reach_max = min(reach_max, 0.5 * float(overlap) * spacing)
         depth = np.clip((h - T.pos[base, 2]) / crown, 0.0, 1.0)
         peak = float(cf.peak_depth)
         top = float(cf.top_share)

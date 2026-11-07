@@ -1400,6 +1400,9 @@ crown_frame:
   stem_cm_per_height_m: 1.9
   # Stem over bark per stem in wood, near enough to tools/bark.py at 10-40 cm (1.09-1.10).
   over_bark_ratio: 1.1
+  # TUNED, against Evo's crown width at the same stem: in a stand a limb's reach stops at this share of half the spacing, where it meets the
+  # next crown.  Set by the stand's density, so an open-grown tree has no such limit.  null: no limit.
+  spacing_overlap: null
   # A limb's reach at the top of the crown as a share of the widest: Lintunen 2013 Fig. 5 (model output, as above), chord 0.254 m
   # at the top and 1.54 m at the base.
   top_share: 0.165
