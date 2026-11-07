@@ -1742,6 +1742,8 @@ class GrowthModel:
                 hd["carbon_scale"] = pool / lead_units if lead_units > 0.0 else 0.0
                 hd["v"] *= hd["carbon_scale"]
                 hd["cost_units"] = pool
+                if hd["frame_at"] is not None:
+                    hd["frame_v"] = np.zeros_like(hd["frame_v"])   # nothing left for limbs: no shoot is free
                 return 0.0, np.zeros(n0)
             self._ring_need = c0 - lead_units
             if c0 >= pool:
