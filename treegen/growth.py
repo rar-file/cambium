@@ -2326,9 +2326,10 @@ class GrowthModel:
                 twig_m = twig_m * np.where(sc > 0, lit[np.minimum(sc, len(lit) - 1)], 1.0)
             caps = np.minimum(caps, twig_m / full)
             if bool(getattr(self.sp.crown_frame, "limp_twigs", False)):
-                # gravimorphism (Wareing & Nasr 1961): a shoot heading down is a weak one, however thin, so a hanging twig stops lengthening
+                # gravimorphism (Wareing & Nasr 1961): a shoot heading down is a weak one, however thin, so a hanging twig lengthens slowly
                 dz_cap = np.concatenate([T.term_dir[starts[:n_term], 2], T.lat_dir[starts[n_term:], 2]])
-                caps = np.minimum(caps, twig_m * np.maximum(0.05, 1.0 + float(self.sp.resource.gravimorphism) * dz_cap) / full)
+                hang = float(self.sp.crown_frame.hanging_share)
+                caps = np.minimum(caps, twig_m * (1.0 + (1.0 - hang) * np.minimum(dz_cap, 0.0)) / full)
         ratio = getattr(self.sp.height_driver, "lateral_cap_ratio", None)
         twig_ratio = getattr(self.sp.height_driver, "twig_cap_ratio", None)
         if twig_ratio is not None:

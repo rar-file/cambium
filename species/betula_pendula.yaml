@@ -1667,6 +1667,8 @@ crown_frame:
   limb_ageing_years: null
   # TUNED, against the look: thin twigs don't turn to the light any more than they turn up (mechanics.pendulous_radius), so they hang instead of spraying outward.
   limp_twigs: false
+  # TUNED, against the look: with limp_twigs, a twig heading straight down makes this share of a level twig's shoot, so curtains reach a few metres, not the ground.
+  hanging_share: 0.3
 
 # Field-layer competition on clearcuts (Option A, Nilsson & Örlander 1999).
 # Sourced clear-cut field-layer sward growth and light extinction.
