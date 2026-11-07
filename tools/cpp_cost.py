@@ -207,8 +207,17 @@ def instrument(clock: StageClock, per_tree=None) -> None:
     for owner, name in ((np.fft, "rfft2"), (np.fft, "irfft2"), (sfft, "rfft2"), (sfft, "irfft2"), (np, "tensordot"), (light_mod, "gaussian_filter"),
                         (light_mod, "map_coordinates"), (roots_mod, "gaussian_filter"), (roots_mod, "map_coordinates"),
                         (fast, "sweep_rows"), (fast, "blur_layers"), (fast, "deposit"), (fast, "sample_wrap"), (fast, "carbon_parts"), (fast, "bend_steps"),
-                        (fast, "apply_rotation"), (fast, "level_order"), (kernels, "basipetal"), (kernels, "compose"), (kernels, "positions"), (kernels, "posture")):
+                        (fast, "level_order"), (kernels, "basipetal"), (kernels, "compose"), (kernels, "positions"), (kernels, "posture")):
         clock.wrap_compiled(owner, name)
+
+    # bend_steps calls fast.apply_rotation inside numba, so that name must stay the compiled function: only mechanics' own call is timed
+    class FastSeenByMechanics:
+        def __getattr__(self, name):
+            return getattr(fast, name)
+    seen = FastSeenByMechanics()
+    seen.apply_rotation = fast.apply_rotation
+    clock.wrap_compiled(seen, "apply_rotation")
+    mechanics.fast = seen
 
 
 def year_row(now: tuple, last: tuple) -> dict:
