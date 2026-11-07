@@ -401,7 +401,18 @@ def test_a_stem_passing_a_doubling_keeps_most_of_its_pattern(look):
 def test_the_new_mesh_settings_are_off_unless_asked():
     s = mesh.MeshSettings()
     assert s.drop_hidden_rings is False and s.ring_tolerance == 0.0 and s.ring_tolerance_m == 0.0
-    assert s.stem_edge_by_height == () and s.buttress_hold_m == 0.0
+    assert s.stem_edge_by_height == () and s.buttress_hold_m == 0.0 and s.no_stem_ridges is False
+
+
+def test_a_dense_run_of_ring_samples_doesnt_drop_itself_whole():
+    gs = np.arange(0.0, 1.0, 0.001)
+    keep = mesh._spaced_samples(gs, np.full(len(gs), 0.01), np.zeros(len(gs), np.int64))
+    # against its neighbour every one of these would go: every sample is within 3 mm of the one before
+    kept = gs[keep]
+    assert np.diff(kept).max() < 0.005 and len(kept) > 200
+    # and a new axis always starts
+    sa = np.r_[np.zeros(500, np.int64), np.ones(500, np.int64)]
+    assert mesh._spaced_samples(gs, np.full(len(gs), 0.01), sa)[500]
 
 
 def test_thinning_keeps_what_shapes_the_tube():
@@ -607,7 +618,7 @@ def _root_tube(z0, z1, r0, r1, sides=8, rings=12):
 def test_a_root_lies_on_the_ground_and_its_thin_end_is_under_it():
     import treegen.game_unreal as gu
 
-    cfg = {"sink_length_radii": 2.0, "surface_min_radius_m": 0.006, "surface_min_radius_share": 0.09, "centre_above_ground_radii": 0.25}
+    cfg = {"sink_length_radii": 2.0, "surface_min_radius_m": 0.006, "surface_min_radius_share": 0.09, "centre_above_ground_radii": 0.25, "visible_radii": 12.0, "under_share": 0.85, "sink_power": 1.3, "flow_out_radii": 3.0, "flow_width_radii": 1.25, "flow_up_radii": 4.0, "flow_max_share": 0.8}
     line = -0.2
     # a strut: high at the stem, as the model's roots are measured from its own zero
     md, sides = _root_tube(0.1, 0.1, 0.09, 0.002)
@@ -623,6 +634,133 @@ def test_a_root_lies_on_the_ground_and_its_thin_end_is_under_it():
     assert np.ptp(moved, axis=1).max() < 1e-6
     # only the height moves
     assert np.array_equal(out.vertices[:, :2], md.vertices[:, :2])
+
+
+def test_a_root_goes_under_with_a_rounded_end_not_a_long_point():
+    import treegen.game_unreal as gu
+
+    cfg = {"sink_length_radii": 15.0, "surface_min_radius_m": 0.006, "surface_min_radius_share": 0.25, "centre_above_ground_radii": -0.25, "visible_radii": 8.0, "under_share": 0.85, "sink_power": 1.3,
+           "flow_out_radii": 3.0, "flow_width_radii": 1.25, "flow_up_radii": 4.0, "flow_max_share": 0.8}
+    line = -0.2
+    md, sides = _root_tube(0.0, -0.1, 0.06, 0.004, rings=120)
+    out = gu.sink_roots(md, line, np.array([0.0, 0.0]), 0.1, 0.17, cfg)
+    centres = out.vertices.reshape(-1, sides, 3).mean(1)[:, 2]
+    r = md.attributes["radius"][::sides]
+    x = md.vertices.reshape(-1, sides, 3).mean(1)[:, 0]
+    crest = centres + r - line
+    shows = crest > 0.0
+    # it shows, and it's gone by eight of its radii along, long before the model's thin end
+    assert shows.any() and x[shows].max() < 0.1 + 8.0 * 0.06 + 0.05
+    # and it's gone before it's thin, so nothing tapers to a point on the ground
+    assert r[shows].min() > 0.85 * 0.25 * 0.17 * 0.9
+    # it sinks all along what shows, going down from ring to ring
+    run = shows & (x > 0.1)
+    assert np.all(np.diff(crest[run]) <= 1e-6)
+    assert crest[run][0] > 3.0 * crest[run][int(0.8 * run.sum())]
+
+
+def test_a_swell_runs_out_along_a_root_and_up_the_stem_to_nothing():
+    import treegen.game_unreal as gu
+
+    # out 0.2 m at a root's crest 0.04 m over the ground, gone 0.3 m above that
+    flows = np.array([[0.5, 0.2, 0.4, 0.3, 0.04]])
+    at = gu.flow_offset(np.full(5, 0.5), np.array([0.0, 0.04, 0.0625, 0.19, 0.5]), flows)
+    assert at[1] == pytest.approx(0.2) and at[4] == 0.0
+    # it spreads on to the ground below the crest, so no upright lip
+    assert at[0] > at[1] > at[2] > at[3] > at[4]
+    # and flattest where it lands, steep higher on the stem
+    assert (at[1] - at[2]) / (0.0625 - 0.04) > 1.2 * (at[2] - at[3]) / (0.19 - 0.0625)
+    # nothing on the far side of the stem
+    assert gu.flow_offset(np.array([0.5 + np.pi]), np.array([0.0]), flows)[0] < 1e-6
+
+
+def test_the_stems_foot_takes_whole_rings_so_a_tilted_one_cant_show():
+    import treegen.game_unreal as gu
+
+    # a stem's tube, upright to z = -0.3, then rings tilted by a taproot that leans off, one side as high as the ground
+    sides, rings = 16, []
+    a = np.linspace(0.0, 2.0 * np.pi, sides, endpoint=False)
+    heights = [0.0, -0.1, -0.2, -0.3, -0.35, -0.4]
+    tilt = [0.0, 0.0, 0.0, 0.0, 0.5, 0.8]
+    V = np.array([[0.2 * np.cos(b), 0.2 * np.sin(b), z + t * 0.2 * np.cos(b)] for z, t in zip(heights, tilt) for b in a])
+    along = np.repeat(-np.array(heights, float), sides)
+    F = []
+    for r in range(len(heights) - 1):
+        for k in range(sides):
+            p, q = r * sides + k, r * sides + (k + 1) % sides
+            F += [[p, q, p + sides], [q, q + sides, p + sides]]
+    attrs = {"axis_id": np.zeros(len(V), np.int32), "ring_along": along.astype(np.float32), "radius": np.full(len(V), 0.2, np.float32)}
+    md = mesh.MeshData(V, np.array(F), np.tile([1.0, 0.0, 0.0], (len(V), 1)), attrs)
+    cfg = {"surface_min_radius_m": 0.006, "surface_min_radius_share": 0.14, "surface_depth_m": 0.1}
+    line = -0.2
+    foot, surface, below = gu.split_roots(md, cfg, line, 0.2)
+    # the foot stops at the cut, at -0.3, level; the tilted rings' high sides, up to -0.24, are under
+    assert foot.vertices[:, 2].min() == pytest.approx(-0.3)
+    assert np.ptp(foot.vertices[foot.vertices[:, 2] < -0.25, 2]) == pytest.approx(0.0)
+    assert surface is None and below is not None
+
+
+def test_a_thick_roots_swell_ends_in_a_slope_not_a_wall():
+    import treegen.game_unreal as gu
+
+    # as at age 60 with the default roots: a root half the stem's radius
+    out_m, crest = 0.2, 0.06
+    flows = np.array([[0.0, out_m, 0.4, 0.3, crest]])
+    at = gu.flow_offset(np.zeros(2), np.array([0.0, crest]), flows)
+    # from the crest down to the ground it runs out by more than it drops
+    assert at[0] - at[1] >= 1.5 * crest
+
+
+def test_a_swell_covers_its_root_where_it_comes_out_of_the_stem(look):
+    import treegen.game_unreal as gu
+
+    cfg = {**look["game"]["unreal"]["roots"], "sink_length_radii": 15.0, "surface_min_radius_share": 0.25}
+    line, foot_r, collar, r = -0.2, 0.15, 0.17, 0.05
+    out_m, width, up_m, crest = gu.flow_shape(r, foot_r, cfg)
+    flows = np.array([[0.0, out_m, width, up_m, crest]])
+    # the root comes out of the swell at its end, top and side
+    assert gu.flow_offset(np.array([0.0]), np.array([crest]), flows)[0] == pytest.approx(out_m)
+    assert gu.flow_offset(np.array([r / foot_r]), np.array([crest - r]), flows)[0] > 0.5 * out_m
+    # and the root itself stays low there: nothing raises it to meet the swell
+    md, sides = _root_tube(-0.1, -0.15, r, 0.004, rings=300)
+    moved = gu.sink_roots(md, line, np.array([-foot_r, 0.0]), foot_r, collar, cfg)
+    tops = moved.vertices.reshape(-1, sides, 3).mean(1)[:, 2] + md.attributes["radius"][::sides] - line
+    x = md.vertices.reshape(-1, sides, 3).mean(1)[:, 0]
+    assert tops[x >= out_m].max() <= crest + 1e-6
+    assert tops.max() <= (1.0 + cfg["centre_above_ground_radii"]) * r + 1e-6
+    # only the height moved
+    assert np.array_equal(moved.vertices[:, :2], md.vertices[:, :2])
+
+
+def test_the_flows_come_from_the_roots_at_the_stem(look):
+    import treegen.game_unreal as gu
+
+    cfg = look["game"]["unreal"]["roots"]
+    md, sides = _root_tube(0.0, -0.1, 0.06, 0.004, rings=40)
+    flows = gu.root_flows(md, np.array([0.0, 0.0]), 0.15, cfg)
+    assert flows.shape == (1, 5) and flows[0, 0] == pytest.approx(0.0, abs=0.01)
+    # a root that starts far out is no swell on the stem
+    assert not len(gu.root_flows(md, np.array([-3.0, 0.0]), 0.15, cfg))
+
+
+def test_moss_is_patches_on_one_side_with_no_edge(look):
+    import treegen.game_unreal as gu
+
+    cfg = look["game"]["unreal"]["roots"]
+    above = np.linspace(0.0, 1.3, 400)
+    u = (np.arange(512) + 0.5) / 512.0
+    amount, _ = gu.moss_amount(above, u, np.ones(400), cfg, 77)
+    toward = float(ap.hash01(np.array([77]), 72)[0])
+    round_to = np.abs((u - toward + 0.5) % 1.0 - 0.5)
+    near, far = amount[:80][:, round_to < 0.2], amount[:80][:, round_to > 0.3]
+    assert near.mean() > 3.0 * far.mean()
+    # not a coat, even low down on the side it favours
+    assert (near > 0.1).mean() < 0.7
+    # and on no side is it a band round the foot
+    assert (far > 0.1).mean() < 0.15
+    # and it thins out going up, with no level where it stops
+    rows = amount.mean(1)
+    assert rows[-1] == 0.0 and np.abs(np.diff(np.convolve(rows, np.ones(20) / 20.0, mode="valid"))).max() < 0.25 * rows[:40].mean()
 
 
 def _rough_at(look, seed, age, z):

@@ -25,12 +25,12 @@ Variant names: `betula_pendula_grown_age060` is the nearest level in the base se
 
 | Age | Height, m | Leaves | Nearest level | of which wood | roots with the tree | bark strips | leaves | `_lod1` | `_lod2` | `_roots` | Nearest, MB |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 5 | 5.7 | 8,711 | 297,960 | 36,402 | 228 | 0 | 261,330 | 15,999 | 12 | 4,742 | 27 |
-| 15 | 12.0 | 10,436 | 365,174 | 50,376 | 1,270 | 448 | 313,080 | 16,000 | 12 | 16,318 | 33 |
-| 30 | 18.8 | 34,856 | 1,371,733 | 320,522 | 2,843 | 2,688 | 1,045,680 | 15,999 | 12 | 61,327 | 118 |
-| 50 | 24.6 | 46,312 | 1,983,629 | 583,045 | 5,848 | 5,376 | 1,389,360 | 15,999 | 12 | 152,267 | 165 |
-| 60 | 26.1 | 47,728 | 2,159,029 | 713,813 | 7,104 | 6,272 | 1,431,840 | 16,000 | 12 | 191,929 | 176 |
-| 100 | 29.7 | 49,408 | 2,691,180 | 1,187,230 | 11,406 | 10,304 | 1,482,240 | 15,999 | 12 | 395,854 | 205 |
+| 5 | 5.7 | 8,711 | 297,930 | 36,372 | 228 | 0 | 261,330 | 15,999 | 12 | 4,772 | 27 |
+| 15 | 12.0 | 10,436 | 365,194 | 50,396 | 1,270 | 448 | 313,080 | 16,000 | 12 | 16,394 | 33 |
+| 30 | 18.8 | 34,856 | 1,371,158 | 319,947 | 2,843 | 2,688 | 1,045,680 | 16,000 | 12 | 62,366 | 118 |
+| 50 | 24.6 | 46,312 | 1,986,463 | 585,879 | 5,848 | 5,376 | 1,389,360 | 16,000 | 12 | 155,765 | 165 |
+| 60 | 26.1 | 47,728 | 2,163,455 | 718,249 | 7,094 | 6,272 | 1,431,840 | 15,999 | 12 | 192,647 | 176 |
+| 100 | 29.7 | 49,408 | 2,701,790 | 1,197,863 | 11,383 | 10,304 | 1,482,240 | 16,000 | 12 | 396,116 | 205 |
 
 The game's own birch, `betula_pendula_a`, is 1,771,416 triangles, read back in Unreal. Budgets are settings: `--budget lod1=8000`, or `appearance.game` in the species file.
 
@@ -65,11 +65,11 @@ Since then the bark has real depth and the leaves real outlines (section 8), whi
 
 | | Age 50 cleaned | now | Age 60 cleaned | now |
 |---|---|---|---|---|
-| Wood | 241,584 | 583,045 | 265,630 | 713,813 |
-| Roots with the tree | 6,571 | 5,848 | 7,874 | 7,104 |
+| Wood | 241,584 | 585,879 | 265,630 | 718,249 |
+| Roots with the tree | 6,571 | 5,848 | 7,874 | 7,094 |
 | Bark strips | 5,376 | 5,376 | 6,272 | 6,272 |
 | Leaves | 1,296,736 | 1,389,360 | 1,336,384 | 1,431,840 |
-| **With the tree** | **1,550,267** | **1,983,629** | **1,616,160** | **2,159,029** |
+| **With the tree** | **1,550,267** | **1,986,463** | **1,616,160** | **2,163,455** |
 | File, MB | 120 | 165 | 124 | 176 |
 
 ## 3. Importing with the game's own scripts
@@ -113,7 +113,7 @@ None of this has been changed in the game. Numbers 1-4 let the tree in. The rest
 
 | What the plain export carried | Kept or lost | Where it goes now |
 |---|---|---|
-| Positions, normals, triangles | Kept, **tested**: 365,174 and 2,159,029 triangles come back exactly, by the Nanite count on the saved asset | Same. Metres become cm, y-up becomes z-up |
+| Positions, normals, triangles | Kept, **tested**: 365,194 triangles come back exactly at age 15, and the same at each age I could import, by the Nanite count on the saved asset | Same. Metres become cm, y-up becomes z-up |
 | Tangents | Kept on normal meshes. Nanite doesn't store them (**documented**) | Nothing to do |
 | Base colour, normal map | Kept, **tested** | The game's script makes its own material and sets them |
 | Roughness and occlusion map | The game reads roughness from a separate map's red | `_rough_2k.png`: red roughness, green height, blue occlusion |
@@ -151,22 +151,29 @@ The roots are the model's own (`treegen/roots.py`). No generic flare is added.
 
 | Age | Root length, m | Thickest, cm | Deepest, m | Spread, m | Ground line, cm below model's zero | Roots showing | Out to, m | Triangles with the tree | Triangles below |
 |---|---|---|---|---|---|---|---|---|---|
-| 5 | 26 | 2.4 | 0.81 | 2.2 | 6 | 1 | 0.07 | 228 | 4,742 |
-| 15 | 96 | 5.3 | 0.96 | 4.1 | 9 | 2 | 0.14 | 1,270 | 16,318 |
-| 30 | 369 | 9.6 | 1.17 | 7.7 | 14 | 4 | 0.26 | 2,843 | 61,327 |
-| 50 | 939 | 12.9 | 1.20 | 10.6 | 19 | 4 | 0.43 | 5,848 | 152,267 |
-| 60 | 1,250 | 14.1 | 1.22 | 11.7 | 20 | 5 | 0.37 | 7,104 | 191,929 |
-| 100 | 2,613 | 18.4 | 1.24 | 18.0 | 25 | 6 | 0.63 | 11,406 | 395,854 |
+| 5 | 26 | 2.4 | 0.81 | 2.2 | 6 | 1 | 0.07 | 228 | 4,772 |
+| 15 | 96 | 5.3 | 0.96 | 4.1 | 9 | 2 | 0.14 | 1,270 | 16,394 |
+| 30 | 369 | 9.6 | 1.17 | 7.7 | 14 | 4 | 0.27 | 2,843 | 62,366 |
+| 50 | 939 | 12.9 | 1.20 | 10.6 | 19 | 4 | 0.45 | 5,848 | 155,765 |
+| 60 | 1,250 | 14.1 | 1.22 | 11.7 | 20 | 5 | 0.39 | 7,094 | 192,647 |
+| 100 | 2,613 | 18.4 | 1.24 | 18.0 | 25 | 6 | 0.52 | 11,383 | 396,116 |
 
 **Why a ground line.** The model keeps its roots under its own z = 0. So the ground meets the tree a little lower, 1.25 collar radii and at most 25 cm (`appearance.game.unreal.roots`). This moves where the ground meets the tree, not the tree, and no growth number changes.
 
-**What the export does to the foot.** All of it is in the export only, behind those settings:
+**What the export does to the foot.** All of it is in the export only, behind those settings. A root's path as seen from above, its radius, its branches and its mass stay the model's. Only heights move, and the stem's own surface.
 
-- The stem goes straight down to below the ground line. In the model it runs on as the taproot, whose first half metre leans well out to one side, and with the stem's thickness on that it made a hoof.
-- The stem swells into the ground by the species' own `geometry.root_flare_extra`, 35 % at the ground, steepest there as on a real butt. It was a straight cup before.
-- A root keeps its path as seen from above, its radius and its branches. Only its height moves. No root stands off the ground as a strut: a thick one lies with its centre a quarter of its radius under the ground, as a low ridge, and it's under the soil by the time it's half as thick as "thick". Further out it goes down to the depth the model has it at.
+- **Straight down.** The stem goes straight down to below the ground line. In the model it runs on as the taproot, whose first half metre leans well out to one side, and with the stem's thickness on that it made a hoof.
+- **Butt swell.** The stem swells into the ground by the species' own `geometry.root_flare_extra`, 35 % at the ground, steepest there as on a real butt.
+- **A swell for each thick root.** The stem's surface runs out towards each root that leaves its foot: a ridge comes down the stem, flatter as it goes, and lands on the root's top (`flow_*`). So root and stem are one shape, and the root comes out from under the swell, not through a hard line. It's what the mesher's own ridges were for, and those are off here (`no_stem_ridges`), with the fillets it made from the foot out to each root's old path. Those fillets are why the foot looked crumpled once more of it was above ground.
+- **Roots go under.** A thick root lies part buried and sinks along all it shows, gone by 5 of its radii (`visible_radii`), before it's thin, so what's left of a long root is under the soil, in `_roots`. That number is what to change if you want more of them to show. A tube that keeps its thickness cuts level ground in a long rounded tongue. It's a thin one tapering as it crosses that draws a spike.
+- **One colour.** A root's bark is the foot's, in low contrast (`root_colour`, `root_contrast`), and the foot stains to that colour down each swell and a little all round at the ground (`stain_*`), so the two meet in colour too.
+- **Moss.** Tufts and clumps on one side of the stem, thinning out with height and round the stem, so there's no edge and no collar (`moss_*`). Thin on white bark, which shows it pale.
 
-**How it looks.** The foot now widens into the ground, with one or two heavy ridges and low roots leaving it, and it stands in the ground from any side. The placement in the test was not the fault: the game's own `Mounds` are round stones only, with no soil heaped at a tree, so a flat plane is close to what the game does. What's left: on a plane with no grass, the thin end of a root reads as a short wedge where it goes under.
+The stem's foot takes whole rings, cut by each ring's mean height, 10 cm below the ground line. Below that the stem leans off along the taproot and its rings tilt, so one side of them can come up to the ground. A swell pushed that open edge out into a flat flap on the default roots at ages 50 and 60. Those rings now go with `_roots`. A swell also ends in a slope, over twice the height of the root's top, so a thick root's has no wall at its end.
+
+The mesher also had a hole in it, now closed where relief is asked for: a sample was dropped if it was close to the last sample, kept or not, so where many roots' windows overlap a dense run dropped itself whole. The stem's foot had gaps of up to 7 cm between rings, which showed as a band.
+
+**How it looks.** The foot flares into the ground, with roots low and sinking. All values are `TUNED` by eye against the Arnhem-Delhuyzen and Brastad photos in `birch-data/summer_reference`; I found no measurement. The placement in the test was not the fault: the game's own `Mounds` are round stones only, with no soil heaped at a tree, so a flat plane is close to what the game does. What's left: with no soil or litter heaped against it, a swell meets a flat plane in a clean, wavy edge. On the game's real ground I haven't seen it.
 
 **What the model would have to change.** Roots stop showing a short way out, because the model's own main roots are few and taper fast. At age 60 the largest is 9.0 cm radius at its base, 2.8 cm at 0.5 m and 1.3 cm at 1 m; the next are 4.4, 3.1, 2.4, 2.3 and 2.2 cm at their bases; and they go down quickly. A real old birch has more roots at its surface that stay thick further out and sink along their length. That's a growth change in `treegen/roots.py`, not the export.
 
@@ -179,8 +186,16 @@ The roots themselves change in growth (`treegen/roots.py`, `update_radii_paid`):
 - "Thick" goes by the stem foot's radius, not the root collar's, since the collar is now the real stump: 25 % of it, so 12-15 roots show at age 60 on the three seeds exported.
 - The stump's mass stays in the model, but what's drawn is the stem's foot. Otherwise a 40 cm stump makes a bulb under a 30 cm stem.
 - A root's radius already holds its bark, as its density does, so no wall is added.
-- Only roots at least half the thickest's radius raise a ridge on the stem, and ridges don't pile up. Added up, 30 roots made the foot a bell.
+- `geometry.root_flare_min_share` is for the plain export's ridges. In this target it's the swells above that shape the foot, for roots at least 45 % of the thickest's radius, and they don't pile up either.
 - A root that shows goes under gradually along its length, never rising once it's going down, and stays under. Otherwise the model's up-and-down path made loose sausages on the ground.
+
+With these settings, seed 1, the nearest level:
+
+| Age | Height, m | Nearest level | of which wood | roots with the tree | leaves | Roots showing | Out to, m |
+|---|---|---|---|---|---|---|---|
+| 15 | 12.2 | 278,067 | 46,766 | 6,937 | 223,980 | 2 | 0.26 |
+| 50 | 25.7 | 1,603,315 | 410,648 | 20,463 | 1,166,700 | 11 | 0.55 |
+| 60 | 27.3 | 1,696,939 | 484,248 | 23,005 | 1,183,350 | 12 | 0.52 |
 
 ### The file's origin is below the tree, on purpose
 
@@ -188,7 +203,7 @@ Unlike the game's own trees, these files have their origin 32 cm below the tree'
 
 Long streaks of green and dark ran up the lowest part of the stem, on our bark and on the game's scan alike. They come from `M_Surface`'s ground contact. It reads a moss texture by world XY, which barely changes up an upright surface, so the moss smears upwards. It applies where height above the mesh's origin, plus up to 6 cm of noise, is under `GroundBlendCm`, 20 cm. **Shown:** the same file and camera with `GroundBlendCm` at 0 has no streaks.
 
-We can't change the game's material, so our data suits it. With the origin 32 cm below the lowest point, nothing in the file is low enough for that moss to apply, and the game's own seat, by the lowest point, is as right as ever. The moss is back in our own stem map instead, by `UV0`: on one side of the stem, in patches, further up on old stems. Bark heights in the manifest are in file coordinates (`upper_bark`), and `origin` gives where model zero, the ground and the lowest point are in the file.
+We can't change the game's material, so our data suits it. With the origin 32 cm below the lowest point, nothing in the file is low enough for that moss to apply, and the game's own seat, by the lowest point, is as right as ever. The moss is back in our own stem map instead, by `UV0`, as above. Bark heights in the manifest are in file coordinates (`upper_bark`), and `origin` gives where model zero, the ground and the lowest point are in the file.
 
 ## 6. Season change while the game runs
 
@@ -259,12 +274,12 @@ The nearest level's stem has the bark's own height map in its mesh, so plates st
 
 | Age | Deepest crack in the mesh, mm | Highest plate, mm | Wood triangles |
 |---|---|---|---|
-| 5 | 0.1 | 0.2 | 36,402 |
-| 15 | 4.1 | 1.5 | 50,376 |
-| 30 | 15.1 | 1.5 | 320,522 |
-| 50 | 19.7 | 1.6 | 583,045 |
-| 60 | 21.2 | 1.5 | 713,813 |
-| 100 | 27.0 | 1.5 | 1,187,230 |
+| 5 | 0.1 | 0.2 | 36,372 |
+| 15 | 4.1 | 1.5 | 50,396 |
+| 30 | 15.1 | 1.5 | 319,947 |
+| 50 | 19.7 | 1.5 | 585,879 |
+| 60 | 21.2 | 1.5 | 718,249 |
+| 100 | 27.0 | 1.6 | 1,197,863 |
 
 The mesh is finest where the cracks can be deep, up to the highest of the base's tongues: 5 mm at the old base, 3 cm up on young white bark (`appearance.game.unreal.stem_relief`). `edge_fine_m: 0` turns it off. The normal map holds everything the mesh can't, and half of what it can, as a mesh shades only as sharply as its edges are short (`normal_keeps_deep_share`). `_lod1` has a smooth stem and its own map, `<slot>_lod1`, with everything in it.
 
@@ -361,16 +376,16 @@ All in `out/unreal_test/TreeTest`, an empty project, Unreal 5.8.4, no window. Th
 
 | File | Triangles in Unreal | UV sets | Vertex colour | Slots | Lowest point, cm |
 |---|---|---|---|---|---|
-| Age 15, nearest | 365,174 | 4 | Yes | 5 | 32.0 |
+| Age 15, nearest | 365,194 | 4 | Yes | 5 | 32.0 |
 | Age 15, `_lod1` | 16,000 | 4 | Yes | 4 | 32.0 |
 | Age 15, `_lod2` | 12 | 1 | Yes | 1 | 32.0 |
 | Age 15, `_roots` | 16,318 | 4 | Yes | 1 | -54.2 |
-| Age 60, nearest | 2,159,029 in the file; see below | 4 | Yes | 5 | 32.0 |
+| Age 60, nearest | 2,163,455 in the file; see below | 4 | Yes | 5 | 32.0 |
 | Age 60, `_lod1` | 16,000 | 4 | Yes | 4 | 32.0 |
 | Age 60, `_lod2` | 12 | 1 | Yes | 1 | 32.0 |
 | Age 60, `_roots` | 191,929 | 4 | Yes | 1 | -79.9 |
 
-Age 60's nearest level came back whole at 1,947,669 triangles. Since then the uneven base has made it 2,159,029, and I couldn't save that one here: Unreal's log shows its Nanite build finishing, then free memory fell to 1.21 GB from 8 GB and the runner stopped it, and 8.6 GB didn't come free in the half hour I waited to try again. The pictures of age 60 since then use its leafless file, `_winter`, which came back whole.
+Age 60's nearest level came back whole at 1,947,669 triangles. Since then the uneven base and the foot have made it 2,163,455, and I couldn't save that one here: Unreal's log shows its Nanite build finishing, then free memory fell to 1.21 GB from 8 GB and the runner stopped it, and 8.6 GB didn't come free in the half hour I waited to try again. The pictures of age 60 since then use its leafless file, `_winter`, which came back whole.
 
 The game seats each mesh by its own lowest point, and every level of these ages now has it in the same place, so they stay in line. (They were up to 9 cm apart before.)
 
