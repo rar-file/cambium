@@ -1655,8 +1655,7 @@ crown_frame:
   # Fig. 6C (model output) has 2-4 long shoots per second-order branch.  Even values make all of them fall on one side of a two-ranked shoot.  null: all.
   twig_bud_every: 10
   # -- with earned on: limbs and twigs go by what they earn -----------------------------------------------------------------
-  # What changes (Crown 2): limbs reach the published crown themselves, and it's the widest they go.  The limit by place in the crown is an egg, from peak_depth alone (top_share,
-  # base_share, profile_power, length_per_reach, steep_limit, twig_overshoot, twig_bud_every aren't read), and a twig goes no further than a
+  # What changes (Crown 2): limbs reach the published crown themselves, and it's the widest they go (length_per_reach, steep_limit, twig_overshoot, twig_bud_every aren't read), and a twig goes no further than a
   # year's shoot past its limb's tip.  A bud's share goes with its own light, its limb's standing against its neighbours and its limb's age (_scaffold_vigour), not the split down
   # the branches (so resource.apical_dominance does nothing); a bud on a shoot that hangs doesn't start a long shoot (gravimorphism).  Only the bud at the end of last
   # year's shoot can start a long shoot on anything finer than the stem, and on a limb or a fork it's paid first, by its own light.  Thin twigs turn neither up nor to the

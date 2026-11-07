@@ -1922,6 +1922,19 @@ class GrowthModel:
                             ring_out[stem] += w * used * unit / spread
                             self._unspent -= used
                             return lo, ring_out
+            if lead_at is not None and self._frame_earns() and not self.stand and getattr(self, "_plot_view", None) is None:
+                # with no neighbours, whatever the crown can't use goes the same way, whichever limit it met: else a crown short of its limits starves the stem that sets them
+                share_stem = float(sp.crown_frame.surplus_to_stem or 0.0)
+                unspent = max(target - parts(lo)[0], 0.0)
+                stem = T.trunk_chain(self.leader_axes)
+                stem = stem[stem < n0]
+                w = la_now[stem] / max(float(la_now[0]), 1e-12)
+                spread = float((w * L[stem]).sum())
+                if share_stem > 0.0 and unspent > 0.0 and spread > 0.0:
+                    ring_out = parts(lo)[1].copy()
+                    ring_out[stem] += w * share_stem * unspent * unit / spread
+                    self._unspent = unspent * (1.0 - share_stem)
+                    return lo, ring_out
             return lo, parts(lo)[1]
 
         next_leaves = max(float(getattr(fw, "early_leaves", 0.0) or 0.0), float(fw.spur))
@@ -2200,9 +2213,6 @@ class GrowthModel:
                 reach_max = min(reach_max, 0.5 * float(overlap) * spacing)
         depth = np.clip((h - T.pos[base, 2]) / crown, 0.0, 1.0)
         peak = float(cf.peak_depth)
-        if self._frame_earns():
-            # an egg, widest at peak_depth of the crown: one value in place of the table below.  The limit the limbs grow to, not a shape: age and light decide how much of it they fill
-            return reach_max * np.sqrt(np.maximum(1.0 - ((depth - peak) / max(peak, 1.0 - peak)) ** 2, 0.04))
         top = float(cf.top_share)
         above = top + (1.0 - top) * np.power(np.minimum(depth / peak, 1.0), float(cf.profile_power))
         # below the widest point the frame falls again, to base_share at the crown base: a crown is not a cone
@@ -2244,8 +2254,8 @@ class GrowthModel:
         n_term = hd.get("n_term", 0)
         dz = np.concatenate([T.term_dir[starts[:n_term], 2], T.lat_dir[starts[n_term:], 2]])
         if self._frame_earns():
-            # apical control: no limb's tip ends above where the leader was two years ago, near enough, so the leader stands clear; a new limb can start, just under last year's top
-            top = np.where(np.arange(len(starts)) < n_term, float(hd["z"]) - 2.0 * lead_len * hd["dz"], float(hd["z"]))
+            # apical control: no limb's tip ends above where the leader was three years ago, near enough, so the leader stands clear; a new limb can start, just under last year's top
+            top = np.where(np.arange(len(starts)) < n_term, float(hd["z"]) - 3.0 * lead_len * hd["dz"], float(hd["z"]))
         else:
             top = max(hd["z"] + lead_len * hd["dz"], float(hd["ref"]))
         room = np.maximum(top - T.pos[starts, 2], 0.0)
@@ -2326,7 +2336,8 @@ class GrowthModel:
         # a limb loses vigour as it ages (resource.branch_aging_years, Barthelemy & Caraglio 2007), so the crown's old lower limbs fall
         # behind the younger ones above them, as a crown in the open needs, or it's a cone
         age = np.where(limb_tip[at], np.maximum(self.year + 1.0 - T.scaffold_birth[node], 0.0), 0.0)
-        grow = grow * light * float(hd["water"]) * np.exp(-age / float(self.sp.resource.branch_aging_years))
+        # with earned a limb's own shoot slows with the leader's (longest, above), and its age tells in its buds' share instead (_scaffold_vigour)
+        grow = grow * light * float(hd["water"]) * (1.0 if earns else np.exp(-age / float(self.sp.resource.branch_aging_years)))
         # the tree's one second top keeps up with the leader, and may come close to it: only the room under the tree's top holds it (_frame_room)
         rise = np.maximum(np.where(limb_tip[at], T.term_dir[node, 2], 1.0), 0.5)
         grow = np.where(second_top, float(self.sp.height_driver.catch_up) * longest / rise, grow)
@@ -2459,7 +2470,7 @@ class GrowthModel:
         if ratio is not None:
             caps = np.minimum(caps, float(ratio) * lead_len / full)
         dz = np.concatenate([T.term_dir[starts[:n_term], 2], T.lat_dir[starts[n_term:], 2]])
-        top = float(hd["z"]) - 2.0 * lead_len * hd["dz"] if self._frame_earns() else max(hd["z"] + lead_len * hd["dz"], float(hd["ref"]))
+        top = float(hd["z"]) - 3.0 * lead_len * hd["dz"] if self._frame_earns() else max(hd["z"] + lead_len * hd["dz"], float(hd["ref"]))
         room = np.maximum(top - T.pos[starts, 2], 0.0)
         caps = np.where(dz > 0.02, np.minimum(caps, room / (np.maximum(dz, 0.02) * full)), caps)
         caps[lead_at] = float(nmax)
