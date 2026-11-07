@@ -285,6 +285,9 @@ bud_fate:
   # survival of second-order shoots (99 -> 53 % after 5-8 years), seed 1 at
   # 25 years (phase 15). VERIFY (the value 3)
   long_shoot_threshold: 3.0
+  # Set: only one bud in this many on the stem can start a limb; the rest stay short shoots.  null (as it has been): any of them.
+  # TUNED, against nothing yet.
+  stem_bud_every: null
   # Axis tips extend continuously: shoot length is l0 * v, and a tip that
   # can afford less than one metamer still makes one shorter internode (it
   # used to stop: seedlings in the field layer, at ~38 % light, could afford
@@ -1336,6 +1339,8 @@ height_driver:
   leaf_growth_max: 1.5
   # TUNED, against nothing yet: no side shoot longer than this share of the leader's shoot this year.  null = no limit.
   lateral_cap_ratio: null
+  # TUNED, against nothing yet: that cap never falls below this length (m).  null = no floor.
+  lateral_cap_floor_m: null
   # TUNED, against nothing yet: no twig (order 2 and up) longer than this share of the leader's shoot.  null = no limit of its own.
   twig_cap_ratio: null
   # Once the leader has lost dominance (resource.reiteration), whichever tip stands highest carries the height, and
