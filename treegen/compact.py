@@ -82,6 +82,9 @@ def compact(model, every: int = 3, min_share: float = 0.2) -> bool:
     model.reit = {int(new[k]): v for k, v in model.reit.items() if keep[k]}
     model._relay_buds = {int(new[k]): int(new[v]) for k, v in model._relay_buds.items() if keep[k] and keep[v]}
     model._relay_first = {a: int(new[v]) for a, v in model._relay_first.items() if keep[v]}
+    if "_frame_named" in model.__dict__:     # crown_frame: buds named to start a limb, and each one's share of the reach
+        model._frame_named = {int(new[k]): v for k, v in model._frame_named.items() if keep[k]}
+        model._frame_reach = {int(new[k]): v for k, v in model._frame_reach.items() if keep[k]}
     # this year's working values, read by no one next year, with old numbers in them
     model._bud_q = None
     model._bud_leaf_cost = None
