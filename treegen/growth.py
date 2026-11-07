@@ -2149,7 +2149,7 @@ class GrowthModel:
         return 0.5 * (float(cf.crown_a) + float(cf.crown_b) * d_ob)
 
     def _frame_earned(self, starts, q_bud, bud_leaf) -> None:
-        """Each limb's leaf area this year, and how it stands against its neighbours on the stem: x, its leaf area over the median of the limbs around it, gives 2 x / (1 + x),
+        """Each limb's leaf area this year, and how it stands against its neighbours on the stem: x, its leaf area over the median of the limbs around it, gives 2 x^2 / (1 + x^2),
         so 1 for a limb like its neighbours, up to 2 for one far ahead, and towards 0 for one far behind.  A limb's supply goes with this: the larger of two limbs side by side
         has the better wood to feed it, so it pulls ahead and the other falls behind.  Neighbours, not the whole tree, so a young limb isn't held back by old ones far below it."""
         T = self.tree
@@ -2176,7 +2176,7 @@ class GrowthModel:
             k = int(self.sp.crown_frame.limb_rivals)
             med = np.array([float(np.median(vals[max(i - k, 0): i + k + 1])) for i in range(len(vals))])
             x = vals / np.maximum(med, 1e-9)
-            vig[by_z] = 2.0 * x / (1.0 + x)
+            vig[by_z] = 2.0 * x * x / (1.0 + x * x)
             behind = getattr(self.sp.crown_frame, "limb_left_behind", None)
             if behind:
                 # a limb with next to nothing against the younger limbs above it is on its way out: a long bare limb with a tuft at its end doesn't stay.  Shed before next season's
