@@ -1294,10 +1294,11 @@ class GrowthModel:
                 setpoint = np.where(np.isfinite(own) & ~stem, own, setpoint)
                 sag = getattr(self.sp.crown_frame, "limb_sag_deg", None) if self._frame_earns() else None
                 if sag:
-                    # a limb's old wood gives way under its load while its young end still rises, so a limb leaves the stem low and curves up: its posture target falls with the age of the wood
+                    # a limb's old wood gives way under its load while its young end rises, so a limb leaves the stem low and curves up: its posture target
+                    # starts a third of limb_sag_deg above the limb's own set-point, and falls with the age of the wood
                     limb_wood = np.isfinite(own) & ~stem
                     aged = np.exp(-np.maximum(t - T.birth[:n], 0.0) / float(self.sp.resource.branch_aging_years))
-                    setpoint = np.where(limb_wood, setpoint + math.radians(float(sag)) * (1.0 - aged), setpoint)
+                    setpoint = np.where(limb_wood, np.maximum(setpoint + math.radians(float(sag)) * (2.0 / 3.0 - aged), 0.0), setpoint)
             mechanics.bend_and_correct(T, levels, alive, mp, leaves_now, T.leaves[:n].astype(float),
                                        r_prev, setpoint, float(self.sp.shoot.min_height_above_ground),
                                        self._stem_posture_target(n), stem, self._limb_nodes(n),
@@ -1888,7 +1889,11 @@ class GrowthModel:
                 if self._frame_on() and getattr(sp.crown_frame, "crown_lai_max", None):
                     # nor more than the frame's crown can hold, a sink limit: without it a tree with light to spare
                     # spends everything on more leaves, and they pay for more still
-                    room_la = max(float(sp.crown_frame.crown_lai_max) * math.pi * self._frame_reach_max() ** 2 - float(la_now[0]), 0.0)
+                    lai_max = float(sp.crown_frame.crown_lai_max)
+                    open_max = getattr(sp.crown_frame, "open_lai_max", None) if self._frame_earns() else None
+                    if open_max and not (self.stand or getattr(self, "_plot_view", None) is not None):
+                        lai_max = float(open_max)   # a stand tree's stem, and so its frame, is small for its leaves, so this limit is only for a tree on its own
+                    room_la = max(lai_max * math.pi * self._frame_reach_max() ** 2 - float(la_now[0]), 0.0)
                     full_crown = room_la < limit
                     self._frame_crown_full = full_crown
                     limit = min(limit, room_la)

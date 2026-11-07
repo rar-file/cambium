@@ -1696,6 +1696,8 @@ crown_frame:
   # standing in for what really stops a tree with light to spare; what it refuses is lost, bar surplus_to_stem.  4 left about 15 % of fixed carbon unused
   # at 11-50 in stand trees; 7 leaves 18 and 12 % at 11-20, 21-30, then none.  Repola 2008 Eq. 12 at a 45 cm stem over Hemery's crown would be 3.2, outside Eq. 12's range.
   crown_lai_max: 7.0
+  # TUNED, against the look (sky between the curtains), with earned: the same for a tree with no neighbours.  Repola 2008 Eq. 12 would be 3.2, as above; forest trees, and outside its range.  null: crown_lai_max.
+  open_lai_max: null
   # TUNED, against the open-grown band in reference.dbh: the share of what a full crown can't use that goes on the stem; the rest is lost.  With earned, for trees with no neighbours only.
   surplus_to_stem: 0.1
   # TUNED, against crown ratio and stem wood: one bud in this many, on limbs and finer, can start a long shoot; the rest stay short shoots.
