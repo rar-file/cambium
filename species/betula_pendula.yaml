@@ -1658,6 +1658,8 @@ crown_frame:
   full_crown_spur_years: 8
   # TUNED, against the width of open-grown trees and the outline: a limb's yearly shoot falls with its age over this many years.  null: resource.branch_aging_years.
   limb_ageing_years: 80
+  # TUNED, against the look and the light: a limb's shoot falls with the stem's age when it was born, over this many years.  null: resource.stem_aging_years.
+  limb_born_years: null
   # TUNED, against lone low limbs: a limb dies when the light on its leaves is under this share of the crown's mean: it's in the crown's own shade, however bright the sky.  null: off.
   limb_relative_light: 0.5
 
