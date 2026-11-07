@@ -69,6 +69,30 @@ def test_a_tree_is_the_same_with_the_settings_on(base):
     assert tree(2, 16, base) == tree(2, 16, base + LOSSLESS)
 
 
+@pytest.mark.parametrize("base", [[], TEST_A], ids=["default", "testA"])
+def test_dropping_dead_nodes_keeps_every_yearly_stat(base):
+    sets = base + ["speed.compiled_carbon=true"]
+    assert tree(3, 24, sets)[0] == tree(3, 24, sets + ["speed.drop_dead=true"])[0]
+
+
+def test_a_dropped_tree_holds_only_what_it_needs():
+    sp, _ = cli.load_species("betula_pendula")
+    checkpoint.set_values(sp, ["speed.drop_dead=true"])
+    env_p, _ = cli.load_environment("sweden_open_field")
+    m = GrowthModel(sp, cli.make_environment(env_p), 2, stand=True, soil=cli.make_soil(env_p), lean=True)
+    for _ in range(24):
+        m.step()
+    T = m.tree
+    alive = T.death[: T.n] < 0
+    assert alive.sum() > 0.2 * T.n                   # most of what's left lives
+    par = T.parent[: T.n]
+    assert par[0] == -1 and (par[1:] >= 0).all() and (par[1:] < T.n).all()
+    assert alive[par[alive & (par >= 0)]].all()      # a living node's parent lives
+    for link in (T.main_child[: T.n], T.lat_child[: T.n]):
+        ok = alive & (link >= 0)
+        assert (T.parent[link[ok]] == np.nonzero(ok)[0]).all()
+
+
 def test_a_plot_is_the_same_with_the_settings_on():
     def run(sets):
         sp, _ = cli.load_species("betula_pendula")

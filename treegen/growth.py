@@ -51,6 +51,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from . import fast, hydraulics, mechanics
+from .compact import compact
 from .light import SUBCANOPY_LIGHT_HEIGHTS_M, ShadowPropagation
 from .reference import eriksson_1997_height
 from .roots import RootSystem
@@ -1245,6 +1246,8 @@ class GrowthModel:
         if not self.lean and self.keyframe_step > 0 and t % self.keyframe_step == 0:
             self.keyframes[t] = T.pos[:n].astype(np.float32).copy()
         self.stats.append(self.measure())
+        if fast.on(self.sp, "drop_dead"):
+            compact(self)
 
     def dbh_m(self) -> float | None:
         """Stem diameter at 1.3 m (m), None while the tree is shorter."""

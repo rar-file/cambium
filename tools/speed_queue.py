@@ -21,6 +21,7 @@ from speed_compare import TEST_A  # noqa: E402
 
 LOSSLESS = ["speed.compiled_carbon=true", "speed.compiled_mechanics=true", "speed.light_layers=true", "speed.keep_soil_grids=true", "speed.quick_solve=true"]
 ROWS = ["speed.light_rows=true"]
+DROP = ["speed.drop_dead=true"]
 K26 = ["speed.sky_elevations_deg=[15,45,75]", "speed.sky_azimuth_count=8", "speed.sun_hour_step=2.0"]     # 16 sky, 8 sun at this site
 K14 = ["speed.sky_elevations_deg=[25,65]", "speed.sky_azimuth_count=6", "speed.sun_hour_step=3.0"]        # 8 sky, 6 sun
 
@@ -30,6 +31,7 @@ SETS = {
     "A_base": (TEST_A, 1), "A_base2": (TEST_A, 21), "A_base3": (TEST_A, 41),
     "D_rows": (ROWS, 1), "D_rows2": (ROWS, 21),
     "A_rows": (TEST_A + ROWS, 1), "A_rows2": (TEST_A + ROWS, 21),
+    "A_drop": (TEST_A + ROWS + DROP, 1), "A_drop2": (TEST_A + ROWS + DROP, 21), "D_drop": (ROWS + DROP, 1), "A_droponly": (TEST_A + DROP, 1),
     "A_k26": (TEST_A + ROWS + K26, 1), "A_k14": (TEST_A + ROWS + K14, 1),
     "A_every2": (TEST_A + ROWS + ["speed.light_every=2"], 1), "A_every3": (TEST_A + ROWS + ["speed.light_every=3"], 1),
     "A_vox15": (TEST_A + ROWS + ["light.voxel_size=0.15"], 1), "A_vox20": (TEST_A + ROWS + ["light.voxel_size=0.2"], 1),
