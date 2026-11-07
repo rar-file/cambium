@@ -2018,19 +2018,28 @@ class GrowthModel:
         return 0.5 * (float(cf.crown_a) + float(cf.crown_b) * d_ob)
 
     def _frame_earned(self, starts, q_bud, bud_leaf) -> None:
-        """With crown_frame.earned_power set: each limb's carbon this year, its leaves' area times their light, over the best limb's on the tree.
-        A limb's reach and its side shoots go with this, so that one that wins light grows on and thickens, and one that loses it stops short."""
+        """With crown_frame.earned_power set: the light on each limb's leaves this year, a limb's own, to that power, and by earned_size how its leaf area
+        compares with the largest limb's.  A limb's reach and its side shoots go with this, so that one that wins light grows on and thickens, and one that loses it
+        stops short."""
         cf = self.sp.crown_frame
-        self._frame_rel = None
+        self._frame_rel = self._frame_q = None
         if getattr(cf, "earned_power", None) is None:
             return
         T = self.tree
         sc = T.scaffold[starts].astype(np.int64)
         on = sc > 0
         e = np.zeros(T.n)
+        la = np.zeros(T.n)
         np.add.at(e, sc[on], (q_bud * bud_leaf)[on])
-        top = float(e.max())
-        self._frame_rel = np.power(e / top, float(cf.earned_power)) if top > 0.0 else np.ones(T.n)
+        np.add.at(la, sc[on], bud_leaf[on])
+        q = np.divide(e, la, out=np.ones(T.n), where=la > 0.0)
+        self._frame_q = np.minimum(q, 1.0)
+        rel = np.power(self._frame_q, float(cf.earned_power))
+        size = float(getattr(cf, "earned_size", 0.0) or 0.0)
+        top = float(la.max())
+        if size > 0.0 and top > 0.0:
+            rel = rel * np.power(la / top, size)
+        self._frame_rel = rel
 
     def _frame_goal(self, base, first=None) -> np.ndarray:
         """How far a limb starting at these stem nodes may reach (m), before its own share.  first: the limb's first nodes, where earned_power is set."""
@@ -2244,11 +2253,11 @@ class GrowthModel:
         if self._frame_on():
             # with the frame, side shoots aren't tied to the leader's: a twig's yearly shoot has its own limit in metres
             twig_m = float(self.sp.crown_frame.twig_shoot_max_m)
-            rel = getattr(self, "_frame_rel", None)
-            if rel is not None:
-                # a poor limb's side shoots are short: it can't fork or fill
+            lit = getattr(self, "_frame_q", None)
+            if lit is not None:
+                # a shaded limb's side shoots are short: it can't fork or fill
                 sc = T.scaffold[starts].astype(np.int64)
-                twig_m = twig_m * np.where(sc > 0, rel[np.minimum(sc, len(rel) - 1)], 1.0)
+                twig_m = twig_m * np.where(sc > 0, lit[np.minimum(sc, len(lit) - 1)], 1.0)
             caps = np.minimum(caps, twig_m / full)
         ratio = getattr(self.sp.height_driver, "lateral_cap_ratio", None)
         twig_ratio = getattr(self.sp.height_driver, "twig_cap_ratio", None)
