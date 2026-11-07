@@ -198,16 +198,17 @@ def crown_shape(model) -> dict:
     if upper.size:
         rival = float((T.radius[upper] / np.maximum(T.radius[T.parent[upper]], 1e-9)).max())
     out["leader_rival"] = rival
-    # double top, my own reading of Zeltins et al. 2018's "double tops", which it doesn't define: a limb in the top quarter of the
-    # crown's stem as thick at its base as this share of the stem just above it, reaching within 1.5 m of the top
+    # double top, my own reading of Zeltins et al. 2018's "double tops", which it doesn't define: in the upper half of the crown, at
+    # least 2 m under the top, a limb at least 0.7 as thick at its base as the stem just above it, whose own axis or anything on it
+    # stands within 1.5 m of the top
     forks = 0
-    top_quarter = limbs[pos[T.parent[limbs], 2] >= base + 0.5 * crown]
-    if top_quarter.size:
-        tip_z = np.zeros(int(T.axis[:n].max()) + 1)
-        np.maximum.at(tip_z, T.axis[:n][alive], pos[:n, 2][alive])
-        mains = T.main_child[T.parent[top_quarter]]
-        above = np.where(mains >= 0, T.radius[np.maximum(mains, 0)], T.radius[T.parent[top_quarter]])
-        forks = int(((T.radius[top_quarter] >= 0.6 * np.maximum(above, 1e-9)) & (tip_z[T.axis[top_quarter]] >= H - 1.5)).sum())
+    upper_half = limbs[(pos[T.parent[limbs], 2] >= base + 0.5 * crown) & (pos[T.parent[limbs], 2] <= H - 2.0)]
+    if upper_half.size:
+        tip_z = np.zeros(n)
+        np.maximum.at(tip_z, np.maximum(T.scaffold[:n], 0)[alive], pos[:n, 2][alive])
+        mains = T.main_child[T.parent[upper_half]]
+        above = np.where(mains >= 0, T.radius[np.maximum(mains, 0)], T.radius[T.parent[upper_half]])
+        forks = int(((T.radius[upper_half] >= 0.7 * np.maximum(above, 1e-9)) & (tip_z[upper_half] >= H - 1.5)).sum())
     out["double_tops"] = forks
     tips_all = np.nonzero(alive & (T.term[:n] == 1))[0]
     stem_axes = np.isin(T.axis[tips_all], np.fromiter(model.leader_axes, np.int64))

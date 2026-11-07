@@ -1902,6 +1902,9 @@ class GrowthModel:
         h, _, crown = self._frame_crown()
         d_wood = self.dbh_m()
         d_ob = 100.0 * float(cf.over_bark_ratio) * d_wood if d_wood is not None else 0.0
+        # the crown follows the stem, and the stem follows the crown's leaves: with nothing to hold it, a tree in the open runs away.
+        # So no more stem counts here than a birch of this height has at the most
+        d_ob = min(d_ob, float(cf.stem_cm_per_height_m) * h)
         reach_max = 0.5 * min(float(cf.crown_a) + float(cf.crown_b) * d_ob, float(cf.young_a) + float(cf.young_b) * h)
         depth = np.clip((h - T.pos[base, 2]) / crown, 0.0, 1.0)
         top = float(cf.top_share)

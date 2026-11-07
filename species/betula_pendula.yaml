@@ -1388,6 +1388,9 @@ crown_frame:
   # gives it (paper not opened).  Evo and Tallo stay out of this, so they remain checks.
   crown_a: 0.932
   crown_b: 0.177
+  # TUNED, against the open-grown band in this file's reference.dbh: 40-50 cm at 60, where the curve's height is 23.7 m, so about 1.9.
+  # The stem that counts towards the crown is no more than this many cm per m of height.
+  stem_cm_per_height_m: 1.9
   # Stem over bark per stem in wood, near enough to tools/bark.py at 10-40 cm (1.09-1.10).
   over_bark_ratio: 1.1
   # A young tree's crown from its height: Klepacki 2017 Forest Res. Papers 78:171, 4-year-old planted birch (0.082 + 0.567 h,
