@@ -218,8 +218,8 @@ def snow_loading(state: TreeState, load_kg_m2: float, sp) -> tuple[float, float]
     """(moment over the stem's strength at breast height, Rayleigh buckling factor) under this
     snow load, on the tree's real stem.  Without one its radius falls as (H - z)^p from its DBH
     to nothing at its top, with p from the stem form factor f (volume = f pi/4 DBH^2 H gives
-    p = (1/f - 1)/2); that's two to four times too weak against a grown stem.  Below a buckling
-    factor of 1 the stem can't stand the load at all."""
+    p = (1/f - 1)/2); under its own weight that's 1.3 to 2.2 times weaker than the grown stems of
+    logged plots.  Below a buckling factor of 1 the stem can't stand the load at all."""
     dp = sp.damage
     H = float(state.height_m)
     area = math.pi / 4.0 * float(state.crown_width_m) ** 2

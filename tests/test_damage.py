@@ -533,3 +533,23 @@ def test_a_tree_in_a_plot_is_left_to_the_plot(sp):
     m.__dict__.pop("damage_log", None)   # growing it alone, as _grown does, runs the tree's own yearly call
     m._plot_spacing = 5.0
     assert damage.tree_year(m, m.year + 1) is None and not hasattr(m, "damage_log")
+
+
+def test_the_rates_tool_reads_the_log(sp, tmp_path, capsys):
+    import json
+
+    from tools import damage_rates
+
+    sp.damage.old_age.enabled = sp.damage.snow.enabled = False
+    sp.damage.wind.storm_return_years = 1
+    sp.damage.wind.min_dbh_cm = 0.0
+    sp.damage.wind.population_offset = 9.0
+    p = FakePlot(sp, [_grown(copy.deepcopy(sp), 8, seed) for seed in (1, 2, 3)])
+    p.year += 1
+    damage.plot_year(p, list(p.alive))
+    folder = tmp_path / "plot_1"
+    folder.mkdir()
+    (folder / "plot.json").write_text(json.dumps({"damage_log": p.damage_log}))
+    assert damage_rates.main([str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert "1 plots" in out and "wind" in out and "Per 5 years" in out
