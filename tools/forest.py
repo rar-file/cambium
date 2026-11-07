@@ -134,6 +134,8 @@ def plots(a) -> int:
                     cmd.append(flag)
             if a.tree_lists:
                 cmd += ["--tree-lists", a.tree_lists]
+            if a.gap_at:
+                cmd += ["--gap-at", str(a.gap_at), "--gap-radius", str(a.gap_radius)]
             for extra in list(a.set) + ([item] if item else []):
                 cmd += ["--set", extra]
             jobs.append(Job(f"{name} plot {s}".strip(), cmd, folder / f"plot_{s}" / "done.txt"))
