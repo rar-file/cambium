@@ -622,6 +622,9 @@ def table_tree(docs: list, title: str) -> str:
             live = _mean([(m["crown"]["live_b"] + m["root"]["live_b"]) / 2 ** 20 for m in ms])
             l32 = _mean([(m["crown"]["live32_b"] + m["root"]["live32_b"]) / 2 ** 20 for m in ms])
             mem.append(f"| {a} | {_mean([m['state_mb'] for m in ms]):.1f} | {_mean([m['crown_mb'] for m in ms]):.1f} | {_mean([m['roots_mb'] for m in ms]):.1f} | {_mean([m['other_mb'] for m in ms]):.1f} | {live:.1f} | {l32:.1f} | {_mean([m['place_mb'] for m in ms]):.1f} |")
+    last = docs[0]["memory"].get("60")
+    if last:
+        mem.append("\nLargest in the first seed's state at 60, MB: " + ", ".join(f"{t['what'].replace('model.', '')} {t['mb']:.2f}" for t in last["top"]) + f". Bytes per node: {last['crown']['bytes_per_node']}, or {last['crown']['bytes_per_node_32']} in single precision.")
     return "\n".join(lines + mem) + "\n"
 
 
@@ -671,6 +674,9 @@ def table_plot(docs: list, title: str) -> str:
         ms = [d["memory"][str(a)] for d in docs if str(a) in d["memory"]]
         if ms:
             mem.append(f"| {a} | {_mean([m['trees'] for m in ms]):.0f} | {_mean([m['state_mb'] for m in ms]):.2f} | {_mean([m['crown_mb'] for m in ms]):.2f} | {_mean([m['roots_mb'] for m in ms]):.2f} | {_mean([m['other_mb'] for m in ms]):.2f} | {_mean([m['used_mb'] for m in ms]):.2f} | {_mean([m['live_mb'] for m in ms]):.2f} | {_mean([m['live32_mb'] for m in ms]):.2f} | {_mean([m['place_mb'] for m in ms]):.0f} |")
+    last = docs[0]["memory"].get("60")
+    if last:
+        mem.append("\nLargest in the first plot at 60, MB, whole plot: " + ", ".join(f"{t['what'].replace('plot.trees[*].', '')} {t['mb']:.0f}" for t in last["top"]) + ".")
     # what a tree costs by its size, the shared light apart
     fit = ["", "**A tree's own step against its live nodes (crown + roots), least squares at each age, shared light apart:**", "", "| Age | Trees | Seconds at no nodes | Microseconds per live node | Largest tree's step, s |", "|---|---|---|---|---|"]
     for a in PLAN_AGES:
@@ -715,7 +721,7 @@ def table_kernels(rows: list) -> str:
                     return "same"
                 return f"{x['differ']:,} of {x['of']:,} differ, at most {x['max_rel']:.1e} relative"
             same = word(b) if "same_bits" in b else "; ".join(f"{k} {word(v)}" for k, v in b.items())
-            out.append(f"| {r['age']} | " + ", ".join(f"{k} {v}" for k, v in r["size"].items()) + " | " + " | ".join(f"{1000 * r['times'][k]:,.1f}" if k in r["times"] else "" for k in keys) + f" | {same} |")
+            out.append(f"| {r['age']} | " + ", ".join(f"{k} {v}" for k, v in r["size"].items()) + " | " + " | ".join(f"{1000 * r['times'][k]:,.3g}" if k in r["times"] else "" for k in keys) + f" | {same} |")
         out.append("")
     return "\n".join(out) + "\n"
 
