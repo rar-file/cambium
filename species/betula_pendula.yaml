@@ -857,12 +857,16 @@ plot:
   # A natural start (tools/forest.py), off by default: this density from the
   # first years, not the 1800/ha of the thinning programme.  Aosaar et al. 2016
   # Table 3: 11,633 stems/ha at age 8 on an unmanaged stand on abandoned farmland.
-  # TUNED (stems_per_ha): against that 11,633 at age 8, with the mortality block on.
+  # TUNED (stems_per_ha): against that 11,633 at age 8, with the mortality block on
+  # and alpha 3.0 standing in for slower young growth (one 400 m2 plot: 10,150 at 8,
+  # 8,575 at 10 against 10,200).  At today's alpha 4.8 young trees outrun it: about
+  # 3,800 at 8, whatever the start.  Real starts go far denser (Dahlgren Lidman et
+  # al. 2024 Table 2: 9-18 seedlings per m2 at year 3 on scarified mesic soil).
   # side_x_m, side_y_m: a rectangle of ground instead of area_m2 (a strip of
   # forest edge); patch_x_m: only the first metres of x hold trees at the start.
   natural_start:
     enabled: false
-    stems_per_ha: 12000
+    stems_per_ha: 16000
     area_m2: 1000
     side_x_m: null
     side_y_m: null

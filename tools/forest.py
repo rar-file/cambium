@@ -141,7 +141,7 @@ def main():
     ap.add_argument("--environment", default="sweden_open_field")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--years", type=int, default=60)
-    ap.add_argument("--stems", type=float, default=12000.0, help="stems/ha at the start, where the start's trees stand")
+    ap.add_argument("--stems", type=float, default=16000.0, help="stems/ha at the start, where the start's trees stand")
     ap.add_argument("--area", type=float, default=1000.0, help="square plot of this many m2")
     ap.add_argument("--strip", type=float, nargs=2, default=None, metavar=("X", "Y"), help="a rectangle of ground, m")
     ap.add_argument("--patch", type=float, default=None, help="the start's trees only in the first metres of x")
