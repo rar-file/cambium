@@ -2346,7 +2346,11 @@ class GrowthModel:
         if branch is None:
             return float(pm.sapwood_senescence_per_year)
         on_stem = np.isin(self.tree.axis[:n], np.fromiter(self.leader_axes, np.int64))
-        return np.where(on_stem, float(pm.sapwood_senescence_per_year), float(branch))
+        thick = getattr(pm, "branch_sapwood_thick_m", None)
+        if thick:
+            # a thick limb holds more rings of sapwood, so less of it turns over in a year
+            branch = float(branch) * np.minimum(float(thick) / np.maximum(self.tree.radius[:n], 1e-6), 1.0)
+        return np.where(on_stem, float(pm.sapwood_senescence_per_year), branch)
 
     def _height_limit_on(self) -> bool:
         hd = getattr(self.sp, "height_driver", None)

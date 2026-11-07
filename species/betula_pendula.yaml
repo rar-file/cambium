@@ -627,6 +627,8 @@ pipe_model:
   # TUNED, against Repola's branch wood: the same for side axes alone.  null (as it has been): one figure for the whole tree.
   # Test A: 0.30 (branches 38.5, 52.6 kg at 50, 60 against 46.1, 59.2).  It lays about 0.75 mm a year on a 5 mm limb (my sum; no birch ring width read).
   branch_sapwood_senescence: null
+  # TUNED, against branch wood in the open: above this radius (m) a limb's sapwood turns over more slowly, in proportion to its radius.  null: one rate.
+  branch_sapwood_thick_m: null
   # true: the requirement is on the conducting wood, with
   # sapwood_senescence_per_year; false: on the whole wood, no turnover.
   sapwood: true
