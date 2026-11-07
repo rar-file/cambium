@@ -1913,7 +1913,8 @@ class GrowthModel:
             self._frame_since = 0.0
             theta = math.radians(float(np.clip(rng.normal(float(cf.angle_mean_deg), sd), lo, hi)))
             self._frame_reach[node] = float(np.exp(rng.normal(0.0, float(cf.reach_scatter))))
-            self._frame_azimuth += math.radians(float(cf.azimuth_step_deg) + float(rng.normal(0.0, float(cf.azimuth_sd_deg))))
+            A = self.sp.architecture
+            self._frame_azimuth += math.radians(float(A.phyllotaxis_orthotropic_deg) + float(rng.normal(0.0, float(A.distichous_jitter_deg))))
             d = T.dir[node] / max(float(np.linalg.norm(T.dir[node])), 1e-12)
             a = np.array([math.cos(self._frame_azimuth), math.sin(self._frame_azimuth), 0.0])
             u = a - float(a @ d) * d
@@ -1932,7 +1933,7 @@ class GrowthModel:
         # the crown follows the stem, and the stem follows the crown's leaves: with nothing to hold it, a tree in the open runs away.
         # So no more stem counts here than a birch of this height has at the most
         d_ob = min(d_ob, float(cf.stem_cm_per_height_m) * h)
-        return 0.5 * min(float(cf.crown_a) + float(cf.crown_b) * d_ob, float(cf.young_a) + float(cf.young_b) * h)
+        return 0.5 * (float(cf.crown_a) + float(cf.crown_b) * d_ob)
 
     def _frame_goal(self, base) -> np.ndarray:
         """How far a limb starting at these stem nodes may reach (m), before its own share."""
@@ -2024,13 +2025,13 @@ class GrowthModel:
         out = np.where(limb_tip[at], np.hypot(T.term_dir[node, 0], T.term_dir[node, 1]), np.hypot(T.lat_dir[node, 0], T.lat_dir[node, 1]))
         room = np.minimum(goal * float(cf.length_per_reach) * steep - grown, (goal - reach) / np.maximum(out, 0.5))
         # apical control: no limb's shoot longer than the leader's this year, down to a floor for an old leader's short shoots
-        lead_len = float(full[hd["lead_at"]]) * float(min(hd["v"], nmax)) if "lead_at" in hd else float(cf.limb_shoot_max_m)
-        longest = min(float(cf.limb_shoot_max_m), max(lead_len, float(cf.limb_shoot_floor_m)))
+        lead_len = float(full[hd["lead_at"]]) * float(min(hd["v"], nmax)) if "lead_at" in hd else 0.0
+        longest = max(lead_len, float(cf.limb_shoot_floor_m))
         grow = np.minimum(float(cf.chase) * np.maximum(room, 0.0), longest)
-        if self.reit_axes and float(cf.fork_shoot_share) > 0.0:
+        if self.reit_axes:
             # a reiterated limb goes up as a second top: only the room under the tree's top holds it (_frame_room)
-            grow = np.where(limb_tip[at] & np.isin(T.axis[node], np.fromiter(self.reit_axes, np.int64)), float(cf.fork_shoot_share) * longest, grow)
-        light = np.minimum(1.0, q_bud[at] / float(cf.light_full)) ** float(cf.light_exponent)
+            grow = np.where(limb_tip[at] & np.isin(T.axis[node], np.fromiter(self.reit_axes, np.int64)), longest, grow)
+        light = np.minimum(1.0, q_bud[at] / float(cf.light_full))
         # a limb loses vigour as it ages (resource.branch_aging_years, Barthelemy & Caraglio 2007), so the crown's old lower limbs fall
         # behind the younger ones above them, as a crown in the open needs, or it's a cone
         age = np.where(limb_tip[at], np.maximum(self.year + 1.0 - T.scaffold_birth[node], 0.0), 0.0)

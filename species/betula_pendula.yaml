@@ -1362,19 +1362,21 @@ height_driver:
   store_fraction: null
 
 # The crown's frame: published data set the main limbs, as the height curve sets the leader; light and carbon decide what
-# they and everything finer actually do.  Needs height_driver on.  Off by default.
+# they and everything finer do.  Needs height_driver on, and shares its code path.  Off by default.  Limbs are real nodes,
+# paid first from the pool, that grow a shoot a year, and can fall short or die by the usual rules.
 crown_frame:
   enabled: false
+  # -- how many, and at what angle ---------------------------------------------------------------------------------------
   # Limbs (first-order branches) per 10 % of crown length.  Lintunen 2013, Diss. For. 165, Table 3 p. 23: 5.2 (95 % CI 0.3),
-  # birch next to birch, 73 trees, ages 4-32.  Applied here beyond his sizes: a guess.
+  # birch next to birch, 73 trees, ages 4-32.  Used here beyond his sizes: a guess.
   limbs_per_10pct_crown: 5.2
   # New limbs stand closer than the crown's mean, as the lower ones thin out: the crown's mean density over its density at
   # the top.  Lintunen 2013 Fig. 5 (a LIGNUM model's output, not a measurement): 6.0 to 13.0 per m, mean about 9.5, so 0.73.
   birth_share: 0.73
-  # TUNED, against open-grown trees, where nothing thins them: the closest two limbs stand (m), since a young tree's short crown would
-  # otherwise pack them.  Lintunen 2013 Fig. 5's top is 13 per m (0.077 m), model output.  0: no floor.
-  gap_min_m: 0.0
-  # TUNED, against nothing yet: scatter on the gap between limbs, as a share of it, so they don't stand in rows.
+  # TUNED, against open-grown trees, where nothing thins them: the closest two limbs stand (m), since a young tree's short crown
+  # would otherwise pack them (205 limbs at 60 without it, 124 with it, one seed, PC).  Lintunen's top, 13 per m, is 0.077 m.
+  gap_min_m: 0.15
+  # TUNED, against nothing: scatter on the gap between limbs, as a share of it, so they don't stand in rows.
   gap_scatter: 0.3
   # Limb angle at the stem, as drawn for each limb.  Zeltins et al. 2018, Forests 9:52, Table 1: 43.2, SD 10.4, range 15-80,
   # as read from mdpi.com by the main session.  40-year-old grafted plus-tree clones, 400 trees/ha, 5 x 5 m, central Latvia, so
@@ -1384,66 +1386,56 @@ crown_frame:
   angle_sd_deg: 10.4
   angle_min_deg: 15.0
   angle_max_deg: 80.0
-  # TUNED, against the look: each limb turned from the last by this, around the stem.
-  azimuth_step_deg: 137.5
-  azimuth_sd_deg: 25.0
+  # -- how far they reach ------------------------------------------------------------------------------------------------
   # Crown diameter of an open-grown birch from its stem, m and cm over bark: Hemery et al. 2005 Table 1, as the target file
-  # gives it (paper not opened).  Evo and Tallo stay out of this, so they remain checks.
+  # gives it (paper not opened).  Evo and Tallo stay out of this, so they remain checks.  A stand's crowns fall short of it in
+  # each other's shade, by light_full below.
   crown_a: 0.932
   crown_b: 0.177
   # TUNED, against the open-grown band in this file's reference.dbh: 40-50 cm at 60, where the curve's height is 23.7 m, so about 1.9.
-  # The stem that counts towards the crown is no more than this many cm per m of height.
+  # The stem that counts towards the crown is no more than this many cm per m of height, or a tree in the open runs away.
   stem_cm_per_height_m: 1.9
   # Stem over bark per stem in wood, near enough to tools/bark.py at 10-40 cm (1.09-1.10).
   over_bark_ratio: 1.1
-  # A young tree's crown from its height: Klepacki 2017 Forest Res. Papers 78:171, 4-year-old planted birch (0.082 + 0.567 h,
-  # first site, my reading of the table's variables, n = 30).  Applied to all sizes, where it is wider than Hemery's and so doesn't bite.
-  young_a: 0.082
-  young_b: 0.567
-  # A limb's reach at the top of the crown as a share of its reach at the crown base: Lintunen 2013 Fig. 5 (model output,
-  # as above), chord 0.254 m at the top and 1.54 m at the base, near a straight line between.
+  # A limb's reach at the top of the crown as a share of the widest: Lintunen 2013 Fig. 5 (model output, as above), chord 0.254 m
+  # at the top and 1.54 m at the base.
   top_share: 0.165
-  # A limb's length over its reach at the crown base: Lintunen 2013 Fig. 5's chord of 1.54 m (model output) over half of
-  # Hemery's crown at his tree's 10 cm stem (1.44 m), so 1.07.
+  # TUNED, against Hagemeier & Leuschner 2019a (closed stands, most leaf area and widest at about 0.80 of height, which alone would be
+  # 0.4) and the look of open-grown photos (widest lower down): how far down the crown it's widest, as a share of crown length.
+  peak_depth: 0.7
+  # TUNED, against the look of photos, so a crown isn't a cone: a limb's reach at the crown base, as a share of the widest.
+  base_share: 0.5
+  # TUNED, against the look: reach above the widest point goes as depth^this.  Under 1 is a rounder top.
+  profile_power: 0.6
+  # A limb's length over its reach: Lintunen 2013 Fig. 5's chord of 1.54 m (model output) over half of Hemery's crown at his tree's
+  # 10 cm stem (1.44 m), so 1.07.
   length_per_reach: 1.07
-  # TUNED, against nothing yet: sine of the steepest angle that still lengthens a limb to reach as far as the others.  0.5 is 30 deg.
+  # TUNED, against nothing: sine of the steepest angle that still lengthens a limb to reach as far as the others.  0.5 is 30 deg.
   steep_limit: 0.5
-  # A reiterated limb (resource.reiteration) climbs as a second top instead of stopping at a limb's length, its shoot this share
-  # of a limb's longest.  0: it doesn't.  TUNED, against double tops in 34.9 % of trees (Zeltins et al. 2018 Table 1; 6.0-75.1 by
-  # clone).  A number, not true or false, so that this block adds nothing to the golden hash while it's off.
-  fork_shoot_share: 1.0
-  # How far down the crown a limb may reach all the way, as a share of crown length.  Hagemeier & Leuschner 2019a, closed stands: all leaf area
-  # in the upper half, most at about 0.80 of height, crown radius the same, so (1 - 0.8) / (1 - 0.5) = 0.4.  1: only at the crown base (Lintunen's young trees).
-  peak_depth: 1.0
-  # TUNED, against the look of open-grown photos (not a cone): a limb's reach at the crown base, as a share of the widest.  1: no fall.
-  base_share: 1.0
-  # TUNED, against the look: reach down the crown goes as depth^this.  1 is that straight line; under 1 is a rounder crown.
-  profile_power: 1.0
-  # TUNED, against Evo's spread of crown diameter at one stem diameter (about +-20 %): each limb's own reach, log-normal SD.
-  reach_scatter: 0.2
-  # TUNED, against nothing yet: twigs on a limb may go this many times its own reach, outward; down and in as they please.
-  twig_overshoot: 1.1
-  # TUNED, against nothing yet: each year a limb goes for this share of what's left to its reach.
+  # TUNED, against the width of stand trees and an even outline: each limb's own share of the reach, log-normal SD.
+  reach_scatter: 0.1
+  # TUNED, against the same: twigs on a limb may go this many times its reach, outward; down and in as they please.
+  twig_overshoot: 1.0
+  # -- how fast, and what with -------------------------------------------------------------------------------------------
+  # TUNED, against nothing: each year a limb goes for this share of what's left to its reach.
   chase: 0.5
-  # TUNED, against nothing yet: the longest shoot a limb makes in a year (m).
-  limb_shoot_max_m: 0.5
-  # TUNED, against the open-grown band in reference.dbh: the most leaf area the crown can carry, per m2 of the frame's crown.  A sink
-  # limit standing in for what really stops a tree with light to spare (nutrients, water, the shell of a real crown), with the carbon
-  # it can't use lost.  Stands reach 3.6-5.4 per m2 of ground (Hagemeier & Leuschner 2019a), so a stand tree shouldn't meet it.
-  crown_lai_max: 6.0
-  # TUNED, against the open-grown band in reference.dbh: the share of what a full crown can't use that goes on the stem.  0: it's lost.
-  surplus_to_stem: 0.0
-  # TUNED, against the look: thin whips at the top go when a limb's shoot can't outrun the leader's.  This is the floor on that, m.
-  limb_shoot_floor_m: 0.15
-  # TUNED, against leaf area and stem of open-grown trees: one bud in this many, on limbs and finer, can start a long shoot; the
-  # rest stay short shoots.  Lintunen 2013 Fig. 6C (model output) has 2-4 long shoots per second-order branch.  With every bud
-  # free to break, a tree with light to spare spends it all on more shoots and runs away.  Odd: buds alternate sides.  null: all.
-  twig_bud_every: 13
-  # TUNED, against nothing yet: light at a limb's tip from which light no longer limits its shoot.
-  light_full: 0.6
-  light_exponent: 1.0
-  # TUNED, against nothing yet: the longest shoot of anything finer in a year (m).
+  # TUNED, against the look: no limb's shoot is longer than the leader's that year (apical control, and no whips at the top), down
+  # to this floor (m), which lets an old leader's limbs still round out the top.  Replaces height_driver.lateral_cap_ratio and its fault.
+  limb_shoot_floor_m: 0.3
+  # TUNED, against nothing: the longest shoot of anything finer in a year (m).
   twig_shoot_max_m: 0.4
+  # TUNED, against nothing: light at a limb's tip from which light no longer limits its shoot.
+  light_full: 0.6
+  # TUNED, against Repola 2008 Eq. 12's foliage at a 45 cm stem (15 kg, about 200 m2 at SLA 13.6) over Hemery's crown there (62 m2):
+  # the most leaf area the crown carries, per m2 of the frame's crown.  A sink limit standing in for what really stops a tree with light to
+  # spare.  Eq. 12 is valid for DBH 11-26 cm, so 45 cm is outside its range.
+  crown_lai_max: 4.0
+  # TUNED, against the open-grown band in reference.dbh: the share of what a full crown can't use that goes on the stem; the rest is lost.
+  surplus_to_stem: 0.25
+  # TUNED, against leaf area and stem of open-grown trees, and fill: one bud in this many, on limbs and finer, can start a long shoot;
+  # the rest stay short shoots.  Lintunen 2013 Fig. 6C (model output) has 2-4 long shoots per second-order branch.  Odd: buds take turns on
+  # the two sides of a two-ranked shoot.  null: all.
+  twig_bud_every: 13
 
 # Field-layer competition on clearcuts (Option A, Nilsson & Örlander 1999).
 # Sourced clear-cut field-layer sward growth and light extinction.

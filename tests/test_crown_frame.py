@@ -37,6 +37,7 @@ def limbs_of(model):
 def test_off_by_default():
     sp, _ = load_species("betula_pendula")
     assert sp.crown_frame.enabled is False
+    assert sp.crown_frame.surplus_to_stem < 1.0     # the rest of a full crown's surplus is lost; all on the stem ran to 114 cm
     # and with the height limit off it stays off, whatever its own switch says
     model = grow(3, ["crown_frame.enabled=true"])
     assert not model._frame_on()
@@ -67,11 +68,11 @@ def test_limbs_grow_year_by_year_as_real_nodes():
     ages = {int(a): set(T.birth[: T.n][T.axis[: T.n] == a].tolist()) for a in T.axis[limb][:10].tolist()}
     assert max(len(v) for v in ages.values()) >= 3     # at least one limb has nodes of three different years
     # a limb's shoot is never longer than a year's limit allows
-    cf = model.sp.crown_frame
+    longest = float(model.sp.shoot.max_shoot_length)
     for a, years in ages.items():
         for y in years:
             mask = (T.axis[: T.n] == a) & (T.birth[: T.n] == y)
-            assert float(T.length[: T.n][mask].sum()) <= float(cf.limb_shoot_max_m) + 1e-9
+            assert float(T.length[: T.n][mask].sum()) <= longest + 1e-9
 
 
 def test_a_shaded_limb_falls_short():
