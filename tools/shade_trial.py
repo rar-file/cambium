@@ -135,4 +135,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        import traceback
+        (BASE / sys.argv[sys.argv.index("--label") + 1]).mkdir(parents=True, exist_ok=True)
+        (BASE / sys.argv[sys.argv.index("--label") + 1] / "error.txt").write_text(traceback.format_exc(), encoding="utf-8")
+        raise
