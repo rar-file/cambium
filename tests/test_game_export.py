@@ -822,8 +822,7 @@ def test_the_rough_base_differs_by_tree_and_grows_with_it(uneven):
     # an older tree has more of it, in the same place: the pattern is the tree's
     young, old = _rough_at(uneven, 5, 30, z), _rough_at(uneven, 5, 60, z)
     assert old.sum() > 1.5 * young.sum()
-    rows = z < 3.0
-    assert np.corrcoef(young[rows].ravel(), old[rows].ravel())[0, 1] > 0.3
+    assert old[young > 0.5].mean() > 0.9
     # a young stem has next to none
     assert _rough_at(uneven, 5, 12, z).mean() < 0.02
 
