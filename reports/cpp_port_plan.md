@@ -2,23 +2,28 @@
 
 Plan and measurement only. Nothing has been ported, nothing in `treegen/` or in the game was changed, and Unreal wasn't launched.
 
+**Revised 2026-11-07, after the maintainer's answer:** every tree is its own tree, near or far, and trees can be felled and branches cut and sliced. Section 3 and the steps in section 6 are new, and the summary below is rewritten for it.
+
 ## The short version
 
-- **Today, on one server core:** an old stand tree takes about 2 s for its year, and a tree to 60 takes about 67 s. In a forest plot an age-60 tree takes about 0.6 s for its year, and a 1000 m² plot takes about 45 s a year whatever its age.
-- **C++ alone is no miracle.** About 2.5-3x on a whole plot and 1.3x on one big tree. With two speed settings that are already in the model and still need your yes, one big tree reaches about 2x. These whole-model figures are estimates, built on six small pieces I did port and measure.
-- **Time isn't the limit.** At the game's 6x speed a game year lasts 61 real days. If each of the 31,573 trees in reach cost what an old birch does, they'd use under 0.4 % of one core, even in today's Python.
-- **Memory and catching up are the limits.** An old tree holds 34 MB today, and about 7 MB looks like the floor for the full model. That's about 140 full trees per GB, against 4,222 birches in reach. After a real year away, the game's own 5-second limit covers about 45-95 full old trees.
-- **So only a few trees can be full trees:** those in places the player has touched. The rest would be a small summary (age, height, stem, crown) from tables grown ahead by the real model. Summaries have no branches, and I haven't tested how well they match the model's own plots. That's the biggest unknown.
-- **A shipped game can't build Nanite meshes.** So unless you accept much lighter live-built meshes, what you see comes from pre-built stages, not from the tree's own simulated limbs. That's your decision (section 3).
-- **The port can be proved right.** With the same random numbers, a rounding-sized change stayed invisible until about age 47-56 on 3 seeds, so Python and C++ can be compared tree by tree, then as whole forests.
-- **Don't start yet.** `growth.py` changed in 30 commits in two days. Some groundwork can start now (section 6).
-- **Rough effort, an estimate:** 3-4 weeks for stages plus summaries; 50-90 agent-days for the full model live.
+- **What you asked for:** every tree grows as itself, stage by stage. Near you it has real limbs you can cut, slice and fell, and it drops branches. Far away it keeps growing as itself in a lighter form, and remembers your cuts.
+- **Today, on one server core:** an old stand tree takes about 2 s for its year. In a forest plot an age-60 tree takes about 0.6 s, and a 1000 m² plot about 45 s a year.
+- **Time isn't the limit.** A game year lasts 61 real days, so even every tree in reach in full would use under 0.4 % of one core.
+- **C++ alone is no miracle:** about 2.5-3x on a plot and 1.3x on one big tree (estimates, built on six small pieces I ported and measured).
+- **Memory and disk are the limits.** An old tree's whole state is 7-10 MB, or 3.5-5 MB compressed. 31,573 trees in reach would need about 110-170 GB.
+- **The far form, measured:** a tree's limbs from 1 cm up, with every year's rings, come to about 0.06-0.1 MB at 60. That's about 2-3 GB for every tree in reach. At 60 fewer than 1 node in 13 is that thick, and about half the leaves sit on wood under 10 years old. So a far tree can keep its stem, limbs, cuts, scars and rings exactly, and have its twigs regrown when you come back. They'd be alike, but not the very same twigs.
+- **That needs a lighter growth model, which doesn't exist yet.** It's the biggest new piece of work. It's model work in Python, tested against the full model, before any port.
+- **Cutting:** the model already kills a limb from a point, keeps its stub, and regrows a leader. It knows which limb dies and when, which gives the order limbs die in. Missing: cuts anywhere, handing cut pieces over as objects, wounds closing, dead branches hanging before they drop, and where they land. Those need sources, or will be guessed and marked.
+- **Meshes must be built live,** because cuts change them, and a shipped game can't build Nanite. Full detail is 2.2 million triangles and about 100 MB of video memory a tree (estimate), so only for the tree you're working on. Near trees can take 64,000 triangles (about 4-5 MB). Far trees need under about 30 KB each, or a shared look at a distance.
+- **The port can be proved right.** With the same random numbers, a rounding-sized change stayed invisible until about age 47-56 on 3 seeds, so Python and C++ can be compared tree by tree.
+- **Don't start the port yet.** `growth.py` changed in 30 commits in two days. Python work on cuts and the far form, and some groundwork, can start now (section 6).
+- **Rough effort, an estimate:** about 100-170 agent-days in all.
 
-**What I need from you, when you're ready:**
-1. Which option in section 3: stages with summaries, stages with full science in touched places, or live-built meshes near the player.
-2. Does "1:1 with life" mean whole-tree numbers (height, stem, crown, mass, how the forest thins), or the actual limbs you see? This decides most of the work.
-3. How much memory trees may have. The game's limit is 6 GB in all, and its own audit found nothing logs what it uses.
-4. Whether `speed.light_rows` and `speed.drop_dead` can be used. They're already waiting on you, and the plan assumes yes.
+**Still open, and not assumed** (section 3 shows what each answer changes):
+1. What "1:1 with life" covers: whole-tree numbers, or every limb and twig.
+2. How much memory trees may have. You said measure first, and that needs the game run.
+3. The speed shortcuts: `light_rows`, `drop_dead`, single precision.
+4. Whether far trees may share a look beyond some distance, while keeping their own data and growth.
 
 ## 1. What runs in the game, and what stays offline
 
@@ -44,17 +49,19 @@ Lines are from `treegen/` at 5f07fae, which has 15,037 lines. "Reached" counts l
 | `params.py` | 148 | 103 | 34 | 0 | Reads the YAML | Offline; the game reads JSON through `science::Library` |
 | `species_schema.py` | 706 | 597 | 434 | 9 | What a species file must hold | Offline; its table generates the C++ reader |
 | `checkpoint.py` | 49 | 31 | 17 | 0 | Saves a tree | Replaced by the game's save format |
-| `appearance.py` | 392 | 283 | 0 | 4 | How each part looks at an age | Offline; baked into UV channels the materials read. Part of it in the game only with live-built meshes |
-| `mesh.py` | 1,054 | 825 | 55 | 8 | Tube meshes | Offline; in the game only with live-built meshes |
-| `game.py` | 600 | 470 | 0 | 6 | Levels of detail | Offline |
-| `game_unreal.py` | 1,342 | 1,027 | 0 | 8 | Export for the game | Offline |
+| `appearance.py` | 392 | 283 | 0 | 4 | How each part looks at an age | **Game, in part:** each part's bark stage and thickness by age, for the materials and for cut faces |
+| `mesh.py` | 1,054 | 825 | 55 | 8 | Tube meshes | **Game:** meshes must be built live, since cuts change them |
+| `game.py` | 600 | 470 | 0 | 6 | Levels of detail | **Game, in part:** wood data and leaf cards for live levels. Texture baking stays offline |
+| `game_unreal.py` | 1,342 | 1,027 | 0 | 8 | Export for the game | **Game, in part:** UV channels, wind data, leaves and the foot. Files and folders stay offline |
 | `textures.py` | 924 | 701 | 0 | 5 | Bark and leaf textures | Offline |
 | `export.py` | 822 | 666 | 60 | 4 | File writers | Offline |
 | `look_render.py` | 538 | 446 | 0 | 3 | Software renderer | Offline |
 | `preview.py` | 443 | 365 | 36 | 0 | Silhouettes | Offline |
 | `runhash.py`, `machine.py`, `threads.py`, `__init__.py` | 206 | 140 | 45 | 0 | Digests, machine details, thread setting | Offline; not needed in the game |
 
-**In the game: 7,746 lines, of which 5,765 are code and about 4,000 are reached, plus the 627 compiled lines.** So on today's settings the port is about 4,500 lines of Python, or perhaps 8,000-10,000 lines of C++ (an estimate). About 490 lines of `growth.py` weren't reached. Options that stay off at the freeze needn't be ported at all.
+**For growth in the game: 7,746 lines, of which 5,765 are code and about 4,000 are reached, plus the 627 compiled lines.** So on today's settings the port is about 4,500 lines of Python, or perhaps 8,000-10,000 lines of C++ (an estimate). About 490 lines of `growth.py` weren't reached. Options that stay off at the freeze needn't be ported at all.
+
+**Live meshes add about 1,500-2,500 lines of Python** from `mesh.py`, `appearance.py`, `game.py` and `game_unreal.py` (an estimate of the parts needed). On top of that come the far form, the lighter model and cuts, which don't exist yet (section 3).
 
 **Where it would live.** `Source/<Game>Core`, the game's science core: plain C++20 with no Unreal types, built with precise floating point, with tests that also build on Linux (`Tools/Core/test.sh`). A new module adds its own files and edits nothing shared (`Docs/Design/Testing.md`). Drawing stays in `Source/<Game>/World`. The game has no plugins folder, and nothing here needs one.
 
@@ -232,12 +239,31 @@ I made the estimates by applying the measured factors above, stage by stage, to 
 | One big tree's time | About 1.3x (estimate): the light sweep is most of it | Light by rows: 5x on the sweep, already in Python (`speed.light_rows`) |
 | Memory per tree | 34 to about 25 MB (estimate): only Python's own overhead goes | Dead nodes dropped, then single precision: about 7 MB (estimate) |
 | Light for a whole forest | No help: 155 MB per 0.1 ha, so 1.5 GB per ha | Tiles, or one tree's cell at a time with neighbours summarised |
-| Thousands of trees at once | No help: at about 140 trees per GB, 4,222 birches is 30 GB | Summaries |
-| Meshes in a shipped game | No help: Nanite can't be built there | Stages, or lighter live meshes |
+| Thousands of trees at once | No help: at about 140 trees per GB, 4,222 birches is 30 GB | Far forms (section 3.3) |
+| Meshes in a shipped game | No help: Nanite can't be built there | Plain meshes built live, by distance (section 3.6) |
+| Far trees staying themselves | No help | A far form and a lighter model (section 3.3) |
 
-## 3. The live growth budget
+## 3. Every tree its own tree: growing live, far forms, cutting, meshes
 
-### The game's own numbers
+**What was asked:** trees that grow stage by stage, branches that drop to the ground, trees that can be felled, with branches cut off and sliced, and every tree its own tree, near or far.
+
+**The coordinator's reading** (`DECISIONS.md` row 91 on master):
+- Each tree keeps its own identity and growth everywhere.
+- Near the player it's full detail, with real limbs that can be cut, sliced and felled, and that shed twigs and branches to the ground.
+- Far away it keeps growing as itself in a lighter form, never a shared copy, and cuts are remembered.
+
+This replaces the earlier choice between pre-built stages and summaries. Trees the player can cut need meshes built live. Every tree needs a form of its own that lasts while nobody is near.
+
+**Still open, and not assumed here.** This is what each answer would change:
+
+| Open question | One answer | The other |
+|---|---|---|
+| What "1:1 with life" covers | Whole-tree numbers (height, stem, crown, mass, the forest thinning): a far form with only main limbs is enough, and twigs can be regrown | Every limb and twig: far trees must keep their whole state, about 50 times the disk (section 3.3), and grow on with the full model |
+| Memory for trees (to be measured first, which needs the game run) | 0.5 GB: about 30-70 trees in full near the player (section 3.7) | 2 GB: about 120-290 |
+| Speed shortcuts (not decided yet) | None: plots about 1.4x slower and memory about 2x more than with them (section 2) | `light_rows`, `drop_dead`, single precision: faster and smaller, at the costs in section 3.8. `drop_dead` would have to hand a shed branch over as an object before deleting it |
+| How far trees look | Each with a mesh of its own, built from its own limbs: about 0.8-9 GB of video memory for 31,000 trees (estimate), too much at the top end | Its own data and growth, but a shared look beyond some distance: cheap, and the identity is still kept in the data |
+
+### 3.1 The game's own numbers
 
 | What | Number | Where |
 |---|---|---|
@@ -248,79 +274,185 @@ I made the estimates by applying the measured factors above, stage by stage, to 
 | Catching up | Under 1 s after a real month, under 5 s after a real year, eyes closed | `Architecture.md` 2.5 |
 | Trees in reach | 4,222 mature birches; 27,079 mature trees of all kinds; 31,573 with young trees and saplings. At the birth site, in the 2026-10-31 log | `Saved/Logs/<Game>.log:1683` |
 | Streaming | Mature trees reach 450 m on 256 m cells; bodies only within 96 m; a tree cell takes about 10 ms to draw, one a frame | `flora.json`; `Architecture.md` 2.4; `CLAUDE.md` |
-| What's simulated | Only touched places, on 64 m cells. Untouched land is a pure function of seed, place and date | `Decisions.md` round 8; `03-clock-persistence.md` |
-| Planned tree model, not built | 32-byte `TreeState`, a yearly `StepYear`, and stand tables grown ahead (estimated 0.05-0.2 µs a tree) | `Research/Wave1/03-trees.md` 4.3, 4.7 |
+| What's simulated today | Only touched places, on 64 m cells. Untouched land is a pure function of seed, place and date. **The maintainer's answer changes this:** every tree now has a life of its own | `Decisions.md` round 8; `03-clock-persistence.md` |
+| Wood after felling | The game's own wood science covers felling, cutting by swing, splitting, drying, checking and decay | `Content/Data/Science/wood.json`; `Research/Wave1/04-wood.md` |
+| Physics | The core decides what happens; Unreal moves the bodies and reports when they settle | `Architecture.md` 2.3 |
 
-### What those numbers allow
+Tree density near the player is an estimate. It's 32-66 birches/ha, or 240-500 trees of all kinds/ha: 4,222 birches (31,573 trees) over the 63.6 ha circle of reach, or over the up to 133 ha of cells that hold it.
 
-Estimates, from the measured costs above.
+### 3.2 One tree, three forms
+
+| Form | Where | What it holds | How it grows | Size |
+|---|---|---|---|---|
+| **Near** | Within reach of the axe and the eye: about 30-100 m | The whole state: every living node, stubs, rings, random streams, carbon stores, its cut log | The full model, once a game year | About 7-17 MB in memory (estimate, from section 2) |
+| **Far** | Out to 450 m and beyond, for as long as the tree lives | Its limb skeleton with every year's rings, the stubs on it, what the left-off twigs carried, its stores, streams and cut log | **A lighter model that doesn't exist yet.** It grows the skeleton from what its twigs carried, and its twigs are regrown when the player comes back | 0.025-0.23 MB on disk at 60, measured below |
+| **Not yet seen** | Land the player hasn't reached | Nothing stored: it's a function of seed, place and date | When first seen, grown from germination by the lighter model to its age. It's its own tree from then on | Nothing |
+
+The game's design already has the shape for this: places catch up lazily, every rate is per game hour, and untouched land is generated for its date. What's new is that a far tree is stored, as itself, once seen.
+
+### 3.3 The far form, measured
+
+**Stand trees, mean of 3 seeds.** Measured on the server (`tools/cpp_cost.py far`). Sizes are sums over the model's own arrays, written as a port might store them. A working far form doesn't exist yet. "Quantised" means position from the parent in mm, radius in 0.02 mm, and years in a byte. "Rings" are each node's ring width for every year of its life, at 0.01 mm.
+
+| Per tree | Age 10 | Age 30 | Age 50 | Age 60 |
+|---|---|---|---|---|
+| Whole state: living nodes and stubs, all arrays, single precision, MB | 0.134 | 4.93 | 10.06 | 10.37 |
+| The same, compressed, MB | 0.062 | 2.60 | 5.26 | 5.33 |
+| Skeleton, living wood at least 0.5 cm, nodes | 147 | 2,997 | 11,773 | 14,267 |
+| Skeleton at least 0.5 cm, quantised and compressed, MB | 0.001 | 0.021 | 0.077 | 0.094 |
+| Its rings, compressed, MB | 0.001 | 0.022 | 0.090 | 0.126 |
+| Skeleton, living wood at least 1 cm, nodes | 98 | 1,025 | 4,154 | 5,321 |
+| Skeleton at least 1 cm, quantised and compressed, MB | 0.000 | 0.006 | 0.028 | 0.037 |
+| Its rings, compressed, MB | 0.000 | 0.010 | 0.038 | 0.053 |
+| Skeleton, living wood at least 2 cm, nodes | 21 | 561 | 1,461 | 1,928 |
+| Skeleton at least 2 cm, quantised and compressed, MB | 0.000 | 0.003 | 0.008 | 0.012 |
+| Its rings, compressed, MB | 0.000 | 0.006 | 0.016 | 0.021 |
+| Everything else in today's model, gzip, MB (an upper bound) | 0.013 | 0.28 | 0.68 | 0.77 |
+| Loading a whole pickled tree, Python, s | 0.003 | 0.012 | 0.028 | 0.033 |
+| Decompressing the whole state's arrays, s | 0.000 | 0.018 | 0.036 | 0.037 |
+
+At 60, seed 1 had 48,893 living crown nodes, 19,356 living root nodes, and 683 dead stubs on living wood (knots).
+
+"Everything else" is mostly per-node and per-shoot lists that a skeleton wouldn't keep. What a far tree really needs beside its skeleton is its carbon store, random streams, frame plan, leaders and counters. I estimate that at about 10 KB, but haven't measured it.
+
+**Trees in a plot**, 1000 m², with thinning, spread and storms. Mean per living tree, measured. Plot trees keep no yearly radii, so there are no rings here.
+
+| Per tree | Age 10 | Age 30 | Age 50 | Age 60 |
+|---|---|---|---|---|
+| Living trees in the plot | 1,426 | 304 | 101 | 73 |
+| Whole state, single precision, MB | 0.039 | 1.16 | 4.52 | 6.72 |
+| The same, compressed, MB | 0.018 | 0.61 | 2.37 | 3.52 |
+| Largest tree, compressed, MB | 0.05 | 1.72 | 4.73 | 7.83 |
+| Whole plot, compressed, MB | 25.5 | 185.5 | 239.7 | 256.7 |
+| Skeleton at least 0.5 cm, quantised and compressed, MB | 0.000 | 0.007 | 0.032 | 0.053 |
+| Skeleton at least 1 cm, nodes | 24 | 563 | 1,845 | 3,056 |
+| Skeleton at least 1 cm, quantised and compressed, MB | 0.000 | 0.003 | 0.011 | 0.019 |
+| Skeleton at least 2 cm, quantised and compressed, MB | 0.000 | 0.001 | 0.004 | 0.006 |
+| Loading a whole pickled tree, Python, s | 0.003 | 0.006 | 0.017 | 0.018 |
+| Living leaves on wood under 10 years old | 100 % | 74 % | 75 % | 61 % |
+| Shed that year: pieces under 5 mm at the base | 0.2 | 5.3 | 20.1 | 20.5 |
+| Shed that year: pieces 0.5-2 cm | 0.0 | 0.4 | 3.4 | 4.6 |
+| Shed that year: pieces over 2 cm (length, m) | 0.0 | 0.0 | 0.4 (5.9) | 0.6 (7.4) |
+
+**How fast a tree's fine parts turn over.** Stand trees, mean of 3 seeds, measured:
+
+| Share | Age 10 | Age 30 | Age 50 | Age 60 |
+|---|---|---|---|---|
+| Living nodes on wood under 3 years old | 71 % | 53 % | 22 % | 18 % |
+| Living leaves on wood under 3 years old | 63 % | 48 % | 21 % | 16 % |
+| Living leaves on wood under 5 years old | 81 % | 65 % | 32 % | 24 % |
+| Living leaves on wood under 10 years old | 100 % | 93 % | 59 % | 45 % |
+| Living nodes at least 1 cm thick | 8.1 % | 2.5 % | 5.5 % | 7.2 % |
+
+An old tree's identity is its limbs: at 60, fewer than 1 node in 13 is 1 cm thick, in stand trees and plot trees alike. About half its leaves (45 % in stand trees, 61 % in plot trees) sit on wood under 10 years old. So a far form can keep the limbs exactly and let the twigs be regrown. A tree that comes back will have the same stem, limbs, cuts, scars and rings. Its twigs will be new ones that the model grew on the same limbs, in the same light: alike, but not the twigs it would have had. **Whether that's close enough is untested.** The test is a round trip (section 4).
+
+**The far forms side by side.** Sizes are measured at 60, for stand trees and then plot trees. Rings for plot trees are estimated from the stand trees' ratio, and stores are the 10 KB estimate. The column for all trees in reach is an estimate, assuming every tree is a birch of that size.
+
+| Far form | Per tree at 60, stand / plot | All 31,573 trees in reach | Comes back as | Grows on by |
+|---|---|---|---|---|
+| Whole state | 5.33 / 3.52 MB | About 110-170 GB | Exactly itself | The full model, about 0.1 s a tree-year on the PC (estimate): 0.06 % of one core for all of them |
+| Skeleton at least 0.5 cm, rings, stores | About 0.23 / 0.14 MB | About 4-7 GB | Limbs from 0.5 cm, stem, cuts, scars and rings exact; twigs regrown | The lighter model, which needs building |
+| Skeleton at least 1 cm, rings, stores | About 0.10 / 0.06 MB | About 2-3 GB | The same from 1 cm | The same |
+| Skeleton at least 2 cm, rings, stores | About 0.04 / 0.025 MB | About 0.8-1.3 GB | Main limbs exact; branches under 2 cm regrown too | The same |
+| Seed and cut log only | About 100 bytes (estimate) | About 3 MB | Itself only if regrown together with its neighbours, since a forest tree grows in their shade. Alone it's a different tree | Regrowing from seed: 10-25 s a tree (estimate) |
+
+**Hybrid:** whole state for trees within about 100 m and for any the player has cut, and a 1 cm skeleton beyond. About 750-1,600 trees x 5 MB is 4-8 GB of disk (estimate), plus about 3 GB for the rest. A tree moving out loses its twig detail at that moment.
+
+### 3.4 Bringing a tree back to full detail
+
+| Step | Time | Kind |
+|---|---|---|
+| Read and decompress a whole state | 0.03-0.04 s in Python at 60 | Measured |
+| Regrow twigs onto a skeleton: a few years of the full model on that tree | About 0.5 s on the PC, for 5 years at 0.1 s | **Estimate: the method doesn't exist** |
+| Catch up the years since it was last full, if the far model and the full one differ | 0.1 s a year | Estimate |
+| Build its mesh at 64,000 triangles | 0.65 s in Python, measured; about 0.1-0.2 s in C++ | Estimate for C++ |
+| Build its mesh at full detail (2.2 million triangles at 60) | 9.5 s in Python, measured; about 1-3 s in C++ | Estimate for C++ |
+
+**Doing it ahead as the player walks** (estimates):
+- At 1.5 m/s, a ring 100 m out with a 200 m wide band brings in 300 m² a second. That's 1-2 birches, or 7-15 trees of all kinds, a second.
+- With 64,000-triangle meshes and twigs regrown (about 0.7 s a tree on one worker) and 6 of the PC's workers, that's about 8 trees a second. **So birch alone is easy at walking pace. All species is borderline, and running isn't covered.** Then trees keep their middle form longer, which is plainer, never wrong.
+- Full detail (about 1-3 s a tree) would be built only for the tree being worked on, once the player starts on it.
+
+### 3.5 Cutting, felling, slicing and falling branches
+
+What the model already does, read in its code, and what's missing.
+
+| Needed | The model has | Missing | Basis for what's missing |
+|---|---|---|---|
+| A cut limb stops growing | Shedding kills a whole limb from a node (`growth.py` `_shed`, lines 1482-1499), keeping its pipes in the parent as heartwood. Browsing (lines 344-431) and a snapped top (`damage.py` `apply_top_break`, lines 426-473) do the same | A cut at any node, or part way along one; a cut log the far form keeps; the cut piece handed over | Mechanism in place; a cut is a new caller |
+| The tree's response | Next year's light, water, carbon, rings and bud fates follow from the leaves and buds it lost. A lost leader or top gets replacement leaders from the buds below. Limbs can take over the top (`_reiterate`) | Sprouts from a wound, and from a stump after felling. Birch sprouts from stumps; the model has nothing for it | **Guessed** until a source is read; none has been |
+| The wound | Dead stubs on living wood stay, with their place and size (683 at 60) | The wound closing year by year, a stub dying back, decay getting in | **Guessed**: no birch source read |
+| Branches dropping to the floor | Which limb dies and when comes from light and carbon, and every node keeps its death year, so the order limbs die in is there (`tools/tree_table.py shed_events`). Measured falls a year at 50, 60: a stand tree sheds 9.3, 6.7 branches 0.5-2 cm (45, 29 m of them) and 0.3, 1.7 thicker than 2 cm (0.9, 12 m); a plot tree 3.4, 4.6 and 0.4, 0.6 | How long a dead branch hangs before it falls (the model drops it at once); where it lands; handing its shape over as an object. With `drop_dead` the shape is deleted, so it must be handed over first | **Guessed**: no birch source read for how long. Decay on the ground is the game's (`wood.json`) |
+| Twigs and leaves to the floor | Twig sheds a year (24 a stand tree at 60, measured) and leaf mass (`carbon.leaf_dm_g`) | Feeding the game's litter layer, which has its own birch twig rule | The game's ground already draws litter |
+| A felled stem becomes logs | The stem's taper, sapwood and heartwood area, wood density, knots (side limbs' births, deaths and sizes along the stem), bark thickness by age (`appearance.add_bark_radius`), roots and their anchorage (`roots.py`) | A stem-section call, giving radius, sapwood, rings and knots at a height. A stump. Which way it falls: Unreal moves the bodies, and storm falls already log a direction (`damage.py`) | Model data |
+| Slicing shows rings | Yearly radii for every node, but only in runs that keep them (`radius_history`). Lean runs drop them | Keep rings for wood at least 0.5-1 cm in every run: 0.04-0.13 MB a tree at 60 (measured above); the heartwood line year by year; reaction wood is a growth rate, not a record | Model data |
+| Cut pieces become objects | Any limb's nodes, radii and leaves at the moment it's cut | A hand-over format: shape, mass from wood density and leaves, green moisture from `wood.json` | The game's wood science takes it from there |
+| Cuts are remembered far away | Nothing yet | A cut log in the far form, perhaps 16 bytes a cut (estimate), replayed onto the skeleton | |
+
+**Counting what falls, an estimate:** if every tree in reach shed like a 60-year plot tree (stand trees shed about 3 times as many big pieces), that's about 19,000 branches thicker than 2 cm a game year, one every 4-5 real minutes. It's also about 800,000 twigs and small branches. Only pieces near the player should become objects. The rest become litter on the game's ground, by cell.
+
+### 3.6 Meshes
+
+**Every tree the player can touch needs its mesh built live,** because cuts and growth change it. A shipped game can't build Nanite (`docs/unreal.md` section 7, read in Unreal's source), so these meshes are plain meshes. Every triangle is drawn, virtual shadows cost more, and Lumen sees them by hardware tracing. Measured on the server, one stand tree at 60, Python:
+
+| Level | Triangles | Vertices | File, MB | Build time, Python, s |
+|---|---|---|---|---|
+| Full detail | 2,156,095 | 1,820,636 | 174 | 9.5 (wood tube 5.6, leaves 2.0, bark relief and wood data 1.9) |
+| About 200,000 (asked for 256,000) | 192,271 | 248,929 | 20.5 | 2.0 |
+| 64,000 | 63,997 | 91,808 | 7.5 | 0.65 |
+| 16,000 | 15,998 | | | 0.28 |
+
+At 50 the levels are 2,199,240, 198,973 and 63,998 triangles.
+
+**In video memory, an estimate:** about 40 bytes a vertex and 12 a triangle in the game's own format, which I haven't checked. That's about 100 MB for full detail, 12 MB at 200,000, 4.4 MB at 64,000 and about 1 MB at 16,000. Shared bark and leaf textures aren't counted.
+
+**Rings by distance, all estimates:**
+
+| Ring | Trees of all kinds (birches) | Mesh | Video memory |
+|---|---|---|---|
+| The tree being worked on | 1-3 | Full detail, with its cut faces | About 100-300 MB |
+| Within 30 m | 70-140 (9-19) | 64,000 triangles | About 0.3-0.6 GB |
+| 30-60 m | 200-430 (25-55) | 16,000 triangles | About 0.2-0.5 GB |
+| 60-450 m | About 31,000 (4,200) | Under about 30 KB each, built from its own skeleton (trunk, main limbs, crown cards). Or a shared look | About 1 GB for its own; little for shared |
+
+So if every tree has its own far mesh, the far ring alone takes about a sixth of the game's 6.5 GB of video memory. A shared far look is cheap, and it's the maintainer's call (the table at the start of section 3).
+
+**Following cuts and growth:**
+- The mesher already builds a tree in chunks (`mesh.build_mesh_chunks`). A cut rebuilds only its chunk and adds a cap showing the rings, which is new mesher work.
+- Growth rebuilds each near tree once a game year (61 real days), off the game thread.
+- Between years, the material can carry the year's ring growth and season, as it already carries ageing (`docs/unreal.md` sections 4 and 6).
+- The game's own test copied a 16,000-triangle dynamic mesh into the editor in 0.07 s. Bigger meshes and a packaged game are untested.
+
+### 3.7 What those numbers allow
+
+All estimates, from the measured costs above.
 
 | Question | Sum | Answer |
 |---|---|---|
-| Steady live growth, all 31,573 trees at today's Python rate for age 60 | 31,573 x 0.604 s = 19,000 core-seconds, against 5.26 million real seconds a game year | **Under 0.4 % of one core: time isn't the limit** |
-| Memory for all the birches at today's size | 4,222 x 34 MB | **143 GB** |
-| The same at the floor | 4,222 x 7 MB | **30 GB: still far too much** |
-| Full trees per GB, age 60 | Today 30; straight C++ about 40; dead nodes dropped about 85; single precision too about 140 | **Memory decides the count** |
-| Catching up after a real year away (6 game years) | 5 s x 8 real cores = 40 core-seconds; an old tree's year in C++ on the PC is about 0.07-0.15 s | **About 45-95 full old trees** |
-| Catching up after a real month (half the trees step once) | 8 core-seconds | **About 105-230 full old trees** |
-| One 64 m place at full detail (0.41 ha), catching up a real year | About 30 core-seconds a game year, so 180 core-seconds, or 23 s on 8 cores | **Over the limit by about 5x, so run the rest in the background** |
-| Growing a tree from seed to 60 when it's first needed | 42-67 s here in Python, perhaps 10-25 s on the PC in C++ | **Too slow to do as you walk** |
-| Walking at 1.5 m/s with full trees within 64 m | A band 128 m wide sweeps 192 m² a second. At 32-66 birches/ha (4,222 over the 63.6 ha circle, or over the up to 133 ha of cells that hold it), that's 0.6-1.3 new birches a second | **Don't promote trees by distance** |
-| Stage swaps, 14 stages over 100 years | A tree swaps about every 7 game years, or 14 real months. All 31,573: about one every 20 real minutes | **Rare, except after time away** |
+| Steady growth: all 31,573 trees in full, at today's Python rate for age 60 | 31,573 x 0.604 s = 19,000 core-seconds, against 5.26 million real seconds a game year | **Under 0.4 % of one core: time isn't the limit** |
+| The same in far forms with the lighter model | Unknown until it's built; it walks about a tenth of the nodes | Smaller still |
+| Full trees in memory, at 7-17 MB each (C++ with dead nodes dropped, single precision or not) | 0.5 GB: 30-70; 1 GB: 60-140; 2 GB: 120-290 | **Memory decides how far "near" reaches.** About 70-140 trees of all kinds stand within 30 m |
+| Far forms on disk | 31,573 x 0.025-0.23 MB | **About 0.8-7 GB for the trees in reach**, and more as the player explores |
+| Catching up after a real year away (6 game years) | 5 s x 8 real cores = 40 core-seconds; an old tree's year in C++ on the PC is about 0.07-0.15 s | About 45-95 full trees inside the fade. The rest catch up in the background, and the far forms' lighter steps are cheaper |
+| Catching up after a real month | 8 core-seconds; half the trees step once | About 105-230 full trees |
+| A first look at new land | Each tree grown from germination by the lighter model | Unknown until it's built. The full model would take 10-25 s a tree, far too slow |
 
-The game's budgets don't name a share for trees, and these sums give trees all 8 cores, so they're upper limits, not allowances. The 1.5 ms commit slice is much smaller than the 0.05 s swap measured in the editor (`docs/unreal.md` section 7), and that test was one mesh, not an instance in the game's instanced cells. So one swap could be a dropped frame, and this needs testing.
-
-### The schedule
-
-| Tier | Which trees | State per tree | How often | Cost (estimate) |
-|---|---|---|---|---|
-| **Full** | Trees in touched places and round the player's home, by a memory dial: about 50-150 | 7-12 MB, and 5 MB compressed on disk | Yearly, staggered by the tree's id: with 100 trees, one every 15 real hours | 0.1 s on one worker, plus 55 MB of light grid while it runs |
-| **Summary** | Other trees in touched places, felled or marked by the player | 32-256 bytes | Yearly, as a batch | Milliseconds |
-| **Generated** | Everything else in reach: about 31,000 | Nothing stored: a function of seed, place and date | When a cell streams in | The game estimates 20-50 ns a tree |
-
-**Between yearly steps,** height, stem and mass run on by date, as a straight line to next year's values. Colour by season is already live in the material (`docs/unreal.md` section 6).
-
-**When a player returns:**
-1. Summaries first, in milliseconds.
-2. Full trees nearest first, year by year and place by place so neighbours stay in step, until the fade's limit runs out.
-3. The rest on one or two workers in the background, while the player walks. A tree that's behind shows its last stage, which is a few years out at worst.
-4. Stage swaps wait for a tree to be off screen, or happen behind the fade.
-5. The death jump (30 game years) is the same, with summaries doing most of it.
-
-**A tree becoming full** (the player starts work beside it, or fells it): take the closest pre-grown tree of its age from a library of saved states, and carry on from there. Growing it from seed takes too long, and its neighbours' history is gone anyway.
-
-### What each shortcut loses
+### 3.8 What each shortcut loses
 
 | Shortcut | What's lost | Evidence |
 |---|---|---|
-| Summary tree or table row | No branches and no real crown. A tree can't lean to a gap or respond to its neighbours beyond its table's density class. The forest's means should be right, and any one tree can be wrong | **Not tested.** Needs a test against plots before it's trusted. iLand and others do this (`reports/speed_research.md`), but it's a different model |
-| A full tree with neighbours summarised | Real gaps in neighbours' crowns, and being overtopped. A stand tree can't show suppression or death | Stand trees against plots, older settings, 20 trees and 5 plots, at 50, 60: LAI 4.40, 4.24 against 4.35, 4.17; light 18.3, 18.6 % against 18.5, 19.5 %. Different runs, read from the overnight log. Real neighbours as summaries aren't tested |
-| Pre-built stages | **The limbs you see aren't that tree's limbs.** Height and stem can be right by scale; limb layout, lean and scars come from the library tree | `docs/unreal.md` section 7; nothing measured |
-| Scaling a stage between swaps | Limbs, bark and leaves scale with it, and a stem jumps a little at each swap | `docs/unreal.md` section 6; size not measured |
+| A far form with a limb skeleton | The twigs. A tree comes back with the same limbs, cuts and rings and new twigs on them | Turnover measured above; the round trip **not tested** |
+| A far form of only seed and cut log | The tree's real neighbours, unless they're regrown too | By the model's design: plot trees read one shared light field |
+| A shared far look | Nothing in the data, only in the picture beyond that distance | By design |
 | Light by rows | Nothing that shows. Same sums in another order, so a seed makes a different tree | 5 plots at 50, 60: stems 902, 622 against 886, 620; LAI 4.40, 4.14 against 4.35, 4.17; inside the spread between plots |
-| Dead nodes dropped | Nothing in the means; 3 of 5 plots differ in LAI from ages 47-58. An exported tree can't use it, since replay needs the dead nodes | 5 plots at 50, 60: stems 886, 614 against 886, 620; light 18.46, 19.75 % against 18.46, 19.54 % |
+| Dead nodes dropped | Nothing in the means; 3 of 5 plots differ in LAI from ages 47-58. **A shed branch's shape is deleted, so it must be handed over first.** Replay for export needs the dead nodes | 5 plots at 50, 60: stems 886, 614 against 886, 620; light 18.46, 19.75 % against 18.46, 19.54 % |
 | Single precision | Nothing seen: 0 of 28 rows at z 2 or more across ages 10, 30, 50, 60, with 8 seeds a side. That's a first look. Crown width at 60 fell 7.6 % (z -1.0), so it needs 20 seeds | Measured here, stand trees, no plots. At 60: stem 27.6 against 28.0 cm; LAI 3.99 against 4.02; crown width 6.61 against 6.11 m |
+| A full tree with its neighbours as summaries | Real gaps in neighbours' crowns, and being overtopped | Stand trees against plots, older settings, 20 trees and 5 plots, at 50, 60: LAI 4.40, 4.24 against 4.35, 4.17; light 18.3, 18.6 % against 18.5, 19.5 %. Different runs, read from the overnight log |
 | Light field kept 2 years | **Too much: don't use it.** Stem wood +16 %, crown width -9.5 % | `reports/speed_research.md` |
 | 0.2 m light grid | **Too much on default:** crown width +12 %, upper limbs -11 %. 0.15 m showed nothing on Test A, and it's untested on current settings | `reports/speed_research.md` |
 | Catching up late | A few years' lag in what's shown until it's done. Final numbers are the same if neighbours step together | By design; not run |
-| Taking a tree from a library when it becomes full | Its own history. It didn't really grow beside these neighbours | By design; not run |
 
-### Options for meshes and science
-
-Nanite can't be built in a shipped game: only the editor has the builder (`docs/unreal.md` section 7, read in Unreal's source). The earlier recommendation was pre-built stages swapped live, with the science live. **You haven't decided, and A's weak point needs saying plainly: with stages, the branch-level science doesn't change the limbs you see.** It sets the numbers behind them, and which stage and scale to pick.
-
-| | A. Stages, with full science in touched places (earlier recommendation) | B. Stages and summaries only | C. A few live-built meshes near home, stages elsewhere |
-|---|---|---|---|
-| What you see | Library trees, chosen and scaled by the science | The same | Near home, that tree's real limbs, at about 16,000 triangles against about 2.2 million. Library trees elsewhere |
-| Accurate in | Whole-tree numbers for every tree. In touched places, real competition and logs with the model's stem | Whole-tree numbers, as good as the tables | As A, and the limb layout for those few trees |
-| Not accurate in | Limb layout | Limb layout, and any response beyond the tables. A clearing's edge trees don't change except by table | Near trees look plainer than the stages round them |
-| Port | Everything in section 1's game side, plus summaries | A table reader and a stage picker, perhaps 1,500 lines | As A, plus `mesh.py`, some of `game_unreal.py` and `appearance.py`, about 2,000 lines of Python more |
-| Memory | 50-150 full trees, and the library | Almost nothing, and the library | As A, plus each unique mesh |
-| Rendering | Nanite, with Lumen and virtual shadows | The same | No Nanite: Lumen by hardware tracing, and virtual shadows cost more |
-| Untested | Instance swaps, cooked size, a voxel build | The same, and how well tables match plots | All of it at this size |
-| Effort, an estimate | 50-90 agent-days | 3-4 weeks | A plus 8-15 agent-days |
-
-**My view:** B first. It's a subset of A, it gives a working forest and most of the look soonest, and it doesn't wait on the tree settling beyond the tables. Then add A's full science if you want touched places to respond for real. Choose C only if you find you must see the real limbs near home. All of them need the same stage library: about 400 MB for 14 stages of one tree and 2 GB for five, in the editor. The cooked size isn't measured.
+The pre-built stages from the earlier plan don't suit trees that can be cut. At most they could serve as the shared far look.
 
 ## 4. Proving the port is right
 
@@ -363,6 +495,9 @@ Every check runs on the settings actually in use. That matters: the compiled car
 | 8 | Power of the test itself | C++ with a planted fault, say `resource.alpha` x 1.02, and with a shoot rule broken | Checks 4 and 6 must catch them. A test that can't fail proves nothing |
 | 9 | The game's rules | `Tests/Core`: 1, 2 and 8 threads identical; a step split in two equals the whole; a save and load changes nothing; a digest per compiler | All of them, on MSVC and g++ |
 | 10 | Cost | In a packaged build on the PC: time, memory and frame spikes against section 3 | Inside whatever you set |
+| 11 | **Far and back** (Python first, then C++) | Grow a tree in full to 30 and to 50. Turn it into its far form, grow it 1, 5 and 10 years by the lighter model, and bring it back. Compare it with the same tree grown in full all the way, on 20 seeds | Every limb in the skeleton still there, with radii within a set share. Crown figures inside the noise between seeds. Cuts and scars exactly where they were |
+| 12 | **Cuts** | The same cut in Python and C++ on a recorded state, then the next years | As check 4 for that year. The tree plus the cut piece weigh what the tree did. The piece's rings and knots are the tree's |
+| 13 | **What falls** | Shed pieces a year, by size, against the model's own death records (`tools/tree_table.py shed_events`) | Exact counts. Every piece's shape is handed over before anything deletes it |
 
 **Golden runs:** `tools/golden.py` stays as Python's own lock, so any change to Python's output shows. C++ gets its own digests, one per compiler, in the game's existing way. The two aren't compared with each other. Checks 3-6 link them.
 
@@ -390,60 +525,72 @@ Every check runs on the settings actually in use. That matters: the compiled car
 - **What "settled" means,** for you to confirm: you accept the tree by eye at several ages; the scorecard passes at 50 and 60 on 20 trees and 10 plots; two weeks with no logic change in `growth.py`, `roots.py` or `plot.py`; and each off-by-default branch adopted or removed.
 - **Order of work:** parts that barely change first (`hydraulics.py` and `kernels.py` have had 0 commits since the reset, `mechanics.py` and `structure.py` 2 each, `light.py` 3), and `growth.py` (30) last.
 - **A switch it doesn't know stops the load.** C++ refuses a species file that turns on anything unported, and says which. That way a new Python option can't silently do nothing in the game.
-- **The bark and the rest of the ageing stay data.** Stages bake them from `appearance`, and the material reads `stage age - UV2.x` (`docs/unreal.md`). Addition 9 in that file's table gives the third bark layer.
+- **The bark and the rest of the ageing stay data.** Live meshes carry each part's birth year and size in their UV channels, as the export does now. The material reads a part's age from them (`docs/unreal.md`), and `appearance` sets the bark stage, thickness and peeling from the species file. Addition 9 in that file's table gives the third bark layer.
+- **New settings for cuts, wounds and the far form go in the species file too,** each with its label. Anything guessed is marked TUNED or VERIFY, like the rest.
 
 ## 6. Steps, effort and risks
 
-Effort is my rough estimate in agent-days. It isn't measured, and none of it includes waiting for you or for the PC.
+Effort is my rough estimate in agent-days. It isn't measured, and none of it includes waiting for the maintainer or for the PC. Steps 5-7 are **model work in Python**, behind settings that are off by default, as every new behaviour is now. They're not the port, but they touch `treegen/`, so they need agreeing with Crown 2.
 
 | # | Step | Effort | When | Needs |
 |---|---|---|---|---|
-| 0 | You choose an option, a memory share and what "1:1" covers | | Now | You |
-| 1 | Measure the game's side: memory in play, a cooked stage's size, swapping an instance, a voxel build | 2-3 | Now, when the PC is free | Your say, and Unreal on the PC |
+| 0 | The maintainer's open questions: what 1:1 covers, memory once measured, speed shortcuts, a shared far look | | When the maintainer's ready | The maintainer |
+| 1 | Measure in the game: memory in play; 100-500 plain meshes of 16,000, 64,000 and 200,000 triangles for frame time, shadows and Lumen; rebuilding one after a cut; handing a falling piece to physics | 3-5 | When the maintainer says the game may be run | PC, Unreal |
 | 2 | Species route: the YAML-to-JSON tool now; the schema's 382 missing entries, the 234 fallbacks and climate once Crown 2 has merged | 3-5 | Now, then after Crown 2 | |
 | 3 | Recording tool: states, arrays and draws from any year, Python only | 2-3 | Now | |
 | 4 | Random numbers in C++, with vectors from numpy | 1-2 | Now | |
-| 5 | Trial of summaries: tables from existing plots, tested against plots | 3-5 | Now as a trial; again at the freeze | Server |
-| 6 | Stage library: grow, export, import; 14 stages x variants | 3-5 of machine time | Once the look settles | PC, 7-11 GB per heavy import |
-| 7 | A table reader and a stage picker in the game. **Option B is done here** | 2-5 | Once 5 and 6 pass | PC builds; the game's flora streaming, which exists |
-| 8 | Stable core: node store, passes, light with an FFT, water, mechanics, with checks 3 and 4 | 5-8 | **Wait:** when you say port | |
-| 9 | Growth and roots: `growth.py`, `roots.py`, the frame and height limit | 12-20 | **Wait:** tree settled | |
-| 10 | Plot: shared light, soil, thinning, spread, damage | 6-10 | **Wait** | |
-| 11 | The proof: checks 5-8, on the server | 5-10 | **Wait** | Server |
-| 12 | In the game: the scheduler's step, saves, threads, the view, swaps, checks 9-10 | 8-15 | **Wait**, and it needs the game's R9 and R10b first | PC builds |
-| 13 | Live-built meshes, option C only | 8-15 | **Wait** | PC |
+| 5 | **Cuts and hand-overs in Python:** a cut at any node or along one; a cut log; cut, shed and felled pieces handed out as records with shape, rings and knots; rings kept for wood from 0.5-1 cm in every run; a stem-section call | 5-8 | Now | Server for tests |
+| 6 | **Wounds, hanging dead branches, stump sprouts in Python:** from publisher or PMC sources where they exist, otherwise TUNED and marked | 5-10, with reading | Reading now; the rules with step 5 | |
+| 7 | **The far form and the lighter model in Python:** skeleton, rings, stores and cut log; growing it; regrowing twigs onto it; check 11 on the server | 15-25 | Prototype now; finish after the tree settles, because it has to follow the full model | Server |
+| 8 | Port: stable core (node store, passes, light with an FFT, water, mechanics), checks 3 and 4 | 5-8 | **Wait:** until the maintainer says port | |
+| 9 | Port: growth and roots | 12-20 | **Wait:** until the tree settles | |
+| 10 | Port: plot (shared light, soil, thinning, spread, damage) | 6-10 | **Wait** | |
+| 11 | Port: cuts, hand-overs, far form, lighter model | 8-12 | **Wait:** after 5-7 | |
+| 12 | Port: live meshes: tubes, leaves, bark data by age, chunks rebuilt after a cut, cut faces with rings, far meshes | 15-25 | **Wait:** can follow 8 | |
+| 13 | The proof: checks 5-13 on the server | 8-14 | **Wait** | Server |
+| 14 | In the game: the forms and the rings they change at, the scheduler's step, saving far forms, pieces to the wood science and to physics, litter for the ground | 15-25 | **Wait:** it needs the game's R9 and R10b first | PC builds |
 
-So B is steps 1, 2, 5, 6 and 7, 13-23 agent-days, or about 3-4 weeks. A is steps 1-12, about 50-90 agent-days. C adds step 13.
+**In all, about 100-170 agent-days** (estimate). Steps 1-4 are groundwork. 5-7 are Python model work that can start now behind settings. 8-14 are the port and the game, and **nothing there starts until the maintainer says so.**
 
-**Nothing in steps 8-13 should start until you say so.** Steps 1-7 are groundwork, and none of them is the port.
+The earlier stage-library and summary steps are dropped: trees that can be cut can't come from a library. A library could still give a shared far look, if the maintainer wants one.
 
 ### Biggest risks
 
-1. **The model moves under the port.** `growth.py` had 30 commits and 772 changed lines in two days, and Crown 2 is at work now. Porting early means porting twice. Hence the wait, and logic-only freezing.
-2. **Summaries don't match real plots.** Nothing's tested, and most of the forest would rest on them. Step 5 finds out cheaply, before any C++.
-3. **A copy drifts from the model.** It has happened once already. Hence checks on the settings in use, and one model afterwards.
-4. **Memory.** The game's limit is 6 GB, the PC has 16 GB, and I don't know what the game uses in play. The count of full trees could be far lower than 50-150.
-5. **The science doesn't show.** With stages, a lot of C++ might change little you can see. Decide that in step 0, before building it.
-6. **Compiler and FFT.** The sweep needs vectorising, and MSVC is untested. The game's FFT (`water/Surface.cpp`) is radix-2 only, while the light grids are 94, 126, 189 and 316 across. So it needs a mixed-radix FFT, such as pocketfft (BSD, the one numpy uses), or grid sizes that change results.
-7. **Other species.** Pine and spruce need model changes first (section 5).
-8. **Stage library size and swaps.** Cooked size is unmeasured, and swapping instances in the game's cells is untested. Imports need 7-11 GB each on a 16 GB PC that's for games.
-9. **ARM here, x86 there.** Everything measured here needs measuring again on the PC, and PC and server results for the science stay apart.
-10. **The game's roadmap.** Live trees need its World and its scheduler. `USimSubsystem` calls itself a skeleton (R9a), and there's no scheduler, `TreeState` or `StepYear` in its source yet. `Architecture.md` puts the scheduler (R10b) before Growth.
+1. **The model moves under the port.** `growth.py` had 30 commits and 772 changed lines in two days, and Crown 2 is at work now. Porting early means porting twice. Hence the wait, and freezing logic only.
+2. **The far form doesn't hold the tree.** The lighter model doesn't exist, and a tree brought back has new twigs on its old limbs. Check 11 finds out in Python before any C++. If it fails, far trees need whole states, about 50 times the disk.
+3. **Video memory for live meshes.** No Nanite means every triangle is drawn and every tree's mesh is its own. The rings in section 3.6 are estimates until step 1 measures them in the game.
+4. **Memory and disk.** The game's limit is 6 GB, the PC has 16 GB, and I don't know what the game uses in play. Far forms grow as the player explores: about 0.8-7 GB for the trees round the birth site alone.
+5. **Bringing trees back at speed.** Walking is covered for birch, but all species is borderline and running isn't covered (section 3.4). Then trees stay in their middle form longer.
+6. **Guessed parts of cutting.** Wounds closing, dead branches hanging, stump sprouts: no source read yet. Each stays marked until one is.
+7. **A copy drifts from the model.** It has happened once already. Hence checks on the settings in use, and one model afterwards.
+8. **Compiler and FFT.** The sweep needs vectorising, and MSVC is untested. The game's FFT (`water/Surface.cpp`) is radix-2 only, while the light grids are 94, 126, 189 and 316 across. So it needs a mixed-radix FFT, such as pocketfft (BSD, the one numpy uses), or grid sizes that change results.
+9. **Other species.** Pine and spruce need model changes first (section 5).
+10. **ARM here, x86 there, and the game's roadmap.** Everything measured here needs measuring again on the PC. Live trees need the game's World and scheduler. `USimSubsystem` calls itself a skeleton (R9a), and there's no scheduler, `TreeState` or `StepYear` in its source yet.
 
 ## Measured, and estimated
 
-**Measured here, on the server:** every stage table, the mesh table, the memory table except rows marked as a sum, disk sizes, the six C++ pieces with their bits, how fast a tiny change spreads, single precision against double (8 seeds a side), lines reached, and species file counts.
+**Measured here, on the server:**
+- Every stage table, the mesh tables at four detail levels, and the memory tables except rows marked as sums.
+- Far form sizes and load times; how fast fine wood turns over; what's shed each year, by size.
+- Disk sizes, the six C++ pieces with their bits, how fast a tiny change spreads, single precision against double (8 seeds a side).
+- Lines reached and species file counts.
 
-**Measured earlier by others, read not rerun:** `light_rows` and `drop_dead` on plots, `node_v1_*` stand trees against plots (`reports/overnight_log.md` at 7c512a6), light every 2 years, grid sizes, the noise floor, and swap time and stage sizes (`docs/unreal.md`). The game's numbers are from its own files and its 2026-10-31 log; nothing was run there.
+**Measured earlier by others, read not rerun:** `light_rows` and `drop_dead` on plots, `node_v1_*` stand trees against plots (`reports/overnight_log.md` at 7c512a6), light every 2 years, grid sizes, the noise floor, and the 0.07 s dynamic-mesh copy (`docs/unreal.md`). The game's numbers are from its own files and its 2026-10-31 log; nothing was run there.
 
-**Sums over measured arrays, not runs:** live-only memory, and live single-precision memory.
+**Read in the model's code, not run:** what a cut, a wound, a felled stem and a falling branch can use today (section 3.5).
 
-**Estimates:** all whole-model C++ gains; the factor for the game's PC; full trees per GB after C++; every catch-up count; the tier sizes; lines of C++; all effort; shoots and roots gaining 3-10x. The game's own figures for its planned `TreeState` are its estimates too.
+**Sums over measured arrays, not runs:** live-only memory, live single-precision memory, and every far form size. No far form exists yet.
+
+**Estimates:**
+- All whole-model C++ gains, the factor for the game's PC, and full trees per GB after C++.
+- Catch-up counts, tree densities and counts by ring, and video memory per mesh and per ring.
+- Rates of bringing trees back, the small state a far tree needs (about 10 KB), and how much falls across the forest.
+- Lines of C++, all effort, and shoots and roots gaining 3-10x.
 
 **Couldn't measure:**
 - Anything on the game's PC or under MSVC, because the PC is for games.
-- Anything in Unreal: cooked sizes, swaps in instanced cells, voxels, frame times.
-- Summaries against plots, since none exist yet.
+- Anything in Unreal: plain meshes by the hundred, cut rebuilds, physics, frame times.
+- The far form itself and its round trip, and the lighter model, because none exist yet.
 - Single precision on plots, or with 20 seeds.
-- `_grow_shoots` or the roots in C++: too large to port cheaply for a measure. They'd need the draws replayed.
+- `_grow_shoots` or the roots in C++: too large to port cheaply for a measure.
 - Crown 2's settings, which aren't in 5f07fae.
