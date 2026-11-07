@@ -398,13 +398,14 @@ def _buttress_offset(theta: np.ndarray, z: np.ndarray, r_stem: np.ndarray, bt, h
         sig = np.maximum(r / np.maximum(r_stem, 1e-6), 1e-3)
         if no_stack:
             sig = 0.7 * sig     # narrower: side by side they stay ridges
+            h = max(h, 3.0 * r)     # and no ledge on a young stem, whose collar height is small and whose thickest root isn't
         across = np.exp(-0.5 * (dth / sig) ** 2)
         up = np.clip(z / max(h, 1e-6), 0.0, 1.0)
         down = np.clip((-z - max(dp, hold)) / max(r, 1e-6), 0.0, 1.0)
         along = np.where(z >= 0.0, 1.0 - up * up * (3.0 - 2.0 * up), 1.0 - down * down * (3.0 - 2.0 * down))
         if no_stack:
-            # ridges side by side don't pile up on each other
-            out = np.maximum(out, r * across * along)
+            # ridges side by side don't pile up on each other, and none stands out more than a third of the stem's radius
+            out = np.maximum(out, np.minimum(r, 0.35 * np.maximum(r_stem, 1e-6)) * across * along)
         else:
             out += r * across * along
     return out
