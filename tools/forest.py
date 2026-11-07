@@ -1,10 +1,11 @@
 """Forest plots: natural density, self-thinning, spreading.  A run writes one plot.json with
 the stand's yearly measures, and no files per tree, so thousands of trees can come and go.
 
-    python tools/forest.py run --seed 1 --years 60 --area 1000 --out out/forest/a
-    python tools/forest.py run --seed 1 --years 40 --strip 150 10 --patch 20 --stems 3000 --spread --out out/forest/b
-    python tools/forest.py plots --label thin1 --seeds 5 --years 60 --area 1000    # the node, in turn
+    python tools/forest.py run --seed 1 --years 60 --area 1000 --tree-lists 20,30,40,50,60 --out out/forest/a
+    python tools/forest.py run --seed 1 --years 40 --strip 250 6 --patch 30 --stems 4000 --spread --out out/forest/b
+    python tools/forest.py plots --label thin1 --seeds 5 --years 60 --area 1000    # through the batch runner
     python tools/stand_table.py out/bench/forest/thin1
+    python tools/stand_table.py out/forest/b --spread
 
 'run' sets mortality.enabled, plot.natural_start.enabled and plot.stand_measures; --spread sets
 regeneration.spread.enabled and switches regeneration on.  --set takes any other species value.
