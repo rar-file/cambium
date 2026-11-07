@@ -11,6 +11,7 @@ tests/test_speed.py fails if they drift.
 """
 from __future__ import annotations
 
+import dataclasses
 import math
 
 import numpy as np
@@ -22,6 +23,29 @@ from .kernels import basipetal, compose, positions
 def on(species, name: str) -> bool:
     """Is this speed setting on?  (Models pickled or species files written before the settings existed: no.)"""
     return bool(getattr(getattr(species, "speed", None), name, False))
+
+
+def light_every(species) -> int:
+    """How many years one light field lasts (speed.light_every; lossy).  1: a new field each year."""
+    return max(1, int(getattr(getattr(species, "speed", None), "light_every", 1) or 1))
+
+
+def light_environment(species, environment):
+    """The environment with fewer light directions, where speed asks for them (lossy)."""
+    s = getattr(species, "speed", None)
+    change = {}
+    for name in ("sky_elevations_deg", "sky_azimuth_count", "sun_hour_step"):
+        v = getattr(s, name, None)
+        if v is not None:
+            change[name] = v
+    return dataclasses.replace(environment, **change) if change else environment
+
+
+@njit(cache=True)
+def deposit(d, i, j, k, v):
+    """np.add.at(d, (i, j, k), v), in order, on a float32 grid."""
+    for n in range(v.shape[0]):
+        d[i[n], j[n], k[n]] += v[n]
 
 
 @njit(cache=True)
@@ -345,6 +369,58 @@ def blur_layers(a, b, w, wrap):
             for y in range(ny):
                 out[y] = line[y]
     return has
+
+
+@njit(cache=True)
+def sweep_rows(H, has, top, bottom, Tr, Ti, wk, diff_z, wd, Dfr, Dfi):
+    """The light sweep, one row of frequencies at a time (speed.light_rows; not the same bits as the sweep by layers).
+    H[z, x, y]: each layer's spectrum on the way in, each layer's weighted spectrum on the way out.  Tr, Ti[x, k, y]: the transfer
+    function's real and imaginary parts, by row and direction.  Dfr, Dfi[d, x, y]: the sky-only spectrum at layers diff_z[d]."""
+    nz, nx, nyf = H.shape
+    K = wk.shape[0]
+    Br = np.empty((K, nyf), np.float32)
+    Bi = np.empty((K, nyf), np.float32)
+    Sr = np.empty(nyf, np.float32)
+    Si = np.empty(nyf, np.float32)
+    Dr = np.empty(nyf, np.float32)
+    Di = np.empty(nyf, np.float32)
+    ndz = diff_z.shape[0]
+    for x in range(nx):
+        Br[:] = 0.0
+        Bi[:] = 0.0
+        tr, ti = Tr[x], Ti[x]
+        for z in range(top, bottom - 1, -1):
+            row = H[z, x]
+            if has[z]:
+                for y in range(nyf):
+                    Dr[y] = row[y].real
+                    Di[y] = row[y].imag
+            else:
+                Dr[:] = 0.0
+                Di[:] = 0.0
+            Sr[:] = 0.0
+            Si[:] = 0.0
+            for k in range(K):
+                br, bi, r, i = Br[k], Bi[k], tr[k], ti[k]
+                w = wk[k]
+                for y in range(nyf):
+                    a = br[y] * r[y] - bi[y] * i[y] + Dr[y]
+                    b = br[y] * i[y] + bi[y] * r[y] + Di[y]
+                    br[y] = a
+                    bi[y] = b
+                    Sr[y] += w * a
+                    Si[y] += w * b
+            for y in range(nyf):
+                row[y] = complex(Sr[y], Si[y])
+            for d in range(ndz):
+                if diff_z[d] == z:
+                    fr, fi = Dfr[d, x], Dfi[d, x]
+                    for k in range(K):
+                        br, bi = Br[k], Bi[k]
+                        w = wd[k]
+                        for y in range(nyf):
+                            fr[y] += w * br[y]
+                            fi[y] += w * bi[y]
 
 
 def parts_function(hd, lead_at, ahead, share, thr, caps, full, per_met, early, lma, extra_per_node, starts, z_node, levels, par,

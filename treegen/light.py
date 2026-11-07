@@ -26,6 +26,7 @@ from __future__ import annotations
 import math
 
 import numpy as np
+from scipy import fft as sfft
 from scipy.ndimage import gaussian_filter, map_coordinates
 from scipy.spatial import cKDTree
 
@@ -200,7 +201,7 @@ class ShadowPropagation:
         if layers:
             nx, ny, nz = shape
             D = self._buffer("D", (nz, nx, ny), np.float32)    # layer first: see _sweep_layers
-            np.add.at(D, (idx[:, 2], idx[:, 0], idx[:, 1]), (self.a * src_w).astype(np.float32))
+            fast.deposit(D, idx[:, 2], idx[:, 0], idx[:, 1], (self.a * src_w).astype(np.float32))
         else:
             D = np.zeros(shape, dtype=np.float32)
             np.add.at(D, (idx[:, 0], idx[:, 1], idx[:, 2]), (self.a * src_w).astype(np.float32))
@@ -216,7 +217,7 @@ class ShadowPropagation:
                 iw = idx_wood[ok_w]
                 wood_d = (float(k_wood) * wood_area[ok_w] / (vs ** 2)).astype(np.float32)
                 if layers:
-                    np.add.at(D, (iw[:, 2], iw[:, 0], iw[:, 1]), wood_d)
+                    fast.deposit(D, iw[:, 2], iw[:, 0], iw[:, 1], wood_d)
                 else:
                     np.add.at(D, (iw[:, 0], iw[:, 1], iw[:, 2]), wood_d)
         if layers:
@@ -273,6 +274,30 @@ class ShadowPropagation:
             a.fill(0)
         return a
 
+    def _sweep_rows(self, D, S, has, top, bottom, nx, ny, wk, diffuse, wd) -> None:
+        """The sweep frequency row by frequency row (speed.light_rows): the same sums in another order, so the same field to
+        float32 rounding (largest difference 1e-6, against a field of up to 2).  Each row's state for all directions fits in the
+        processor's cache, where going layer by layer carries every direction's whole spectrum through memory once a layer."""
+        key = (nx, ny)
+        split = self.__dict__.get("_tf_split")
+        if split is None or split[0] != key:
+            tf = self._transfer(nx, ny)
+            split = self._tf_split = (key, np.ascontiguousarray(np.transpose(tf.real, (1, 0, 2))), np.ascontiguousarray(np.transpose(tf.imag, (1, 0, 2))))
+            self._tf_cache = {}
+        nyf = ny // 2 + 1
+        H = self._buffer("H", (D.shape[0], nx, nyf), np.complex64)
+        for z in range(top + 1):
+            if has[z]:
+                H[z] = sfft.rfft2(D[z])
+        dz = np.array(sorted(diffuse) if diffuse is not None else [], dtype=np.int64)
+        fr = np.zeros((len(dz), nx, nyf), np.float32)
+        fi = np.zeros((len(dz), nx, nyf), np.float32)
+        fast.sweep_rows(H, has, top, bottom, split[1], split[2], wk, dz, wd, fr, fi)
+        for z in range(top, bottom - 1, -1):
+            S[z] = sfft.irfft2(H[z], s=(nx, ny))
+        for i, z in enumerate(dz):
+            diffuse[int(z)] = np.maximum(sfft.irfft2(fr[i] + 1j * fi[i], s=(nx, ny)), 0.0) if z >= bottom and z <= top else None
+
     def _sweep_layers(self, D, lo, nx, ny, nz, region, read_low, periodic: bool, diffuse_heights) -> "LightField":
         """compute's sweep, the same numbers, with its grids held layer first (z, x, y) so that each layer's cells lie together:
         reading or writing a layer of an (x, y, z) grid touches a separate stretch of memory for every column.  The returned
@@ -288,12 +313,12 @@ class ShadowPropagation:
         else:
             has = D.any(axis=(1, 2))
         S = self._buffer("S", D.shape, np.float32)
-        tf = self._transfer(nx, ny)
+        rows = bool(getattr(self, "fast_rows", False))
+        tf = None if rows else self._transfer(nx, ny)
         occupied = np.nonzero(has)[0]
         if len(occupied) == 0:
             return LightField(self, S.transpose(1, 2, 0), lo, periodic)
         wk = self.light_w.astype(np.float32)
-        B = self._buffer("B", tf.shape, np.complex64)
         top = int(occupied.max())
         bottom = 0 if region is None else max(0, int(math.floor(region[0, 2] / vs)) - lo[2] - 1)
         if read_low is not None:
@@ -306,6 +331,13 @@ class ShadowPropagation:
                 z0 = int(math.floor(h / vs - lo[2] - 0.5))
                 diffuse.update({z: None for z in (z0, z0 + 1)})
             wd = diffuse_w.astype(np.float32)
+        if rows:
+            self._sweep_rows(D, S, has, top, bottom, nx, ny, wk, diffuse, wd if diffuse is not None else wk)
+            np.maximum(S, 0.0, out=S)
+            field = LightField(self, S.transpose(1, 2, 0), lo, periodic)
+            field.diffuse_layers = diffuse
+            return field
+        B = self._buffer("B", tf.shape, np.complex64)
         for z in range(top, bottom - 1, -1):
             B *= tf
             if has[z]:

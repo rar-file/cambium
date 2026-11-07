@@ -87,7 +87,7 @@ class GrowthModel:
         self.keyframe_step = int(keyframe_step)
         self.rng = np.random.default_rng(self.seed)
         st = species.stand
-        self.light = ShadowPropagation(environment, species.light,
+        self.light = ShadowPropagation(fast.light_environment(species, environment), species.light,
                                        float(st.shadow_horizontal_reach) if self.stand else None,
                                        (float(st.shadow_decay_length) if getattr(st, "shadow_decay_length", None) else None)
                                        if self.stand else None)
@@ -126,7 +126,8 @@ class GrowthModel:
         if self.roots is not None:
             self.roots.lean = self.lean
             self.roots.keep_soil_grids = fast.on(species, "keep_soil_grids")
-        self.light.fast_layers = fast.on(species, "light_layers")
+        self.light.fast_rows = fast.on(species, "light_rows")
+        self.light.fast_layers = fast.on(species, "light_layers") or self.light.fast_rows
         if self.stand:
             nrng = np.random.default_rng([self.seed, 7919])
             k = int(st.cell_trees)
@@ -721,8 +722,12 @@ class GrowthModel:
         elif self.stand:
             height = float(T.pos[:n0][alive, 2].max())
             cpos, cw, cell, c_wpos, c_warea = self._stand_cell(src, src_w, height, wpos, warea)
-            field = self.light.compute(cpos, cw, region, periodic=cell, wood_pos=c_wpos, wood_area=c_warea, k_wood=k_wood,
-                                       diffuse_heights=SUBCANOPY_LIGHT_HEIGHTS_M)
+            old = getattr(self, "_field", None)
+            if (t - 1) % fast.light_every(sp) != 0 and old is not None and old.S.shape[:2] == (cell[2], cell[3]):
+                field = old     # lossy, speed.light_every: last year's light
+            else:
+                field = self.light.compute(cpos, cw, region, periodic=cell, wood_pos=c_wpos, wood_area=c_warea, k_wood=k_wood,
+                                           diffuse_heights=SUBCANOPY_LIGHT_HEIGHTS_M)
         else:
             field = self.light.compute(src, src_w, region, wood_pos=wpos, wood_area=warea, k_wood=k_wood)
         self._field = field   # kept for diagnostics until the next season
