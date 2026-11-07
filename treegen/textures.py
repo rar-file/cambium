@@ -388,7 +388,7 @@ class UnevenTop:
 
     SPAN_M, ROWS, COLUMNS = 8.0, 1024, 256
 
-    def __init__(self, look: dict, part_age, tree_seed: int = 0):
+    def __init__(self, look: dict, part_age, tree_seed: int, dbh_ob_cm: float):
         from .appearance import climb_top, hash01
 
         self.cfg = cfg = look["bark"]["uneven_top"]
@@ -403,15 +403,31 @@ class UnevenTop:
         self.tongue = ((t - t.mean()) / (1.0 - t.mean())).astype(np.float32)
         # which bark goes over first: 0 first, 1 last, evenly, so a share of the bark means that share
         self.islands = rank01(self._field(cfg["islands"], key + 97)).astype(np.float32)
-        self.scale = float(cfg["strength"]) * self.top
-        # how far up the highest tongue gets, on this tree
-        self.reach = max(self.scale * (float(cfg["tree_share"]) * self.tree + float(cfg["side_share"]) + float(cfg["tongue_share"])), 0.0)
         # below this it has all gone over, whatever the tree; a darker tree has it higher, and holds on longer above it
         low, high = cfg["solid_share"]
         dark = 0.5 + 0.5 * self.tree
-        self.solid = self.top * (float(low) + (float(high) - float(low)) * dark)
+        solid_share = float(low) + (float(high) - float(low)) * dark
         low, high = cfg["falls_off"]
         self.falls_off = float(low) + (float(high) - float(low)) * dark
+        # how high this tree's black goes, and the level that puts half of the bark round the stem over at that height
+        self.black = tree_black(look, tree_seed, dbh_ob_cm)
+        self.level = self.black / self._half_way(solid_share)
+        self.scale = float(cfg["strength"]) * self.level
+        self.solid = self.level * solid_share
+        self.highest = float(cfg["black"]["highest_top_m"])
+        # how far above the stage's own top the highest tongue gets, on this tree
+        self.reach = max(min(self.level + self.scale * (float(cfg["side_share"]) + float(cfg["tongue_share"])), self.highest) - self.top, 0.0)
+
+    def _half_way(self, solid_share: float) -> float:
+        """Where half of the bark round the stem has gone over, as a share of the level.  The tongues and
+        the solid part all scale with the level, so this is the tree's own number, whatever its size."""
+        cfg = self.cfg
+        u = (np.arange(self.COLUMNS) + 0.5) / self.COLUMNS
+        side = np.cos(2.0 * np.pi * (u - self.toward))
+        tops = 1.0 + float(cfg["strength"]) * np.maximum(float(cfg["side_share"]) * side[None, :] + float(cfg["tongue_share"]) * self.tongue[::16], -float(cfg["lowest_share"]))
+        at = np.linspace(0.02, 1.5, 149)
+        share = [float(np.mean(np.clip((tops - x) / np.maximum(tops - solid_share, 1e-6), 0.0, 1.0) ** self.falls_off)) for x in at]
+        return float(np.interp(-0.5, -np.array(share), at))
 
     def _field(self, layers: list, key: int) -> np.ndarray:
         """Noise, from layers of turns round the stem, metres up it, weight."""
@@ -439,14 +455,14 @@ class UnevenTop:
         cfg = self.cfg
         tongue = self._read(self.tongue, u, s)
         side = np.cos(2.0 * np.pi * (np.asarray(u, float) - self.toward)).astype(np.float32)
-        total = float(cfg["tree_share"]) * self.tree + float(cfg["side_share"]) * side[None, :] + float(cfg["tongue_share"]) * tongue
+        total = float(cfg["side_share"]) * side[None, :] + float(cfg["tongue_share"]) * tongue
         return self.scale * np.maximum(total, -float(cfg["lowest_share"]))
 
     def coverage(self, u: np.ndarray, s: np.ndarray, z: np.ndarray) -> np.ndarray:
         """The share of the bark gone over at each place, rows x columns: all of it below ``solid``, none of
         it above the top as ``shift`` moves it."""
         z = np.asarray(z, float)[:, None]
-        top = np.maximum(self.top + self.shift(u, s), self.solid + self.band)
+        top = np.minimum(self.level + self.shift(u, s), self.highest)
         return np.clip((top - z) / np.maximum(top - self.solid, 1e-6), 0.0, 1.0) ** self.falls_off
 
     def gone_over(self, u: np.ndarray, s: np.ndarray, z: np.ndarray) -> np.ndarray:
@@ -466,18 +482,35 @@ class UnevenTop:
         return (top - self.band) + (1.0 - self.gone_over(u, s, z)) * 2.0 * self.band
 
 
-def uneven_top(look: dict, part_age, tree_seed: int = 0) -> UnevenTop | None:
+def tree_black(look: dict, tree_seed: int, dbh_ob_cm: float) -> float:
+    """How high this tree's black base goes, in metres: the height where smooth white bark takes over, half
+    of the bark round the stem having gone over.  It follows the stem's diameter, so it rises as the tree
+    thickens and never jumps.  The rest of the difference between trees of one stand is the tree's own share,
+    the same all its life: a gamma of mean 1, from ``tree_parts`` draws."""
+    from .appearance import hash01
+
+    cfg = look["bark"]["uneven_top"]["black"]
+    key = np.array([int(look["game"]["texture_seed"]) + 7919 * (int(tree_seed) + 1)])
+    parts = int(cfg["tree_parts"])
+    share = -sum(float(np.log(max(float(hash01(key, 93 + k)[0]), 1e-9))) for k in range(parts)) / parts
+    low, high = cfg["tree_range"]
+    share = min(max(share, float(low)), float(high))
+    size = max(float(dbh_ob_cm), 0.0) / float(cfg["at_dbh_cm"])
+    return min(share * float(cfg["height_m"]) * size ** float(cfg["size_power"]), float(cfg["highest_m"]))
+
+
+def uneven_top(look: dict, part_age, tree_seed: int, dbh_ob_cm: float) -> UnevenTop | None:
     """``None`` unless ``bark.uneven_top.strength`` asks for it: then a stem's rough base stops at no one
-    level.  It climbs in tongues, further on one side, to a different height on each tree, with white
-    plates left between."""
+    level.  It climbs in tongues, further on one side, to a height that differs from tree to tree and rises
+    with the stem's diameter (``tree_black``), with white plates left between."""
     cfg = look["bark"].get("uneven_top")
     climbs = any(r.get("climbs") for r in look["bark"].get("stage_ramps", {}).values())
     if not cfg or float(cfg["strength"]) <= 0.0 or not climbs:
         return None
-    return UnevenTop(look, part_age, tree_seed)
+    return UnevenTop(look, part_age, tree_seed, dbh_ob_cm)
 
 
-def bake_stem(look: dict, tiles: list, profile: StemProfile, part_state_fn, marks: list, px=None, block: int = 512, y_offset: float = 0.0, tree_seed: int = 0) -> dict:
+def bake_stem(look: dict, tiles: list, profile: StemProfile, part_state_fn, marks: list, px=None, block: int = 512, y_offset: float = 0.0, tree_seed: int = 0, dbh_ob_cm: float = 0.0) -> dict:
     """The stem's own texture, baked from the state at every row.  ``marks``: (around 0-1, s, branch
     radius) of each branch that leaves the stem, living or shed, for the dark chevrons.
 
@@ -497,7 +530,7 @@ def bake_stem(look: dict, tiles: list, profile: StemProfile, part_state_fn, mark
     age_row, d_row, z_row = np.interp(s, profile.s, profile.part_age), np.interp(s, profile.s, profile.d_wood), np.interp(s, profile.s, profile.z)
     state = part_state_fn(age_row, d_row, z_row)
     # the rough base's top, place by place, where that's asked for
-    edge = None if profile.part_age.size == 0 else uneven_top(look, float(np.max(profile.part_age)), tree_seed)
+    edge = None if profile.part_age.size == 0 else uneven_top(look, float(np.max(profile.part_age)), tree_seed, dbh_ob_cm)
     dy = np.gradient(s)
     dx = circ / W
     u = (np.arange(W) + 0.5) / W
@@ -606,37 +639,56 @@ def _paint_marks(look: dict, maps: dict, marks: list, length: float, circ: np.nd
         maps["height"][ix] = maps["height"][ix] + 0.0015 * m
 
 
-def atlas_layout(look: dict, px=None) -> list:
-    """Branch atlas columns: (left, right, top) texel positions and circumference for each class."""
+def atlas_layout(look: dict, px=None, circumferences=None, span_m: float | None = None) -> list:
+    """Branch atlas columns: (left, right, top) texel positions and circumference for each class, or for
+    each of ``circumferences``.  ``span_m``: how much branch the atlas's height holds."""
     bark = look["bark"]
     W, H = px or bark["atlas_px"]
-    tile_px = float(bark["tile_size_m"]) / float(H)
+    tile_px = float(span_m or bark["tile_size_m"]) / float(H)
     pad = 4
     out = []
     x = pad
-    total = sum(c / tile_px for c in bark["branch_circumference_m"]) + 2 * pad * len(bark["branch_circumference_m"])
-    shrink = min(1.0, (W - 1.0) / total)
-    for c in bark["branch_circumference_m"]:
+    columns = bark["branch_circumference_m"] if circumferences is None else circumferences
+    # the padding doesn't shrink, so what's left for the columns is what has to fit
+    shrink = min(1.0, (W - 1.0 - 2 * pad * (len(columns) + 1)) / sum(c / tile_px for c in columns))
+    for c in columns:
         w = max(int(c / tile_px * shrink), 8)
         out.append((x, x + w, float(c)))
         x += w + 2 * pad
     return out
 
 
-def bake_branch_atlas(look: dict, tiles: list, states: list, px=None) -> dict:
+def limb_field(cfg: dict, seed: int, rows: int, span_m: float) -> np.ndarray:
+    """Which bark on a limb goes white first: 0 first, 1 last, evenly, so a share means that share of the
+    bark.  In turns round the limb and metres along it, so it's the same place on the limb whatever the
+    limb's size, as it thickens from one column to the next.  It wraps both ways."""
+    columns = 512
+    field = 0.0
+    for k, (turns, along_m, weight) in enumerate(cfg["patches"]):
+        field = field + float(weight) * noise((rows, columns), seed + 11 * k, (float(along_m) * rows / span_m, float(turns) * columns), 2.2)
+    return rank01(field).astype(np.float32)
+
+
+def bake_branch_atlas(look: dict, tiles: list, states: list, px=None, columns: list | None = None, seed: int = 0) -> dict:
     """One column per circumference class, from ``states``: the mean state of the parts in the class
-    (or None).  Each column is a whole turn of a branch and repeats along it."""
+    (or None).  Each column is a whole turn of a branch and repeats along it.  With ``columns``, a dict
+    for each state, its circumference and the share of its bark that's gone white, and that share is
+    laid on in hard-edged patches, the same patches at every share and every circumference, so more
+    white only ever adds to what's there."""
     bark = look["bark"]
-    W, H = px or bark["atlas_px"]
-    layout = atlas_layout(look, (W, H))
+    limbs = bark["uneven_top"]["limbs"] if columns is not None else None
+    W, H = px or (limbs["atlas_px"] if limbs else bark["atlas_px"])
+    span_m = float(limbs["span_m"]) if limbs else None
+    layout = atlas_layout(look, (W, H), [c["circumference"] for c in columns] if limbs else None, span_m)
+    field = limb_field(limbs, seed, H, span_m) if limbs else None
     alb = np.zeros((H, W, 3), np.float32)
     rough = np.ones((H, W), np.float32) * 0.6
     height = np.zeros((H, W), np.float32)
     tile_m = float(bark["tile_size_m"])
     means = []
-    dy = tile_m / H
+    dy = (span_m or tile_m) / H
     y = (np.arange(H) + 0.5) * dy
-    for (x0, x1, c), st in zip(layout, states):
+    for i, ((x0, x1, c), st) in enumerate(zip(layout, states)):
         w = x1 - x0
         dx = c / w
         X = np.broadcast_to(((np.arange(w) + 0.5) * dx)[None, :], (H, w))
@@ -649,6 +701,11 @@ def bake_branch_atlas(look: dict, tiles: list, states: list, px=None) -> dict:
                   "fissure_m": np.full((H, w), float(state["fissure_m"]), np.float32),
                   "peel": np.full((H, w), float(state["peel"]), np.float32),
                   "grime": np.full((H, w), float(state["grime"]), np.float32)}
+        if limbs and st is not None:
+            k = float(limbs["edge"])
+            here = field[:, ((np.arange(w) + 0.5) / w * field.shape[1]).astype(np.int64)]
+            names = [t["name"] for t in bark["stages"]]
+            fields["weights"][names.index(limbs["stage"])] = smooth(here - k, here + k, float(columns[i]["share"]) * (1.0 + 2.0 * k) - k).astype(np.float32)
         m = compose(tiles, samples, fields, (H, w))
         alb[:, x0:x1] = m["albedo"]
         rough[:, x0:x1] = m["rough"]
@@ -667,6 +724,7 @@ def bake_branch_atlas(look: dict, tiles: list, states: list, px=None) -> dict:
     # the normal map's x slope above used a single texel size; columns are close enough to it
     out["layout"] = layout
     out["column_mean"] = np.array(means)
+    out["span_m"] = span_m or tile_m
     return out
 
 

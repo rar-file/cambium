@@ -66,6 +66,8 @@ def unreal_look(look: dict) -> dict:
     # the rough base's top, uneven
     if out["bark"].get("uneven_top"):
         out["bark"]["uneven_top"] = {**out["bark"]["uneven_top"], "strength": float(u["stem_relief"]["uneven_top"])}
+    # each leaf where its shoot has it
+    out["leaves"]["on_shoots"] = {**out["leaves"]["on_shoots"], "strength": float(u["leaf"]["on_shoots"])}
     return out
 
 
@@ -1123,7 +1125,7 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
     stem_ids = np.nonzero((np.asarray(view.axis[: T.n]) == 0) & alive)[0]
     stem_ids = stem_ids[np.argsort(pos[stem_ids, 2])]
     stem_node = int(stem_ids[0])
-    edge_top = tx.uneven_top(look, float(age - T.birth[stem_ids].min()), wood.tree_seed)
+    edge_top = tx.uneven_top(look, float(age - T.birth[stem_ids].min()), wood.tree_seed, wood.dbh_ob)
     edge_reach = 0.0 if edge_top is None else edge_top.reach
     table = None
     if float(relief_cfg["edge_fine_m"]) > 0.0:
@@ -1266,7 +1268,7 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
                     _bark_mesh(glb, wood, arrays["stem"], "stem", m, flex, phase, turns, tile_m)
                 if "branch" in arrays:
                     m = maps.material(glb, branch_slot, branch_files, CLAMP, REPEAT)
-                    _bark_mesh(glb, wood, arrays["branch"], "branches", m, flex, phase, _column_turns(look, arrays["branch"]["col"], tile_m), tile_m)
+                    _bark_mesh(glb, wood, arrays["branch"], "branches", m, flex, phase, _column_turns(look, arrays["branch"]["class"], tile_m), tile_m)
                 parts["wood"] = glb.triangles
                 surface = surface_a[lod["kind"]]
                 if surface is not None:

@@ -1806,7 +1806,15 @@ appearance:
     bark.stage_ramps.rhytidome.climbs.time_constant_years: "TUNED: as height_max_m. One anchor comes from a measurement, by proxy: thick bark at the stump and little extra at 1.3 m at age 22 (Vihera-Aarnio & Velling 2017, Table 5), read as where the rough bark is."
     bark.stage_ramps.rhytidome.climbs.band_m: "TUNED: as height_max_m; by eye for the uneven upper edge."
     bark.stage_ramps.rhytidome.diameter_m: "TUNED: by eye; thin parts stay smooth at any age."
-    bark.uneven_top: "TUNED: by eye against reference/brastad_sweden_first_snow.jpg, reference/gullmarsskogen_stand_5.jpg and birch-data/summer_reference (Arnhem-Delhuyzen, Bouleau verruqueux Tronc 1, Hange-Birke Stamm alter Baum 9992): black fissures climb in tongues, further on one side, with hard-edged white plates 5-15 cm wide left between, to different heights tree to tree. Plates of old bark 3-8 cm across and 10-30 cm long. No measurement of this found. strength is a setting: 0 keeps the plain export's bytes."
+    bark.uneven_top: "TUNED: by eye against reference/brastad_sweden_first_snow.jpg, reference/gullmarsskogen_stand_5.jpg and birch-data/summer_reference (Arnhem-Delhuyzen, Bouleau verruqueux Tronc 1, Hange-Birke Stamm alter Baum 9992): black fissures climb in tongues, further on one side, with hard-edged white plates 5-15 cm wide left between. The height tree to tree has its own sources, under black. No source measures the side of the stem: Jones et al. 2021 took one height per stem. Plates of old bark 3-8 cm across and 10-30 cm long. No measurement of this found. strength is a setting: 0 keeps the plain export's bytes."
+    bark.uneven_top.black.height_m: "SOURCE: Jones et al. 2021, Forests 12:159, Table 2, and Jones et al. 2023, Forests 14:2031, Table 1 and text (publisher's PDFs). The height at which smooth silver bark dominates, silver birch, means of each trial: 67 cm at DBH 110 mm (Hyssna, age 19, n 1141), 46 cm at 98 mm (Brunsberg, age 19, n 1390), 70 cm at 110 mm (southern Sweden, age 15, n 118). This is the mean of the three."
+    bark.uneven_top.black.at_dbh_cm: "SOURCE: as height_m: the mean of the three trials' mean DBH."
+    bark.uneven_top.black.size_power: "DERIVED: Jones et al. 2021, Tables 2 and 3: the slope at the mean, r(bark height, DBH at 19) x CV(bark height) / CV(DBH at 19), is 0.53 x 65/25 = 1.38 at Hyssna and 0.51 x 74/28 = 1.35 at Brunsberg. That's between trees of one age. GUESSED: that one tree follows the same line as it thickens. No source follows a tree through time. Support: it gives about 2.2 m at DBH 27.5 cm, against 2-4 m at age 60-80 in birch-data/REPORT.md section 14, which itself has no source, and the three trials' means fit size better than age (70 cm at age 15 and 67 cm at age 19, both at 110 mm; 46 cm at age 19 at 98 mm)."
+    bark.uneven_top.black.tree_parts: "DERIVED: chosen so the spread matches Jones et al. 2021 and 2023: 3 draws give a CV of 58 % for the tree's own share, and 71 % with the size term at a DBH CV of 26 %, inside the 48 % (33/69, 2023), 65 % and 74 % (2021) measured at those ages. GUESSED: that the same proportional spread holds at 50 and 60. Nobody measured it there; by eye, reference/gullmarsskogen_stand_1.jpg and gullmarsskogen_stand_5.jpg show stems of one mature stand from near-white at the foot to dark far up."
+    bark.uneven_top.black.tree_range: "DERIVED: Jones et al. 2021, Table 2: lowest over mean 0/67 and 10/46, highest over mean 280/67 and 240/46. These limits are 0.15 and the lower of the two highest."
+    bark.uneven_top.black.highest_m: "TUNED: a limit, so a thick tree with a high share doesn't go black up into its crown. No source; the highest measured is 2.8 m, at age 19. Rarely reached."
+    bark.uneven_top.black.highest_top_m: "TUNED: as highest_m, for the highest tongue."
+    bark.uneven_top.limbs: "TUNED: by eye against reference/hallinden_sweden.jpg and reference/oslo_norway.jpg: on a limb the dark goes on in patches longer than they're wide, with no ring. level_step, atlas_px and span_m are settings. No measurement found."
     bark.uneven_top.stage_ramps: "TUNED: by eye, against reference/meilen_switzerland_solitary.jpg, oslo_norway.jpg and hallinden_sweden.jpg, limb widths judged against the stem's in the same photo: white holds on limbs of about 5 cm and more and goes dark by about 2.5 cm. birch-data/REPORT.md section 14 says branches stay white, with no source; these photos don't bear that out for thin ones. No measurement found."
     bark.peel: "TUNED: by eye on the renders; no survey of peeling by age or size was opened. The stem's white bark peels in thin horizontal sheets (birch-data/REPORT.md section 14, no source)."
     bark.marks: "TUNED: by eye; the dark chevrons above branches are a known birch feature, no measurement."
@@ -1823,6 +1831,14 @@ appearance:
     leaves.interveinal_lead: "TUNED: by eye. Chlorophyll goes first between the veins: a search abstract only (fp24012, Funct. Plant Biol.), not read in full."
     leaves.shape: "TUNED: by eye for a birch's triangular, double-toothed blade; the aspect of 1.4 as tools/render_stand.py had it."
     leaves.inclination_deg: "TUNED: from tools/render_stand.py; steep leaves, as K_PAR 0.37 in Hagemeier & Leuschner 2019 implies."
+    leaves.on_shoots.strength: "TUNED: a setting, not a value: 0 keeps the plain export's bytes."
+    leaves.on_shoots.spur_m_per_year: "DERIVED: Caesar 1983, thesis, Lakehead University (birch-data/M1_downloads/caesar1983.pdf), Betula papyrifera, a related species: short shoots 'fail to elongate more than a few millimetres, rarely exceed 4 cm in length after 10 years'. 3 mm a year stays just under that. Nothing found for B. pendula."
+    leaves.on_shoots.spur_max_m: "SOURCE: Caesar 1983 as spur_m_per_year, B. papyrifera."
+    leaves.on_shoots.divergence_deg: "SOURCE: Caesar 1983: 2/5 phyllotaxy in the buds of both shoot types, B. papyrifera, so 144 degrees from leaf to leaf round a short shoot."
+    leaves.on_shoots.size_cv: "DERIVED: Kovacic & Nikolic 2005, Acta Biol. Cracov. Ser. Bot. 47/2:7, Table 1 (publisher's PDF), Betula pendula, 5000 leaves of 50 trees: lamina length CV 14-15 %, so about 29 % in area, as area goes with length squared. For comparison, measured in area: Konopka & Pajtik 2026, Cent. Eur. For. J. 72:159, B. pendula, 3672 leaves of 204 young trees: 11.89 +- 5.73 cm2 pooled, CV 48 %, which takes in sites and classes; Caesar 1983, B. papyrifera, a related species: 13.2 +- 3.3 cm2, CV 25 %."
+    leaves.on_shoots.size_limits_sd: "TUNED: so the largest blade is about 8 cm long and the smallest about 4.5 cm, at the model's own mean leaf. Floras give 3-7.5 cm; the model's mean is high, so the top end runs a little past that."
+    leaves.on_shoots.splay_deg: "TUNED: by eye on birch-data/summer_reference/Birkenblaetter_Betula_pendula.jpg (Roletschek): a cluster's stalks leave well out from the shoot's axis. Not measured."
+    game.unreal.leaf.on_shoots: "TUNED: a setting, not a value: this target has each leaf where its shoot has it."
     leaves.petiole_m: "TUNED: from the 1-2 cm petiole in this file's light.leaf_spread comment, which gives no paper."
     leaves.fold_deg: "TUNED: by eye."
     leaves.texture_size_px: "TUNED: game setting."
@@ -1902,18 +1918,28 @@ appearance:
       rhytidome:
         diameter_m: [0.05, 0.10]
         climbs: {onset_age: 10.0, height_max_m: 6.0, time_constant_years: 90.0, band_m: 0.7}
-    # The bark's look, on or off.  A climbing stage stops at no one level.  At each height a share of the
-    # bark has gone over, all of it below solid_share of how high the stage has climbed, none above the top,
-    # which moves by tree_share, side_share and tongue_share of that climb, and falls_off says how fast the
-    # share drops between (over 1, soon; under 1, late).  solid_share and falls_off run from the lightest tree
-    # to the darkest.  Which bark goes first is the field "islands", so what shows is hard-edged black tongues
-    # and white plates, whatever the tree.  tongues and islands: turns round the stem, metres up it, weight.
+    # The bark's look, on or off.  A climbing stage stops at no one level.  black says how high it goes on one
+    # tree: height_m at at_dbh_cm over bark, by (DBH / at_dbh_cm)^size_power, times the tree's own share for life
+    # (a gamma of mean 1 from tree_parts draws, kept to tree_range), up to highest_m.  That's where half of the
+    # bark round the stem has gone over.  Above and below, at each height a share of the bark has gone over, all
+    # of it below solid_share of the tree's level, none above its top, which moves by side_share and tongue_share
+    # of the level, up to highest_top_m, and falls_off says how fast the share drops between (over 1, soon; under
+    # 1, late).  solid_share and falls_off run from the lightest tree to the darkest.  Which bark goes first is
+    # the field "islands", so what shows is hard-edged black tongues and white plates, whatever the tree.
+    # tongues and islands: turns round the stem, metres up it, weight.
     # plates: rough bark's, at their real size.  stage_ramps: how thick a limb is before it's white.
     # strength 0 leaves all of this out, as the plain export has it; the Unreal target has its own switch,
     # game.unreal.stem_relief.uneven_top.
     uneven_top:
       strength: 0.0
-      tree_share: 0.25
+      black:
+        height_m: 0.61
+        at_dbh_cm: 10.6
+        size_power: 1.36
+        tree_parts: 3
+        tree_range: [0.15, 4.2]
+        highest_m: 8.0
+        highest_top_m: 12.0
       side_share: 0.4
       tongue_share: 1.0
       tongue_power: 2.5
@@ -1929,6 +1955,17 @@ appearance:
       stage_ramps:
         papery:
           diameter_m: [0.025, 0.07]
+      # A limb's white, in the branch atlas.  A column for each level_step of white at each circumference, so a
+      # face reads what its own thickness and age say.  The white of stage goes on in hard-edged patches (edge), the
+      # same ones at every level and circumference: patches is turns round the limb, metres along it, weight.
+      # span_m of limb to the atlas's height, so they don't repeat so soon.  level_step 0: one column to a circumference.
+      limbs:
+        stage: papery
+        level_step: 0.125
+        atlas_px: [4096, 2048]
+        span_m: 1.0
+        patches: [[0.14, 0.2, 1.0], [0.05, 0.06, 0.4]]
+        edge: 0.04
     # Layered in this order, each covering the last through its own pattern as its weight rises.
     stages:
       - name: twig
@@ -2013,6 +2050,19 @@ appearance:
       vein_lightness: 0.18
     inclination_deg: [30.0, 70.0]
     petiole_m: 0.018
+    # Where a leaf leaves its shoot.  strength 0 is the plain export's: all of a node's leaves from one point, on
+    # any side, petiole_m off the bark.  Over 0: on the side the node's bud faces, a short shoot's at the end of
+    # its own axis (spur_m_per_year, up to spur_max_m), a cluster's leaves divergence_deg apart round that axis
+    # and splay_deg out from it.  Only their places change: the same leaves, the same sizes.
+    on_shoots:
+      strength: 0.0
+      spur_m_per_year: 0.003
+      spur_max_m: 0.04
+      divergence_deg: 144.0
+      splay_deg: 60.0
+      # a leaf's own size round the model's, with the tree's total held: its CV, and how far it goes either way, in SDs
+      size_cv: 0.3
+      size_limits_sd: [-2.2, 1.5]
     fold_deg: 24.0
     texture_size_px: 256
   game:
@@ -2116,6 +2166,8 @@ appearance:
         angle_by_height: [[0.0, 30.0], [0.3, 30.0], [0.5, 42.0], [0.8, 51.0], [1.0, 55.0]]
         angle_spread_deg: 14.0
         roll_rad: 0.6
+        # leaves.on_shoots.strength, in this target
+        on_shoots: 1.0
         # where the mesh has its points along the blade; the side points past these are the main teeth
         midrib_at: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
         base_points_at: [0.03, 0.06]

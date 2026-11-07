@@ -178,7 +178,7 @@ def bake_wood(wood: WoodParts, crown, shoot, pos: np.ndarray, radius_history) ->
     stem_md = {"node": nd, "s": s, "around": np.nan_to_num(crown.attributes["ring_around"][is_stem], nan=0.0), "pos": crown.vertices[is_stem],
                "z_profile": np.maximum.accumulate(z_p), "s_profile": uniq}
     marks = _axis_marks(wood, stem_md, shoot, pos, wood.age, radius_history)
-    wood.stem_bake = tx.bake_stem(look, wood.tiles, prof, wood.state, marks, y_offset=getattr(wood, "stem_y_offset", 0.0), tree_seed=getattr(wood, "tree_seed", 0))
+    wood.stem_bake = tx.bake_stem(look, wood.tiles, prof, wood.state, marks, y_offset=getattr(wood, "stem_y_offset", 0.0), tree_seed=getattr(wood, "tree_seed", 0), dbh_ob_cm=wood.dbh_ob)
     wood.marks = marks
     wood.profile = prof
     # branch classes: the mean state of the parts in each, by surface area
@@ -188,23 +188,73 @@ def bake_wood(wood: WoodParts, crown, shoot, pos: np.ndarray, radius_history) ->
     branch_faces = F[~is_stem[F[:, 0]]]
     states = [None] * len(classes)
     wood.class_state = states
+    wood.column_table, wood.column_class = None, None
+    columns = None
+    step = ap.limb_level_step(look)
     if len(branch_faces):
         cl = _face_class(crown.attributes["radius"], branch_faces, classes)
         V = crown.vertices
         area = 0.5 * np.linalg.norm(np.cross(V[branch_faces[:, 1]] - V[branch_faces[:, 0]], V[branch_faces[:, 2]] - V[branch_faces[:, 0]]), axis=1)
         vstate = wood.state(wood.age - wood.birth[node], 2.0 * wood.radius_wood[node], V[:, 2])
-        for k in range(len(classes)):
-            sel = cl == k
-            if not sel.any():
-                continue
+
+        def mean_state(sel):
             v0 = branch_faces[sel, 0]
             wts = area[sel] / max(area[sel].sum(), 1e-12)
-            states[k] = {"weights": (vstate["weights"][:, v0] * wts).sum(1), "peel": float((vstate["peel"][v0] * wts).sum()),
-                         "grime": float((vstate["grime"][v0] * wts).sum()), "fissure_m": float((vstate["fissure_m"][v0] * wts).sum())}
-    wood.atlas = tx.bake_branch_atlas(look, wood.tiles, states)
+            return {"weights": (vstate["weights"][:, v0] * wts).sum(1), "peel": float((vstate["peel"][v0] * wts).sum()),
+                    "grime": float((vstate["grime"][v0] * wts).sum()), "fissure_m": float((vstate["fissure_m"][v0] * wts).sum())}
+
+        if step > 0.0:
+            states, columns = _limb_columns(wood, vstate, branch_faces, cl, classes, step, mean_state)
+            wood.class_state = states
+        else:
+            for k in range(len(classes)):
+                sel = cl == k
+                if sel.any():
+                    states[k] = mean_state(sel)
+    wood.atlas = tx.bake_branch_atlas(look, wood.tiles, states, columns=columns, seed=int(look["game"]["texture_seed"]) + 7919 * (int(getattr(wood, "tree_seed", 0)) + 1) + 130)
     wood.stage_means = np.array([t.mean_colour for t in wood.tiles])
-    W, H = bark["atlas_px"]
+    W = wood.atlas["albedo"].shape[1]
     wood.layout_uv = [(x0 / W, x1 / W, c) for x0, x1, c in wood.atlas["layout"]]
+
+
+def _limb_columns(wood: WoodParts, vstate: dict, faces: np.ndarray, cl: np.ndarray, classes: np.ndarray, step: float, mean_state) -> tuple:
+    """Atlas columns by circumference and by how much of the bark has gone white: a face reads the one
+    nearest its own share, so a limb's colour follows its own thickness and age, in small steps of the
+    same patches, not in one jump at each circumference."""
+    look = wood.look
+    names = [t["name"] for t in look["bark"]["stages"]]
+    wood.white_stage = names.index(look["bark"]["uneven_top"]["limbs"]["stage"])
+    level = np.rint(vstate["weights"][wood.white_stage][faces].mean(1) / step).astype(np.int64)
+    n_levels = int(round(1.0 / step)) + 1
+    wood.column_table = np.zeros((len(classes), n_levels), np.int64)
+    states, columns, of_class = [], [], []
+    for k, c in enumerate(classes):
+        sel = cl == k
+        used = np.unique(level[sel]) if sel.any() else np.array([0])
+        ids = []
+        for j in used:
+            pick = sel & (level == j)
+            st = None
+            if pick.any():
+                st = mean_state(pick)
+                st["weights"][wood.white_stage] = float(j) * step
+            ids.append(len(states))
+            states.append(st)
+            columns.append({"circumference": float(c), "share": float(j) * step})
+            of_class.append(k)
+        wood.column_table[k] = np.asarray(ids)[np.argmin(np.abs(used[:, None] - np.arange(n_levels)), axis=0)]
+    wood.column_class = np.asarray(of_class)
+    return states, columns
+
+
+def _face_columns(wood: WoodParts, radius_attr: np.ndarray, node: np.ndarray, V: np.ndarray, faces: np.ndarray, classes: np.ndarray) -> np.ndarray:
+    """The atlas column each branch face reads."""
+    cl = _face_class(radius_attr, faces, classes)
+    if getattr(wood, "column_table", None) is None:
+        return cl
+    white = wood.state(wood.age - wood.birth[node], 2.0 * wood.radius_wood[node], V[:, 2])["weights"][wood.white_stage]
+    level = np.rint(white[faces].mean(1) / ap.limb_level_step(wood.look)).astype(np.int64)
+    return wood.column_table[cl, np.clip(level, 0, wood.column_table.shape[1] - 1)]
 
 
 def _face_class(radius_attr, faces, classes):
@@ -254,21 +304,22 @@ def wood_arrays(wood: WoodParts, md, relief: bool = False) -> dict:
     if (~stem_f).any():
         f = F[~stem_f]
         classes = np.asarray(bark["branch_circumference_m"], float)
-        cl = _face_class(md.attributes["radius"], f, classes)
+        cl = _face_columns(wood, md.attributes["radius"], node, md.vertices, f, classes)
         nf, old, u, col = _unwrap(f, around, cl)
         V, N = md.vertices[old], md.normals[old]
         lay = wood.layout_uv
         x0 = np.array([a for a, b, c in lay])[col]
         x1 = np.array([b for a, b, c in lay])[col]
-        v = along[old] / float(bark["tile_size_m"])
+        v = along[old] / float(wood.atlas["span_m"])
         UV = np.stack([x0 + (x1 - x0) * np.minimum(u, 1.0), v], 1)
         T = _tangents(V, N, UV, nf)
         st = wood.state(wood.age - wood.birth[node[old]], 2.0 * wood.radius_wood[node[old]], V[:, 2])
         want = ap.state_colour(wood.stage_means, st["weights"])
         have = np.array([ap.state_colour(wood.stage_means, np.asarray((wood.class_state[k] or {"weights": st["weights"][:, 0]})["weights"])[:, None])[0]
-                         for k in range(len(classes))])
+                         for k in range(len(wood.class_state))])
         tint = want / np.maximum(have[col], 1e-4)
         out["branch"] = {"V": V, "N": N, "F": nf, "UV": UV, "T": T, "node": node[old], "radius": md.attributes["radius"][old], "tint": tint, "col": col,
+                         "class": col if getattr(wood, "column_class", None) is None else wood.column_class[col],
                          "around": u, "along": along[old]}
     return out
 
