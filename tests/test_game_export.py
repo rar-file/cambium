@@ -763,9 +763,13 @@ def test_moss_is_patches_on_one_side_with_no_edge(look):
     assert rows[-1] == 0.0 and np.abs(np.diff(np.convolve(rows, np.ones(20) / 20.0, mode="valid"))).max() < 0.25 * rows[:40].mean()
 
 
+# about what a stand tree's DBH is at these ages, over bark, cm
+_DBH = {11: 4.0, 12: 5.0, 15: 7.0, 30: 15.0, 50: 25.0, 60: 27.5, 100: 38.0}
+
+
 def _rough_at(look, seed, age, z):
     """The rough stage's weight round a stem at these heights, 256 places round."""
-    edge = tx.UnevenTop(look, age, seed)
+    edge = tx.UnevenTop(look, age, seed, np.interp(age, list(_DBH), list(_DBH.values())))
     u = (np.arange(256) + 0.5) / 256.0
     n, W = len(z), len(u)
     # a stem whose parts high up are a little younger, as a tree's are
@@ -783,14 +787,14 @@ def uneven(look):
 
 def test_the_rough_base_is_level_unless_asked(look):
     assert float(look["bark"]["uneven_top"]["strength"]) == 0.0
-    assert tx.uneven_top(look, 60.0, 5) is None
+    assert tx.uneven_top(look, 60.0, 5, 27.5) is None
     assert ap.stem_stub_share(look) == 0.0
 
 
 def test_the_unreal_target_asks_for_an_uneven_base(look):
     import treegen.game_unreal as gu
 
-    assert tx.uneven_top(gu.unreal_look(look), 60.0, 5) is not None
+    assert tx.uneven_top(gu.unreal_look(look), 60.0, 5, 27.5) is not None
     assert ap.stem_stub_share(gu.unreal_look(look)) > 0.0
 
 
@@ -798,29 +802,203 @@ def test_the_unreal_target_asks_for_an_uneven_base(look):
 def test_every_old_stem_has_a_rough_base_and_stops_at_no_one_level(uneven, seed):
     z = np.linspace(0.05, 7.0, 400)
     w = _rough_at(uneven, seed, 60, z)
+    black = tx.tree_black(uneven, seed, _DBH[60])
     # black low down on every tree, whatever its seed
-    assert w[z < 0.5].mean() > 0.7
-    # the highest it's on, column by column: more than half a metre between low and high round one stem
+    assert w[z < 0.5 * black].mean() > 0.7
+    # the highest it's on, column by column: well apart round one stem
     on = w > 0.5
     top = z[on.shape[0] - 1 - np.argmax(on[::-1], axis=0)]
-    assert np.percentile(top, 95) - np.percentile(top, 5) > 0.5
+    assert np.percentile(top, 95) - np.percentile(top, 5) > 0.3 * black
     # and in hard-edged patches: where it's between all and nothing, the bark is one or the other, with little between
-    assert ((w > 0.2) & (w < 0.8))[z < 4.0].mean() < 0.12
-    changing = (z > 1.0) & (z < 2.5)
+    assert ((w > 0.2) & (w < 0.8))[z < 2.0 * black].mean() < 0.12
+    changing = (z > 0.6 * black) & (z < 1.5 * black)
     assert 0.1 < w[changing].mean() < 0.95
 
 
 def test_the_rough_base_differs_by_tree_and_grows_with_it(uneven):
     z = np.linspace(0.05, 7.0, 400)
     black = [float(_rough_at(uneven, seed, 60, z).mean()) for seed in range(1, 11)]
-    assert max(black) > 1.3 * min(black)
+    assert max(black) > 2.0 * min(black)
     # an older tree has more of it, in the same place: the pattern is the tree's
     young, old = _rough_at(uneven, 5, 30, z), _rough_at(uneven, 5, 60, z)
     assert old.sum() > 1.5 * young.sum()
-    rows = z < 3.0
-    assert np.corrcoef(young[rows].ravel(), old[rows].ravel())[0, 1] > 0.3
+    assert old[young > 0.5].mean() > 0.9
     # a young stem has next to none
     assert _rough_at(uneven, 5, 12, z).mean() < 0.02
+
+
+def test_black_height_between_trees_is_what_the_trials_measured(uneven):
+    # Jones et al. 2021 and 2023, about ages 15 to 19: means 46 to 70 cm at DBH about 10.6 cm, CV 48 to 74 %,
+    # highest 4 to 5 times the mean, lowest near nothing, r with DBH about 0.5
+    rng = np.random.default_rng(1)
+    dbh = 10.6 * rng.lognormal(0.0, 0.26, 4000)
+    black = np.array([tx.tree_black(uneven, seed, d) for seed, d in enumerate(dbh)])
+    assert 0.46 < black.mean() < 0.75
+    assert 0.6 < black.std() / black.mean() < 0.8
+    assert 3.5 < black.max() / black.mean() < 6.5
+    assert black.min() / black.mean() < 0.25
+    assert 0.35 < np.corrcoef(black, dbh)[0, 1] < 0.65
+
+
+def test_black_height_is_where_half_the_bark_has_gone_over(uneven):
+    u = (np.arange(256) + 0.5) / 256.0
+    z = np.linspace(0.02, 11.0, 550)
+    for seed, dbh in ((1, 15.0), (5, 27.5), (7, 27.5), (9, 38.0)):
+        edge = tx.UnevenTop(uneven, 60.0, seed, dbh)
+        share = edge.gone_over(u, z, z).mean(1)
+        # the first height where less than half has gone over, smoothed over 40 cm so a patch doesn't decide it
+        smooth_share = np.convolve(share, np.ones(21) / 21.0, mode="same")
+        half = z[10:][np.argmax(smooth_share[10:] < 0.5)]
+        assert abs(half - edge.black) < 0.2 * edge.black + 0.1
+
+
+def test_a_trees_black_only_rises_as_it_thickens(uneven):
+    u = (np.arange(64) + 0.5) / 64.0
+    z = np.linspace(0.02, 8.0, 200)
+    for seed in (1, 2, 3, 5, 7):
+        before = None
+        for dbh in np.linspace(4.0, 45.0, 42):
+            edge = tx.UnevenTop(uneven, 60.0, seed, dbh)
+            now = edge.gone_over(u, z, z)
+            if before is not None:
+                # bark that's gone over stays over, in the same place
+                assert (now >= before - 1e-3).all()
+                # and a centimetre of DBH never moves it far
+                assert edge.black <= last * (dbh / last_dbh) ** 1.37 + 1e-6
+            before, last, last_dbh = now, edge.black, dbh
+
+
+def test_a_tree_low_on_black_is_not_black_up_to_the_stages_own_top(uneven):
+    u = (np.arange(256) + 0.5) / 256.0
+    z = np.linspace(0.02, 5.0, 250)
+    edge = next(e for e in (tx.UnevenTop(uneven, 60.0, s, 27.5) for s in range(1, 60)) if e.black < 0.5 * e.top)
+    # the rule's own band has no say: above its tongues, this tree's stem is white
+    cfg = uneven["bark"]["uneven_top"]
+    assert edge.gone_over(u, z, z)[z > edge.level + edge.scale * (cfg["side_share"] + cfg["tongue_share"])].mean() < 1e-3
+    assert edge.gone_over(u, z, z)[(z > 2.0 * edge.black) & (z < edge.top)].mean() < 0.25
+
+
+def _shoot_leaves(look, strength, age=12):
+    """A tiny twig going out level: nodes 0 to 3, the second a short shoot born in year 1, the last a new long-shoot node."""
+    n = 4
+    pos = np.array([[0.1 * i, 0.0, 5.0] for i in range(n)])
+    lat_dir = np.array([[0.7, 0.7, 0.0], [0.7, -0.7, 0.0], [0.0, 0.0, 0.0], [0.7, -0.7, 0.0]])
+    leaves = np.array([0.0, 3.0, 0.0, 1.0])
+    lk = copy.deepcopy(look)
+    lk["leaves"]["on_shoots"]["strength"] = strength
+    snap = ap.LeafSnapshot(age, leaves, np.full(n, 0.0015), np.full(n, 60.0), np.array([False, True, False, False]), 0.0015, lat_dir=lat_dir, birth=np.array([0.0, 1.0, 1.0, float(age)]))
+    return ap.leaf_instances(lk, None, snap, pos, np.full(n, 0.002), age), pos
+
+
+def test_placing_leaves_on_their_shoots_changes_only_where_they_are(look):
+    off, _ = _shoot_leaves(look, 0.0)
+    on, _ = _shoot_leaves(look, 1.0)
+    for name in ("node", "sun", "delay"):
+        assert np.array_equal(getattr(off, name), getattr(on, name))
+    assert not np.allclose(off.base, on.base)
+    # the same number of leaves, with the same total area: sizes differ round the model's
+    assert len(off.area) == len(on.area)
+    assert abs(off.area.sum() - on.area.sum()) < 1e-12
+
+
+def test_leaves_differ_in_size_with_the_trees_total_held(look):
+    n = 6000
+    size = np.full(n, 0.0017)
+    size[::3] = 0.0015
+    lk = copy.deepcopy(look)
+    lk["leaves"]["on_shoots"]["strength"] = 1.0
+    snap = ap.LeafSnapshot(40, np.full(n, 1.0) * size / 0.0015, size, np.full(n, 60.0), np.zeros(n, bool), 0.0015, lat_dir=np.tile([1.0, 0.0, 0.0], (n, 1)), birth=np.zeros(n))
+    pos = np.zeros((n, 3))
+    r = np.full(n, 0.002)
+    on = ap.leaf_instances(lk, None, snap, pos, r, 40)
+    off = ap.leaf_instances(look, None, snap, pos, r, 40)
+    assert len(on.area) == len(off.area)
+    assert abs(on.area.sum() - off.area.sum()) < 1e-9
+    # a spread like a real one's, and no blade past what floras and measurements have
+    cv = on.area.std() / on.area.mean()
+    assert 0.2 < cv < 0.35
+    assert off.area.std() / off.area.mean() < 0.07
+    assert on.area.max() < 0.0030 and on.area.min() > 0.0006
+    # the same leaf the same size from year to year
+    again = ap.leaf_instances(lk, None, snap, pos, r, 41)
+    assert np.allclose(on.area, again.area)
+
+
+def _limb_atlas(look, shares):
+    tiles = tx.make_tiles(look)
+    columns = [{"circumference": c, "share": s} for c in (0.12, 0.24) for s in shares]
+    w = np.array([1.0, 0.0, 0.0])
+    states = [{"weights": w.copy(), "peel": 0.0, "grime": 0.0, "fissure_m": 0.0} for _ in columns]
+    return tx.bake_branch_atlas(look, tiles, states, px=(1024, 512), columns=columns, seed=5), tiles, columns
+
+
+def test_a_limbs_bark_goes_white_a_little_at_a_time_and_only_adds(uneven):
+    shares = [0.0, 0.25, 0.5, 0.75, 1.0]
+    atlas, tiles, columns = _limb_atlas(uneven, shares)
+    white = []
+    for x0, x1, _ in atlas["layout"]:
+        # how far each texel is from the twig stage's colour towards the white stage's
+        y = atlas["albedo"][:, x0:x1].mean(-1)
+        white.append(y)
+    # a column's mean brightness rises evenly with its share, at each circumference, with no jump between them
+    means = np.array([w.mean() for w in white]).reshape(2, len(shares))
+    assert np.all(np.diff(means, axis=1) > 0.0)
+    steps = np.diff(means, axis=1)
+    assert steps.max() < 2.0 * steps.mean()
+    # the same share looks the same at the next circumference
+    assert np.abs(means[0] - means[1]).max() < 0.5 * steps.mean()
+    # and hard-edged patches: part way, the bark is one or the other, not a grey mix
+    mid = white[2]
+    lo, hi = white[0].mean(), white[4].mean()
+    between = ((mid > lo + 0.3 * (hi - lo)) & (mid < lo + 0.6 * (hi - lo))).mean()
+    assert between < 0.5
+
+
+def test_the_limb_columns_fit_the_atlas_however_many_there_are(uneven):
+    limbs = uneven["bark"]["uneven_top"]["limbs"]
+    W, H = limbs["atlas_px"]
+    many = [0.015, 0.03, 0.06] + [0.12] * 9 + [0.24] * 9 + [0.48]
+    layout = tx.atlas_layout(uneven, (W, H), many, limbs["span_m"])
+    assert layout[-1][1] < W
+    assert all(b > a for a, b, _ in layout)
+    assert all(layout[i + 1][0] >= layout[i][1] for i in range(len(layout) - 1))
+
+
+def test_the_same_patches_at_every_level_and_circumference(uneven):
+    field = tx.limb_field(uneven["bark"]["uneven_top"]["limbs"], 5, 512, 1.0)
+    # evenly spread, so a share of the field is that share of the bark
+    assert abs(float((field < 0.3).mean()) - 0.3) < 0.01
+    # longer than they're wide: on a limb of 12 cm round, the field changes faster round it than along it, by the metre
+    d_along = np.abs(np.diff(field, axis=0)).mean() * (512 / 1.0)
+    d_round = np.abs(np.diff(field, axis=1)).mean() * (512 / 0.12)
+    assert d_round > d_along
+
+
+def test_a_short_shoots_leaves_stand_at_the_end_of_its_own_axis_and_fan_out(look):
+    cfg = look["leaves"]["on_shoots"]
+    young, pos = _shoot_leaves(look, 1.0, age=3)
+    old, _ = _shoot_leaves(look, 1.0, age=40)
+    away = lambda leaves, nd: np.linalg.norm(leaves.base[leaves.node == nd] - pos[nd], axis=1)  # noqa: E731
+    petiole = look["leaves"]["petiole_m"]
+    # a few millimetres a year, up to its limit
+    assert away(young, 1).mean() < 0.002 + 2 * cfg["spur_m_per_year"] + petiole + 1e-6
+    assert away(old, 1).max() <= 0.002 + cfg["spur_max_m"] + petiole + 1e-6
+    assert away(old, 1).mean() > away(young, 1).mean() + 0.02
+    # a long-shoot node's lone leaf: the petiole, on the side its bud faces
+    lone = old.base[old.node == 3][0] - pos[3]
+    assert abs(np.linalg.norm(lone) - (0.002 + petiole)) < 1e-6
+    assert lone @ np.array([0.7, -0.7, 0.0]) > 0.0
+    # a cluster's leaves don't lie on each other: each its own way round the axis
+    d = old.along[old.node == 1][:, :2]
+    d = d / np.linalg.norm(d, axis=1, keepdims=True)
+    assert (d @ d.T)[np.triu_indices(len(d), 1)].max() < np.cos(np.radians(30.0))
+
+
+def test_the_unreal_target_places_leaves_on_their_shoots(look):
+    import treegen.game_unreal as gu
+
+    assert float(look["leaves"]["on_shoots"]["strength"]) == 0.0
+    assert float(gu.unreal_look(look)["leaves"]["on_shoots"]["strength"]) > 0.0
 
 
 def test_thin_limbs_are_dark_only_with_the_look_on(look, uneven):

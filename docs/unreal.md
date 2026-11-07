@@ -307,22 +307,39 @@ So relief in the mesh, for now. If triangles come to matter, displacement saves 
 - **Tongues.** The top reaches further in places, and further up one side of the stem than the other.
 - **Hard edges.** At each height a share of the bark has gone over, more low down. Which bark goes first is a field of patches longer than they're wide (`islands`), so what shows is black tongues and white plates at a size you can see from a distance, not a soft fade.
 - **Every old stem.** All of it has gone over below `solid_share`, whatever the tree, and most of it for some way above that, with a few white plates left.
-- **Tree to tree.** Each `--seed` makes its own stem: its pattern, which way it faces, and how dark it is. The pattern is the tree's, so it stays in place as it climbs from age to age.
+- **Tree to tree.** Each `--seed` makes its own stem: its pattern, which way it faces, how dark it is, and how high it goes (below). The pattern is the tree's, so it stays in place as it climbs from age to age.
 - **Plates.** Rough bark's plates at their real size, 3 cm across and 16 cm long, lighter on their faces, so the fissures show.
 
-| Age | Level top, plain export, m | Top round one stem, m, lowest place to highest (mean of 6 trees) | Tree's mean top: lightest of 6 trees to darkest, m | Rough bark in the lowest metre, lightest to darkest |
-|---|---|---|---|---|
-| 15 | 0.3 | 0.1 to 0.7 | 0.4 to 0.5 | 17 % to 22 % |
-| 30 | 1.2 | 0.4 to 1.5 | 0.8 to 1.3 | 70 % to 83 % |
-| 50 | 2.2 | 0.9 to 3.4 | 1.7 to 2.6 | 89 % to 97 % |
-| 60 | 2.6 | 1.2 to 4.6 | 2.2 to 3.2 | 93 % to 99 % |
-| 100 | 3.8 | 2.2 to 6.3 | 3.2 to 5.5 | 99 % to 100 % |
+**How high, tree by tree** (`bark.uneven_top.black`). Measured in Swedish trials as the height where smooth silver bark takes over (Jones et al. 2021, Forests 12:159; 2023, Forests 14:2031, publisher's PDFs):
 
-(Top: the highest place, column by column, where the stage's weight is over 0.4.)
+| Trial | Age | Trees | Mean DBH | Mean black | CV | Range | r with DBH |
+|---|---|---|---|---|---|---|---|
+| Hyssna | 19 | 1141 | 110 mm | 67 cm | 65 % | 0-280 cm | 0.53 |
+| Brunsberg | 19 | 1390 | 98 mm | 46 cm | 74 % | 10-240 cm | 0.51 |
+| Southern Sweden | 15 | 118 | 110 mm | 70 cm | 48 % | not read | not read |
+
+So: black = the tree's own share x 0.61 m x (DBH over bark / 10.6 cm)^1.36. The share is fixed for life, a gamma of mean 1, kept to 0.15-4.2. It rises only as the stem thickens, so it never falls or jumps. The black height is where half the bark round the stem has gone over; the tongues and patches above it are as before. Guessed: that one tree follows the between-tree line as it thickens (nobody followed one tree), and that the spread at 15-19 holds at 50-60. The side of the stem has no source.
+
+15 stand trees, Crown 2's settings (`tools/black_height.py`):
+
+| Age | Black, mean, m | Lowest tree | Highest tree | CV | Highest tongue, lowest to highest tree | Black in the lowest metre |
+|---|---|---|---|---|---|---|
+| 15 | 0.22 | 0.05 | 0.38 | 37 % | | |
+| 30 | 0.95 | 0.20 | 1.67 | 40 % | | |
+| 50 | 2.05 | 0.42 | 3.61 | 39 % | 1.2 to 11.3 m | 44 % to 100 % |
+| 60 | 2.41 | 0.51 | 4.36 | 40 % | 1.4 to 11.3 m | 51 % to 100 % |
+
+These stand trees are close in DBH (24-31 cm at 60), so the share does most of it. The 40 % here is below the trials' 48-74 %: these 15 seeds drew close shares; over 4,000 draws the rule gives 58 % at one DBH and 71 % with a stand's DBH spread.
 
 **Thin limbs.** White now starts at about 2.5 cm over bark and is complete at about 7 cm (`uneven_top.stage_ramps`), where it was 1.2 and 4.2 cm. By eye, from `reference/meilen_switzerland_solitary.jpg`, `oslo_norway.jpg` and `hallinden_sweden.jpg`, judging limb widths against the stem's in the same photo: limbs of about 5 cm and over are white, and those of 2 to 3 cm are dark. `birch-data/REPORT.md` says branches stay white, with no source, and the photos don't bear that out for thin ones.
 
 The values are `TUNED`, by eye against those photos and `reference/brastad_sweden_first_snow.jpg`, `reference/gullmarsskogen_stand_5.jpg` and the Arnhem-Delhuyzen, Bouleau verruqueux and Hange-Birke photos in `birch-data/summer_reference`. I found no measurement of any of it.
+
+**Limbs: no hoops.** Limbs showed dark red hoops, and a hard ring where white met red. Two causes, both in the branch atlas, which had one column to each circumference class, holding the mean bark of all its parts:
+- A limb's colour jumped where it crossed a class edge, at 2.7 and 5.4 cm over bark, inside the white ramp. Columns held 0, about 0.3 and about 0.93 of white (`tools/limb_bark.py`, 3 trees at 50 and 60), while the parts in the middle class ranged from 0.01 to 0.68.
+- At about 0.3 white, the white stage shows through its own reveal pattern, which is strips 7 cm wide and 9 mm tall (`reveal_patch_m`), made for peeling on the stem. Round a limb of 12 cm, that's hoops.
+
+Limb radius isn't the cause: on every limb it only falls going out. Now (`bark.uneven_top.limbs`) there's a column for each eighth of white at each circumference, and a face reads the one its own thickness and age give. White goes on in hard-edged patches longer than they're wide, set in turns round the limb and metres along it, the same at every level and circumference, so more white only adds to what's there. The largest step from one node to the next on a limb: median 0.125 of white, was 0.26-0.33. The atlas is 4096 x 2048, holding a metre of limb. Patch sizes are TUNED by eye on `reference/hallinden_sweden.jpg` and `oslo_norway.jpg`.
 
 **Where it's on.** In this target, by `game.unreal.stem_relief.uneven_top: 1`. In the plain export it's off, so its bytes don't change. `--look bark.uneven_top.strength=1` turns all of this on there, and each export's `--seed` then gives its stem its own base. `tools/crown_look.py` does so.
 
@@ -357,6 +374,22 @@ Age 15 falls under the crown mean because the table goes by height in the tree, 
 | 100 | 15.2 | 17.0 | 17.7 | 17.8 | 17.9 |
 
 The paper's extract gives no slope to apply. So if age 60 should show more, that's a growth change to look at. The file used is from before the Tree agent's current work, so it may have changed already.
+
+**Spread.** In the model nearly every leaf is about 18 cm2: P5-P95 13-18 at 50 and 60, CV 7-10 %. That's the shade end of `light.sun_shade`, where LMA tends to 50.5 g m-2 and size to 15 x 60.8 / 50.5 = 18.1 cm2. The rule takes Hagemeier & Leuschner's LMA by relative height and feeds it the leaf's relative light instead (marked VERIFY), and most leaves' light is low. With `leaves.on_shoots`, each leaf now gets a size of its own round the model's, CV 30 % (from Kovacic & Nikolic 2005's lamina lengths, *B. pendula*, 5,000 leaves), kept to -2.2 and +1.5 SD. The tree's total leaf area and its number of leaves stay the model's. At 50 and 60 (3 trees): CV 0.28, P5-P95 10-26.5 cm2, mean unchanged.
+
+**The mean looks high.** The model's mean leaf is 17.0-17.3 cm2. *B. pendula* measured: 11.89 +- 5.73 cm2 over 3,672 leaves of 204 young trees, 8.8-15.8 by site (Konopka & Pajtik 2026, Cent. Eur. For. J. 72:159); laminae 42-47 x 31-36 mm in Croatia (Kovacic & Nikolic 2005), about 8-10 cm2 at a birch leaf's fill. The 15 cm2 reference is derived from shoot totals, not measured per leaf. Konopka & Pajtik also find the largest leaves high in the crown of dominant trees, where the model has its smallest. Both are growth matters, for Crown 2.
+
+**Along a twig** (`leaves.on_shoots`, `tools/leaf_placement.py`). A node's leaves used to leave from one point, on any side, a petiole off the bark. Now:
+
+| | Birch | Source | Before | Now |
+|---|---|---|---|---|
+| Leaves on a short shoot | 2-3 | Suzuki 2003 (*B. maximowicziana*); Caesar 1983 (*B. papyrifera*) | 2.5 | Same |
+| Petiole | 17-19 mm | Kovacic & Nikolic 2005, *B. pendula* | 18 mm | Same |
+| A short shoot's own length | A few mm a year, rarely over 4 cm at 10 years | Caesar 1983 | None | 3 mm a year, up to 4 cm |
+| Side of the twig | Two ranks on long shoots | Trees and Shrubs Online (genus) | Any | The side the model's bud faces |
+| A cluster's leaves | Opposite or whorled; 2/5 | Suzuki 2003; Caesar 1983 | Random, 17 % of pairs within 30 degrees | 144 degrees apart |
+
+Placing them right doesn't make the crown fuller: crown fill side on rose by 1-2 points, and a twig's leaves still look about one blade wide.
 
 **Scans and licences:**
 
