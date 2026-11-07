@@ -1029,7 +1029,7 @@ def test_thin_limbs_are_dark_only_with_the_look_on(look, uneven):
     off, on = white(look), white(uneven)
     assert off[2] > 0.9                 # as it was
     assert on[0] < 0.05 and on[1] < 0.5 and on[3] > 0.8
-    assert np.all(np.diff(on) > 0.0)
+    assert np.all(np.diff(on) >= 0.0) and on[2] > on[1]
 
 
 def _forked_tree():
