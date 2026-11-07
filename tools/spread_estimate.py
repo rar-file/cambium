@@ -31,9 +31,11 @@ from treegen import checkpoint  # noqa: E402
 from treegen.regeneration import SpreadRegeneration  # noqa: E402
 from treegen.thinning import Mortality  # noqa: E402
 
-# in the model the crown of a stand tree, DBH over bark 25-30 cm, is about 3.2 m across
-# (reset brief; Evo 2024: 5.2 m): this form is a fit by eye to the first, for the cover rule only
-CROWN_RADIUS_M = lambda d_cm: 0.5 * (1.0 + 0.08 * d_cm)  # noqa: E731
+
+def crown_radius_m(d_cm):
+    """In the model the crown of a stand tree, DBH over bark 25-30 cm, is about 3.2 m across (reset
+    brief; Evo 2024: 5.2 m).  This form is a fit by eye to the first, for the cover rule only."""
+    return 0.5 * (1.0 + 0.08 * d_cm)
 
 
 def size_by_age(folder: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -89,7 +91,7 @@ def run(a) -> dict:
         tall = h >= 2.0
         pts = []
         if tall.any():
-            r = CROWN_RADIUS_M(d[tall])
+            r = crown_radius_m(d[tall])
             th = np.linspace(0.0, 2.0 * math.pi, 8, endpoint=False)
             for f in (0.0, 0.5, 1.0):
                 pts.append(np.stack([np.repeat(X[tall], 8) + f * np.repeat(r, 8) * np.tile(np.cos(th), tall.sum()),

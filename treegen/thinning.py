@@ -122,7 +122,7 @@ class Mortality:
         d_ob = over_bark_cm(d_ub_cm, self.bark)
         i, j = self.hood.cells(xy)
         rd = self.relative_density(d_ob, i, j)
-        size = self.size_weight(d_ob.copy())
+        size = self.size_weight(d_ob)
         slow = np.exp(-np.maximum(rings_mm, 0.0) / float(v.ring_scale_mm))
         weight = size * (float(v.floor) + (1.0 - float(v.floor)) * slow)
         # shared among neighbours: the mean weight around each tree is one
