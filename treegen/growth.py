@@ -1892,7 +1892,10 @@ class GrowthModel:
                         w = la_now[stem] / max(float(la_now[0]), 1e-12)
                         spread = float((w * L[stem]).sum())
                         if spread > 0.0:
-                            used = share_stem * self._unspent
+                            lit = float((q_bud * bud_leaf).sum() / max(float(bud_leaf.sum()), 1e-12))
+                            power = getattr(sp.crown_frame, "surplus_exposure_power", None)
+                            # a sheltered stem isn't made to thicken: the share goes with how exposed the crown is, by the mean light on its leaves
+                            used = share_stem * self._unspent * (lit ** float(power) if power else 1.0)
                             ring_out = parts(lo)[1].copy()
                             ring_out[stem] += w * used * unit / spread
                             self._unspent -= used

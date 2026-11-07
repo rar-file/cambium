@@ -1650,6 +1650,8 @@ crown_frame:
   crown_lai_max: 7.0
   # TUNED, against the open-grown band in reference.dbh: the share of what a full crown can't use that goes on the stem; the rest is lost.
   surplus_to_stem: 0.1
+  # TUNED, against stem size in stands and in the open: that share goes with the mean light on the crown's leaves, to this power.  null: not at all.
+  surplus_exposure_power: null
   # TUNED, against crown ratio and stem wood: one bud in this many, on limbs and finer, can start a long shoot; the rest stay short shoots.
   # 13 gave crown ratio 0.48, 0.45 at 50, 60; 7 gave 0.60, 0.59 with stem wood 10-14 % under Repola; 10 gives 0.56, 0.52, 3-8 % under.  Lintunen 2013
   # Fig. 6C (model output) has 2-4 long shoots per second-order branch.  Even values make all of them fall on one side of a two-ranked shoot.  null: all.
