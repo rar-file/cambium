@@ -259,6 +259,7 @@ def one(seed: int, sets: list, out: Path, years: int, stand: bool = True) -> int
     import numpy as np
 
     import cli
+    import root_measure
     from treegen import checkpoint, export
     from treegen.environment import make_environment, make_soil
     from treegen.growth import GrowthModel
@@ -271,6 +272,7 @@ def one(seed: int, sets: list, out: Path, years: int, stand: bool = True) -> int
     model = GrowthModel(sp, make_environment(env_p), seed, stand=stand, soil=make_soil(env_p), lean=True)
     yearly, snaps = [], []
     for year in range(1, years + 1):
+        root_wood_before = root_measure.wood_kg(model) if model.roots is not None else 0.0
         model.step()
         T = model.tree
         new = np.nonzero(T.birth[:T.n] == year)[0]     # by birth, not by count: speed.drop_dead renumbers nodes
@@ -284,8 +286,12 @@ def one(seed: int, sets: list, out: Path, years: int, stand: bool = True) -> int
                        "store": float(getattr(model, "_carbon_store", 0.0)),
                        "stomata_leader": float(getattr(model, "_leader_phi", float("nan"))),
                        "driver": getattr(model, "_driver_log", None)})
+        if model.roots is not None:
+            yearly[-1]["root_ledger"] = root_measure.ledger_year(model, year, root_wood_before)
         if year % SNAPSHOT_EVERY == 0:
             snaps.append(snapshot(model, year))
+            if model.roots is not None:
+                snaps[-1]["root_arch"] = root_measure.architecture(model)
     out.mkdir(parents=True, exist_ok=True)
     (out / "tree.json").write_text(json.dumps({"yearly": yearly, "snapshots": snaps, "shed": shed_events(model)}), encoding="utf-8")
     meta = {"species": sp.species.scientific_name, "species_file": species, "environment": environment, "mode": "stand", "seed": seed,
