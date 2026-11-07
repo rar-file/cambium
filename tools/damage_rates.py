@@ -100,6 +100,17 @@ def main(argv=None) -> int:
         print(f"| {lo}-{hi} | {len(ys)} | {len(sev)} | {np.mean([y['snow_at_risk'] for y in ys]):.0f} | {share(ys, failed):.1f} | {share(sev, failed):.1f} | "
               f"{share(ys, bent):.1f} | {share(sev, bent):.1f} | {share(ys, fatal):.1f} | {share(ys, tops):.1f} |")
 
+    print("\nStorms that took anything, and the gap fraction the year before, the year after and three years after:\n")
+    print("| Plot | Year | Trees at risk | Hits | Fatal | Gap before | Gap after | Gap 3 years on |")
+    print("|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|")
+    for name, doc in plots:
+        gap = {s["year"]: s.get("gap_fraction") for s in doc.get("stats", [])}
+        for y in doc["damage_log"]["years"]:
+            hits = [e for e in doc["damage_log"]["events"] if e["year"] == y["year"] and e["cause"].startswith("wind")]
+            if hits:
+                print(f"| {name} | {y['year']} | {y['wind_at_risk']} | {len(hits)} | {sum(e['fatal'] for e in hits)} | "
+                      f"{gap.get(y['year'] - 1)} | {gap.get(y['year'] + 1)} | {gap.get(y['year'] + 3)} |")
+
     worst = sorted(years, key=lambda y: -y["fatal"])[:8]
     print("\nThe worst years:\n")
     print("| Plot | Year | Storm | Snow kg/m2 | Trees | Events | Fatal | Share dead |")

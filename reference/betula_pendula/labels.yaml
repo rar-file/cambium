@@ -318,10 +318,10 @@ damage.wind.site_effect: {status: sourced, value: 0.0, source: 'Kitenberga et al
 damage.wind.prior_damage: {status: sourced, value: 1.46, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1', checked: page}
 damage.wind.period_years: {status: sourced, value: 5, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 p. 3: five-year remeasurement', checked: page}
 damage.wind.population_offset: {status: TUNED, value: 1.23, against: '2.9-3.4 % of all birches damaged per 5-year period (Kitenberga 2021 p. 6); her fixed effects alone give 0.9 % on the mean tree and soil mix. On plots from 16,000 stems/ha: see reports of node_dmg_* runs'}
-damage.wind.storm_return_years: {status: TUNED, value: 15, against: 'no target: a storm year in fifteen, so that trees go in groups; the damage per year doesn''t change with it'}
-damage.wind.gap_radius_m: {status: TUNED, value: 6.0, against: 'no target: visible gaps in a 1000 m2 plot; the damage doesn''t change with it'}
-damage.wind.gap_area_share: {status: TUNED, value: 0.1, against: 'no target: visible gaps in a 1000 m2 plot; the damage doesn''t change with it'}
-damage.wind.gap_damage_share: {status: TUNED, value: 0.8, against: 'no target: visible gaps in a 1000 m2 plot; the damage doesn''t change with it'}
+damage.wind.storm_return_years: {status: TUNED, value: 20, against: 'no target: a storm year in twenty, so that trees go in groups; the damage per year doesn''t change with it'}
+damage.wind.gap_radius_m: {status: TUNED, value: 7.0, against: 'a gap that shows in a 1000 m2 plot: gap fraction 0.04 after a storm that took 10 of 75 trees (node_dmg_fix4); the damage doesn''t change with it'}
+damage.wind.gap_area_share: {status: TUNED, value: 0.15, against: 'a gap that shows in a 1000 m2 plot: gap fraction 0.04 after a storm that took 10 of 75 trees (node_dmg_fix4); the damage doesn''t change with it'}
+damage.wind.gap_damage_share: {status: TUNED, value: 0.9, against: 'a gap that shows in a 1000 m2 plot: gap fraction 0.04 after a storm that took 10 of 75 trees (node_dmg_fix4); the damage doesn''t change with it'}
 damage.wind.canopy_height_share: {status: TUNED, value: 0.5, against: 'no target: who counts in her ''overstory''; her densities run to 11,520 stems/ha, so small trees do, and seedlings shouldn''t'}
 damage.wind.wind_from_deg: {status: TUNED, value: 240.0, against: 'no target, looks only'}
 damage.wind.wind_from_sd_deg: {status: TUNED, value: 40.0, against: 'no target, looks only'}

@@ -907,15 +907,15 @@ damage:
     # fixed effects give about 0.9 % on the mean tree and soil mix, because the
     # plot's and tree's random effects carry the rest.  logit(3.15 %) - logit(0.94 %).
     population_offset: 1.23
-    # TUNED, no target: a storm year in fifteen, all the period's damage in it, so
+    # TUNED, no target: a storm year in twenty, all the period's damage in it, so
     # trees go in groups in the same direction instead of one by one.
-    storm_return_years: 15
-    # TUNED, no target: most of a storm's damage falls in round patches, so it opens
-    # gaps: patches of this radius (m), on this share of the ground, taking this share
-    # of the damage.  What a stand loses doesn't change with these.
-    gap_radius_m: 6.0
-    gap_area_share: 0.1
-    gap_damage_share: 0.8
+    storm_return_years: 20
+    # TUNED against a gap that shows: most of a storm's damage falls in round patches:
+    # patches of this radius (m), on this share of the ground, taking this share of
+    # the damage.  What a stand loses doesn't change with these.
+    gap_radius_m: 7.0
+    gap_area_share: 0.15
+    gap_damage_share: 0.9
     # TUNED, no target: who counts in stems/ha and basal area, her 'overstory': trees
     # at least this share of the tallest tree's height.
     canopy_height_share: 0.5

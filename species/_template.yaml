@@ -411,13 +411,13 @@ damage:
     # brings the mean tree to the observed damage; -10 to 10 logit
     population_offset: 1.23
     # years between storms; 1 to 1000 years
-    storm_return_years: 15
+    storm_return_years: 20
     # a storm's patches: radius; 0.5 to 500 m
-    gap_radius_m: 6.0
+    gap_radius_m: 7.0
     # share of the ground in patches; 0 to 1
-    gap_area_share: 0.1
+    gap_area_share: 0.15
     # share of a storm's damage in them; 0 to 1
-    gap_damage_share: 0.8
+    gap_damage_share: 0.9
     # the canopy layer: at least this share of the tallest tree's height; 0 to 1
     canopy_height_share: 0.5
     # where storms come from; 0 to 360 deg

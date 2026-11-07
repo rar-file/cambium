@@ -473,7 +473,7 @@ def test_a_storm_falls_in_patches_and_takes_what_it_would_have_taken(sp):
         values = np.array([out[k] for k in trees])
         assert values.mean() == pytest.approx(1.0)                    # the stand's damage is unchanged
         high = values > 1.0
-        assert 0.8 == pytest.approx(values[high].sum() / values.sum())    # most of it in the patch
+        assert sp.damage.wind.gap_damage_share == pytest.approx(values[high].sum() / values.sum())    # most of it in the patch
         assert values[high].min() > 5.0 * values[~high].max()
         # the patch is where it says, across the plot's repeat
         lx = math.sqrt(p.area)
