@@ -321,6 +321,8 @@ geometry:
   root_collar_height_coef: [0.4862, 0.4979]
   # radius gain at the ground, bell shape; 0 to 10
   root_flare_extra: 0.35
+  # only roots this share of the thickest's radius raise a ridge, and ridges don't pile up; 0 = all, added up
+  root_flare_min_share: 0.0
   # its decay height; 0.01 to 20 m
   root_flare_height: 0.45
   # junction fillet, per child radius; 0 to 10
@@ -671,6 +673,36 @@ roots:
   max_turn_deg_per_segment: 30
   # the taproot decays below the deepest main lateral
   trim_taproot: true
+  # roots.paid: root wood and fine roots cost carbon, off by default; these are birch's values, each with its source there
+  paid:
+    enabled: false
+    # stump diameter from stem diameter over bark, cm: intercept 0 to 50; per DBH 0.5 to 3
+    stump_d_intercept_cm: 2.0
+    stump_d_per_dbh: 1.25
+    # roots' squared base diameters over the stump's; 0.1 to 5
+    rel_sum_d2: 1.16
+    # the stump below ground: its cross-section x (1 - (depth / taproot_max_depth) ^ this); 0.5 to 50
+    stump_fill_power: 8.0
+    # beyond the rapid taper: diameter (cm) = this x (root length beyond, m) ^ exponent
+    far_d_cm_per_m: 0.35
+    far_d_exponent: 0.564
+    # a collar root's pull in the split goes as its size to this power; 0 to 1
+    collar_evenness: 0.9
+    # near-collar widening fades over this, per stump diameter; 0.01 to 50
+    fade_per_stump_d: 1.3
+    # root density with bark, kg/m3; 100 to 1200
+    wood_density_kg_m3: 410.0
+    # fine roots made per fine root standing, per year; 0 to 10
+    fine_root_turnover_per_year: 0.66
+    # spacing of the collar's nodes, m
+    collar_node_m: 0.01
+    # stump girth per root at the collar, m
+    collar_spacing_m: 0.035
+    # a collar primordium lasts this long unused, years
+    collar_primordium_lifespan: 200
+    # angle from the taproot at which a collar root leaves it, deg: at the top and at the bottom
+    collar_angle_top_deg: 85.0
+    collar_angle_bottom_deg: 55.0
 
 anchorage:
   # a main root counts up to where it thins below this; 0.001 to 1 m

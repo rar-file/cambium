@@ -207,11 +207,37 @@ def _face_subset(md: meshlib.MeshData, mask: np.ndarray) -> meshlib.MeshData | N
     return meshlib.MeshData(md.vertices[used], remap[f], md.normals[used], {k: v[used] for k, v in md.attributes.items()})
 
 
+def _paid(model) -> bool:
+    return bool(getattr(getattr(model.sp.roots, "paid", None), "enabled", False))
+
+
+def collar_radius(model, age: int) -> float:
+    """The radius the foot's rules go by.  With roots.paid the root collar is the real stump, wider than the stem
+    at z = 0 as the stem's own butt swell isn't in its wood radius: the stem's is what the look was tuned on."""
+    if _paid(model):
+        return float(np.asarray(model.radius_history[age], float)[0])
+    return float(np.asarray(model.roots.radius_history[age], float).max())
+
+
+def foot_settings(model, cfg: dict) -> dict:
+    """The roots' look, with what roots.paid changes: only its thick roots show, they sink slowly along their
+    length, and a root never comes back up once it's going under."""
+    if not _paid(model):
+        return cfg
+    out = dict(cfg)
+    out["surface_min_radius_share"] = cfg["paid_surface_min_radius_share"]
+    out["sink_length_radii"] = cfg["paid_sink_length_radii"]
+    out["bury_per_sink_length"] = cfg["paid_bury_per_sink_length"]
+    out["ground_line_radii"] = cfg["paid_ground_line_radii"]
+    out["never_rises"] = True
+    return out
+
+
 def ground_line(model, age: int, cfg: dict) -> float:
     """Where the game's ground should meet the tree, in the model's frame: below its z = 0 by a share of
     the root collar's radius, so the model's own thick roots break it.  Its z = 0 itself has almost none
     above it (``root_table``)."""
-    collar = float(np.asarray(model.roots.radius_history[age], float).max())
+    collar = collar_radius(model, age)
     return -min(float(cfg["ground_line_max_m"]), float(cfg["ground_line_radii"]) * collar)
 
 
@@ -229,7 +255,7 @@ def sink_roots(md: meshlib.MeshData | None, line: float, centre: np.ndarray, foo
         return md
     # one entry per ring: its centre and its radius
     ring = np.stack([md.attributes["axis_id"][root].astype(np.int64), np.round(md.attributes["ring_along"][root] * 1.0e5).astype(np.int64)], 1)
-    _, inv = np.unique(ring, axis=0, return_inverse=True)
+    rings, inv = np.unique(ring, axis=0, return_inverse=True)
     inv = np.ravel(inv)
     count = np.bincount(inv).astype(float)
     centre_of = lambda values: np.bincount(inv, values) / count  # noqa: E731
@@ -242,8 +268,24 @@ def sink_roots(md: meshlib.MeshData | None, line: float, centre: np.ndarray, foo
     thr = max(float(cfg["surface_min_radius_m"]), float(cfg["surface_min_radius_share"]) * collar)
     s = np.clip((rc / thr - 0.5) / 0.5, 0.0, 1.0)
     s = s * s * (3.0 - 2.0 * s)
-    highest = line + s * float(cfg["centre_above_ground_radii"]) * rc - (1.0 - s) * (rc + 0.01)
-    V[root, 2] += (np.minimum(sunk, highest) - zc)[inv]
+    above = float(cfg["centre_above_ground_radii"]) - float(cfg.get("bury_per_sink_length", 0.0)) * np.maximum(rho - foot_r, 0.0) / L
+    highest = line + s * above * rc - (1.0 - s) * (rc + 0.01)
+    placed = np.minimum(sunk, highest)
+    if cfg.get("never_rises"):
+        # rings come out of np.unique by axis, then along it.  A root that shows goes down along its length, none of its
+        # rings higher than the one before; once it's under, it keeps the model's path and stays under
+        first = np.unique(rings[:, 0], return_index=True)[1]
+        ends = np.r_[first[1:], len(placed)]
+        for a, b in zip(first.tolist(), ends.tolist()):
+            if rc[a:b].max() < thr:
+                continue
+            run = np.minimum.accumulate(placed[a:b])
+            under = line - rc[a:b] - 0.02
+            gone = np.nonzero(run < under)[0]
+            i = int(gone[0]) if gone.size else b - a
+            placed[a:a + i] = run[:i]
+            placed[a + i:b] = np.minimum(placed[a + i:b], under[i:])
+    V[root, 2] += (placed - zc)[inv]
     return meshlib.MeshData(V, md.faces, md.normals, md.attributes)
 
 
@@ -411,7 +453,8 @@ def root_radii(look: dict, model, age: int, rad_ob: np.ndarray, skel, is_root: n
     r = out[:n]
     wall = ap.bark_wall_m(look, 2.0 * r, dbh_ob)
     grow = np.clip((r - 0.005) / 0.01, 0.0, 1.0)
-    out[:n] = np.where(root, r + wall * grow, r)
+    # (roots.paid: a root's radius already holds its bark, as its density does)
+    out[:n] = r if _paid(model) else np.where(root, r + wall * grow, r)
     axis0 = np.asarray(skel.axis[:n]) == 0
     stem = np.nonzero(axis0 & ~root)[0]
     if len(stem):
@@ -421,7 +464,11 @@ def root_radii(look: dict, model, age: int, rad_ob: np.ndarray, skel, is_root: n
         # the fade starts below all that can show, or the smoothing along the stem brings it up as a waist
         t = np.clip((line - float(cfg["surface_depth_m"]) - z) / max(fade, 1e-6), 0.0, 1.0)
         want = foot_r + (out[:n] - foot_r) * (t * t * (3.0 - 2.0 * t))
-        out[:n] = np.where(chain, np.maximum(out[:n], want), out[:n])
+        if _paid(model):
+            # the stump's mass stays in the model; what shows is the stem's foot, which swells by its own rule
+            out[:n] = np.where(chain, np.minimum(out[:n], foot_r), out[:n])
+        else:
+            out[:n] = np.where(chain, np.maximum(out[:n], want), out[:n])
     return out
 
 
@@ -887,7 +934,7 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
     part_age = age - np.asarray(skel.birth[:n], float)
     z = np.asarray(skel.pos[:n, 2], float)
     rad_ob = ap.add_bark_radius(look, np.asarray(rad[:n], float).copy(), part_age, z, np.asarray(is_root[:n]), height, dbh_w)
-    root_cfg = u["roots"]
+    root_cfg = foot_settings(model, u["roots"])
     line = ground_line(model, age, root_cfg)
     rad_ob = root_radii(look, model, age, rad_ob, skel, is_root, line, root_cfg, ap.over_bark_dbh_cm(look, dbh_w))
     skel = stem_goes_down(skel, is_root, line, root_cfg)
@@ -910,7 +957,7 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
     settings0 = meshlib.MeshSettings(ring_attributes=True, stem_sides_by_radius=True, sides_allowed=tuple(gfull["sides_allowed"]), stem_edge_by_height=table or (),
                                      stem_along_factor=float(relief_cfg["along_factor"]), stem_rings_under=float(relief_cfg["rings_under_m"]), **clean)
     crown0, roots0 = tree_meshes(skel, np.ones(n, bool), rad_ob, is_root, orig, sp.geometry, settings0)
-    collar = float(np.asarray(model.roots.radius_history[age], float).max())
+    collar = collar_radius(model, age)
     swell = (float(sp.geometry.root_flare_extra) * float(relief_cfg["swell_share"]), float(sp.geometry.root_flare_height))
     stem_r = crown0.attributes["radius"][crown0.attributes["axis_id"] == 0]
     stem_v_low = crown0.vertices[crown0.attributes["axis_id"] == 0]

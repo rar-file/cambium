@@ -33,8 +33,9 @@
 #          L-systems. Plant Biomechanics 2000, 615-624.
 #   [AF09] Almeras T., Fournier M. 2009. Biomechanical design and long-term
 #          stability of trees. J. Theor. Biol. 256:370-381.
-#   [L35]  Laitakari E. 1935. The root system of birch (Betula verrucosa and
-#          odorata). Acta Forestalia Fennica 41.
+#   [L35]  Laitakari E. 1934 (often cited as 1935). The root system of birch
+#          (Betula pubescens and B. verrucosa). Acta Forestalia Fennica 41(2),
+#          doi:10.14214/aff.7315; English part from about p. 158.
 #   [K04]  Koch G.W., Sillett S.C., Jennings G.M., Davis S.D. 2004. The limits
 #          to tree height. Nature 428:851-854.
 #   [P00]  Peltola H., Kellomaki S., Hassinen A., Granander M. 2000. Mechanical
@@ -794,6 +795,9 @@ geometry:
   root_collar_height_coef: [0.4862, 0.4979]
   root_flare_extra: 0.35
   root_flare_height: 0.45
+  # A tree with many roots at its collar (roots.paid): only roots at least this share of the thickest's radius raise a
+  # ridge on the stem, and ridges side by side don't pile up.  0 = every root, added up.  TUNED by eye.
+  root_flare_min_share: 0.0
   # Junction fillet radius as a fraction of the child radius. VERIFY
   junction_blend: 0.6
   # Branch collar: extra radius of a lateral where it leaves its parent and
@@ -1403,6 +1407,54 @@ roots:
   # The seedling taproot decays below the deepest living main lateral once
   # it has stopped [L35]. VERIFY
   trim_taproot: true
+  # Roots that cost carbon, off by default.  With it off, root radii are copied from the stem base for free and
+  # most of the root share is lost.  With it on (RootSystem.update_radii_paid, GrowthModel._pay_roots) the share
+  # pays for fine roots, then root wood, ring by ring each year; what's left is logged as unresolved (woody-root
+  # respiration, exudates, mycorrhiza), and goes to nothing else.  Use it with lateral_setpoint_deg 92 and
+  # lateral_gravitropism_per_m 3.0 above, TUNED against Laitakari 1934 p. 198, horizontal roots a mean 13-15 cm deep,
+  # and with geometry.root_flare_min_share 0.5.
+  paid:
+    enabled: false
+    # Over-bark stump diameter from over-bark DBH: dS = 2 + 1.25 d, cm.  SOURCE: Repola 2008, Silva Fennica 42:605,
+    # below Eq. 15, 127 Finnish birches.  Under 5 cm DBH, where he warns against it, the 2 cm fades (my choice).
+    stump_d_intercept_cm: 2.0
+    stump_d_per_dbh: 1.25
+    # Sum of the roots' squared base diameters over the stump's.  SOURCE: Kalliokoski, Nygren & Sievanen 2008,
+    # Silva Fennica 42:189, Table 3, B. pendula, mean of the five stands: 0.86, 1.02, 0.88 (MT), 1.75 (OMT), 1.29 (VT).
+    rel_sum_d2: 1.16
+    # The stump below ground: the stump's cross-section x (1 - (depth / taproot_max_depth) ^ this).  High is nearly a
+    # cylinder.  TUNED against Repola 2008 Eq. 13, stump 26 kg at 30 cm DBH, 16 cm of it above ground and in the stem here.
+    stump_fill_power: 8.0
+    # Beyond the widening a root's diameter (cm) = far_d_cm_per_m x (root length beyond it, m) ^ far_d_exponent.
+    # Exponent, SOURCE: Kalliokoski Fig. 5C, birch, L = D^1.7734 over all a root's axes, so 1 / 1.7734.
+    # Coefficient, TUNED against Kalliokoski Table 7 at 2-10 m and Varik 2014's 5-10 mm share; Fig. 5C itself is the
+    # whole root at its base, with the widening, and gives 1.0 there.
+    far_d_cm_per_m: 0.35
+    far_d_exponent: 0.564
+    # At the collar a root's pull in the Borchert-Honda split goes as its size to this power, so no root runs away.
+    # TUNED against Laitakari 1934 p. 182: 7-12 dominant roots, thickest 68-87 % of DBH (its widest way);
+    # Kalliokoski Table 3: mean 5.0, SD 2.9 cm at a 30 cm stump.
+    collar_evenness: 0.9
+    # Length over which a root's near-collar widening fades, per stump diameter.  TUNED against Kalliokoski Table 7's
+    # taper on main axes, at 0.5, 1, 2 and 5 m.
+    fade_per_stump_d: 1.3
+    # Root density with bark, kg/m3.  SOURCE: Kalliokoski Table 6, B. pendula, mean of five stands (0.385-0.449).
+    wood_density_kg_m3: 410.0
+    # Fine roots made per year per fine root standing.  SOURCE: Aosaar et al. 2016, Silva Fennica 50(4):1628, Table 4,
+    # age 10, 0.89 over 1.35 Mg/ha.  (Varik 2014's 32-year stand: about 0.6.)
+    fine_root_turnover_per_year: 0.66
+    # Spacing of the taproot's nodes (m), one possible root each.  TUNED: 40 down to taproot_max_depth, more than the
+    # 11-28 roots at the collar in Kalliokoski Table 3, so room round the stump decides how many start, not this.
+    collar_node_m: 0.01
+    # A new root starts at the collar only while there are fewer than the stump's girth over this (m).  TUNED against
+    # Kalliokoski Table 3: 11, 20, 25, 28, 16 roots at stumps of 8.1, 16.1, 30.0, 26.4, 19.1 cm: 2.3-3.8 cm of girth per root.
+    collar_spacing_m: 0.035
+    # A collar root's primordium lasts this long unused (years): roots keep starting as the stump grows.  TUNED.
+    collar_primordium_lifespan: 200
+    # Angle from the taproot's axis at which a collar root leaves it: near level at the top, slanting at the bottom
+    # (deg).  TUNED: Kalliokoski, mean inclination 26 deg, 28 % steeper than 45 deg; Laitakari 1934, p. 202.
+    collar_angle_top_deg: 85.0
+    collar_angle_bottom_deg: 55.0
 
 anchorage:
   # Root-soil plate and root strength for later storm modelling (numbers
@@ -1706,6 +1758,10 @@ appearance:
     game.unreal.roots.surface_min_radius_m: "TUNED: a root never this thick, or surface_min_radius_share of the collar, stays in the below-ground mesh."
     game.unreal.roots.surface_min_radius_share: "TUNED: as above."
     game.unreal.roots.sink_length_radii: "TUNED: by eye. How fast, in collar radii, a root's height goes from where the model has it at the stem to its depth under the ground line; the game's own flare sinks its roots along their 1-2.3 m."
+    game.unreal.roots.paid_surface_min_radius_share: "TUNED: by eye, with roots.paid only. A root shows if its base is at least this share of the stem foot's radius; Laitakari 1934 p. 182 has 7-12 dominant roots, and the game's own flare 5-7."
+    game.unreal.roots.paid_sink_length_radii: "TUNED: by eye, with roots.paid only. As sink_length_radii, for the thick roots' longer run: a look against the game's own flare (its author's estimate from pine and spruce photos, not birch data) and birch-data/summer_reference/Arnhem-Delhuyzen."
+    game.unreal.roots.paid_bury_per_sink_length: "TUNED: by eye, with roots.paid only. A root goes under gradually, not as a rod lying on the soil; no measurement of this was found."
+    game.unreal.roots.paid_ground_line_radii: "TUNED: by eye, with roots.paid only. As ground_line_radii. The thick roots leave the stump 10-25 cm down in the model, so this decides how many of them break the ground."
     game.unreal.roots.centre_above_ground_radii: "TUNED: a thick root mostly buried, a low ridge along the ground: its centre this many of its radii above the ground line, so below it. Compared by eye with birch-data/summer_reference/Arnhem-Delhuyzen and Intertwined_roots photos. The model has no ground level at the collar to read this from."
     game.unreal.roots.moss_side_power: "TUNED: moss on one side of a stem, narrower with this power; seen on birch-data/summer_reference/Hange-Birke (Stamm alter Baum 9992) and reference/gullmarsskogen_stand_5.jpg."
     game.unreal.roots.moss_elsewhere: "TUNED: as above, the share of its reach that moss gets on the other side."
@@ -1877,6 +1933,14 @@ appearance:
         surface_min_radius_share: 0.14
         ground_line_radii: 1.25
         ground_line_max_m: 0.25
+        # With roots.paid.  Thick = this share of the stem's foot radius, and how fast a root sinks, in those radii.
+        # TUNED by eye against birch-data/summer_reference (Arnhem-Delhuyzen) and, as a look only, the game's make_root_flare.py.
+        paid_surface_min_radius_share: 0.25
+        paid_sink_length_radii: 15.0
+        # ... and how much deeper its centre lies, in its own radii, at each such length out from the stem.
+        paid_bury_per_sink_length: 1.0
+        # ... and the ground line, in the stem foot's radii: low enough for the thick roots' tops, 10-25 cm down in the model.
+        paid_ground_line_radii: 1.75
         foot_fade_m: 0.15
         soil_tint: [0.72, 0.66, 0.58]
         sink_length_radii: 2.0

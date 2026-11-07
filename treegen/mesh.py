@@ -379,10 +379,15 @@ def _buttresses(T, radius: np.ndarray, sel_all: np.ndarray, geometry):
     if r.max() <= 0.0:
         return None
     depth = -T.pos[T.parent[roots], 2].astype(float)
+    keep_share = float(getattr(geometry, "root_flare_min_share", 0.0) or 0.0)
+    if keep_share > 0.0:
+        # a tree with many roots at its collar: only the thick ones raise a ridge
+        big = r >= keep_share * r.max()
+        az, r, depth = az[big], r[big], depth[big]
     return az, r, depth, h_collar * r / r.max(), h_collar
 
 
-def _buttress_offset(theta: np.ndarray, z: np.ndarray, r_stem: np.ndarray, bt, hold: float = 0.0) -> np.ndarray:
+def _buttress_offset(theta: np.ndarray, z: np.ndarray, r_stem: np.ndarray, bt, hold: float = 0.0, no_stack: bool = False) -> np.ndarray:
     """Radial offset of stem-surface points at azimuth ``theta`` and height
     ``z`` (ring radius ``r_stem``) from the root ridges ``bt`` (_buttresses).
     ``hold``: no ridge starts to fade above this depth."""
@@ -391,11 +396,18 @@ def _buttress_offset(theta: np.ndarray, z: np.ndarray, r_stem: np.ndarray, bt, h
     for a, r, dp, h in zip(az, rr, depth, hh):
         dth = (theta - a + np.pi) % (2.0 * np.pi) - np.pi
         sig = np.maximum(r / np.maximum(r_stem, 1e-6), 1e-3)
+        if no_stack:
+            sig = 0.7 * sig     # narrower: side by side they stay ridges
+            h = max(h, 3.0 * r)     # and no ledge on a young stem, whose collar height is small and whose thickest root isn't
         across = np.exp(-0.5 * (dth / sig) ** 2)
         up = np.clip(z / max(h, 1e-6), 0.0, 1.0)
         down = np.clip((-z - max(dp, hold)) / max(r, 1e-6), 0.0, 1.0)
         along = np.where(z >= 0.0, 1.0 - up * up * (3.0 - 2.0 * up), 1.0 - down * down * (3.0 - 2.0 * down))
-        out += r * across * along
+        if no_stack:
+            # ridges side by side don't pile up on each other, and none stands out more than a third of the stem's radius
+            out = np.maximum(out, np.minimum(r, 0.35 * np.maximum(r_stem, 1e-6)) * across * along)
+        else:
+            out += r * across * along
     return out
 
 
@@ -762,7 +774,8 @@ def build_mesh(tree, select: np.ndarray, radius: np.ndarray, geometry, settings:
         zone = trunk[vr] & (X[vr, 2] < bt[4]) & (X[vr, 2] > -float(np.max(np.maximum(bt[2], s.buttress_hold_m) + bt[1])))
         if zone.any():
             vz = np.nonzero(zone)[0]
-            off = _buttress_offset(np.arctan2(radial[vz, 1], radial[vz, 0]), X[vr[vz], 2], R[vr[vz]], bt, s.buttress_hold_m)
+            off = _buttress_offset(np.arctan2(radial[vz, 1], radial[vz, 0]), X[vr[vz], 2], R[vr[vz]], bt, s.buttress_hold_m,
+                                   bool(getattr(geometry, "root_flare_min_share", 0.0)))
             V[vz] += off[:, None] * radial[vz]
 
     # --- faces between consecutive rings ---------------------------------
