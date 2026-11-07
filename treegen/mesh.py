@@ -396,6 +396,8 @@ def _buttress_offset(theta: np.ndarray, z: np.ndarray, r_stem: np.ndarray, bt, h
     for a, r, dp, h in zip(az, rr, depth, hh):
         dth = (theta - a + np.pi) % (2.0 * np.pi) - np.pi
         sig = np.maximum(r / np.maximum(r_stem, 1e-6), 1e-3)
+        if no_stack:
+            sig = 0.7 * sig     # narrower: side by side they stay ridges
         across = np.exp(-0.5 * (dth / sig) ** 2)
         up = np.clip(z / max(h, 1e-6), 0.0, 1.0)
         down = np.clip((-z - max(dp, hold)) / max(r, 1e-6), 0.0, 1.0)

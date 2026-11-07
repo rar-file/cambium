@@ -704,7 +704,7 @@ class RootSystem:
         near the collar each root is widened by the same factor, so that the roots leaving the collar sum to
         rel_sum_d2 x the stump's cross-section [Table 3]; that widening fades along each root over a length that
         goes with the stump's diameter [taper, Table 7].  The stump itself is the taproot's top, carrying the
-        sum of the roots still below it, and at least a cone down to where the taproot stops.
+        sum of the roots still below it, and at least a solid of the stump's diameter down to where the taproot stops.
 
         Radii only grow: the year's rings are that target less what's there.  They cost their volume at the
         roots' density, out of ``gain_units``, the carbon left for root wood.  New roots' own wood is paid
@@ -741,9 +741,10 @@ class RootSystem:
         np.add.at(here, T.parent[:n][first], want[first])
         here = np.where(tips & on_collar, a_tip, here)
         carried = T.basipetal(levels, here)
-        # ... and is a stump between their bases, however early they leave it: a cone down to where the taproot stops
-        cone = area_stump * np.clip(1.0 + T.pos[:n, 2] / max(float(p.taproot_max_depth), 1e-6), 0.0, 1.0)
-        want = np.where(on_collar, np.maximum(carried, cone), want)
+        # ... and is a stump between their bases, however early they leave it, down to where the taproot stops
+        below = np.clip(-T.pos[:n, 2] / max(float(p.taproot_max_depth), 1e-6), 0.0, 1.0)
+        block = math.pi / 4.0 * stump_d_m * stump_d_m * (1.0 - below ** float(cfg.stump_fill_power))
+        want = np.where(on_collar, np.maximum(carried, block), want)
         old = np.where(alive, T.radius[:n], 0.0)
         area_old = math.pi * old * old
         new_root = alive & (old <= 0.0)

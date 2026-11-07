@@ -101,3 +101,21 @@ def test_no_carbon_no_rings():
     assert R.carbon_log["rings_wanted"] > 0.0
     alive = T.death[: T.n] < 0
     assert np.allclose(T.radius[: T.n][alive], before[alive])
+
+
+def test_anchorage_and_the_root_plate_still_read_the_roots():
+    from treegen import damage
+
+    model = _model(True)
+    for _ in range(25):
+        model.step()
+    a = damage.anchorage_of(model)
+    assert a["plate_radius_m"] > 0.0 and a["plate_depth_m"] > 0.0
+    assert len(a["main_roots"]) >= 3
+    assert a["overturning_resistance_mean_knm"] > 0.0
+    state = damage.state_from_model(model)
+    state.anchorage = a
+    assert damage.uprooting_moment_knm(state, 90.0, model.sp) > 0.0
+    plate = damage.root_plate(state, 90.0, model.sp)
+    assert plate["plate_radius_m"] == round(a["plate_radius_m"], 3)
+    assert plate["plate_depth_m"] == round(a["plate_depth_m"], 3)

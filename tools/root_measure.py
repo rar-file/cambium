@@ -4,6 +4,7 @@
     python tools/root_measure.py mass X [Y ...]      # root wood by size against Repola 2008, Petersson & Stahl 2006, Varik 2014
     python tools/root_measure.py form X [Y ...]      # number, thickness, taper and reach of the proximal roots against Kalliokoski 2008
     python tools/root_measure.py anchor X [Y ...]    # root plate and critical turning moment at each age
+    python tools/root_measure.py split X [Y ...]     # the year's production by organ against Aosaar 2016 and Varik 2014
 
 Each reads what tools/tree_table.py wrote in out/bench/ensemble/<label>.  tree_table.py calls ``ledger_year`` every year and
 ``architecture`` at its snapshots.
@@ -14,7 +15,9 @@ Sources for the comparison columns:
   Petersson & Stahl 2006, Scand. J. For. Res. 21(S7):84, as written in the game's trees.json (growth.roots_petersson_stahl).  NOT READ AT
     SOURCE: the publisher's paywalled.  Roots of 5 mm and up with the stump.
   Kalliokoski, Nygren & Sievanen 2008, Silva Fennica 42(2):189, Tables 3, 4, 6, 7, 8: 20 excavated silver birch, S Finland.
-  Varik 2014 (PhD thesis, Estonian University of Life Sciences), section 5.4.1: 32-year stand, one excavated tree.
+  Varik 2014 (PhD thesis, Estonian University of Life Sciences), section 5.4.1: 32-year stand, one excavated tree;
+    Table 6: carbon fluxes at 13, 32 and 45 years.  Coarse roots there follow from his 21 %, not measured each year.
+  Aosaar et al. 2016, Silva Fennica 50(4):1628, Table 4: production at age 10; coarse roots assumed from the same 21 %.
 """
 from __future__ import annotations
 
@@ -152,7 +155,7 @@ def architecture(model) -> dict:
         horiz = float(np.hypot(*(R.pos[c[-1], :2] - p0[:2])))
         mid = R.pos[c[np.searchsorted(along, min(1.0, along[-1]), side="left").clip(0, len(c) - 1)]]
         rows.append({"d_cm": 200.0 * float(r[s]), "depth_m": float(-p0[2]), "length_m": float(along[-1] + 0.5 * L[c[-1]]), "reach_m": horiz,
-                     "r": [at(x) for x in (0.25, 0.5, 1.0, 2.0, 5.0)], "depth_at_1m": float(-mid[2]),
+                     "r": [at(x) for x in (0.25, 0.5, 1.0, 2.0, 5.0)], "r3": at(3.0), "depth_at_1m": float(-mid[2]),
                      "tips": float(Rs.P[s]) if len(Rs.P) > s else 0.0,
                      "tips_at": [float(np.interp(x, along, Rs.P[c], right=0.0)) if len(Rs.P) >= n else 0.0 for x in (1.0, 2.0, 5.0)],
                      "depth_at": [float(np.interp(x, along, -R.pos[c, 2], right=float("nan"))) for x in (0.5, 1.0, 2.0, 3.0, 5.0)],
@@ -197,39 +200,58 @@ def _mean(xs):
     return statistics.fmean(xs) if xs else float("nan")
 
 
+WINDOWS = ((1, 5), (6, 10), (11, 14), (15, 29), (30, 44), (45, 50), (51, 60))
+
+
+def _unspent_kg(r: dict, y: int) -> float:
+    """What the shoot side threw away that year (treegen.growth._unspent), kg of dry matter."""
+    led = r["new"][y].get("root_ledger") or {}
+    drv = r["new"][y].get("driver") or {}
+    fixed_units = float((r["per_year"][y].get("carbon") or {}).get("fixed", 0.0))
+    return float(drv.get("unspent", 0.0)) / fixed_units * float(led.get("fixed_kg", 0.0)) if fixed_units > 0.0 else 0.0
+
+
 def ledger(labels: list) -> None:
-    print("Where the root share goes, kg of dry matter a year, mean over seeds.  `Built` is the wood the roots gained that year.")
-    print("| Set | Ages | Seeds | Fixed | Root share | Fine-root upkeep | Growth respiration | Budget for building | Paid for new length | Budget not used | Wood gained | Fine-root stock | Share of the root carbon that became wood |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    print("Where the root share goes, kg of dry matter a year, mean over seeds and years.  On plain settings carbon in `Budget not used`, and `Paid for new length` above the wood gained, goes nowhere.")
+    print("| Set | Ages | Seeds | Fixed | Root share | Share of fixed | Fine-root upkeep | Growth respiration | Budget for building | Paid for new length | Budget not used | Wood gained | Fine-root stock | Share of the root carbon that became wood | Root carbon gone, % of fixed | Shoot carbon not used, % of fixed |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for label in labels:
         runs = _load(label)
-        for lo, hi in ((1, 5), (6, 14), (15, 29), (30, 44), (45, 50), (51, 60)):
+        for lo, hi in WINDOWS:
             rows = [(r["new"][y].get("root_ledger") or {}) for r in runs.values() for y in range(lo, hi + 1) if y in r["new"]]
             rows = [x for x in rows if x]
             if not rows:
                 continue
             m = lambda k: _mean(x.get(k, 0.0) for x in rows)
-            print(f"| `{label}` | {lo}-{hi} | {len(runs)} | {m('fixed_kg'):.1f} | {m('root_share_kg'):.2f} | {m('fine_maint_kg'):.2f} | {m('growth_resp_kg'):.2f} | {m('budget_kg'):.2f} | "
-                  f"{m('paid_for_length_kg'):.2f} | {m('budget_kg') - m('paid_for_length_kg'):.2f} | {m('wood_gain_kg'):.3f} | {m('fine_kg'):.2f} | {100.0 * m('wood_gain_kg') / max(m('root_share_kg'), 1e-9):.1f} % |")
+            gone = m("budget_kg") - m("wood_gain_kg")
+            unspent = _mean(_unspent_kg(r, y) for r in runs.values() for y in range(lo, hi + 1) if y in r["new"])
+            print(f"| `{label}` | {lo}-{hi} | {len(runs)} | {m('fixed_kg'):.1f} | {m('root_share_kg'):.2f} | {100.0 * m('root_share_kg') / max(m('fixed_kg'), 1e-9):.1f} % | {m('fine_maint_kg'):.2f} | {m('growth_resp_kg'):.2f} | {m('budget_kg'):.2f} | "
+                  f"{m('paid_for_length_kg'):.2f} | {m('budget_kg') - m('paid_for_length_kg'):.2f} | {m('wood_gain_kg'):.3f} | {m('fine_kg'):.2f} | {100.0 * m('wood_gain_kg') / max(m('root_share_kg'), 1e-9):.1f} % | {100.0 * gone / max(m('fixed_kg'), 1e-9):.1f} | {100.0 * unspent / max(m('fixed_kg'), 1e-9):.1f} |")
     # the paid ledger, when the carbon roots are on
     for label in labels:
         runs = _load(label)
-        keys = sorted({k for r in runs.values() for y in r["new"].values() for k in (y.get("root_ledger") or {}).get("paid", {})})
-        if not keys:
+        keys = ("fine_upkeep", "fine_build", "new_root_wood", "rings", "wood_respiration", "rest")
+        if not any("paid" in (y.get("root_ledger") or {}) for r in runs.values() for y in r["new"].values()):
             continue
-        print(f"\nWhat `{label}` paid for, kg a year")
-        print("| Ages | " + " | ".join(keys) + " |")
-        print("|---|" + "---|" * len(keys))
-        for lo, hi in ((1, 5), (6, 14), (15, 29), (30, 44), (45, 50), (51, 60)):
-            rows = [r["new"][y]["root_ledger"].get("paid", {}) for r in runs.values() for y in range(lo, hi + 1) if y in r["new"] and r["new"][y].get("root_ledger")]
-            print(f"| {lo}-{hi} | " + " | ".join(f"{_mean(x.get(k, 0.0) for x in rows):.2f}" for k in keys) + " |")
+        print(f"\nWhat `{label}` paid for, kg a year, and where the carbon use efficiency goes when the unresolved rest isn't counted as growth.  Varik Table 6: soil autotrophic respiration 3.2-5.5 t C/ha/yr, understorey included.")
+        print("| Ages | Seeds | Root share | Fine-root upkeep | Fine roots built | New root wood | Rings | Wood's growth respiration | Unresolved rest | Rest, % of fixed | Rings wanted, share got | Model's CUE | Without the rest |")
+        print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+        for lo, hi in WINDOWS:
+            rows = [(r["new"][y]["root_ledger"], r["per_year"][y]) for r in runs.values() for y in range(lo, hi + 1) if y in r["new"] and r["new"][y].get("root_ledger", {}).get("paid")]
+            if not rows:
+                continue
+            p = lambda k: _mean(x[0]["paid"].get(k, 0.0) for x in rows)
+            fixed = _mean(x[0]["fixed_kg"] for x in rows)
+            cue = _mean(float((x[1].get("carbon") or {}).get("cue", 0.0)) * x[0]["fixed_kg"] for x in rows) / max(fixed, 1e-9)
+            print(f"| {lo}-{hi} | {len(runs)} | {_mean(x[0]['root_share_kg'] for x in rows):.2f} | " + " | ".join(f"{p(k):.2f}" for k in keys) + f" | {100.0 * p('rest') / max(fixed, 1e-9):.1f} | {p('rings') / max(p('rings_wanted'), 1e-9):.2f} | {cue:.3f} | {cue - p('rest') / 1.25 / max(fixed, 1e-9):.3f} |")
 
 
 def mass(labels: list) -> None:
     print("Root wood against published equations at each tree's own stem diameter and height.  Means over seeds.")
     print("Model mass: volume x the roots' density.  Stem wood from tools/tree_table.py.  Repola's stump is above- and below-ground, 16 cm high on average; Petersson as in trees.json, not read at source.")
-    print("| Set | Age | Seeds | Root wood, all (kg) | Over 5 mm (kg) | Over 1 cm (kg) | Repola stump + over 1 cm (kg) | Petersson over 5 mm + stump (kg) | Model over 5 mm / Petersson | Stem wood (kg) | Root / stem | Root length (m) |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|---|")
+    print("Varik: 21 % of above-ground wood, from one 32-year tree, here on the model's wood without its bark.  Kalliokoski Fig. 5: M = 0.0421 D2 kg and L = D^1.7734 m for each of the model's own roots, without the stump.")
+    print("| Set | Age | Seeds | Root wood, all (kg) | Of it the stump below ground (kg) | Over 5 mm (kg) | Over 1 cm (kg) | Repola stump + over 1 cm (kg) | Petersson over 5 mm + stump (kg) | Varik (kg) | Kalliokoski roots alone (kg) | All / Repola | Stem wood (kg) | Root / stem | Repola / stem | Root length (m) | Kalliokoski's length (m) |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for label in labels:
         runs = _load(label)
         for age in AGES:
@@ -243,12 +265,14 @@ def mass(labels: list) -> None:
                 dbh = (py.get("dbh_cm") or 0.0) * OVER_BARK
                 h = py["height_m"]
                 rep = repola_below(dbh, h)
+                prox = a["proximal"]
                 rows.append({"all": a["total_kg"], "ge5": a["mass_kg"]["5_10"] + a["mass_kg"]["10_50"] + a["mass_kg"]["ge50"], "ge10": a["mass_kg"]["10_50"] + a["mass_kg"]["ge50"],
-                             "rep": rep["stump"] + rep["roots"], "pet": petersson_below(dbh), "stem": s["stem_kg"], "len": a["total_m"]})
+                             "rep": rep["stump"] + rep["roots"], "pet": petersson_below(dbh), "stem": s["stem_kg"], "len": a["total_m"], "var": 0.21 * (s["stem_kg"] + s["branch_kg"]),
+                             "k08": 0.0421 * sum(p["d_cm"] ** 2 for p in prox), "k08_len": sum(p["d_cm"] ** 1.7734 for p in prox), "stump": a.get("stump_kg", 0.0)})
             if not rows:
                 continue
             m = lambda k: _mean(x[k] for x in rows)
-            print(f"| `{label}` | {age} | {len(rows)} | {m('all'):.1f} | {m('ge5'):.1f} | {m('ge10'):.1f} | {m('rep'):.1f} | {m('pet'):.1f} | {_mean(x['ge5'] / x['pet'] for x in rows):.2f} | {m('stem'):.0f} | {_mean(x['all'] / x['stem'] for x in rows):.3f} | {m('len'):.0f} |")
+            print(f"| `{label}` | {age} | {len(rows)} | {m('all'):.1f} | {m('stump'):.1f} | {m('ge5'):.1f} | {m('ge10'):.1f} | {m('rep'):.1f} | {m('pet'):.1f} | {m('var'):.1f} | {m('k08'):.1f} | {_mean(x['all'] / x['rep'] for x in rows):.2f} | {m('stem'):.0f} | {_mean(x['all'] / x['stem'] for x in rows):.3f} | {_mean(x['rep'] / x['stem'] for x in rows):.3f} | {m('len'):.0f} | {m('k08_len'):.0f} |")
     print("\nShare of the coarse-root mass by size (Varik 2014, 32-year stand, one tree: stump 35 %, over 10 mm 41 %, 5-10 mm 9 %, 2-5 mm 9 %; without the stump 63, 14, 14 %)")
     print("| Set | Age | Seeds | Under 2 mm | 2-5 mm | 5-10 mm | 10-50 mm | Over 50 mm |")
     print("|---|---|---|---|---|---|---|---|")
@@ -293,6 +317,43 @@ def form(labels: list) -> None:
                         ratios.append([200.0 * x / p["d_cm"] for x in p["r"]])
             if ratios:
                 print(f"| `{label}` | {age} | {len({*runs})} | " + " | ".join(f"{_mean(x[i] for x in ratios):.2f}" for i in range(5)) + " |")
+    print("\nThickest diameter of any root at 3 m (cm).  Laitakari 1934 p. 186: none fully 5 cm across its widest way, even on large trees.")
+    print("| Set | Age | Seeds | Mean of the seeds' thickest | Largest seed |")
+    print("|---|---|---|---|---|")
+    for label in labels:
+        runs = _load(label)
+        for age in (50, 60):
+            tops = [max((200.0 * p.get("r3", 0.0) for p in r["snap"][age]["root_arch"]["proximal"]), default=0.0) for r in runs.values() if age in r["snap"] and "root_arch" in r["snap"][age]]
+            if tops:
+                print(f"| `{label}` | {age} | {len(tops)} | {_mean(tops):.1f} | {max(tops):.1f} |")
+
+
+def split(labels: list) -> None:
+    print("Production a year over the five years to each age, kg of dry matter, as share of the tree's total: stem and branch wood kept (shed wood not counted), leaves made, root wood kept, fine roots made.")
+    print("Published shares of tree production: Aosaar 2016 age 10: stem wood 49.5, bark 4.3, twigs and branches 6.7, leaves 21.6, stump and coarse roots 11.0, fine roots 6.8 %.  Varik 2014 Table 6, by carbon, at 13, 32, 45 years: leafless above ground 58, 56, 61; leaf litter 23, 23, 16; coarse roots 12, 10, 12; fine roots 7, 11, 11 %.")
+    print("| Set | Age | Seeds | Stem wood (kg/yr) | Branches | Leaves | Root wood | Fine roots | Stem % | Branches % | Leaves % | Root wood % | Fine roots % | Root wood / above-ground wood gain |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    for label in labels:
+        runs = _load(label)
+        for age in (30, 40, 50, 60):
+            rows = []
+            for r in runs.values():
+                a, b = r["snap"].get(age - 5), r["snap"].get(age)
+                if not a or not b or "root_arch" not in b:
+                    continue
+                stem = (b["stem_kg"] - a["stem_kg"]) / 5.0
+                branch = (b["branch_kg"] - a["branch_kg"]) / 5.0
+                years = [r["new"][y].get("root_ledger") or {} for y in range(age - 4, age + 1) if y in r["new"]]
+                leaf = _mean(x.get("leaf_kg", 0.0) for x in years)
+                root = (b["root_arch"]["total_kg"] - a["root_arch"]["total_kg"]) / 5.0
+                turnover = 0.66
+                fine = _mean(x.get("paid", {}).get("fine_build", 0.0) / 1.25 for x in years) or turnover * _mean(x.get("fine_kg", 0.0) for x in years)
+                rows.append(dict(stem=stem, branch=branch, leaf=leaf, root=root, fine=fine))
+            if not rows:
+                continue
+            m = lambda k: _mean(x[k] for x in rows)
+            tot = m("stem") + m("branch") + m("leaf") + m("root") + m("fine")
+            print(f"| `{label}` | {age} | {len(rows)} | {m('stem'):.2f} | {m('branch'):.2f} | {m('leaf'):.2f} | {m('root'):.2f} | {m('fine'):.2f} | {100 * m('stem') / tot:.0f} | {100 * m('branch') / tot:.0f} | {100 * m('leaf') / tot:.0f} | {100 * m('root') / tot:.0f} | {100 * m('fine') / tot:.0f} | {m('root') / max(m('stem') + m('branch'), 1e-9):.2f} |")
 
 
 def anchor(labels: list) -> None:
@@ -321,10 +382,10 @@ def main(argv=None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("what", choices=("ledger", "mass", "form", "anchor"))
+    ap.add_argument("what", choices=("ledger", "mass", "form", "anchor", "split"))
     ap.add_argument("labels", nargs="+")
     a = ap.parse_args(argv)
-    {"ledger": ledger, "mass": mass, "form": form, "anchor": anchor}[a.what](a.labels)
+    {"ledger": ledger, "mass": mass, "form": form, "anchor": anchor, "split": split}[a.what](a.labels)
     return 0
 
 

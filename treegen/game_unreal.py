@@ -227,6 +227,8 @@ def foot_settings(model, cfg: dict) -> dict:
     out = dict(cfg)
     out["surface_min_radius_share"] = cfg["paid_surface_min_radius_share"]
     out["sink_length_radii"] = cfg["paid_sink_length_radii"]
+    out["bury_per_sink_length"] = cfg["paid_bury_per_sink_length"]
+    out["ground_line_radii"] = cfg["paid_ground_line_radii"]
     out["never_rises"] = True
     return out
 
@@ -266,14 +268,23 @@ def sink_roots(md: meshlib.MeshData | None, line: float, centre: np.ndarray, foo
     thr = max(float(cfg["surface_min_radius_m"]), float(cfg["surface_min_radius_share"]) * collar)
     s = np.clip((rc / thr - 0.5) / 0.5, 0.0, 1.0)
     s = s * s * (3.0 - 2.0 * s)
-    highest = line + s * float(cfg["centre_above_ground_radii"]) * rc - (1.0 - s) * (rc + 0.01)
+    above = float(cfg["centre_above_ground_radii"]) - float(cfg.get("bury_per_sink_length", 0.0)) * np.maximum(rho - foot_r, 0.0) / L
+    highest = line + s * above * rc - (1.0 - s) * (rc + 0.01)
     placed = np.minimum(sunk, highest)
     if cfg.get("never_rises"):
-        # rings come out of np.unique by axis, then along it: down the root, none higher than the one before
+        # rings come out of np.unique by axis, then along it.  A root that shows goes down along its length, none of its
+        # rings higher than the one before; once it's under, it keeps the model's path and stays under
         first = np.unique(rings[:, 0], return_index=True)[1]
         ends = np.r_[first[1:], len(placed)]
         for a, b in zip(first.tolist(), ends.tolist()):
-            placed[a:b] = np.minimum.accumulate(placed[a:b])
+            if rc[a:b].max() < thr:
+                continue
+            run = np.minimum.accumulate(placed[a:b])
+            under = line - rc[a:b] - 0.02
+            gone = np.nonzero(run < under)[0]
+            i = int(gone[0]) if gone.size else b - a
+            placed[a:a + i] = run[:i]
+            placed[a + i:b] = np.minimum(placed[a + i:b], under[i:])
     V[root, 2] += (placed - zc)[inv]
     return meshlib.MeshData(V, md.faces, md.normals, md.attributes)
 

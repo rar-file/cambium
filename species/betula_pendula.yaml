@@ -1419,6 +1419,9 @@ roots:
     # Sum of the roots' squared base diameters over the stump's.  SOURCE: Kalliokoski, Nygren & Sievanen 2008,
     # Silva Fennica 42:189, Table 3, B. pendula, mean of the five stands: 0.86, 1.02, 0.88 (MT), 1.75 (OMT), 1.29 (VT).
     rel_sum_d2: 1.16
+    # The stump below ground: the stump's cross-section x (1 - (depth / taproot_max_depth) ^ this).  High is nearly a
+    # cylinder.  TUNED against Repola 2008 Eq. 13, stump 26 kg at 30 cm DBH, 16 cm of it above ground and in the stem here.
+    stump_fill_power: 8.0
     # Beyond the widening a root's diameter (cm) = far_d_cm_per_m x (root length beyond it, m) ^ far_d_exponent.
     # Exponent, SOURCE: Kalliokoski Fig. 5C, birch, L = D^1.7734 over all a root's axes, so 1 / 1.7734.
     # Coefficient, TUNED against Kalliokoski Table 7 at 2-10 m and Varik 2014's 5-10 mm share; Fig. 5C itself is the
@@ -1752,6 +1755,10 @@ appearance:
     game.unreal.roots.surface_min_radius_m: "TUNED: a root never this thick, or surface_min_radius_share of the collar, stays in the below-ground mesh."
     game.unreal.roots.surface_min_radius_share: "TUNED: as above."
     game.unreal.roots.sink_length_radii: "TUNED: by eye. How fast, in collar radii, a root's height goes from where the model has it at the stem to its depth under the ground line; the game's own flare sinks its roots along their 1-2.3 m."
+    game.unreal.roots.paid_surface_min_radius_share: "TUNED: by eye, with roots.paid only. A root shows if its base is at least this share of the stem foot's radius; Laitakari 1934 p. 182 has 7-12 dominant roots, and the game's own flare 5-7."
+    game.unreal.roots.paid_sink_length_radii: "TUNED: by eye, with roots.paid only. As sink_length_radii, for the thick roots' longer run: a look against the game's own flare (its author's estimate from pine and spruce photos, not birch data) and birch-data/summer_reference/Arnhem-Delhuyzen."
+    game.unreal.roots.paid_bury_per_sink_length: "TUNED: by eye, with roots.paid only. A root goes under gradually, not as a rod lying on the soil; no measurement of this was found."
+    game.unreal.roots.paid_ground_line_radii: "TUNED: by eye, with roots.paid only. As ground_line_radii. The thick roots leave the stump 10-25 cm down in the model, so this decides how many of them break the ground."
     game.unreal.roots.centre_above_ground_radii: "TUNED: a thick root mostly buried, a low ridge along the ground: its centre this many of its radii above the ground line, so below it. Compared by eye with birch-data/summer_reference/Arnhem-Delhuyzen and Intertwined_roots photos. The model has no ground level at the collar to read this from."
     game.unreal.roots.moss_side_power: "TUNED: moss on one side of a stem, narrower with this power; seen on birch-data/summer_reference/Hange-Birke (Stamm alter Baum 9992) and reference/gullmarsskogen_stand_5.jpg."
     game.unreal.roots.moss_elsewhere: "TUNED: as above, the share of its reach that moss gets on the other side."
@@ -1926,7 +1933,11 @@ appearance:
         # With roots.paid.  Thick = this share of the stem's foot radius, and how fast a root sinks, in those radii.
         # TUNED by eye against birch-data/summer_reference (Arnhem-Delhuyzen) and, as a look only, the game's make_root_flare.py.
         paid_surface_min_radius_share: 0.25
-        paid_sink_length_radii: 10.0
+        paid_sink_length_radii: 15.0
+        # ... and how much deeper its centre lies, in its own radii, at each such length out from the stem.
+        paid_bury_per_sink_length: 1.0
+        # ... and the ground line, in the stem foot's radii: low enough for the thick roots' tops, 10-25 cm down in the model.
+        paid_ground_line_radii: 1.75
         foot_fade_m: 0.15
         soil_tint: [0.72, 0.66, 0.58]
         sink_length_radii: 2.0
