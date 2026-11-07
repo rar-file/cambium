@@ -466,6 +466,10 @@ class Plot:
         if getattr(self, "measures", False):
             ob = float(over_bark_cm(self._dbh(k) * 100.0, self.species.mortality.bark_double_mm))
             self._lost_this_year = getattr(self, "_lost_this_year", 0.0) + math.pi / 4.0 * (ob / 100.0) ** 2
+            # as it was in its last year, for a list of the stand (tools/tree_list.py)
+            row = self.trees[k].stats[-1]
+            self.info[k]["last"] = {"age_years": self.trees[k].year, "height_m": row["height_m"], "dbh_cm": row.get("dbh_cm"),
+                                    "crown_base_height_m": row.get("crown_base_height_m"), "crown_width_m": row.get("crown_width_m")}
         self.alive.remove(k)
         if getattr(self, "mort", None) is not None:
             self.rings.pop(k, None)

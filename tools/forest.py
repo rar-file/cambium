@@ -26,6 +26,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 
 import cli  # noqa: E402
+import tree_list  # noqa: E402
 from batch import free_gb  # noqa: E402
 from treegen import checkpoint  # noqa: E402
 from treegen.params import run_manifest  # noqa: E402
@@ -66,6 +67,7 @@ def run(a) -> None:
     manifest, options = run_manifest(a.species, a.environment, sp)
     manifest["overrides"] = items
     year_log = []
+    list_years = {int(x) for x in a.tree_lists.split(",") if x.strip()}
 
     def write():
         sides = plot._sides()
@@ -83,6 +85,9 @@ def run(a) -> None:
         plot.step()
         if a.gap_at and plot.year == a.gap_at:
             print(f"year {plot.year}: a windthrow of {a.gap_radius} m radius took {plot.open_gap(0.0, 0.0, a.gap_radius)} trees", flush=True)
+        if plot.year in list_years:
+            tree_list.write(plot, out / f"trees_{plot.year:03d}.json", run={"overrides": items, "git_commit": manifest.get("git_commit"),
+                                                                             "environment": a.environment})
         s = plot.stats[-1]
         # year, seconds, peak MB, trees, crown and root nodes held (live and dead), crown nodes alive
         year_log.append([plot.year, round(time.time() - y0, 1), round(cli.peak_memory_mb()), len(plot.alive),
@@ -119,6 +124,8 @@ def plots(a) -> int:
         for flag, on in (("--spread", a.spread), ("--regeneration", a.regeneration), ("--mortality-off", a.mortality_off), ("--tree-table", a.tree_table)):
             if on:
                 cmd.append(flag)
+        if a.tree_lists:
+            cmd += ["--tree-lists", a.tree_lists]
         for item in a.set:
             cmd += ["--set", item]
         jobs.append(Job(f"plot {s}", cmd, folder / f"plot_{s}" / "done.txt"))
@@ -142,6 +149,7 @@ def main():
     ap.add_argument("--regeneration", action="store_true", help="the plain regeneration")
     ap.add_argument("--mortality-off", action="store_true")
     ap.add_argument("--tree-table", action="store_true", help="keep a row for every tree that ever lived in plot.json")
+    ap.add_argument("--tree-lists", default="", help="comma-separated years: write that year's stand as a plain tree list (tools/tree_list.py)")
     ap.add_argument("--print-every", type=int, default=5)
     ap.add_argument("--gap-at", type=int, default=None, help="a windthrow in the middle of the plot in this year")
     ap.add_argument("--gap-radius", type=float, default=10.0)

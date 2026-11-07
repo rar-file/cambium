@@ -339,6 +339,36 @@ def test_the_fast_spread_estimate_runs_on_the_models_own_rules(tmp_path):
     assert stand_table.fronts(out["rows"][-1], 10.0)["first"] > 50.0
 
 
+def test_a_plot_year_as_a_plain_tree_list(tmp_path):
+    import tree_list
+    sp = species("plot.natural_start.enabled=true", "plot.natural_start.stems_per_ha=9000", "plot.natural_start.area_m2=20",
+                 "mortality.enabled=true", "plot.stand_measures=true")
+    plot = make_plot(sp, lean=True)
+    for _ in range(5):
+        plot.step()
+    dead = [i for i in plot.info if i.get("removed") is not None]
+    assert dead and plot.alive
+    doc = json.loads(tree_list.write(plot, tmp_path / "trees.json").read_text(encoding="utf-8"))
+    alive = [t for t in doc["trees"] if t["alive"]]
+    gone = [t for t in doc["trees"] if not t["alive"]]
+    assert len(alive) == doc["trees_alive"] == len(plot.alive) and len(gone) == len(dead)
+    assert doc["plot_year"] == 5 and doc["area_m2"] == pytest.approx(plot.area) and doc["repeats_at_edges"] is True
+    for t in doc["trees"]:
+        assert set(t) >= {"x_m", "y_m", "species", "age_years", "height_m", "dbh_cm", "crown_base_m", "crown_width_m", "alive"}
+        assert t["species"] == sp.species.scientific_name and abs(t["x_m"]) <= doc["side_x_m"] / 2 + 0.01
+    k = plot.alive[0]
+    row = next(t for t in alive if t["id"] == k)
+    d = plot.trees[k].stats[-1]["dbh_cm"]
+    assert row["height_m"] == pytest.approx(plot.trees[k].stats[-1]["height_m"], abs=0.001)
+    assert row["age_years"] == plot.trees[k].year
+    assert (row["dbh_cm"] is None) == (d is None)
+    if d is not None:
+        assert row["dbh_cm"] == pytest.approx(float(bark.dbh_over_bark(d)), abs=0.01)
+    assert all(t["died_year"] <= 5 and t["cause"] for t in gone)
+    # how far back the dead are listed
+    assert not any(not t["alive"] for t in tree_list.tree_list(plot, dead_years=0)["trees"])
+
+
 def test_settings_lists_every_change():
     import forest
     args = type("A", (), {"stems": 9000.0, "mortality_off": False, "strip": None, "patch": None, "area": 500.0, "spread": False, "set": ["x=1"]})
