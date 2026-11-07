@@ -38,6 +38,9 @@ SETS = {
     "A_vox15": (TEST_A + ROWS + ["light.voxel_size=0.15"], 1), "A_vox20": (TEST_A + ROWS + ["light.voxel_size=0.2"], 1),
     "A_cell3": (TEST_A + ROWS + ["stand.cell_trees=3"], 1), "A_probe16": (TEST_A + ROWS + ["light.perception_samples=16"], 1),
     "D_k26": (ROWS + K26, 1), "D_every2": (ROWS + ["speed.light_every=2"], 1), "D_vox20": (ROWS + ["light.voxel_size=0.2"], 1),
+    # fresh seeds, to set against the second draws of the baselines
+    "A_k26b": (TEST_A + ROWS + K26, 21), "A_vox15b": (TEST_A + ROWS + ["light.voxel_size=0.15"], 21), "A_vox20b": (TEST_A + ROWS + ["light.voxel_size=0.2"], 21),
+    "D_vox20b": (ROWS + ["light.voxel_size=0.2"], 21), "A_vox30": (TEST_A + ROWS + ["light.voxel_size=0.3"], 1),
 }
 
 
