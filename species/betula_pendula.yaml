@@ -619,6 +619,8 @@ pipe_model:
   # Tree Physiol. 28:1821, Table 1), so 0.014 (0.011-0.025).  No birch
   # count found: VERIFY (birch).  LIGNUM's Scots pine value is 0.07.
   sapwood_senescence_per_year: 0.014
+  # TUNED, against nothing yet: the same for side axes alone.  null (as it has been): one figure for the whole tree.
+  branch_sapwood_senescence: null
   # true: the requirement is on the conducting wood, with
   # sapwood_senescence_per_year; false: on the whole wood, no turnover.
   sapwood: true
@@ -1210,7 +1212,7 @@ height_driver:
   lateral_cap_ratio: null
   # TUNED, against nothing yet: the most of the pool the year's rings may take; the rest of their need waits.  null = no limit.
   ring_share_max: null
-  # TUNED, against nothing yet: the most carbon carried to next year, as a share of this year's pool.  null = none, lost.
+  # TUNED, against nothing yet: the share of each year's pool that waits for next year (a small carbon store).  null = none.
   store_fraction: null
 
 # Field-layer competition on clearcuts (Option A, Nilsson & Örlander 1999).

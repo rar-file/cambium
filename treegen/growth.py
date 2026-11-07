@@ -1062,11 +1062,14 @@ class GrowthModel:
             pool = max(stem_budget - shoot_costs, 0.0)
             share_t = vm[term_nodes] / pool if pool > 0.0 else np.zeros(len(term_nodes))
             share_l = vl[lat_nodes] / pool if pool > 0.0 else np.zeros(len(lat_nodes))
-            store = float(getattr(self, "_carbon_store", 0.0)) if self._hd is not None else 0.0
-            if self._hd is not None:
-                self._hd["net_pool"] = pool
-            lam, self._ring = self._growth_factor(pool + store, g_resp, levels, alive, term_nodes, share_t, lat_nodes, share_l,
+            carried = float(getattr(self.sp.height_driver, "store_fraction", None) or 0.0) if self._hd is not None else 0.0
+            this_year = pool if not carried else (1.0 - carried) * pool + float(getattr(self, "_carbon_store", 0.0))
+            lam, self._ring = self._growth_factor(this_year, g_resp, levels, alive, term_nodes, share_t, lat_nodes, share_l,
                                                   bud_q, bud_nodes, bud_leaf)
+            if carried:
+                # a small store: this share of the year's pool waits for next year, with what the crown
+                # couldn't use, up to twice that share; beyond it, unused carbon is lost
+                self._carbon_store = min(carried * pool + float(getattr(self, "_unspent", 0.0)), 2.0 * carried * pool)
             v_term, v_lat = lam * share_t, lam * share_l
             if self._hd is not None:
                 v_term, v_lat = self._height_limit_apply(v_term, v_lat)
@@ -1594,7 +1597,7 @@ class GrowthModel:
                             T.sap_area[:n0] = np.where(excess, a_su, T.sap_area[:n0])
         if bool(getattr(pm, "sapwood", True)):
             # sapwood only, after a share of last year's turned to heartwood
-            keep = np.where(alive, (1.0 - float(pm.sapwood_senescence_per_year)) * T.sap_area[:n0], 0.0)
+            keep = np.where(alive, (1.0 - self._sapwood_loss(n0)) * T.sap_area[:n0], 0.0)
         else:
             # no distinct heartwood (birch): the requirement is on the whole
             # wood cross-section, so no wood is counted twice
@@ -1780,12 +1783,19 @@ class GrowthModel:
                     npp = self._npp_base + (late_shoot_net + late_root_net) / g_resp
                     self.carbon["cue"] = npp / self.carbon["fixed"]
                 lam, ring = solve_for(pool + late_shoot_net)
-        if lead_at is not None and getattr(sp.height_driver, "store_fraction", None) is not None:
-            # what the crown couldn't use is kept for next year, up to a small share of this year's pool; the rest is lost
-            self._carbon_store = min(float(self._unspent), float(sp.height_driver.store_fraction) * float(hd.get("net_pool", pool)))
         return lam, ring
 
     # -- the height limit (height_driver in the species file) -----------
+    def _sapwood_loss(self, n: int):
+        """The share of last year's sapwood that stops conducting this year, on the first n nodes.  With
+        pipe_model.branch_sapwood_senescence set, side axes have their own rate; otherwise one figure for the whole tree."""
+        pm = self.sp.pipe_model
+        branch = getattr(pm, "branch_sapwood_senescence", None)
+        if branch is None:
+            return float(pm.sapwood_senescence_per_year)
+        on_stem = np.isin(self.tree.axis[:n], np.fromiter(self.leader_axes, np.int64))
+        return np.where(on_stem, float(pm.sapwood_senescence_per_year), float(branch))
+
     def _height_limit_on(self) -> bool:
         hd = getattr(self.sp, "height_driver", None)
         return hd is not None and bool(hd.enabled)
@@ -2139,8 +2149,8 @@ class GrowthModel:
             T.sap_area[:n] = np.where(new, tip, T.sap_area[:n])
             ring = getattr(self, "_ring", None)
             # no heartwood (sapwood: false): sap_area stays the whole wood
-            ss = float(pm.sapwood_senescence_per_year) if bool(getattr(pm, "sapwood", True)) else 0.0
             m = min(len(ring), n) if ring is not None else 0
+            ss = self._sapwood_loss(m) if bool(getattr(pm, "sapwood", True)) else 0.0
             old = alive[:m] & ~new[:m]
             if m:
                 T.sap_area[:m] = np.where(old, (1.0 - ss) * T.sap_area[:m] + ring[:m], T.sap_area[:m])

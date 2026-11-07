@@ -74,7 +74,19 @@ def snapshot(model, year: int) -> dict:
         if carrying.size:
             crown_base_stem = float(T.pos[T.parent[carrying], 2].min())
     h = float(s["height_m"])
-    return {"age": year, "crown_base_stem_m": crown_base_stem, "lowest_stem_branch_m": lowest_stem,
+    roots = {}
+    if model.roots is not None:
+        R = model.roots.tree
+        live = R.death[: R.n] < 0
+        lc = model.sp.resource.leaf_costs
+        carbon = s.get("carbon", {})
+        roots = {"root_wood_kg": float(np.where(live, math.pi * R.radius[: R.n] ** 2 * R.length[: R.n], 0.0).sum()) * DENSITY,
+                 "root_length_m": float(R.length[: R.n][live].sum()),
+                 "fine_root_kg": float(carbon.get("leaf_dm_g", 0.0)) * float(lc.fine_root_to_leaf_mass) / 1000.0,
+                 "root_share": float(s.get("water", {}).get("root_share", 0.0)),
+                 "root_carbon": float(carbon.get("root", 0.0)), "fixed_carbon": float(carbon.get("fixed", 0.0))}
+    return {"age": year, **roots, "d0_mm": 2000.0 * float(T.radius[0]), "stem_top_m": float(T.pos[stem_nodes[-1], 2]), "stem_m3": stem_v,
+            "crown_base_stem_m": crown_base_stem, "lowest_stem_branch_m": lowest_stem,
             "crown_ratio_stem": None if crown_base_stem is None or h <= 0.0 else (h - crown_base_stem) / h, "leader_losses": len(model.leader_losses),
             "stem_kg": stem_v * DENSITY, "branch_kg": (total_v - stem_v) * DENSITY,
             "leaf_kg": float(s["carbon"].get("leaf_dm_g", 0.0)) / 1000.0, "branches": len(real),
@@ -326,6 +338,74 @@ def fall(labels: list) -> None:
             over = sum(x >= CROWN_RATIO_FLOOR for x in cr)
             lost = sum((x.get("leader_losses") or 0) > 0 for x in sn)
             print(f"| `{label}` | {age} | {len(rows)} | {fmt(b, '.1f')} | {fmt(t, '.0f')} | {fmt(s, '.0f')} | {fmt(cb, '.1f')} | {fmt(ll, '.1f')} | {fmt(cr)} | {fmt(cr_stats)} | {lost}/{len(rows)} | {inside}/{len(rows)} | {over}/{len(rows)} |")
+    print("\nStems cleared by first thinning, Hynynen & Niemisto 2009 as in reports/birch_knowledge_base.md C1: 5-7 m at dominant height 13-15 m (planted, 1,600/ha; a cross-check, not a target). Each seed's snapshot nearest 14 m tall:\n")
+    print("| Set | Seeds | Height there (m) | Lowest live branch there (m) | Seeds inside 5-7 m |")
+    print("|---|---|---|---|---|")
+    for label in labels:
+        h14, low = [], []
+        for r in load(label).values():
+            ages = [a for a in r["snap"] if a in r["per_year"]]
+            if not ages:
+                continue
+            near = min(ages, key=lambda a: abs(r["per_year"][a]["height_m"] - 14.0))
+            h14.append(r["per_year"][near]["height_m"])
+            low.append(r["snap"][near].get("lowest_stem_branch_m") or 0.0)
+        if low:
+            print(f"| `{label}` | {len(low)} | {fmt(h14, '.1f')} | {fmt(low, '.1f')} | {sum(5.0 <= x <= 7.0 for x in low)}/{len(low)} |")
+
+
+def stem(labels: list) -> None:
+    """Does the stem measure follow the real stem?  Its top should be the tree's height, and its volume shouldn't stand apart."""
+    print("| Set | Seed | Leader lost | Height at 60 (m) | Top of the measured stem (m) | Stem volume (m3) | Stem wood (kg) | Repola stem (kg) | Branch wood (kg) | Repola branches (kg) |")
+    print("|---|---|---|---|---|---|---|---|---|---|")
+    from bark import dbh_over_bark
+    from m3_wood import repola
+
+    for label in labels:
+        for s, r in load(label).items():
+            if 60 not in r["snap"]:
+                continue
+            sn, p = r["snap"][60], r["per_year"][60]
+            rp = repola(float(dbh_over_bark(p["dbh_cm"])), p["height_m"])
+            print(f"| `{label}` | {s} | {sn.get('leader_losses')} | {p['height_m']:.2f} | {sn.get('stem_top_m') or 0:.2f} | {sn.get('stem_m3') or 0:.3f} | {sn['stem_kg']:.0f} | {rp[0]:.0f} | {sn['branch_kg']:.1f} | {rp[1]:.1f} |")
+
+
+def rootsheet(labels: list) -> None:
+    """Roots: their share of the carbon, and their mass.  Wood: pi r^2 L x 530 kg/m3, as the crown's.  Fine roots: 0.48 x
+    leaf mass (resource.leaf_costs), so they follow the leaves by construction."""
+    print("| Set | Age | Seeds | Root share of carbon | Carbon to roots (units) | Fixed (units) | Structural root wood (kg) | Root length (m) | Fine roots (kg) | Root wood per stem wood |")
+    print("|---|---|---|---|---|---|---|---|---|---|")
+    for label in labels:
+        runs = load(label)
+        for age in AGES:
+            sn = [r["snap"][age] for r in runs.values() if age in r["snap"] and "root_wood_kg" in r["snap"][age]]
+            if not sn:
+                continue
+            ratio = [x["root_wood_kg"] / max(x["stem_kg"], 1e-9) for x in sn]
+            print(f"| `{label}` | {age} | {len(sn)} | {statistics.fmean(x['root_share'] for x in sn):.3f} | {statistics.fmean(x['root_carbon'] for x in sn):.0f} | {statistics.fmean(x['fixed_carbon'] for x in sn):.0f} | "
+                  f"{fmt([x['root_wood_kg'] for x in sn], '.0f')} | {fmt([x['root_length_m'] for x in sn], '.0f')} | {statistics.fmean(x['fine_root_kg'] for x in sn):.2f} | {statistics.fmean(ratio):.2f} |")
+
+
+def young(labels: list) -> None:
+    """Young trees' leaf area beside Konopka et al. 2023 (Plants 12:1607): 2.37 m2 (D0 / 50 mm)^1.851, D0 50-100 mm, as the
+    species file quotes it.  D0 is the model's wood at the base, no bark.  Outside that range it's only a look."""
+    print("| Set | Age | Seeds | Height (m) | Base diameter D0 (mm) | Leaf area (m2) | Konopka at that D0 (m2) | Carbon not used, % of fixed, the 5 years to this age |")
+    print("|---|---|---|---|---|---|---|---|")
+    for label in labels:
+        runs = load(label)
+        for age in (5, 10, 15, 20):
+            rows = [r for r in runs.values() if age in r["snap"]]
+            if not rows:
+                continue
+            d0 = [r["snap"][age].get("d0_mm") or 0.0 for r in rows]
+            la = [r["per_year"][age]["leaf_area_m2"] for r in rows]
+            kon = [2.37 * (d / 50.0) ** 1.851 for d in d0]
+            lost = []
+            for r in rows:
+                fixed = sum(r["per_year"][y]["carbon"].get("fixed", 0.0) for y in range(max(age - 4, 1), age + 1))
+                gone = sum((r["new"][y].get("driver") or {}).get("unspent", 0.0) for y in range(max(age - 4, 1), age + 1))
+                lost.append(100.0 * gone / max(fixed, 1e-9))
+            print(f"| `{label}` | {age} | {len(rows)} | {statistics.fmean(r['per_year'][age]['height_m'] for r in rows):.2f} | {fmt(d0, '.0f')} | {fmt(la, '.1f')} | {statistics.fmean(kon):.1f} | {statistics.fmean(lost):.0f} |")
 
 
 def driver(label: str) -> None:
@@ -346,7 +426,7 @@ def main(argv=None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("what", choices=("run", "one", "table", "seeds", "fall", "driver"))
+    ap.add_argument("what", choices=("run", "one", "table", "seeds", "fall", "driver", "young", "stem", "roots"))
     ap.add_argument("labels", nargs="*")
     ap.add_argument("--label")
     ap.add_argument("--seeds", type=int, default=8)
@@ -366,6 +446,12 @@ def main(argv=None) -> int:
         seeds(a.labels[0])
     elif a.what == "fall":
         fall(a.labels)
+    elif a.what == "young":
+        young(a.labels)
+    elif a.what == "stem":
+        stem(a.labels)
+    elif a.what == "roots":
+        rootsheet(a.labels)
     else:
         driver(a.labels[0])
     return 0
