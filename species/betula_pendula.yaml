@@ -1594,8 +1594,7 @@ height_driver:
 #   crown_frame.spacing_overlap=1.15           TUNED, against stand light and width: limbs now carry the width themselves; 1.0 gave 0.25 less LAI.
 #   crown_frame.peak_depth=0.65, .base_share=0.4, .profile_power=1.0
 #                                              TUNED, against the outline in both settings: a crown whose length is all the tree's is widest about a third of the way up, one in a stand about 0.7 of the way up.
-#   crown_frame.limb_relative_light=0.45, .limb_bare_leaf_per_m=0.15, .full_crown_spur_years=12, .hanging_share=0.35
-#                                              TUNED: see those values below.
+#   crown_frame.full_crown_spur_years=12, .hanging_share=0.35   TUNED: see those values below.
 #   pipe_model.branch_sapwood_thick_m=0.02     TUNED, against the thickest limbs in the open: 23 cm on a 44 cm stem without it, 16 with it.
 #   resource.reiteration.setpoint_angle_deg=12 TUNED, against the look: at 20 a second top stands out to one side.
 #   height_driver.open_grown_share=0.8         TUNED, against photos, no measurement: no open-grown height found in Dubois 2021 or Tallo, and Hemery 2005 is unread.  Bears only on trees with no neighbours.
@@ -1689,16 +1688,11 @@ crown_frame:
   fork_leaf_area_m2: 1.5
   # TUNED, against nothing: how many limbs on each side count as a limb's neighbours (_frame_earned): about a metre of stem.
   limb_rivals: 5
-  # TUNED, against bare limbs ending in a tuft and lone low limbs: a limb over 1 m long with less leaf area than this (m2) per metre of its own axes is shed.  null: none.
-  limb_bare_leaf_per_m: null
   # TUNED, against the look: when the crown has all the leaf area it can hold (crown_lai_max), short shoots this old die, so new shoots have room and the foliage moves out.
   # 8 left 71 % of an open tree's twig length leafless, the dark brooms; 12 leaves about 60 %.  Birch short shoots live several years (Maillette 1982, abstract only).  null: none die of age.
   full_crown_spur_years: 12
   # TUNED, against stem size in stands: below the crown, this share of the sapwood last year's new leaves asked for isn't retired and rebuilt each year.  0: all of it is, as heartwood_by_own_foliage has it.
   sapwood_kept: 0.3
-  # TUNED, against lone low limbs: a limb dies when the light on its leaves is under this share of the crown's mean: it's in the crown's own shade, however bright the sky.  Very sharp: 0.52 and
-  # 0.55 took crown ratio at 60 from 0.47 to 0.41 and 0.36 on 6 PC seeds, as the crown's mean is about 0.3 at 60, and the line then stands over the death line.  null: off.
-  limb_relative_light: 0.45
 
 # Field-layer competition on clearcuts (Option A, Nilsson & Örlander 1999).
 # Sourced clear-cut field-layer sward growth and light extinction.
