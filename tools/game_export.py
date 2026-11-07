@@ -449,21 +449,24 @@ def render_unreal(folder: Path, doc: dict, prefix: str, res: int, sel: list) -> 
         near = s["seasons"][season]["lod0"]
         prims = lr.load_glb_primitives(folder / near["file"])
         rt = s["roots"]
+        # stand everything on the ground: the file's origin is below the tree
+        gz = np.array([0.0, 0.0, float(s["origin"]["ground_in_file_m"])], np.float32)
+        for p in prims:
+            p.V = p.V - gz
         whole.append(_whole_tree(prims, H, res, f"age {age}: {H:.1f} m, {near['triangles']:,} triangles"))
         wood = wood_only(prims)
         # the foot, seen from where a person stands
-        line = float(rt["ground_line_m"])
-        ground = lr.make_ground(max(8.0, H))
-        ground.V[:, 2] += line
-        scene = wood + [ground]
+        scene = wood + [lr.make_ground(max(8.0, H))]
         lights = lr.Lights(scene, sun_for_camera(), res=4096, sky_res=640, sky_dirs=8, focus=(np.array([0.0, 0.0, 0.2]), 6.0))
         r = near["trunk"]["trunk_r_cm"] / 100.0
         tgt = np.array([0.0, 0.0, 0.1 + r])
         eye = tgt + CAM * (1.1 + 5.0 * r) + np.array([0.0, 0.0, 0.7])
         feet.append(_label(lr.render(scene, lr.View(eye, tgt, res, int(res * 0.72), fov_deg=38.0), lights, ss=2),
-                           f"age {age}: the foot, ground {-line * 100:.0f} cm under the model's zero; {near['parts'].get('surface_roots', 0):,} triangles of root with the tree", 20))
+                           f"age {age}: the foot; {rt['showing']['roots']} roots show, out to {rt['showing']['reach_m']:.1f} m", 20))
         # the roots, with no ground
         below = lr.load_glb_primitives(folder / rt["files"]["lod0"]["file"]) if "lod0" in rt["files"] else []
+        for p in below:
+            p.V = p.V - gz
         all_wood = wood + below
         lights2 = lr.Lights(all_wood, sun_for_camera(), res=4096, sky_res=512, sky_dirs=6)
         spread = float(rt["spread_m"])

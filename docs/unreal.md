@@ -25,12 +25,12 @@ Variant names: `betula_pendula_grown_age060` is the nearest level in the base se
 
 | Age | Height, m | Leaves | Nearest level | of which wood | roots with the tree | bark strips | leaves | `_lod1` | `_lod2` | `_roots` | Nearest, MB |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 5 | 5.7 | 8,711 | 280,382 | 36,336 | 138 | 0 | 243,908 | 16,000 | 12 | 4,494 | 22 |
-| 15 | 12.0 | 10,436 | 341,940 | 47,962 | 1,322 | 448 | 292,208 | 16,000 | 12 | 15,908 | 27 |
-| 30 | 18.8 | 34,856 | 1,138,090 | 156,074 | 3,360 | 2,688 | 975,968 | 16,000 | 12 | 59,338 | 88 |
-| 50 | 24.6 | 46,312 | 1,550,267 | 241,584 | 6,571 | 5,376 | 1,296,736 | 16,000 | 12 | 143,969 | 120 |
-| 60 | 26.1 | 47,728 | 1,616,160 | 265,630 | 7,874 | 6,272 | 1,336,384 | 16,000 | 12 | 190,572 | 124 |
-| 100 | 29.7 | 49,408 | 1,727,301 | 318,813 | 14,760 | 10,304 | 1,383,424 | 15,999 | 12 | 391,979 | 132 |
+| 5 | 5.7 | 8,711 | 297,960 | 36,402 | 228 | 0 | 261,330 | 15,999 | 12 | 4,742 | 27 |
+| 15 | 12.0 | 10,436 | 363,638 | 48,840 | 1,270 | 448 | 313,080 | 16,000 | 12 | 16,318 | 33 |
+| 30 | 18.8 | 34,856 | 1,290,933 | 239,722 | 2,843 | 2,688 | 1,045,680 | 15,999 | 12 | 61,327 | 114 |
+| 50 | 24.6 | 46,312 | 1,835,565 | 434,981 | 5,848 | 5,376 | 1,389,360 | 15,999 | 12 | 152,267 | 158 |
+| 60 | 26.1 | 47,728 | 1,947,669 | 502,453 | 7,104 | 6,272 | 1,431,840 | 16,000 | 12 | 191,929 | 165 |
+| 100 | 29.7 | 49,408 | 2,330,252 | 826,302 | 11,406 | 10,304 | 1,482,240 | 15,999 | 12 | 395,854 | 187 |
 
 The game's own birch, `betula_pendula_a`, is 1,771,416 triangles, read back in Unreal. Budgets are settings: `--budget lod1=8000`, or `appearance.game` in the species file.
 
@@ -55,11 +55,22 @@ What changed, all behind settings in `appearance.game.unreal`, so `ring_toleranc
 
 - **Hidden rings gone.** A branch starts on its parent's centre line, so its first rings lay inside the parent. Dropping them took off 1 to 1.6 % of the wood's surface, all of it unseen.
 - **Rings that add nothing gone.** A ring goes if the tube between its neighbours stays within 10 % of the radius or 1 mm of it, whichever is more. The stem, buttresses and junction fillets keep all theirs. No run is longer than 0.5 m, so wind can still bend it.
-- **Leaves: 28 triangles, not 44.** Eight rows miss the outline by at most 0.75 mm on a 5 cm leaf; twelve rows miss by 0.79 mm. The game's own ground plants use about 32 a leaf.
+- **Leaves: 30 triangles.** See "Leaves" in section 8. Going from 44 to 28 hadn't hurt the outline: it missed by 0.75 mm on eight rows and 0.79 mm on twelve. The straight edges came from the outline's own shape.
 - **Nothing lost that can be seen.** Leaf area, height and width don't change. Wood surface stays within 0.02 % once hidden rings are gone. Whole tree at 1,100 pixels tall, same camera, ages 50 and 60: it covers the same share of the view to 0.03 of a percentage point, and about 3 % of its outline pixels differ, mostly twigs thinner than a pixel. Side by side I can't see a difference.
 - **Clean.** At ages 15 and 60: no degenerate faces, no repeated faces, no unused vertices. Stem, roots and leaves have no bad slivers; twigs have some, being thin.
 
-Leaves suit voxels: real outline in the mesh, no alpha to lose, a midrib fold that gives them some depth, area exactly the model's.
+Leaves should suit voxels: the outline and main teeth are in the mesh, so losing the alpha loses only the small teeth. Voxels aren't tested.
+
+Since then the bark has real depth and the leaves real outlines (section 8), which is where these went, with no triangle budget for now:
+
+| | Age 50 cleaned | now | Age 60 cleaned | now |
+|---|---|---|---|---|
+| Wood | 241,584 | 434,981 | 265,630 | 502,453 |
+| Roots with the tree | 6,571 | 5,848 | 7,874 | 7,104 |
+| Bark strips | 5,376 | 5,376 | 6,272 | 6,272 |
+| Leaves | 1,296,736 | 1,389,360 | 1,336,384 | 1,431,840 |
+| **With the tree** | **1,550,267** | **1,835,565** | **1,616,160** | **1,947,669** |
+| File, MB | 120 | 158 | 124 | 165 |
 
 ## 3. Importing with the game's own scripts
 
@@ -79,7 +90,7 @@ The game's scripts took these files in the test project without being changed. T
 
 4. Add the lines from `fragments/` to `SourceArt/PolyHaven_split/trunks.json` and `Content/Data/Science/flora.json`, then run the import again with `GAME_FINISH=1` to rewrite `WorldAssets.json`.
 
-Age 60's nearest level needed about 5 GB of memory and took about 100 seconds, of which the Nanite build 16 seconds. Unreal's own estimate was 3.1 GB. Import one heavy variant per run, as `import_all.py` does.
+Age 60's nearest level needed about 6 to 6.7 GB of memory and took about 85 seconds, with distance fields off in the test project. With them on, as in the game, it needs more: free memory fell from 8.6 GB to 1.2 GB on a 1.85 million triangle try, when the runner stopped it. Import one heavy variant per run, as `import_all.py` does, with at least 8 GB free.
 
 ### What the game's scripts would need added
 
@@ -90,10 +101,10 @@ None of this has been changed in the game. Numbers 1-4 let the tree in. The rest
 | 1 | `Tools/Assets/import_all.py` | Look for `.gltf` as well as `.fbx` (lines 54, 67-68, 104-105) | It only lists `.fbx`. Running `import_world_assets.py` by hand with `GAME_FILES` works today |
 | 2 | `Tools/Assets/measure_trunks.py` | Nothing: use `fragments/trunks.json` | It needs Blender and FBX. The export measures the trunk the same way |
 | 3 | `build_materials.py`, `WIND` and `NANITE_SHAPE` | `"betula_pendula_grown": (1100.0, 0.16, 0.30)`, and the name in the voxelized list | Without `WIND` it doesn't sway. Same numbers as the game's birch |
-| 4 | `Content/Data/Science/flora.json` | A rule with these variants and `sink_m: 0.10` | The game seats a tree by its lowest point, which here is 10 cm below the ground line |
+| 4 | `Content/Data/Science/flora.json` | A rule with these variants and `sink_m: 0.10` | The game seats a tree by its lowest point, which here is 10 cm below the ground line. Its `min_z_cm` is about 32, not about 0, on purpose: section 5 |
 | 5 | `Source/<Game>/World/WorldGenerator.cpp` line 1176 | Don't add `root_flare_tile` to a rule that has its own roots | Otherwise a made-up flare sits over the real one |
 | 6 | `set_tree_looks.py`, `BRANCH` | `"betula_pendula_grown": (1.6, 3.0)` | Same branch sway and flutter as the game's birch |
-| 7 | `build_materials.py`, M_Foliage | A `ThroughGain` parameter on line 562, default 0.25 | Fixed at 0.25 of the leaf's colour. Our measured leaves pass about as much light as they reflect, so 1.0 would be right for them |
+| 7 | `build_materials.py`, M_Foliage | A `ThroughGain` parameter on line 562, default 0.25 | Fixed at 0.25 of the leaf's colour. Our measured leaves pass about as much light as they reflect, so 1.0 would be right for them. Leaves in shade or seen from below come out black without it, the game's birch too. Tried on the test project's copy: section 9 |
 | 8 | `build_materials.py`, M_Foliage | Section 6's one line, and `MPC_Season` | Season change while the game runs |
 | 9 | M_Surface | A third bark layer from UV3 (white, rough) | Full white-to-black from our ageing rules. See section 8 |
 | 10 | `build_materials.py`, `rounded_normal` | A separate switch from `PlantKitWind` | Turning on the `COLOR_0` wind (Kit 1) also turns on "round mound" shading, made for ground plants. Until then leave Kit at 0, as the game's birch does |
@@ -102,7 +113,7 @@ None of this has been changed in the game. Numbers 1-4 let the tree in. The rest
 
 | What the plain export carried | Kept or lost | Where it goes now |
 |---|---|---|
-| Positions, normals, triangles | Kept, **tested**: 16,000, 341,940 and 1,616,160 triangles come back exactly | Same. Metres become cm, y-up becomes z-up |
+| Positions, normals, triangles | Kept, **tested**: 363,638 and 1,947,669 triangles come back exactly, by the Nanite count on the saved asset | Same. Metres become cm, y-up becomes z-up |
 | Tangents | Kept on normal meshes. Nanite doesn't store them (**documented**) | Nothing to do |
 | Base colour, normal map | Kept, **tested** | The game's script makes its own material and sets them |
 | Roughness and occlusion map | The game reads roughness from a separate map's red | `_rough_2k.png`: red roughness, green height, blue occlusion |
@@ -124,34 +135,48 @@ One error stays in the log with any masked glTF material: "Invalid input AlphaMo
 | | UV0 | UV1 | UV2 | UV3 | `COLOR_0` |
 |---|---|---|---|---|---|
 | Bark | Colour, normal, roughness maps | Bark wrap: whole 0.4 m tiles round the part, tiles along it | x birth year of the part; y wood radius, cm | x how white (0-1); y how rough (0-1) | R flex by path length, G one phase for the tree, B 0, A 255 |
-| Leaf | Leaf atlas: column by chlorophyll level | x + 1024 y = node id | x days later or earlier to colour; y light, 0 shade to 1 sun | x chlorophyll on the export's day; y leaf area, cm² | R flex, G phase, B 1, A leaf id 0-254 |
+| Leaf | Leaf atlas: column by chlorophyll level, row by outline variant; a corner of each cell holds the stalk's colour | x + 1024 y = node id | x days later or earlier to colour; y light, 0 shade to 1 sun | x chlorophyll on the export's day; y leaf area, cm² | R flex, G phase, B 1, A leaf id 0-254 |
 | Bark strip | Strip atlas: column by opacity | x + 1024 y = node id | x birth year; y wood radius, cm | x opacity | R flex, G phase, B 0, A 255 |
 | Leaf card | Card atlas: column by chlorophyll | Unused | x mean delay; y mean light | x mean chlorophyll; y leaf area it stands for, cm² | R flex, G phase, B 1, A card id |
 | Root | Root atlas: column by circumference | Bark wrap | x birth year; y wood radius, cm | x 0; y how rough | R 0, so a wind that reads it leaves roots still |
 
 A part's age in a material is `stage age - UV2.x`. Vertex colour alpha is overwritten when Nanite voxelizes a mesh (**documented**), so don't rely on the leaf id in voxelized clusters.
 
-## 5. Roots
+## 5. Roots and the foot
 
 The roots are the model's own (`treegen/roots.py`). No generic flare is added.
 
-- **With the tree:** the stem's foot and the thick roots (over 1 cm radius), down to 10 cm below the ground line. That reach is what the game's own flare uses, so uneven ground meets them without a gap.
+- **With the tree:** the stem's foot and the thick roots, down to 10 cm below the ground line. That reach is what the game's own flare uses, so uneven ground meets them without a gap. "Thick" is over 14 % of the collar's radius, and at least 6 mm.
 - **In `_roots`:** everything else. It shares its cut vertices with the tree, so no seam. It isn't for drawing above the ground, because the thin roots would show as hairs. It's for a dug-up view, a cross-section, or a game system that needs them.
 
-| Age | Root length, m | Thickest, cm | Deepest, m | Spread, m | Above model's zero, m | Ground line, cm below zero | Thick root above that line, m | Reaching, m | Triangles with the tree | Triangles below |
-|---|---|---|---|---|---|---|---|---|---|---|
-| 5 | 26 | 2.4 | 0.81 | 2.2 | 0.00 | 6 | 0.1 | 0.06 | 138 | 4,494 |
-| 15 | 96 | 5.3 | 0.96 | 4.1 | 0.05 | 10 | 0.5 | 0.26 | 1,322 | 15,908 |
-| 30 | 369 | 9.6 | 1.17 | 7.7 | 0.10 | 16 | 1.3 | 0.66 | 3,360 | 59,338 |
-| 50 | 939 | 12.9 | 1.20 | 10.6 | 0.15 | 20 | 2.7 | 1.10 | 6,571 | 143,969 |
-| 60 | 1,250 | 14.1 | 1.22 | 11.7 | 0.25 | 20 | 3.1 | 1.45 | 7,874 | 190,572 |
-| 100 | 2,613 | 18.4 | 1.24 | 18.0 | 0.60 | 20 | 10.8 | 4.87 | 14,760 | 391,979 |
+| Age | Root length, m | Thickest, cm | Deepest, m | Spread, m | Ground line, cm below model's zero | Roots showing | Out to, m | Triangles with the tree | Triangles below |
+|---|---|---|---|---|---|---|---|---|---|
+| 5 | 26 | 2.4 | 0.81 | 2.2 | 6 | 1 | 0.07 | 228 | 4,742 |
+| 15 | 96 | 5.3 | 0.96 | 4.1 | 9 | 2 | 0.14 | 1,270 | 16,318 |
+| 30 | 369 | 9.6 | 1.17 | 7.7 | 14 | 4 | 0.26 | 2,843 | 61,327 |
+| 50 | 939 | 12.9 | 1.20 | 10.6 | 19 | 4 | 0.43 | 5,848 | 152,267 |
+| 60 | 1,250 | 14.1 | 1.22 | 11.7 | 20 | 5 | 0.37 | 7,104 | 191,929 |
+| 100 | 2,613 | 18.4 | 1.24 | 18.0 | 25 | 6 | 0.63 | 11,406 | 395,854 |
 
-**Why a ground line.** The model keeps its roots under its own z = 0: at age 60 only 0.25 m of root has any part above it. So the ground meets the tree a little lower, 1.4 collar radii and at most 20 cm (`appearance.game.unreal.roots`). Thick roots then break it, in their real shapes. It's a setting; `ground_line_radii: 0` puts the ground at the model's zero.
+**Why a ground line.** The model keeps its roots under its own z = 0. So the ground meets the tree a little lower, 1.25 collar radii and at most 25 cm (`appearance.game.unreal.roots`). This moves where the ground meets the tree, not the tree, and no growth number changes.
 
-This moves where the ground meets the tree, not the tree. No growth number changes. To carry the stem down to the ground line without a step, the mesh keeps the stem's radius there instead of the taproot's smaller one, and adds bark to the thick roots. That's in the export only.
+**What the export does to the foot.** All of it is in the export only, behind those settings:
 
-**How it looks.** The foot runs into the ground with roots leaving it, no seam. But few roots show, and the thin end of each reads as a small spike that stops where it falls under 1 cm. Keeping those roots to their tips was worse: the model runs them just under its zero, so they hang as threads over the ground at this line. A real old birch has broader roots at the surface that sink along their length. That's a matter for `treegen/roots.py`, not the export.
+- The stem goes straight down to below the ground line. In the model it runs on as the taproot, whose first half metre leans well out to one side, and with the stem's thickness on that it made a hoof.
+- The stem swells into the ground by the species' own `geometry.root_flare_extra`, 35 % at the ground, steepest there as on a real butt. It was a straight cup before.
+- A root keeps its path as seen from above, its radius and its branches. Only its height moves. No root stands off the ground as a strut: a thick one lies with its centre a quarter of its radius under the ground, as a low ridge, and it's under the soil by the time it's half as thick as "thick". Further out it goes down to the depth the model has it at.
+
+**How it looks.** The foot now widens into the ground, with one or two heavy ridges and low roots leaving it, and it stands in the ground from any side. The placement in the test was not the fault: the game's own `Mounds` are round stones only, with no soil heaped at a tree, so a flat plane is close to what the game does. What's left: on a plane with no grass, the thin end of a root reads as a short wedge where it goes under.
+
+**What the model would have to change.** Roots stop showing a short way out, because the model's own main roots are few and taper fast. At age 60 the largest is 9.0 cm radius at its base, 2.8 cm at 0.5 m and 1.3 cm at 1 m; the next are 4.4, 3.1, 2.4, 2.3 and 2.2 cm at their bases; and they go down quickly. A real old birch has more roots at its surface that stay thick further out and sink along their length. That's a growth change in `treegen/roots.py`, not the export.
+
+### The file's origin is below the tree, on purpose
+
+Unlike the game's own trees, these files have their origin 32 cm below the tree's lowest point. Here's why.
+
+Long streaks of green and dark ran up the lowest part of the stem, on our bark and on the game's scan alike. They come from `M_Surface`'s ground contact. It reads a moss texture by world XY, which barely changes up an upright surface, so the moss smears upwards. It applies where height above the mesh's origin, plus up to 6 cm of noise, is under `GroundBlendCm`, 20 cm. **Shown:** the same file and camera with `GroundBlendCm` at 0 has no streaks.
+
+We can't change the game's material, so our data suits it. With the origin 32 cm below the lowest point, nothing in the file is low enough for that moss to apply, and the game's own seat, by the lowest point, is as right as ever. The moss is back in our own stem map instead, by `UV0`: on one side of the stem, in patches, further up on old stems. Bark heights in the manifest are in file coordinates (`upper_bark`), and `origin` gives where model zero, the ground and the lowest point are in the file.
 
 ## 6. Season change while the game runs
 
@@ -165,12 +190,12 @@ Then set the day whenever you like:
 
     unreal.MaterialLibrary.set_scalar_parameter_value(world, season_collection, "Day", 283.0)
 
-| Same leaf pixels, same camera | Mean colour (sRGB, 0-255) | Red over green |
+| Same leaf pixels, same camera, lit in both | Mean colour (sRGB, 0-255) | Red over green |
 |---|---|---|
-| Baked for day 200 | 87, 102, 63 | 0.86 |
-| Live, day 200 | 87, 101, 64 | 0.86 |
-| Live, day 270 | 95, 108, 58 | 0.89 |
-| Live, day 283 | 141, 134, 60 | 1.05 |
+| Baked for day 200 | 90, 105, 74 | 0.86 |
+| Live, day 200 | 93, 106, 73 | 0.87 |
+| Live, day 270 | 100, 112, 69 | 0.89 |
+| Live, day 283 | 140, 134, 71 | 1.04 |
 
 So live and baked agree at day 200, and the leaves turn yellow later. Each leaf turns on its own day, from UV2.
 
@@ -216,6 +241,70 @@ Today, with no change to the game's materials, M_Surface's `UpperBark` switch do
 
 For the whole job later, addition 9 blends three layers from UV3: young brown, white scan, black scan.
 
+### Depth in the bark
+
+The nearest level's stem has the bark's own height map in its mesh, so plates stand out of the outline and cracks hold shadow. It's the same height map as the colour and normal maps, from the same ageing rules, so depth follows a part's age and height:
+
+| Age | Deepest crack in the mesh, mm | Highest plate, mm | Wood triangles |
+|---|---|---|---|
+| 5 | 0.1 | 0.2 | 36,402 |
+| 15 | 3.8 | 1.5 | 48,840 |
+| 30 | 15.1 | 1.5 | 239,722 |
+| 50 | 19.7 | 1.6 | 434,981 |
+| 60 | 21.2 | 1.5 | 502,453 |
+| 100 | 27.0 | 1.5 | 826,302 |
+
+The mesh is finest where the cracks are deep: 5 mm at the old base, 3 cm up on young white bark (`appearance.game.unreal.stem_relief`). `edge_fine_m: 0` turns it off. The normal map holds everything the mesh can't, and half of what it can, as a mesh shades only as sharply as its edges are short (`normal_keeps_deep_share`). `_lod1` has a smooth stem and its own map, `<slot>_lod1`, with everything in it.
+
+Rough bark's plates are larger than in the plain export, in the Unreal target only: 3 cm across and 16 cm long, with few breaks across them, by eye from photographs of old birch.
+
+**Nanite displacement tested against it.** Same camera, same age 60 stem.
+
+| | Relief in the mesh (used) | Nanite Static Displacement, build-time |
+|---|---|---|
+| Looks | Real outline, plates, cracks in shadow | The same, near enough to call a tie |
+| Leafless triangles at age 60 | 515,829 | 310,873, from 280,567 before the build |
+| Through the game's scripts | Yes, unchanged | Needs one more step on every stage, after import: set a height texture on the mesh, and rebuild |
+| Other levels and other engines | It's in the file | Nanite only. `_lod1`, a fallback or anything else sees the smooth tube |
+| Epic's status | Plain mesh | Experimental |
+| How exact | To the mesh's edge length, chosen by height | One error for the whole mesh and all its slots, by its size (`NaniteDisplace.cpp`) |
+
+So relief in the mesh, for now. If triangles come to matter, displacement saves about 40 % of the leafless tree and looks the same: `tools/unreal/game_route.py`, job key `static_displacement`.
+
+**Runtime tessellation wasn't tried.** It needs `r.Nanite.AllowTessellation=1`, read only at start, in the game's config, plus `Enable Tessellation` and a Displacement input on `M_Surface`. Epic's "Working with Nanite-Enabled Content" says it doesn't change shading, is experimental, and has "serious impacts on performance, especially with virtual shadow maps". That's a change to the game, with a cost at run time, for a picture that build-time already gets.
+
+### Leaves
+
+**Outline.** Traced from real leaves, Commons' `Birkenblaetter Betula pendula.jpg` (Roletschek), and it agrees with what's published: "Triangular, the end drawn out to a slender tip, hairless, margin toothed, with every 2nd to 4th tooth much longer than the others" (Burren flora, Naturalis), and acuminate apex (Atkinson & Codling 1986, Watsonia 16:75-87). I found no published mean ratio, tooth count or widest point: length over width 1.32, widest at 32 % and 7 main teeth a side are off the photos, and labelled so.
+
+**Mesh.** 26 triangles a blade: curved margin, main teeth at the side veins' ends, a midrib of 6 points with a fold of up to 26 degrees, curl and droop to the tip, a slight twist and ripple, all differing from leaf to leaf, with two outline variants, either way round. 4 more in a stalk, from the twig's surface, arching down to the blade. Small teeth are cut by the colour map's alpha at the game's clip, 0.35. The leaf's length comes from the model's area, so visible area matches it: section 2's check.
+
+**Angles.** From Hagemeier & Leuschner 2019a (Forests 10:265): mean 49 degrees from the horizontal, about 55 at the top, about 30 in the lowest shade crown, all hanging. In the file, measured base to tip, curl included:
+
+| Age | Height, m | Crown mean, by leaf area | Top tenth of the crown | Lowest quarter | Hanging | Mesh's leaf area, m2 | Model's, m2 |
+|---|---|---|---|---|---|---|---|
+| 5 | 5.7 | 41 | 55 | 38 | 100 % | 12.02 | 11.99 |
+| 15 | 12.0 | 41 | 54 | 37 | 100 % | 16.95 | 16.98 |
+| 30 | 18.8 | 41 | 54 | 31 | 100 % | 60.34 | 60.41 |
+| 50 | 24.6 | 46 | 54 | 30 | 100 % | 80.59 | 80.46 |
+| 60 | 26.1 | 50 | 53 | 30 | 100 % | 81.84 | 81.85 |
+| 100 | 29.7 | 52 | 55 | 50 | 100 % | 85.86 | 85.67 |
+
+Age 15 falls under the crown mean because the table goes by height in the tree, as the paper's does, and its crown sits low. The paper is on mature trees.
+
+**Size.** "Smallest at the top, growing linearly down" is the paper's. This comes from the model's own light response, and the export doesn't touch it: leaf area stays the model's. Age 15 shows it; age 60 barely does.
+
+| Age | Leaf area, cm2: top fifth of the crown | next | next | next | lowest fifth |
+|---|---|---|---|---|---|
+| 5 | 10.3 | 10.3 | 11.6 | 13.6 | 15.9 |
+| 15 | 10.4 | 11.1 | 15.2 | 17.2 | 17.4 |
+| 30 | 15.9 | 16.8 | 17.5 | 17.7 | 17.9 |
+| 50 | 16.3 | 17.6 | 17.9 | 17.9 | 17.9 |
+| 60 | 16.7 | 17.9 | 18.0 | 18.0 | 18.0 |
+| 100 | 15.2 | 17.0 | 17.7 | 17.8 | 17.9 |
+
+The paper's extract gives no slope to apply. So if age 60 should show more, that's a growth change to look at. The file used is from before the Tree agent's current work, so it may have changed already.
+
 **Scans and licences:**
 
 | Scan | Licence | Fit | Note |
@@ -235,25 +324,27 @@ All in `out/unreal_test/TreeTest`, an empty project, Unreal 5.8.4, no window. Th
 
 | File | Triangles in Unreal | UV sets | Vertex colour | Slots | Lowest point, cm |
 |---|---|---|---|---|---|
-| Age 15, nearest | 341,940 | 4 | Yes | 5, on M_Surface and M_Foliage as they should be | -20.1 |
-| Age 15, `_lod1` | 16,000 | 4 | Yes | 4 | -16.8 |
-| Age 15, `_lod2` | 12 | 1 | Yes | 1 | -17.9 |
-| Age 15, `_roots` | 15,908 | 4 | Yes, flex 0 | 1 | -96.3 |
-| Age 60, nearest | 1,616,160 | 4 | Yes | 5 | -30.4 |
-| Age 60, `_lod1` | 16,000 | 4 | Yes | 4 | -30.4 |
-| Age 60, `_lod2` | 12 | 1 | Yes | 1 | -39.1 |
-| Age 60, `_roots` | 190,572 | 4 | Yes, flex 0 | 1 | -121.9 |
+| Age 15, nearest | 363,638 | 4 | Yes | 5 | 32.0 |
+| Age 15, `_lod1` | 16,000 | 4 | Yes | 4 | 32.0 |
+| Age 15, `_lod2` | 12 | 1 | Yes | 1 | 32.0 |
+| Age 15, `_roots` | 16,318 | 4 | Yes | 1 | -54.2 |
+| Age 60, nearest | 1,947,669 | 4 | Yes | 5 | 32.0 |
+| Age 60, `_lod1` | 16,000 | 4 | Yes | 4 | 32.0 |
+| Age 60, `_lod2` | 12 | 1 | Yes | 1 | 32.0 |
+| Age 60, `_roots` | 191,929 | 4 | Yes | 1 | -79.9 |
 
-The game seats each mesh by its own lowest point, so the levels of one age can sit up to 9 cm apart. At the distances where they swap that won't show.
+The game seats each mesh by its own lowest point, and every level of these ages now has it in the same place, so they stay in line. (They were up to 9 cm apart before.)
 
 **What I saw:**
 
-- The bark, normal maps, shadows and moss at the foot all work through the game's materials.
+- The bark, its depth, normal maps, shadows and our moss at the foot all work through the game's materials.
 - Nanite's fallback mesh is small: under 900 triangles at age 60, 1,336 for the game's birch. Where anything uses the fallback, such as ray tracing that doesn't trace Nanite itself, it sees a rough blob of the crown. Same for both trees. I didn't look further.
 - `_lod1`'s leaf cards came out darker than the nearest level's leaves: more of each card sits in other cards' shadow. Not fixed. With Nanite you won't draw them.
+- Leaves in shade, and leaves seen from below, come out black in this scene, ours and the game's birch alike. At the measured angles more of them are seen from below than before, so ours look darker from under the crown. The game's `M_Foliage` passes 0.25 of a leaf's colour through it, and this scene has no cloud or forest to light the shade. Tried on the test project's copy with 1.0 in place of 0.25, then put back: shaded leaves pick up some dark green, but most stay near black, so most of it is this scene's shade, not the material.
+- `DistanceFields` are off in the test project (`r.GenerateMeshDistanceFields=False`) to save memory on this PC. The game has them on.
 - `_lod2` close up shows its crossed sheets, as expected. It's for far away.
 
-**Beside the game's birch.** Same project, same sun, sky and camera. Pictures: `out/unreal_test/sheets/` and `out/unreal_test/shots_final/`, kept out of the repository because they hold scanned textures.
+**Beside the game's birch.** Same project, same sun, sky and camera. Pictures: `out/unreal_test/sheets/`, `out/unreal_test/shots_final/` (this comparison, and the "before" of the bark and leaf work) and `out/unreal_test/shots_f/` (now), kept out of the repository because they hold scanned textures.
 
 | | Ours, age 15, stand-grown | Ours, age 15, open-grown | The game's birch, `_a` |
 |---|---|---|---|
@@ -268,7 +359,10 @@ The game's birch looks better, and the crown is why. It isn't close. Bark and le
 
 **Not tested:**
 
-- A voxelized Nanite build, of ours or the game's. It needs 11 GB free on this PC by the agreed limit, and free memory never passed about 8.5 GB. So "leaves voxelize well" is from Epic's guidance and the mesh's shape, not seen.
+- A voxelized Nanite build, of ours or the game's. It needs 11 GB free on this PC by the agreed limit, and free memory never passed about 8.8 GB. So "leaves voxelize well" is from Epic's guidance and the mesh's shape, not seen.
+- Distance fields on the bigger mesh, and so Lumen's software tracing with it.
+- Our stem on real terrain, with the game's grass and its `root_flare_tile` taken off. Only on a flat plane.
+- Runtime tessellation (section 8).
 - A packaged game. Everything ran in the editor.
 - The game itself, its world and its forest. Nothing was run in the game.
 - Instancing, wind in motion, and frame times. Pictures are still, from a scene capture.
@@ -284,4 +378,4 @@ It makes an empty project under `out/unreal_test/`, copies what it needs, and st
 
 Unreal 5.8 logs this PC's Visual C++ runtime as outdated, which makes command-line runs exit with code 1. The runner judges by other errors and the results file.
 
-Pictures need real frames, which a command-line run doesn't have, so `render` runs the editor itself with `-RenderOffScreen`. Texture streaming is off in the test project, because a scene capture doesn't tell the streamer where it's looking.
+Pictures need real frames, which a command-line run doesn't have, so `render` runs the editor itself with `-RenderOffScreen`. Texture streaming is off in the test project, because a scene capture doesn't tell the streamer where it's looking. Distance fields are off too, to save memory.

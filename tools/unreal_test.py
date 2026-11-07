@@ -56,7 +56,8 @@ r.AllowStaticLighting=False
 r.DynamicGlobalIlluminationMethod=1
 r.ReflectionMethod=1
 r.Shadow.Virtual.Enable=1
-r.GenerateMeshDistanceFields=True
+; the game has distance fields on; here they'd take the last of this PC's memory on a big tree, and hardware Lumen doesn't need them
+r.GenerateMeshDistanceFields=False
 r.RayTracing=True
 r.Lumen.HardwareRayTracing=True
 r.SkinCache.CompileShaders=True

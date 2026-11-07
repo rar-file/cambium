@@ -1412,11 +1412,29 @@ appearance:
     game.unreal.alpha_clip: "SOURCE: the game's M_Foliage clip, the game's Tools/Editor/build_materials.py ALPHA_CLIP."
     game.unreal.bark_wrap_tile_m: "SOURCE: the game's tileable bark repeat, the game's Tools/Assets/split_scans.py BARK_TILE_M."
     game.unreal.roots.surface_depth_m: "SOURCE: how far the game's own root flare reaches below ground so it meets any slope, the game's Tools/Assets/make_root_flare.py."
-    game.unreal.roots.surface_min_radius_m: "TUNED: thinner roots stay in the below-ground mesh."
+    game.unreal.roots.surface_min_radius_m: "TUNED: a root never this thick, or surface_min_radius_share of the collar, stays in the below-ground mesh."
+    game.unreal.roots.surface_min_radius_share: "TUNED: as above."
+    game.unreal.roots.sink_length_radii: "TUNED: by eye. How fast, in collar radii, a root's height goes from where the model has it at the stem to its depth under the ground line; the game's own flare sinks its roots along their 1-2.3 m."
+    game.unreal.roots.centre_above_ground_radii: "TUNED: a thick root mostly buried, a low ridge along the ground: its centre this many of its radii above the ground line, so below it. Compared by eye with birch-data/summer_reference/Arnhem-Delhuyzen and Intertwined_roots photos. The model has no ground level at the collar to read this from."
+    game.unreal.roots.moss_side_power: "TUNED: moss on one side of a stem, narrower with this power; seen on birch-data/summer_reference/Hange-Birke (Stamm alter Baum 9992) and reference/gullmarsskogen_stand_5.jpg."
+    game.unreal.roots.moss_elsewhere: "TUNED: as above, the share of its reach that moss gets on the other side."
+    game.unreal.roots.moss_patchiness: "TUNED: as above, how much the moss's top edge wanders, in shares of its reach."
+    game.unreal.stem_relief.plates: "TUNED: plates of old bark 3-8 cm across and 10-30 cm long, with few breaks across them, read by eye off birch-data/summer_reference/Hange-Birke (Stamm alter Baum 9992) and the Arnhem-Delhuyzen photo. The plain export's rhytidome stays as it was."
+    game.unreal.roots.origin_below_lowest_m: "DERIVED: M_Surface's moss at a model's base reads height above the origin and takes up to GroundBlendCm 20 + 6 cm of noise (the game's Tools/Editor/build_materials.py), so an origin this far below the tree keeps that moss, which smears up an upright stem, off."
+    game.unreal.roots.moss_reach_m: "TUNED: by eye on reference/gullmarsskogen_stand_5.jpg: moss to about 30-40 cm on old stems, less on young."
+    game.unreal.roots.moss_colour: "TUNED: by eye against reference/gullmarsskogen_stand_5.jpg; a little under the mean colour of the game's Moss001 at the albedo it holds moss to, 0.085 (the game's build_materials.py GROUND_ALBEDO), and greener, as a moss cushion on a stem."
+    game.unreal.stem_relief: "TUNED: how fine the stem's mesh is where its cracks are deep. Depth itself is not set here: it is the bake's height, from the bark thickness and fissure rules."
     game.unreal.roots.foot_fade_m: "TUNED: below the ground line, how far the stem's thickness fades into the taproot's."
     game.unreal.roots.ground_line_radii: "TUNED: the model's own thick roots lie just under its z = 0, so the game's ground meets the tree this many collar radii lower, and at most ground_line_max_m. A setting, not a growth change; 0 puts the ground at the model's z = 0, where almost no root shows."
     game.unreal.roots.soil_tint: "TUNED: by eye; no measured colour of soil-stained birch root found. The game's own flare takes 0.75 of the bark's gain and 0.7 desaturated."
-    game.unreal.leaf_rows: "DERIVED: 8 rows miss the blade's outline by at most 0.75 mm on a 5 cm leaf, mean 0.12 mm; 12 rows at most 0.79 mm, mean 0.07 mm. The game's flora run about 32 triangles a leaf."
+    game.unreal.leaf.angle_by_height: "SOURCE: Hagemeier & Leuschner 2019a, Forests 10:265, read in the maintainer's browser (reports/extracts/crown_and_light_papers_2026-11-07.md): crown mean 49 degrees to the horizontal, about 55 at the top, about 30 in the lowest shade crown, 30 or more below 0.5 of tree height. Most hang downward. The paper gives the ends and the mean: the points at 0.5 and 0.8 are DERIVED to bring the crown mean to about 49 at the paper's tree size (22-26 m, here ages 50 and 60)."
+    game.unreal.leaf.angle_spread_deg: "TUNED: by eye; the paper gives means."
+    game.unreal.leaf.shape.half_width_by_length: "DERIVED: traced by eye from the blades in Commons 'Birkenblaetter Betula pendula.jpg' (Roletschek; birch-data/summer_reference, not in the repo). Length over width about 1.25-1.45 there. Agrees in kind with the Burren flora's 'triangular, the end drawn out to a slender tip' and Atkinson & Codling 1986, Watsonia 16:75, which separates B. pendula by its acuminate apex and narrow tip."
+    game.unreal.leaf.shape.main_teeth: "DERIVED: counted on the same photo, about 6-8 side veins a side, each ending in a main tooth. Burren flora: 'every 2nd to 4th tooth much longer than the others', hence minor_per_main 2 or 3."
+    game.unreal.leaf.shape.main_tooth_depth: "TUNED: by eye on the same photo, as a share of leaf length, as minor_tooth_depth."
+    game.unreal.leaf.fold_deg: "TUNED: by eye."
+    game.unreal.leaf.curl: "TUNED: by eye."
+    game.unreal.leaf.stalk_colour: "TUNED: by eye on the same photo: red-brown."
     game.unreal.ring_tolerance: "TUNED: a ring goes if its surface stays within 10 % of the radius or 1 mm, whichever is more; 1 mm is under 2 pixels at 1 m on a 2560-wide screen at a 60 degree view. Surface area stays within 0.02 %."
     game.unreal.ring_longest_span: "TUNED: so a long straight twig still bends in the wind, whose flex is per vertex."
     game.unreal.chlorophyll_by_day: "DERIVED: birch at Siljan from the game's Docs/Research/Wave1/03-trees.md section 2.8 (Nature's Calendar 2008-2021, its source [28], not opened by me): leaf-out starts day 123, autumn colour starts 266, leaf fall starts 279, leafless 286.5; Siljansfors 50 % budburst 22 May is day 142. TUNED: the chlorophyll fraction on each of those days."
@@ -1564,19 +1582,78 @@ appearance:
       # the real roots (treegen/roots.py): what goes with the tree, and what's left as its own mesh
       roots:
         surface_depth_m: 0.10
-        surface_min_radius_m: 0.01
-        ground_line_radii: 1.4
-        ground_line_max_m: 0.20
+        surface_min_radius_m: 0.006
+        surface_min_radius_share: 0.14
+        ground_line_radii: 1.25
+        ground_line_max_m: 0.25
         foot_fade_m: 0.15
         soil_tint: [0.72, 0.66, 0.58]
+        sink_length_radii: 2.0
+        centre_above_ground_radii: -0.25
+        origin_below_lowest_m: 0.32
+        moss_reach_m: 0.08
+        moss_reach_per_year_m: 0.004
+        moss_reach_max_m: 0.36
+        moss_on_white: 0.3
+        moss_colour: [0.042, 0.056, 0.02]
+        moss_side_power: 1.5
+        moss_elsewhere: 0.12
+        moss_patchiness: 0.55
+      # the stem's relief in the mesh; edge_fine_m 0 leaves the stem as a smooth tube with its old low relief
+      stem_relief:
+        edge_fine_m: 0.005
+        edge_coarse_m: 0.03
+        full_at_fissure_m: 0.006
+        along_factor: 1.4
+        rings_under_m: 0.025
+        mesh_blur_px: 2
+        normal_keeps_deep_share: 0.5
+        # of the species' geometry.root_flare_extra, as a swell of the stem into the ground
+        swell_share: 1.0
+        # the rough bark's plates, in place of the plain export's
+        plates: {size_m: [0.03, 0.16], furrow_width: 0.6, cross_crack: 0.3}
       # leaf atlas: columns from this chlorophyll fraction to that one; a leaf's level picks its column
       leaf_levels: 8
       leaf_level_range: [0.04, 1.0]
-      # rows of vertices from a blade's base to its tip, cut to its outline; 4 (rows - 1) triangles a leaf
-      leaf_rows: 8
-      # how deep the mesh's coarse teeth cut, as a share of the half width; how far the tip bends back, of its length
-      leaf_tooth: 0.05
-      leaf_curl: 0.10
+      # the near leaves, in mesh and atlas
+      leaf:
+        texture_px: 512
+        # angle to the horizontal by height in the tree, degrees, and the spread about it
+        angle_by_height: [[0.0, 30.0], [0.3, 30.0], [0.5, 42.0], [0.8, 51.0], [1.0, 55.0]]
+        angle_spread_deg: 14.0
+        roll_rad: 0.6
+        # where the mesh has its points along the blade; the side points past these are the main teeth
+        midrib_at: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+        base_points_at: [0.03, 0.06]
+        # each leaf its own: width, midrib fold (+ edges up), droop to the tip and twist, of its length
+        width_low: 0.9
+        width_high: 1.1
+        fold_deg: [-6.0, 26.0]
+        curl: [0.05, 0.28]
+        twist_rad: 0.3
+        side_bend: 0.06
+        ripple: 0.012
+        stalk_width_m: 0.0011
+        stalk_colour: [0.12, 0.05, 0.035]
+        shape:
+          # half width over length, base to tip
+          half_width_by_length: [[0.0, 0.0], [0.03, 0.07], [0.06, 0.125], [0.12, 0.215], [0.19, 0.31], [0.26, 0.365], [0.32, 0.38], [0.38, 0.372], [0.46, 0.335], [0.56, 0.28], [0.66, 0.215], [0.76, 0.145], [0.86, 0.07], [0.94, 0.025], [1.0, 0.0]]
+          aspect: 1.32
+          widest_at: 0.32
+          teeth: 13
+          variants: 2
+          variant_warp: 0.06
+          main_teeth: 7
+          first_tooth_at: 0.09
+          last_tooth_at: 0.93
+          tooth_spacing_power: 1.0
+          side_offset: 0.3
+          main_tooth_depth: 0.024
+          minor_tooth_depth: 0.011
+          minor_per_main: 2
+          uv_half: 0.49
+          vein_start_share: 0.8
+          vein_lightness: 0.18
       card_levels: 4
       strip_opacity_levels: 4
       chlorophyll_by_day: [[118, 0.1], [123, 0.25], [142, 0.5], [160, 0.85], [175, 1.0], [262, 1.0], [266, 0.92], [276, 0.5], [286.5, 0.05]]

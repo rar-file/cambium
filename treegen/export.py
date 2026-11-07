@@ -214,7 +214,10 @@ class GameGLB:
         if not len(faces):
             return None
         rot = lambda v: np.stack([v[:, 0], v[:, 2], -v[:, 1]], axis=1)  # noqa: E731
-        p = np.ascontiguousarray(rot(np.asarray(vertices)), dtype="<f4")
+        v_out = np.asarray(vertices)
+        if getattr(self, "origin_z", 0.0):
+            v_out = v_out + np.array([0.0, 0.0, self.origin_z])
+        p = np.ascontiguousarray(rot(v_out), dtype="<f4")
         attrs = {"POSITION": self._accessor(p, "VEC3", 5126, 34962, bounds=True)}
         n = np.asarray(normals, np.float64)
         n = n / np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-12)
