@@ -1520,7 +1520,7 @@ class GrowthModel:
 
     def _browsed_twigs(self, t: int, alive: np.ndarray, stem: np.ndarray) -> np.ndarray:
         """A tree on its own stands where grazers reach it.  An axis off the stem with a shoot thin enough to bite (leader_damage.bite_diameter_m) inside a browsing event's height range
-        goes at that event's yearly chance, so the stem's foot clears from the ground up while the tree is growing past the reach.  A real bite takes a shoot's end, not the axis: this is the sum of years of bites."""
+        goes at crown_frame.twigs_browsed times that event's yearly chance, so the stem's foot clears from the ground up while the tree is growing past the reach.  A real bite takes a shoot's end, not the axis: this is the sum of years of bites."""
         T, ld = self.tree, self.sp.leader_damage
         n0 = len(alive)
         rng = self.__dict__.get("_browse_rng")
@@ -1536,7 +1536,7 @@ class GrowthModel:
                 reach = thin & (T.pos[:n0, 2] >= float(ev.min_height_m)) & (T.pos[:n0, 2] <= float(ev.max_height_m))
                 axes = first_of[T.axis[:n0][reach]]
                 axes = np.unique(axes[axes >= 0])
-                out.append(axes[rng.random(axes.size) < float(ev.probability_per_year)])
+                out.append(axes[rng.random(axes.size) < float(self.sp.crown_frame.twigs_browsed) * float(ev.probability_per_year)])
         return np.concatenate(out)
 
     def _shed(self, t: int, roots: np.ndarray, levels: list):

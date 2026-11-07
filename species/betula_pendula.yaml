@@ -1728,8 +1728,9 @@ crown_frame:
   limb_rivals: 5
   # TUNED, against the look: how far a limb's posture target moves with the age of its wood (over resource.branch_aging_years): new wood stands a third of this above the limb's own set-point, old wood settles towards two thirds below it, so limbs leave the stem low and curve up.  null: straight.
   limb_sag_deg: null
-  # With earned, for a tree with no neighbours: limbs and twigs whose thin shoots are within a moose's reach get bitten off, at leader_damage.events' height range and yearly chance, a rate measured on leaders in young stands, not on twigs (DERIVED).  false: none.
-  twigs_browsed: false
+  # With earned, for a tree with no neighbours, and a matter of place: a park has no moose.  Limbs and twigs whose thin shoots are within a moose's reach get bitten off, at leader_damage.events' height range and this share of its yearly chance.
+  # DERIVED: the rate is Bergqvist et al. 2014's, measured on leaders of young stands in southern Sweden, not on twigs.  0: none.  1: the rate as measured, which takes half the leaf area of a 20-year-old tree.
+  twigs_browsed: 0
   # TUNED, against the look: when the crown has all the leaf area it can hold (crown_lai_max), short shoots this old die, so new shoots have room and the foliage moves out.
   # 8 left 71 % of an open tree's twig length leafless, the dark brooms; 12 leaves about 60 %.  Birch short shoots live several years (Maillette 1982, abstract only).  null: none die of age.
   full_crown_spur_years: 12
