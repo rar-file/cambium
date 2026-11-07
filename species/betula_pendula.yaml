@@ -1658,6 +1658,8 @@ crown_frame:
   twig_buds_distal: null
   # TUNED, against the look: those buds, on a limb or a fork, break by their own light and are paid first, however little the rest of the crown leaves them.
   limb_buds_paid: false
+  # TUNED, against the look: what a bud on the tree gets goes with the light on it, to this power, in place of the split down the branches.  null: the split.
+  twigs_by_light: null
   # TUNED: with a value, a limb's reach goes with the light on its leaves this year, to this power, and its side shoots' length with that light,
   # in place of the table by place in the crown (top_share, peak_depth, base_share, profile_power) and limb ageing.  null: off.
   earned_power: null

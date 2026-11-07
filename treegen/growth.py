@@ -1110,6 +1110,8 @@ class GrowthModel:
                 # a small store: this share of the year's pool waits for next year, with what the crown
                 # couldn't use, up to twice that share; beyond it, unused carbon is lost
                 self._carbon_store = min(carried * pool + float(getattr(self, "_unspent", 0.0)), 2.0 * carried * pool)
+            if getattr(self, "_frame_share", None) is not None:
+                share_t, share_l = self._frame_share[:len(share_t)], self._frame_share[len(share_t):]
             v_term, v_lat = lam * share_t, lam * share_l
             if self._hd is not None:
                 v_term, v_lat = self._height_limit_apply(v_term, v_lat)
@@ -1701,6 +1703,13 @@ class GrowthModel:
         tip_area = np.pi * float(pm.tip_radius) ** 2
         starts = np.concatenate([term_nodes, lat_nodes])
         share = np.concatenate([share_t, share_l])
+        self._frame_share = None
+        by_light = getattr(sp.crown_frame, "twigs_by_light", None) if self._frame_on() else None
+        if by_light:
+            # what a bud gets goes with the light on it, not with where it stands on the tree: a bud in the sun on a young limb grows, one in the shade on an old limb doesn't
+            light_share = np.where(share > 0.0, np.power(np.minimum(q_bud, 1.0), float(by_light)), 0.0)
+            share = light_share / max(float(light_share.sum()), 1e-12)
+            self._frame_share = share
         thr = np.concatenate([np.full(len(term_nodes), float(getattr(bf, "min_tip_extension", 1.0))),
                               np.where(T.lat[lat_nodes] == LAT_SPUR, float(bf.spur_release_threshold),
                                        float(bf.long_shoot_threshold))])
