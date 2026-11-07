@@ -1410,7 +1410,9 @@ roots:
   # Roots that cost carbon, off by default.  With it off, root radii are copied from the stem base for free and
   # most of the root share is lost.  With it on (RootSystem.update_radii_paid, GrowthModel._pay_roots) the share
   # pays for fine roots, then root wood, ring by ring each year; what's left is logged as unresolved (woody-root
-  # respiration, exudates, mycorrhiza), and goes to nothing else.
+  # respiration, exudates, mycorrhiza), and goes to nothing else.  Use it with lateral_setpoint_deg 92 and
+  # lateral_gravitropism_per_m 3.0 above, TUNED against Laitakari 1934 p. 198, horizontal roots a mean 13-15 cm deep,
+  # and with geometry.root_flare_min_share 0.5.
   paid:
     enabled: false
     # Over-bark stump diameter from over-bark DBH: dS = 2 + 1.25 d, cm.  SOURCE: Repola 2008, Silva Fennica 42:605,
@@ -1441,8 +1443,8 @@ roots:
     # Fine roots made per year per fine root standing.  SOURCE: Aosaar et al. 2016, Silva Fennica 50(4):1628, Table 4,
     # age 10, 0.89 over 1.35 Mg/ha.  (Varik 2014's 32-year stand: about 0.6.)
     fine_root_turnover_per_year: 0.66
-    # Spacing of the taproot's nodes (m), one possible root each.  TUNED: about 26 down to taproot_max_depth, and
-    # Kalliokoski Table 3 has 11-28 roots at the collar.
+    # Spacing of the taproot's nodes (m), one possible root each.  TUNED: 40 down to taproot_max_depth, more than the
+    # 11-28 roots at the collar in Kalliokoski Table 3, so room round the stump decides how many start, not this.
     collar_node_m: 0.01
     # A new root starts at the collar only while there are fewer than the stump's girth over this (m).  TUNED against
     # Kalliokoski Table 3: 11, 20, 25, 28, 16 roots at stumps of 8.1, 16.1, 30.0, 26.4, 19.1 cm: 2.3-3.8 cm of girth per root.

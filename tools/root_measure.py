@@ -171,6 +171,16 @@ def architecture(model) -> dict:
     depth = -live_pos[:, 2] if len(live_pos) else np.zeros(1)
     ll = L[alive & (idx > 0)]
     mean_depth = float((depth * ll).sum() / max(ll.sum(), 1e-9)) if len(live_pos) else 0.0
+    if model.stats and model.stats[-1].get("dbh_cm"):
+        from treegen import damage
+
+        an = damage.anchorage_of(model) or {}
+        ct = an.get("critical_turning_moment") or {}
+        out["anchorage"] = {"plate_radius_m": an.get("plate_radius_m"), "plate_depth_m": an.get("plate_depth_m"), "structural_roots": an.get("structural_roots"),
+                            "resistance_knm": an.get("overturning_resistance_mean_knm"), "resistance_min_knm": an.get("overturning_resistance_min_knm"),
+                            "soil_weight_knm": an.get("resistance_soil_weight_knm"), "empirical_knm": an.get("empirical_h_dbh2_knm"), "critical_knm": ct.get("mean_knm"),
+                            "critical_min_knm": ct.get("min_knm"), "rooting_depth_m": ct.get("rooting_depth_m"), "depth_factor": ct.get("depth_factor"),
+                            "asymmetry_factor_range": ct.get("asymmetry_factor_range")}
     out.update({
         "d0_cm": 100.0 * d0,
         "stump_d_cm": 100.0 * stump,
@@ -365,25 +375,19 @@ def split(labels: list) -> None:
 
 
 def anchor(labels: list) -> None:
-    print("Anchorage from stats.json.  Empirical: Krisans 2022 as in the species file.  Plate radius published for birch? See the report.")
-    print("| Set | Seeds | Plate radius (m) | Plate depth (m) | Overturning resistance, mean (kN m) | Critical turning moment, mean (kN m) | Empirical H DBH2 (kN m) |")
-    print("|---|---|---|---|---|---|---|")
-    import json
-
-    from tree_table import E
-
+    print("What treegen/damage.py reads.  Critical moment: Krisans 2022's 101 kN m per m3 of stem x rooting depth x asymmetry, the one uprooting uses.  Resistance from the plate and roots: Coutts 1986's form, numbers only.  Empirical: Krisans 2022, 25-38 kN m per m3 of H x DBH2, the species file's 31 here.  Plate radius: nothing published for birch found; Danjon 2005's taper zone on pine is 2.2 x DBH, the game's estimate for spruce 6-14 x DBH.")
+    print("| Set | Age | Seeds | Plate radius (m) | Per DBH, over bark | Plate depth (m) | Soil's part (kN m) | Resistance from plate and roots (kN m) | Empirical H DBH2 (kN m) | Critical moment, mean (kN m) | Weakest wind direction (kN m) | Rooting depth (m) | Asymmetry factor, lowest-highest |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for label in labels:
-        rows = []
-        for d in sorted((E / label).glob("*_stand")):
-            f = d / "stats.json"
-            if not f.exists():
+        runs = _load(label)
+        for age in (30, 50, 60):
+            rows = [(r["snap"][age]["root_arch"]["anchorage"], r["per_year"][age]) for r in runs.values() if age in r["snap"] and "anchorage" in r["snap"][age].get("root_arch", {})]
+            if not rows:
                 continue
-            a = json.loads(f.read_text(encoding="utf-8")).get("anchorage") or {}
-            if a:
-                rows.append(a)
-        if rows:
-            m = lambda k: _mean(x.get(k) or 0.0 for x in rows)
-            print(f"| `{label}` | {len(rows)} | {m('plate_radius_m'):.2f} | {m('plate_depth_m'):.2f} | {m('overturning_resistance_mean_knm'):.1f} | {_mean((x.get('critical_turning_moment') or {}).get('mean_knm') or 0.0 for x in rows):.1f} | {m('empirical_h_dbh2_knm'):.1f} |")
+            m = lambda k: _mean(x[0].get(k) or 0.0 for x in rows)
+            per_dbh = _mean((x[0].get("plate_radius_m") or 0.0) / max((x[1].get("dbh_cm") or 1.0) * OVER_BARK / 100.0, 1e-9) for x in rows)
+            lo, hi = _mean((x[0].get("asymmetry_factor_range") or [0.0, 0.0])[0] for x in rows), _mean((x[0].get("asymmetry_factor_range") or [0.0, 0.0])[1] for x in rows)
+            print(f"| `{label}` | {age} | {len(rows)} | {m('plate_radius_m'):.2f} | {per_dbh:.1f} | {m('plate_depth_m'):.2f} | {m('soil_weight_knm'):.1f} | {m('resistance_knm'):.1f} | {m('empirical_knm'):.1f} | {m('critical_knm'):.1f} | {m('critical_min_knm'):.1f} | {m('rooting_depth_m'):.2f} | {lo:.2f}-{hi:.2f} |")
 
 
 def main(argv=None) -> int:
