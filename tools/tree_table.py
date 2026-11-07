@@ -5,6 +5,7 @@
     python tools/tree_table.py seeds X              # the same, seed by seed: a mean can hide outliers
     python tools/tree_table.py fall X Y             # twigs and branches shed, crown base, lowest branch, crown ratio
     python tools/tree_table.py driver X             # what held the leader back, year by year, across seeds
+    python tools/tree_table.py height X Y           # where the leaf area and crown width peak by height, beside Hagemeier & Leuschner 2019a
 
 Writes out/bench/ensemble/<label>/<seed>_stand/, the same stats.json an ensemble writes (so tools/scorecard.py,
 tools/m3_alternation.py and tools/m3_crown_compare.py read it), plus tree.json: new shoot length each year, wood and
@@ -160,6 +161,16 @@ def crown_shape(model) -> dict:
     widths = np.array([2.0 * float(np.percentile(radial[band == b], 95)) if (band == b).sum() >= 5 else 0.0 for b in range(10)])
     widest = float(widths.max())
     out = {"widest_at": (int(np.argmax(widths)) + 0.5) / 10.0, "width_ratio_top": float(widths[7:].mean()) / max(widest, 1e-6), "profile": [round(float(x), 2) for x in widths]}
+    # by height on the tree, as Hagemeier & Leuschner 2019a report it: where the leaf area and the crown's width peak, and leaf area
+    # density in tenths of height, m2 of leaf per m3 of the layer's own crown cylinder
+    area = leaves[leafy] * float(model.light.leaf_area)
+    tenth = np.clip((pos[leafy, 2] / H * 10).astype(int), 0, 9)
+    by_area = np.bincount(tenth, weights=area, minlength=10)
+    r95 = np.array([float(np.percentile(radial[tenth == b], 95)) if (tenth == b).sum() >= 5 else 0.0 for b in range(10)])
+    out["leaf_peak_at"] = (int(np.argmax(by_area)) + 0.5) / 10.0
+    out["wide_peak_at"] = (int(np.argmax(r95)) + 0.5) / 10.0
+    out["leaf_below_half"] = float(by_area[:5].sum() / max(by_area.sum(), 1e-9))
+    out["lad"] = [round(float(by_area[b] / max(math.pi * r95[b] ** 2 * H / 10.0, 1e-6)), 3) if r95[b] > 0.0 else 0.0 for b in range(10)]
     rel = (pos[T.parent[limbs], 2] - base) / crown
     angles, tips, lengths = [], [], []
     for start in limbs:
@@ -187,6 +198,17 @@ def crown_shape(model) -> dict:
     if upper.size:
         rival = float((T.radius[upper] / np.maximum(T.radius[T.parent[upper]], 1e-9)).max())
     out["leader_rival"] = rival
+    # double top, my own reading of Zeltins et al. 2018's "double tops", which it doesn't define: a limb in the top quarter of the
+    # crown's stem as thick at its base as this share of the stem just above it, reaching within 1.5 m of the top
+    forks = 0
+    top_quarter = limbs[pos[T.parent[limbs], 2] >= base + 0.5 * crown]
+    if top_quarter.size:
+        tip_z = np.zeros(int(T.axis[:n].max()) + 1)
+        np.maximum.at(tip_z, T.axis[:n][alive], pos[:n, 2][alive])
+        mains = T.main_child[T.parent[top_quarter]]
+        above = np.where(mains >= 0, T.radius[np.maximum(mains, 0)], T.radius[T.parent[top_quarter]])
+        forks = int(((T.radius[top_quarter] >= 0.6 * np.maximum(above, 1e-9)) & (tip_z[T.axis[top_quarter]] >= H - 1.5)).sum())
+    out["double_tops"] = forks
     tips_all = np.nonzero(alive & (T.term[:n] == 1))[0]
     stem_axes = np.isin(T.axis[tips_all], np.fromiter(model.leader_axes, np.int64))
     out["tops"] = int(((pos[tips_all, 2] >= H - 0.5) & ~stem_axes).sum())
@@ -489,8 +511,8 @@ def shape(labels: list, per_seed: bool = False) -> None:
     """Crown shape at 30, 50, 60.  Angle from vertical.  Published: mean branch angle 43.2 deg, range 15-80, SD 10.4 (clonal plantation, Latvia, Forests 9:52, as the
     species file quotes it); no value by height in the crown, for where the crown is widest, for leader loss or for how far twigs hang in anything read so far."""
     print("Angle from vertical. Published: mean branch angle 43.2 deg, range 15-80 (Forests 9:52, as the species file quotes it). Nothing read gives a value by crown position, for where the crown is widest, for leader loss or for twig drop. Means over seeds, (lowest-highest).\n")
-    print("| Set | Age | Seeds | Widest point, share of crown length | Top third's width over the widest | Limb angle at the stem, low | mid | up | Tip chord, low | mid | up | Thickest top-crown limb over stem | Rival tops | Bare stem at the top (m) | Hanging run, mean, p90, max (m) | Hanging runs | Leaves on them | Side fill (my own measure) | Lone limbs below the crown | Longest gap in limbs (m) |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    print("| Set | Age | Seeds | Widest point, share of crown length | Top third's width over the widest | Limb angle at the stem, low | mid | up | Tip chord, low | mid | up | Thickest top-crown limb over stem | Rival tops | Bare stem at the top (m) | Hanging run, mean, p90, max (m) | Hanging runs | Leaves on them | Side fill (my own measure) | Lone limbs below the crown | Longest gap in limbs (m) | Trees with a second top |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for label in labels:
         runs = load(label)
         for age in (30, 50, 60):
@@ -503,7 +525,25 @@ def shape(labels: list, per_seed: bool = False) -> None:
                     v = [x[key] for x in xs if x.get(key) is not None]
                     return "-" if not v else (f"{statistics.fmean(v):{f}}" if len(v) == 1 else fmt(v, f))
                 tag = f"`{label}`" if name == "mean" else f"seed {name}"
-                print(f"| {tag} | {age} | {len(xs)} | {m('widest_at', '.2f')} | {m('width_ratio_top', '.2f')} | {m('angle_low', '.0f')} | {m('angle_mid', '.0f')} | {m('angle_up', '.0f')} | {m('tip_angle_low', '.0f')} | {m('tip_angle_mid', '.0f')} | {m('tip_angle_up', '.0f')} | {m('leader_rival', '.2f')} | {m('tops', '.1f')} | {m('bare_top_m', '.1f')} | {m('hang_mean', '.2f')}, {m('hang_p90', '.2f')}, {m('hang_max', '.2f')} | {m('hang_count', '.0f')} | {m('hang_leaves', '.2f')} | {m('fill', '.2f')} | {m('lone', '.1f')} | {m('gap_m', '.1f')} |")
+                print(f"| {tag} | {age} | {len(xs)} | {m('widest_at', '.2f')} | {m('width_ratio_top', '.2f')} | {m('angle_low', '.0f')} | {m('angle_mid', '.0f')} | {m('angle_up', '.0f')} | {m('tip_angle_low', '.0f')} | {m('tip_angle_mid', '.0f')} | {m('tip_angle_up', '.0f')} | {m('leader_rival', '.2f')} | {m('tops', '.1f')} | {m('bare_top_m', '.1f')} | {m('hang_mean', '.2f')}, {m('hang_p90', '.2f')}, {m('hang_max', '.2f')} | {m('hang_count', '.0f')} | {m('hang_leaves', '.2f')} | {m('fill', '.2f')} | {m('lone', '.1f')} | {m('gap_m', '.1f')} | {sum(1 for x in xs if x.get('double_tops', 0) > 0)}/{len(xs)} |")
+
+
+def crownheight(labels: list) -> None:
+    """Where the leaves are by height on the tree, beside Hagemeier & Leuschner 2019a (6 felled birches 22-26 m tall, closed stands, Germany): all leaf area in the upper
+    half, most at about 0.80 of height, and crown radius the same; density 0.142 + 2.91 x^9.02 m2/m3 at relative height x (their Figure 6's fit, as read by the main session).  For stand trees."""
+    fit = [0.142 + 2.91 * ((b + 0.5) / 10.0) ** 9.02 for b in range(10)]
+    print("Hagemeier & Leuschner 2019a: leaf area all in the upper half, most at about 0.80 of height, crown radius the same pattern. Leaf area density by tenth of height: their fit in the first row. Mine is leaf area per m3 of each layer's crown cylinder, at the layer's 95th percentile radius; theirs may be reckoned differently, so compare the shape first. Means over seeds, (lowest-highest).\n")
+    print("| Set | Age | Seeds | Most leaf area at, share of height | Widest at, share of height | Share of leaf area below half height | LAD at 0.55 | 0.65 | 0.75 | 0.85 | 0.95 |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|")
+    print(f"| their fit | - | 6 trees | about 0.80 | about 0.80 | none | {fit[5]:.2f} | {fit[6]:.2f} | {fit[7]:.2f} | {fit[8]:.2f} | {fit[9]:.2f} |")
+    for label in labels:
+        runs = load(label)
+        for age in (30, 50, 60):
+            sh = [r["snap"][age]["shape"] for r in runs.values() if age in r["snap"] and r["snap"][age].get("shape", {}).get("lad")]
+            if not sh:
+                continue
+            lad = [statistics.fmean(x["lad"][b] for x in sh) for b in (5, 6, 7, 8, 9)]
+            print(f"| `{label}` | {age} | {len(sh)} | {fmt([x['leaf_peak_at'] for x in sh])} | {fmt([x['wide_peak_at'] for x in sh])} | {fmt([x['leaf_below_half'] for x in sh])} | " + " | ".join(f"{v:.2f}" for v in lad) + " |")
 
 
 def openset(labels: list) -> None:
@@ -584,7 +624,7 @@ def main(argv=None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("what", choices=("run", "one", "table", "seeds", "fall", "driver", "young", "stem", "roots", "shape", "shapeseeds", "open"))
+    ap.add_argument("what", choices=("run", "one", "table", "seeds", "fall", "driver", "young", "stem", "roots", "shape", "shapeseeds", "open", "height"))
     ap.add_argument("labels", nargs="*")
     ap.add_argument("--label")
     ap.add_argument("--seeds", type=int, default=8)
@@ -617,6 +657,8 @@ def main(argv=None) -> int:
         shape(a.labels, per_seed=True)
     elif a.what == "open":
         openset(a.labels)
+    elif a.what == "height":
+        crownheight(a.labels)
     else:
         driver(a.labels[0])
     return 0

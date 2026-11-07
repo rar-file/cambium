@@ -1842,6 +1842,9 @@ class GrowthModel:
         out = np.full(len(self.axis_phase), np.nan)
         if self._frame_gsa:
             out[np.fromiter(self._frame_gsa.keys(), np.int64)] = np.fromiter(self._frame_gsa.values(), float)
+        if self.reit_axes:
+            # a limb that has become a small tree on the tree stands up, as the rest of the model has it
+            out[np.fromiter(self.reit_axes, np.int64)] = math.radians(float(self.sp.resource.reiteration.setpoint_angle_deg))
         return out
 
     def _frame_crown(self):
@@ -1965,6 +1968,9 @@ class GrowthModel:
         length = np.bincount(T.axis[:n][alive], weights=T.length[:n][alive], minlength=len(self.axis_phase))
         grown = np.where(limb_tip[at], length[T.axis[node]], 0.0)
         grow = np.minimum(float(cf.chase) * np.maximum(goal * float(cf.length_per_reach) - grown, 0.0), float(cf.limb_shoot_max_m))
+        if self.reit_axes and bool(cf.forks_climb):
+            # a reiterated limb goes up as a second top: only the room under the tree's top holds it (_frame_room)
+            grow = np.where(limb_tip[at] & np.isin(T.axis[node], np.fromiter(self.reit_axes, np.int64)), float(cf.limb_shoot_max_m), grow)
         light = np.minimum(1.0, q_bud[at] / float(cf.light_full)) ** float(cf.light_exponent)
         grow = grow * light * float(hd["water"])
         return at, np.minimum(grow / full[at], float(nmax))

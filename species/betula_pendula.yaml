@@ -1373,8 +1373,10 @@ crown_frame:
   birth_share: 0.73
   # TUNED, against nothing yet: scatter on the gap between limbs, as a share of it, so they don't stand in rows.
   gap_scatter: 0.3
-  # Limb angle from vertical at the stem, as drawn for each limb.  43.2, SD 10.4, range 15-80: Forests 9:52, 2018, as this
-  # file already quotes it (clonal plantation, Latvia; I couldn't open the paper: the publisher refused the request).
+  # Limb angle at the stem, as drawn for each limb.  Zeltins et al. 2018, Forests 9:52, Table 1: 43.2, SD 10.4, range 15-80,
+  # as read from mdpi.com by the main session.  40-year-old grafted plus-tree clones, 400 trees/ha, 5 x 5 m, central Latvia, so
+  # selected for good branching.  Its Methods say only "mean branch angle" and don't define it, so that it's from vertical and
+  # at the stem is a guess: a guide with a wide range, not a measurement of what tools/tree_table.py reads.
   angle_mean_deg: 43.2
   angle_sd_deg: 10.4
   angle_min_deg: 15.0
@@ -1398,6 +1400,9 @@ crown_frame:
   # A limb's length over its reach at the crown base: Lintunen 2013 Fig. 5's chord of 1.54 m (model output) over half of
   # Hemery's crown at his tree's 10 cm stem (1.44 m), so 1.07.
   length_per_reach: 1.07
+  # A reiterated limb (resource.reiteration) climbs as a second top instead of stopping at a limb's length.  Against: double
+  # tops in 34.9 % of trees (Zeltins et al. 2018 Table 1; 6.0-75.1 by clone).
+  forks_climb: true
   # TUNED, against the look: reach down the crown goes as depth^this.  1 is that straight line; under 1 is a rounder crown.
   profile_power: 1.0
   # TUNED, against Evo's spread of crown diameter at one stem diameter (about +-20 %): each limb's own reach, log-normal SD.
