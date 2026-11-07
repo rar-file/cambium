@@ -978,14 +978,13 @@ class GrowthModel:
                 # on anything finer, one bud in so many can start a long shoot, the rest stay short shoots.  Odd, so
                 # they take turns on the two sides of a two-ranked shoot
                 Glat[lat_nodes[~on_stem & (T.phyllo[lat_nodes] % int(every) != 0)]] = 0.0
-            distal = getattr(sp.crown_frame, "twig_buds_distal", None)
-            if distal:
-                # acrotony: on anything finer, only the buds nearest the end of last year's shoot can start a long shoot; the rest stay short shoots.
-                # The same count each year on a shoot of any length, so an axis ends in a fork, not a comb.  A bud counts from its own axis's tip
+            if self._frame_earns():
+                # acrotony: on anything finer, only the bud at the end of last year's shoot can start a long shoot; the rest stay short shoots.
+                # So an axis ends in a fork, whatever the length of its shoot, not in a comb.  A bud counts from its own axis's tip
                 last = int(T.axis[:n0].max()) + 1
                 tip_ph = np.zeros(last, np.int64)
                 np.maximum.at(tip_ph, T.axis[:n0][alive], T.phyllo[:n0][alive].astype(np.int64))
-                Glat[lat_nodes[~on_stem & (tip_ph[T.axis[lat_nodes]] - T.phyllo[lat_nodes].astype(np.int64) >= int(distal))]] = 0.0
+                Glat[lat_nodes[~on_stem & (tip_ph[T.axis[lat_nodes]] > T.phyllo[lat_nodes].astype(np.int64))]] = 0.0
         self._hd = self._height_limit_plan(t, term_nodes, lat_nodes, Qterm, Qlat, 1.0 - stress) if self._height_limit_on() else None
         if self._hd is not None:
             self._leader_phi = float((phi_t if self._hd["is_tip"] else phi_l)[self._hd["bud"]])
@@ -1713,14 +1712,12 @@ class GrowthModel:
         starts = np.concatenate([term_nodes, lat_nodes])
         share = np.concatenate([share_t, share_l])
         self._frame_share = None
-        by_light = getattr(sp.crown_frame, "twigs_by_light", None) if self._frame_on() else None
-        if by_light:
-            # what a bud gets goes with the light on it, not with where it stands on the tree: a bud in the sun on a young limb grows, one in the shade on an old limb doesn't
-            light_share = np.where(share > 0.0, np.power(np.minimum(q_bud, 1.0), float(by_light)), 0.0)
+        if self._frame_earns():
+            # what a bud gets goes with the light on it and with how its limb stands against its neighbours (_frame_earned), not with where it stands on the tree:
+            # a bud in the sun on a young limb grows, one in the shade on an old limb doesn't
             self._frame_earned(starts, q_bud, bud_leaf)
-            if self._frame_vig is not None:
-                sc_ = T.scaffold[starts].astype(np.int64)
-                light_share = light_share * np.where(sc_ > 0, self._frame_vig[np.minimum(sc_, len(self._frame_vig) - 1)], 1.0)
+            sc_ = T.scaffold[starts].astype(np.int64)
+            light_share = np.where(share > 0.0, np.minimum(q_bud, 1.0) * np.where(sc_ > 0, self._frame_vig[np.minimum(sc_, len(self._frame_vig) - 1)], 1.0), 0.0)
             share = light_share / max(float(light_share.sum()), 1e-12)
             self._frame_share = share
         thr = np.concatenate([np.full(len(term_nodes), float(getattr(bf, "min_tip_extension", 1.0))),
@@ -1750,7 +1747,6 @@ class GrowthModel:
             if getattr(cfg, "ring_share_max", None) is not None:
                 ring_cap = float(cfg.ring_share_max) * pool
             self._unspent = 0.0
-            self._frame_earned(starts, q_bud, bud_leaf)
             caps = self._height_limit_caps(starts, len(term_nodes), full, hd, lead_at, nmax)
             hd["lead_at"] = lead_at
             hd["frame_at"], hd["frame_v"] = self._frame_plan(starts, len(term_nodes), full, hd, q_bud, nmax) if self._frame_on() else (None, None)
@@ -1892,10 +1888,7 @@ class GrowthModel:
                         w = la_now[stem] / max(float(la_now[0]), 1e-12)
                         spread = float((w * L[stem]).sum())
                         if spread > 0.0:
-                            lit = float((q_bud * bud_leaf).sum() / max(float(bud_leaf.sum()), 1e-12))
-                            power = getattr(sp.crown_frame, "surplus_exposure_power", None)
-                            # a sheltered stem isn't made to thicken: the share goes with how exposed the crown is, by the mean light on its leaves
-                            used = share_stem * self._unspent * (lit ** float(power) if power else 1.0)
+                            used = share_stem * self._unspent
                             ring_out = parts(lo)[1].copy()
                             ring_out[stem] += w * used * unit / spread
                             self._unspent -= used
@@ -1957,6 +1950,10 @@ class GrowthModel:
         cf = getattr(self.sp, "crown_frame", None)
         return cf is not None and bool(cf.enabled) and self._height_limit_on()
 
+    def _frame_earns(self) -> bool:
+        """crown_frame.earned: limbs and twigs go by what they earn, not by the frame's table."""
+        return self._frame_on() and bool(getattr(self.sp.crown_frame, "earned", False))
+
     def _frame_buds(self) -> dict:
         """Buds on the stem named to start a limb: node -> that limb's set-point (rad from vertical)."""
         d = self.__dict__.get("_frame_named")
@@ -1982,8 +1979,21 @@ class GrowthModel:
             out[np.fromiter(self._frame_gsa.keys(), np.int64)] = np.fromiter(self._frame_gsa.values(), float)
         if self.reit_axes and self._frame_forks:
             # a limb that has become a small tree on the tree stands up, as the rest of the model has it
-            out[np.fromiter(self.reit_axes, np.int64)] = math.radians(float(self.sp.resource.reiteration.setpoint_angle_deg))
+            axes = self._frame_tops() if self._frame_earns() else np.fromiter(self.reit_axes, np.int64)
+            out[axes] = math.radians(float(self.sp.resource.reiteration.setpoint_angle_deg))
         return out
+
+    def _frame_tops(self) -> np.ndarray:
+        """With crown_frame.earned, on a tree that forks: the one limb that goes up as a second top.  The first reiterated limb in the crown's upper half."""
+        top = self.__dict__.get("_frame_second_top")
+        if top is None:
+            T = self.tree
+            h, base, crown = self._frame_crown()
+            for s0 in self.reit:
+                if T.pos[T.parent[s0], 2] >= base + 0.5 * crown and T.death[s0] < 0:
+                    top = self._frame_second_top = int(T.axis[s0])
+                    break
+        return np.array([top], np.int64) if top is not None else np.zeros(0, np.int64)
 
     def _frame_shares(self) -> np.ndarray:
         """By axis: the limb's own share of the frame's reach, 1 for anything else."""
@@ -2025,7 +2035,7 @@ class GrowthModel:
             self._frame_since = 0.0
             theta = math.radians(float(np.clip(rng.normal(float(cf.angle_mean_deg), sd), lo, hi)))
             self._frame_reach[node] = float(np.exp(rng.normal(0.0, float(cf.reach_scatter))))
-            if bool(getattr(cf, "reach_capped", False)):
+            if self._frame_earns():
                 self._frame_reach[node] = min(self._frame_reach[node], 1.0)     # the published crown is the widest a limb goes, not its mean
             A = self.sp.architecture
             self._frame_azimuth += math.radians(float(A.phyllotaxis_orthotropic_deg) + float(rng.normal(0.0, float(A.distichous_jitter_deg))))
@@ -2100,48 +2110,28 @@ class GrowthModel:
         return 0.5 * (float(cf.crown_a) + float(cf.crown_b) * d_ob)
 
     def _frame_earned(self, starts, q_bud, bud_leaf) -> None:
-        """With crown_frame.earned_power set: the light on each limb's leaves this year, a limb's own, to that power, and by earned_size how its leaf area
-        compares with the largest limb's.  A limb's reach and its side shoots go with this, so that one that wins light grows on and thickens, and one that loses it
-        stops short."""
-        cf = self.sp.crown_frame
-        self._frame_rel = self._frame_q = self._frame_la = self._frame_vig = None
-        if getattr(cf, "earned_power", None) is None and not getattr(cf, "fork_leaf_area_m2", None) and not getattr(cf, "limb_rivalry", None):
-            return
+        """Each limb's leaf area this year, and how it stands against its neighbours on the stem: x, its leaf area over the median of the limbs around it, gives 2 x / (1 + x),
+        so 1 for a limb like its neighbours, up to 2 for one far ahead, and towards 0 for one far behind.  A limb's supply goes with this: the larger of two limbs side by side
+        has the better wood to feed it, so it pulls ahead and the other falls behind.  Neighbours, not the whole tree, so a young limb isn't held back by old ones far below it."""
         T = self.tree
         sc = T.scaffold[starts].astype(np.int64)
         on = sc > 0
-        e = np.zeros(T.n)
         la = np.zeros(T.n)
-        np.add.at(e, sc[on], (q_bud * bud_leaf)[on])
         np.add.at(la, sc[on], bud_leaf[on])
-        q = np.divide(e, la, out=np.ones(T.n), where=la > 0.0)
         self._frame_la = la
-        rivalry = getattr(cf, "limb_rivalry", None)
-        if rivalry:
-            # a limb's supply goes with how its leaf area compares with its neighbours' on the stem: the larger of two limbs side by side has the better wood to feed it,
-            # so it pulls ahead and the other falls behind.  Neighbours, not the whole tree, so a young limb isn't held back by old ones far below it
-            firsts = np.nonzero(la > 0.0)[0]
-            if firsts.size >= 3:
-                z = T.pos[T.parent[firsts], 2]
-                by_z = firsts[np.argsort(z)]
-                vals = la[by_z]
-                k = int(cf.limb_rivals)
-                med = np.array([float(np.median(vals[max(i - k, 0): i + k + 1])) for i in range(len(vals))])
-                vig = np.ones(T.n)
-                vig[by_z] = np.power(np.minimum(vals / np.maximum(med, 1e-9), float(cf.limb_rival_max)), float(rivalry))
-                self._frame_vig = vig
-        if getattr(cf, "earned_power", None) is None:
-            return
-        self._frame_q = np.minimum(q, 1.0)
-        rel = np.power(self._frame_q, float(cf.earned_power))
-        size = float(getattr(cf, "earned_size", 0.0) or 0.0)
-        top = float(la.max())
-        if size > 0.0 and top > 0.0:
-            rel = rel * np.power(la / top, size)
-        self._frame_rel = rel
+        vig = np.ones(T.n)
+        firsts = np.nonzero(la > 0.0)[0]
+        if firsts.size >= 3:
+            by_z = firsts[np.argsort(T.pos[T.parent[firsts], 2])]
+            vals = la[by_z]
+            k = int(self.sp.crown_frame.limb_rivals)
+            med = np.array([float(np.median(vals[max(i - k, 0): i + k + 1])) for i in range(len(vals))])
+            x = vals / np.maximum(med, 1e-9)
+            vig[by_z] = 2.0 * x / (1.0 + x)
+        self._frame_vig = vig
 
-    def _frame_goal(self, base, first=None) -> np.ndarray:
-        """How far a limb starting at these stem nodes may reach (m), before its own share.  first: the limb's first nodes, where earned_power is set."""
+    def _frame_goal(self, base) -> np.ndarray:
+        """How far a limb starting at these stem nodes may reach (m), before its own share."""
         T, cf = self.tree, self.sp.crown_frame
         h, _, crown = self._frame_crown()
         reach_max = self._frame_reach_max()
@@ -2151,10 +2141,8 @@ class GrowthModel:
             spacing = float(getattr(self, "_plot_spacing", 0.0) or (self.stand_spacing(h) if self.stand else 0.0))
             if spacing > 0.0:
                 reach_max = min(reach_max, 0.5 * float(overlap) * spacing)
-        rel = getattr(self, "_frame_rel", None)
-        if rel is not None:
-            # what the limb has earned sets how far it goes: no table by place in the crown
-            return reach_max * np.where(first >= 0, rel[np.minimum(np.maximum(first, 0), len(rel) - 1)], 1.0)
+        if self._frame_earns():
+            return np.full(len(base), reach_max)    # no table by place in the crown: age and light make the outline
         depth = np.clip((h - T.pos[base, 2]) / crown, 0.0, 1.0)
         peak = float(cf.peak_depth)
         top = float(cf.top_share)
@@ -2182,7 +2170,7 @@ class GrowthModel:
         off = T.pos[node, :2] - T.pos[base, :2]
         r = np.maximum(np.hypot(off[:, 0], off[:, 1]), 1e-6)
         outward = (d * off).sum(1) / r
-        goal = self._frame_goal(base, first) * self._frame_shares()[T.axis[first]] * float(cf.twig_overshoot)
+        goal = self._frame_goal(base) * self._frame_shares()[T.axis[first]] * float(cf.twig_overshoot)
         room = np.maximum(goal - r, 0.0) / np.maximum(outward, 0.05)
         lim[i] = np.where(outward > 0.05, np.minimum(lim[i], room / full[i]), lim[i])
         return lim
@@ -2229,9 +2217,11 @@ class GrowthModel:
         share = self._frame_shares()[T.axis[node]]
         for i in np.nonzero(~limb_tip[at])[0].tolist():
             share[i] = self._frame_reach.get(int(node[i]), 1.0)
-        goal = self._frame_goal(base, np.where(limb_tip[at], first_of[T.axis[node]], -1)) * share
-        vig = getattr(self, "_frame_vig", None)
+        goal = self._frame_goal(base) * share
+        earns = self._frame_earns()
+        vig = self.__dict__.get("_frame_vig") if earns else None
         if vig is not None:
+            # a limb behind its neighbours falls short of the reach
             limb_of = first_of[T.axis[node]]
             goal = goal * np.where(limb_tip[at] & (limb_of >= 0), np.minimum(vig[np.minimum(np.maximum(limb_of, 0), len(vig) - 1)], 1.0), 1.0)
         # how long the limb's own axis has grown (a steep limb gains no reach, and mustn't climb the stem to find it)
@@ -2246,35 +2236,39 @@ class GrowthModel:
         steep = math.sin(mean) / np.maximum(np.sin(np.where(np.isfinite(own), own, mean)), float(cf.steep_limit))
         reach = np.hypot(T.pos[node, 0] - T.pos[base, 0], T.pos[node, 1] - T.pos[base, 1])
         out = np.where(limb_tip[at], np.hypot(T.term_dir[node, 0], T.term_dir[node, 1]), np.hypot(T.lat_dir[node, 0], T.lat_dir[node, 1]))
-        room = np.minimum(goal * float(cf.length_per_reach) * steep - grown, (goal - reach) / np.maximum(out, 0.5))
+        if earns:
+            # as long as it takes to reach the goal at its own angle; a steep limb no longer than one a standard deviation steeper than the mean needs
+            flat = np.maximum(np.sin(np.where(np.isfinite(own), own, mean)), math.sin(mean - math.radians(float(cf.angle_sd_deg))))
+            room = np.minimum(goal / flat - grown, (goal - reach) / np.maximum(out, 0.5))
+        else:
+            room = np.minimum(goal * float(cf.length_per_reach) * steep - grown, (goal - reach) / np.maximum(out, 0.5))
         # apical control: no limb's shoot longer than the leader's this year, down to a floor for an old leader's short shoots
         lead_len = float(full[hd["lead_at"]]) * float(min(hd["v"], nmax)) if "lead_at" in hd else 0.0
         longest = max(lead_len, float(cf.limb_shoot_floor_m))
         grow = np.minimum(float(cf.chase) * np.maximum(room, 0.0), longest)
-        if getattr(self, "_frame_rel", None) is not None:
-            # a new limb starts at the floor's length, by its light; its reach then follows what it earns
-            grow = np.where(limb_tip[at], grow, float(cf.limb_shoot_floor_m))
+        second_top = np.zeros(len(at), bool)
         if self.reit_axes and self._frame_forks:
-            # a reiterated limb goes up as a second top: only the room under the tree's top holds it (_frame_room)
-            grow = np.where(limb_tip[at] & np.isin(T.axis[node], np.fromiter(self.reit_axes, np.int64)), longest, grow)
+            if earns:
+                second_top = limb_tip[at] & np.isin(T.axis[node], self._frame_tops())
+            else:
+                # a reiterated limb goes up as a second top: only the room under the tree's top holds it (_frame_room)
+                grow = np.where(limb_tip[at] & np.isin(T.axis[node], np.fromiter(self.reit_axes, np.int64)), longest, grow)
         light = np.minimum(q_bud[at], 1.0)      # a limb's yearly shoot goes with the light at its own tip
         # a limb loses vigour as it ages (resource.branch_aging_years, Barthelemy & Caraglio 2007), so the crown's old lower limbs fall
         # behind the younger ones above them, as a crown in the open needs, or it's a cone
         age = np.where(limb_tip[at], np.maximum(self.year + 1.0 - T.scaffold_birth[node], 0.0), 0.0)
-        if getattr(self, "_frame_rel", None) is not None:
-            age = 0.0 * age     # a limb grows on for as long as it earns
         limb_years = getattr(cf, "limb_ageing_years", None)
         grow = grow * light * float(hd["water"]) * np.exp(-age / float(limb_years if limb_years else self.sp.resource.branch_aging_years))
+        # the tree's one second top keeps up with the leader, and may catch it: only the room under the tree's top holds it (_frame_room)
+        grow = np.where(second_top, float(self.sp.height_driver.catch_up) * longest, grow)
         plan = np.minimum(grow / full[at], float(nmax))
-        distal = getattr(cf, "twig_buds_distal", None)
-        if distal and bool(getattr(cf, "limb_buds_paid", False)):
-            # each year a limb's and a fork's newest buds break by their own light, however little the rest of the crown leaves them: a limb in the sun is never a bare whip
+        if earns:
+            # each year a limb's and a fork's newest bud breaks by its own light, however little the rest of the crown leaves it: a limb in the sun is never a bare whip
             last = int(T.axis[:n].max()) + 1
             tip_ph = np.zeros(last, np.int64)
             np.maximum.at(tip_ph, T.axis[:n][alive], T.phyllo[:n][alive].astype(np.int64))
             ax = T.axis[starts]
-            near = (tip_ph[ax] - T.phyllo[starts].astype(np.int64)) < int(distal)
-            side = ~is_tip & (first_of[ax] >= 0) & near & (T.lat[starts] == LAT_DORMANT) & ~T.no_axil[starts] & ~is_named & (T.birth[starts] <= self.year)
+            side = ~is_tip & (first_of[ax] >= 0) & (tip_ph[ax] == T.phyllo[starts].astype(np.int64)) & (T.lat[starts] == LAT_DORMANT) & ~T.no_axil[starts] & ~is_named & (T.birth[starts] <= self.year)
             ids = np.nonzero(side)[0]
             if ids.size:
                 twig = float(cf.twig_shoot_max_m) * np.minimum(q_bud[ids], 1.0) * float(hd["water"])
@@ -2382,13 +2376,8 @@ class GrowthModel:
         if self._frame_on():
             # with the frame, side shoots aren't tied to the leader's: a twig's yearly shoot has its own limit in metres
             twig_m = float(self.sp.crown_frame.twig_shoot_max_m)
-            lit = getattr(self, "_frame_q", None)
-            if lit is not None:
-                # a shaded limb's side shoots are short: it can't fork or fill
-                sc = T.scaffold[starts].astype(np.int64)
-                twig_m = twig_m * np.where(sc > 0, lit[np.minimum(sc, len(lit) - 1)], 1.0)
             caps = np.minimum(caps, twig_m / full)
-            if bool(getattr(self.sp.crown_frame, "limp_twigs", False)):
+            if self._frame_earns():
                 # gravimorphism (Wareing & Nasr 1961): a shoot heading down is a weak one, however thin, so a hanging twig lengthens slowly
                 dz_cap = np.concatenate([T.term_dir[starts[:n_term], 2], T.lat_dir[starts[n_term:], 2]])
                 hang = float(self.sp.crown_frame.hanging_share)
@@ -2557,7 +2546,7 @@ class GrowthModel:
             # twigs turn towards their own set-point however thin they are; with a set-point below level, they grow down
             weak = np.where(order >= 2, 1.0, weak)
         eta = np.where((order >= 1) & ~lead_ax, eta * weak, eta)
-        if self._frame_on() and bool(getattr(self.sp.crown_frame, "limp_twigs", False)):
+        if self._frame_earns():
             # a shoot too thin to hold itself up can't turn to the light either: thin twigs hang, as the pendulous trait has it
             xi = np.where((order >= 2) & ~lead_ax, xi * weak, xi)
         noise = float(sp.architecture.direction_noise_per_sqrt_m)

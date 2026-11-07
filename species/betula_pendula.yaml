@@ -1650,43 +1650,30 @@ crown_frame:
   crown_lai_max: 7.0
   # TUNED, against the open-grown band in reference.dbh: the share of what a full crown can't use that goes on the stem; the rest is lost.
   surplus_to_stem: 0.1
-  # TUNED, against stem size in stands and in the open: that share goes with the mean light on the crown's leaves, to this power.  null: not at all.
-  surplus_exposure_power: null
   # TUNED, against crown ratio and stem wood: one bud in this many, on limbs and finer, can start a long shoot; the rest stay short shoots.
   # 13 gave crown ratio 0.48, 0.45 at 50, 60; 7 gave 0.60, 0.59 with stem wood 10-14 % under Repola; 10 gives 0.56, 0.52, 3-8 % under.  Lintunen 2013
   # Fig. 6C (model output) has 2-4 long shoots per second-order branch.  Even values make all of them fall on one side of a two-ranked shoot.  null: all.
   twig_bud_every: 10
-  # TUNED, against the look: on limbs and finer, only this many buds nearest the axis's tip can start a long shoot; the rest stay short shoots (acrotony).  null: off.
-  twig_buds_distal: null
-  # TUNED, against the look: those buds, on a limb or a fork, break by their own light and are paid first, however little the rest of the crown leaves them.
-  limb_buds_paid: false
-  # TUNED, against the look: what a bud on the tree gets goes with the light on it, to this power, in place of the split down the branches.  null: the split.
-  twigs_by_light: null
-  # TUNED, against the look: when the crown has all the leaf area it can hold (crown_lai_max), short shoots this old die, so new shoots have room.  null: none die of age.
-  full_crown_spur_years: null
-  # TUNED, against lone low limbs: a limb dies when the light on its leaves is under this share of the crown's mean, at the same time as the other death lines.  null: off.
-  limb_relative_light: null
-  # TUNED, against the look: a limb's supply goes with its leaf area over the median of its neighbours' on the stem, to this power.  null: off.
-  limb_rivalry: null
-  # TUNED, against nothing: how many limbs on each side count as neighbours.
+  # -- with earned on: limbs and twigs go by what they earn -----------------------------------------------------------------
+  # What changes (Crown 2): limbs reach the published crown themselves, and it's the widest they go.  No table by place in the crown (top_share, peak_depth,
+  # base_share, profile_power, length_per_reach, steep_limit, twig_overshoot, twig_bud_every aren't read): age and light make the outline.  A bud's share goes with its own
+  # light and its limb's standing against its neighbours, not the split down the branches (so resource.apical_dominance does nothing).  Only the bud at the end of last
+  # year's shoot can start a long shoot on anything finer than the stem, and on a limb or a fork it's paid first, by its own light.  Thin twigs turn neither up nor to the
+  # light (mechanics.pendulous_radius), so they hang.  One limb on a forking tree (fork_share_of_trees) goes up as a second top.  Off: the frame as it was.
+  earned: false
+  # TUNED, against the look: a twig heading straight down makes this share of a level twig's shoot, so curtains reach a few metres, not the ground.  Gravimorphism's form (Wareing & Nasr 1961); no birch value.
+  hanging_share: 0.5
+  # TUNED, against the look: a limb carrying more than this leaf area (m2) per axis of its own makes another axis, a fork, stiff like the limb and rising like it.  null: none.
+  fork_leaf_area_m2: 1.5
+  # TUNED, against nothing: how many limbs on each side count as a limb's neighbours (_frame_earned): about a metre of stem.
   limb_rivals: 5
-  # TUNED, against one limb running away in the open: no more than this many times its neighbours' median counts.
-  limb_rival_max: 3.0
-  # TUNED, against the width of open-grown trees: no limb's reach over the published crown.
-  reach_capped: false
-  # TUNED: with a value, a limb's reach goes with the light on its leaves this year, to this power, and its side shoots' length with that light,
-  # in place of the table by place in the crown (top_share, peak_depth, base_share, profile_power) and limb ageing.  null: off.
-  earned_power: null
-  # TUNED: and with its leaf area over the largest limb's, to this power.  Over about 0.4 only limbs that start first ever grow.
-  earned_size: 0.0
-  # TUNED, against the look: a limb carrying more than this leaf area (m2) per axis of its own makes another axis, a fork.  null: none.
-  fork_leaf_area_m2: null
-  # TUNED, against the width of open-grown trees: a limb's yearly shoot falls with its age over this many years.  null: resource.branch_aging_years.
-  limb_ageing_years: null
-  # TUNED, against the look: thin twigs don't turn to the light any more than they turn up (mechanics.pendulous_radius), so they hang instead of spraying outward.
-  limp_twigs: false
-  # TUNED, against the look: with limp_twigs, a twig heading straight down makes this share of a level twig's shoot, so curtains reach a few metres, not the ground.
-  hanging_share: 0.3
+  # TUNED, against the look: when the crown has all the leaf area it can hold (crown_lai_max), short shoots this old die, so new shoots have room and the foliage moves out.
+  # Birch short shoots live several years (Maillette 1982, abstract only).  null: none die of age.
+  full_crown_spur_years: 8
+  # TUNED, against the width of open-grown trees and the outline: a limb's yearly shoot falls with its age over this many years.  null: resource.branch_aging_years.
+  limb_ageing_years: 50
+  # TUNED, against lone low limbs: a limb dies when the light on its leaves is under this share of the crown's mean: it's in the crown's own shade, however bright the sky.  null: off.
+  limb_relative_light: 0.5
 
 # Field-layer competition on clearcuts (Option A, Nilsson & Örlander 1999).
 # Sourced clear-cut field-layer sward growth and light extinction.
