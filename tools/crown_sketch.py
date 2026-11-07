@@ -107,6 +107,32 @@ def foliage_table(model) -> dict:
         rows[name] = {"born": int(hit.size), "alive": int(live.size), "dead": int(dead.size), "median_life_of_dead": round(float(np.median(life)), 1) if dead.size else 0.0, "median_age_of_live": round(float(np.median(now - T.birth[live])), 1) if live.size else 0.0,
                       "la_m2": round(float(whole[live].sum()), 1), "la_per_live_twig": round(float(whole[live].mean()), 3) if live.size else 0.0}
     out["twigs_by_place"] = rows
+    # the light on the leaves, by how far out they are and by where their twig starts
+    q = np.zeros(n)
+    dg = model.diag
+    q[np.minimum(dg["term_nodes"], n - 1)] = dg["Qterm"]
+    q[np.minimum(dg["lat_nodes"], n - 1)] = dg["Qlat"]
+    bud = la > 0.0
+    first_of_axis = np.full(int(axes.max()) + 1, -1, np.int64)
+    first_of_axis[T.axis[:n][T.is_lateral[:n] & alive]] = n_all[T.is_lateral[:n] & alive]
+    out["light_by_radius"] = {}
+    for name, lo, hi in (("0-25", 0.0, 0.25), ("25-50", 0.25, 0.5), ("50-75", 0.5, 0.75), ("75-100", 0.75, 1.0), ("beyond", 1.0, 99.0)):
+        hit = bud & (q > 0.0) & (rr >= lo) & (rr < hi)
+        out["light_by_radius"][name] = round(float(np.average(q[hit], weights=la[hit])), 3) if hit.any() else 0.0
+    # the same leaves, by where the twig of order 2 they stand on starts
+    sc2 = np.full(n, -1, np.int64)
+    for seg, _, _ in T.levels(alive):
+        hit = seg[(order[seg] == 2) & T.is_lateral[:n][seg]]
+        sc2[hit] = hit
+        rest = seg[(sc2[seg] < 0) & (order[seg] >= 2) & (T.parent[seg] >= 0)]
+        sc2[rest] = sc2[T.parent[rest]]
+    own = sc2 >= 0
+    place = np.where(own, rr[T.parent[np.maximum(sc2, 0)]], -1.0)
+    out["leaves_by_twig_start"] = {}
+    for name, lo, hi in (("inner third", 0.0, 1.0 / 3.0), ("middle third", 1.0 / 3.0, 2.0 / 3.0), ("outer third", 2.0 / 3.0, 99.0)):
+        hit = bud & own & (place >= lo) & (place < hi)
+        if hit.any():
+            out["leaves_by_twig_start"][name] = {"la_m2": round(float(la[hit].sum()), 1), "light": round(float(np.average(q[hit], weights=la[hit])), 3), "radius_share": round(float(np.average(rr[hit], weights=la[hit])), 2), "below_start_m": round(float(np.average(T.pos[T.parent[np.maximum(sc2[hit], 0)], 2] - T.pos[:n, 2][hit], weights=la[hit])), 2)}
     # spurs and buds: of the nodes on twigs, how many carry living short shoots, by order, and how many nodes a metre
     nodes_per_m = {}
     for k in range(2, 6):
