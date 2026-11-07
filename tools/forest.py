@@ -165,6 +165,7 @@ def main():
     ap.add_argument("--gap-radius", type=float, default=10.0)
     ap.add_argument("--stop-free-gb", type=float, default=None, help="stop and save if free memory falls under this, on a shared machine")
     ap.add_argument("--set", action="append", default=[], metavar="KEY=JSON")
+    ap.add_argument("--sets", help="a file of KEY=JSON lines, read before --set")
     ap.add_argument("--scenario", action="append", default=[], metavar="NAME=KEY=JSON", help="plots: a folder of seeds with this one change; NAME= for none")
     ap.add_argument("--out", default=None)
     ap.add_argument("--label", default=None)
@@ -172,6 +173,8 @@ def main():
     ap.add_argument("--first-seed", type=int, default=1)
     ap.add_argument("--peak-gb", type=float, default=8.0, help="plots: what the memory check allows for each run")
     a = ap.parse_args()
+    if a.sets:
+        a.set = Path(a.sets).read_text(encoding="utf-8").split() + a.set
     if a.what == "plots":
         sys.exit(plots(a))
     run(a)
