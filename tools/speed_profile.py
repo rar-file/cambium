@@ -65,6 +65,18 @@ def instrument(clock: Clock) -> None:
     clock.patch(np.fft, "rfft2", "light: fft forward")
     clock.patch(np.fft, "irfft2", "light: fft inverse")
     clock.patch(np, "tensordot", "light: weighting")
+    # what's already compiled, whatever the component: a C++ port gains little here.  The rest is what it could gain on
+    from scipy import fft as sfft
+    from treegen import fast, kernels
+
+    clock.patch(sfft, "rfft2", "compiled: light")
+    clock.patch(sfft, "irfft2", "compiled: light")
+    for name in ("sweep_rows", "blur_layers", "deposit", "sample_wrap"):
+        clock.patch(fast, name, "compiled: light")
+    for name in ("carbon_parts", "bend_steps", "level_order"):     # (none is called from inside another compiled function)
+        clock.patch(fast, name, "compiled: tree passes")
+    for name in ("basipetal", "compose", "positions", "posture"):
+        clock.patch(kernels, name, "compiled: tree passes")
 
 
 def tree_size(model) -> dict:

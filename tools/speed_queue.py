@@ -10,6 +10,7 @@ node_speed_t_<name> and node_speed_p_<name>.  A set that's finished is skipped, 
 """
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -37,6 +38,9 @@ SETS = {
     "A_vox15": (TEST_A + ROWS + ["light.voxel_size=0.15"], 1), "A_vox20": (TEST_A + ROWS + ["light.voxel_size=0.2"], 1),
     "A_cell3": (TEST_A + ROWS + ["stand.cell_trees=3"], 1), "A_probe16": (TEST_A + ROWS + ["light.perception_samples=16"], 1),
     "D_k26": (ROWS + K26, 1), "D_every2": (ROWS + ["speed.light_every=2"], 1), "D_vox20": (ROWS + ["light.voxel_size=0.2"], 1),
+    # fresh seeds, to set against the second draws of the baselines
+    "A_k26b": (TEST_A + ROWS + K26, 21), "A_vox15b": (TEST_A + ROWS + ["light.voxel_size=0.15"], 21), "A_vox20b": (TEST_A + ROWS + ["light.voxel_size=0.2"], 21),
+    "D_vox20b": (ROWS + ["light.voxel_size=0.2"], 21), "A_vox30": (TEST_A + ROWS + ["light.voxel_size=0.3"], 1),
 }
 
 
@@ -51,16 +55,18 @@ PREFIX = "pc_speed" if sys.platform == "win32" else "node_speed"      # PC and s
 def trees(name: str) -> int:
     sets, first = SETS[name]
     label = f"{PREFIX}_t_{name}"
-    cmd = [sys.executable, str(ROOT / "tools" / "tree_table.py"), "run", "--label", label, "--seeds", "20", "--first-seed", str(first), "--years", "60"]
+    seeds = os.environ.get("SPEED_SEEDS", "20")     # 20 on the node for a verdict; the PC while working can use fewer
+    cmd = [sys.executable, str(ROOT / "tools" / "tree_table.py"), "run", "--label", label, "--seeds", seeds, "--first-seed", str(first), "--years", "60"]
     for s in speedy(name) + sets:
         cmd += ["--set", s]
     return subprocess.run(cmd, cwd=str(ROOT)).returncode
 
 
 def plots(name: str) -> int:
+    name, _, count = name.partition(":")      # A_base:2 is two plots instead of five
     sets, first = SETS[name]
     label = f"{PREFIX}_p_{name}"
-    cmd = [sys.executable, str(ROOT / "tools" / "ensemble.py"), "plots", "--label", label, "--seeds", "5", "--first-seed", str(1 if first == 1 else 6), "--years", "60",
+    cmd = [sys.executable, str(ROOT / "tools" / "ensemble.py"), "plots", "--label", label, "--seeds", count or "5", "--first-seed", str(1 if first == 1 else 6), "--years", "60",
            "--mode", "natural", "--trees", "25", "--no-saves"]
     for s in speedy(name) + sets:
         cmd += ["--set", s]

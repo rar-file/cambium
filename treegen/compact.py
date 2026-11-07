@@ -2,9 +2,13 @@
 
 Most of an old tree's nodes are dead: 64-74 % at 60 for a stand tree, 87 % in a plot.  They hold memory, and every whole-array pass
 walks them.  Growth reads a dead node only to learn that it's dead, so one is kept where a living node's link points at it, and
-the rest go.  The maths is the same, but numpy's sums round by position in the array, so a seed makes a different tree, as it does
-on another machine.  Only for lean runs: what a tree's history or mesh needs from dead nodes goes too.  tools/tree_table.py's
-count of shed branches misses the ones dropped.
+the rest go.  numpy's sums round by position in the array, so a seed could in principle make a different tree; on the runs tested,
+every yearly stat stayed the same.
+
+Only lean runs drop anything.  Meshes, timelines and the game export replay a tree at any age from its dead nodes and its yearly
+radii, and a lean run keeps no radii, so it could never export anyway; a run that can export ignores this setting.  Every dead
+node on living wood stays, with its position and last radius, so a live tree keeps its branch scars.  What fell is logged as it
+goes (shed_dropped), so tools/tree_table.py's count of shed branches and twigs comes out the same.
 
 If you add model state that holds node numbers, add it to compact() below: tests/test_speed.py runs with this on.
 """
@@ -38,6 +42,12 @@ def compact(model, every: int = 3, min_share: float = 0.2) -> bool:
         out[ok] = new[a[ok]]
         return out
 
+    # the shed axes among what's going, for the count of what fell (tools/tree_table.py shed_events): the year, and the axis
+    # it stood on, since which axes lead the tree is only known at the end of a run
+    going = np.nonzero(~keep & T.is_lateral[:n])[0]
+    first = going[T.death[par[going]] != T.death[going]]
+    if first.size:
+        model.__dict__.setdefault("shed_dropped", []).append((T.death[first].copy(), T.axis[par[first]].copy()))
     tip = getattr(T, "stem_tip", None)
     if tip is not None:
         tip = int(tip)
