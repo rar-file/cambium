@@ -57,7 +57,7 @@ def one(seed: int, sets: list, ages: list, stand: bool) -> dict:
     look = ap.load_look(raw)
     look["bark"]["uneven_top"]["strength"] = 1.0
     years = list(range(1, min(last, len(model.stats) - 1) + 1))
-    dbh =[float(ap.over_bark_dbh_cm(look, model.stats[y]["dbh_cm"])) for y in years]
+    dbh = [float(ap.over_bark_dbh_cm(look, model.stats[y]["dbh_cm"])) for y in years]
     black = [tx.tree_black(look, seed, d) for d in dbh]
     ratio = [b / a for a, b in zip(black, black[1:]) if a > 0.01]
     out = {"seed": seed, "ages": {str(a): measure(look, seed, a, dbh[years.index(a)]) for a in ages},

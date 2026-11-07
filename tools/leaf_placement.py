@@ -166,7 +166,10 @@ def measure(model, sp, raw, snap, age: int, seed: int) -> dict:
     area = np.zeros(T.n)
     np.add.at(area, off.node, off.area)
     area = area / np.maximum(per_node, 1.0)
-    spur = np.asarray(snap.is_spur[: T.n]) & alive
+    # the tree has grown on since this snapshot, so it has more nodes
+    spur = np.zeros(T.n, bool)
+    spur[: len(snap.is_spur)] = snap.is_spur
+    spur &= alive
     new = (np.asarray(T.birth[: T.n]) == age) & alive & ~spur
     # what's on a node
     counts = {"short_shoot_leaves_mean": round(float(per_node[spur & (per_node > 0)].mean()), 2) if (spur & (per_node > 0)).any() else None,
