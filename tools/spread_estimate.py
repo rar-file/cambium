@@ -61,7 +61,7 @@ def run(a) -> dict:
     n0 = max(1, int(round(a.stems * a.patch * ly / 1e4)))
     x = list(rng.uniform(-lx / 2, -lx / 2 + a.patch, n0))
     y = list(rng.uniform(-ly / 2, ly / 2, n0))
-    born = [0] * n0
+    born = [-int(getattr(a, "patch_age", 0) or 0)] * n0     # a grown forest's edge, not a new band
     size = list(np.exp(rng.normal(0.0, a.size_sd, n0)))
     rows = []
     bins = np.arange(0.0, lx + 10.0, 10.0)
@@ -135,7 +135,8 @@ def main():
     ap.add_argument("--length", type=float, default=2000.0)
     ap.add_argument("--width", type=float, default=20.0)
     ap.add_argument("--patch", type=float, default=30.0)
-    ap.add_argument("--stems", type=float, default=1000.0, help="stems/ha of the first band, of age 0")
+    ap.add_argument("--stems", type=float, default=1000.0, help="stems/ha of the first band")
+    ap.add_argument("--patch-age", type=int, default=0, help="age of the first band's trees at year 0: a grown forest's edge")
     ap.add_argument("--years", type=int, default=100)
     ap.add_argument("--seeds", type=int, default=5)
     ap.add_argument("--size-sd", type=float, default=0.25, help="lognormal spread of size between trees; a guess, not a tuned value")
