@@ -848,6 +848,126 @@ leader_damage:
       max_height_m: 3.0
       probability_per_year: 0.168
 
+damage:
+  # Old age, wind and snow (treegen/damage.py).  Off by default.  Labels and
+  # sources for every value: reference/betula_pendula/labels.yaml.
+  enabled: false
+  # Over-bark DBH per wood DBH, from Hansen et al. 2023 as in tools/bark.py
+  # (the small intercept dropped); the wind data are over bark.
+  dbh_over_bark_factor: 1.098
+  # Stem volume / (pi/4 DBH^2 H): 0.45 at both sites of Krisans et al. 2022,
+  # Tables 1-2 (site means).
+  stem_form_factor: 0.45
+  old_age:
+    enabled: false
+    # Elfving 2010 p. 67 Table 3 and Eq. F1, birch, from 4,040 Swedish sample
+    # trees (both birches, oldest 240 rings at breast height):
+    # ln AMAX = b0 + b1 SIS + b2 ln n, read at n = 10,000 as the report does.
+    amax_b0: 4.6246
+    amax_b1: -0.02192
+    amax_b2: 0.1742
+    amax_n: 10000
+    # Site index on the top-height-at-100 scale.  SI 20 and SI 26 of the height
+    # target are 25.08 and 29.93 m on it (targets.yaml); this is about SI 23.
+    site_index_sis_m: 27.5
+    # Elfving p. 68, p = 1 / (1 + exp(a - b A / AMAX)) (from MELA, Hynynen 2002).
+    ageing_a: 10.0
+    ageing_b: 12.0
+    # A counts rings at breast height.  T13 = 150 / SIS (Elfving p. 56).
+    years_to_breast_height: 5.5
+  wind:
+    enabled: false
+    # Kitenberga et al. 2021 Table 1: logit of being snapped or uprooted within
+    # a 5-year period, 14,749 birches (both species) in Latvia; per SD about the
+    # mean (Table 2), which her Figs. 1 and 2 confirm.  At dry mineral soil, no
+    # prior damage.  Other soils: peat 0.75, drained peat 0.94, drained mineral
+    # 0.32, wet mineral 0.00.
+    intercept: -5.03
+    site_effect: 0.0
+    prior_damage: 1.46
+    period_years: 5
+    # TUNED against her 2.9 % and 3.4 % of all birches damaged in a period: her
+    # fixed effects give about 0.9 % on the mean tree and soil mix, because the
+    # plot's and tree's random effects carry the rest.  logit(3.15 %) - logit(0.94 %).
+    population_offset: 1.23
+    # TUNED, no target: a storm year in five, all the period's damage in it, so
+    # trees go in groups in the same direction instead of one by one.
+    storm_return_years: 5
+    # TUNED, no target, looks only: where storms come from, and the scatter.
+    wind_from_deg: 240.0
+    wind_from_sd_deg: 40.0
+    # Her data: trees of DBH 14 cm and over.
+    min_dbh_cm: 14.0
+    age:
+      per_sd: 0.39
+      mean: 57.35
+      sd: 21.35
+      range: [11.0, 216.0]
+    stems_per_ha:
+      per_sd: -0.70
+      mean: 1128.0
+      sd: 890.0
+      range: [100.0, 11520.0]
+    basal_area_m2_ha:
+      per_sd: 0.21
+      mean: 27.5
+      sd: 10.05
+      range: [3.0, 67.0]
+    # Height (m) over DBH (cm, over bark).
+    slenderness:
+      per_sd: 0.39
+      mean: 1.0
+      sd: 0.2
+      range: [0.3, 1.9]
+  failure:
+    # Stem strength under short loads: 70 % of clear-wood MOR, 44 MPa for birch
+    # (Nykanen et al. 1997 p. 198, from Peltola et al. 1997).
+    mor_green_mpa: 44.0
+    # TUNED against 31-35 % of damaged birches uprooted (Kitenberga p. 6): the
+    # log of (critical turning moment / stem breaking moment) at which a failing
+    # tree is as likely to uproot as to snap, and the width of that choice.  Her
+    # mean tree (17.6 m, 17.6 cm over bark, so 16 cm of wood) has a ratio of 0.90,
+    # and this gives it 33 %.
+    even_odds_log_ratio: -0.46
+    spread: 0.5
+  snap:
+    # Relative height of the break = intercept + slenderness x H/D + prior
+    # damage (Kitenberga Table 3; mean 0.43 on her mean tree).
+    intercept: 0.532
+    slenderness: -0.097
+    prior_damage: -0.090
+    # Spread of a beta distribution, read from her Fig. 4 (SD 24 % of height).
+    beta_concentration: 3.2
+  snow:
+    enabled: false
+    # Years between damaging snowfalls: every 5 in southern Finland, 3 in the
+    # north-east, 8-17 elsewhere (Solantie 1994, in Nykanen p. 201).
+    return_years: 5
+    # Wet snow on the crown, kg/m2 of crown area: 20-40 with little wind raises
+    # breakage (Zubizarreta-Gerendiain et al. 2012 p. 192), 60 mm of water is
+    # severe (Solantie, in Nykanen Fig. 1).  Evenly spread within that, a choice.
+    load_range_kg_m2: [20.0, 60.0]
+    # TUNED against three things together, on the saved plots' trees (base_plots):
+    # a 12 m birch of taper 1:120 stands 60 kg/m2 (Nykanen Fig. 2, Peltola 1997);
+    # one severe event breaks or uproots about 2 % of a young stand (Donis et al.
+    # 2024, in KNOWN_ISSUES; here 1-4 % at ages 8-15) and bends about 29 % (here
+    # 18-39 %).  Share of the crown's projected area that holds the load, the
+    # stem's lean under it as a share of height, the width of the break, and the
+    # stems that bend instead: buckling factor under this, DBH under this.  Stems
+    # under min_break_dbh_cm only bend.
+    crown_catch_fraction: 0.10
+    lever_fraction: 0.02
+    spread: 0.5
+    bend_buckling_factor: 6.0
+    bend_max_dbh_cm: 10.0
+    min_break_dbh_cm: 2.0
+  uproot:
+    # TUNED, no target, looks only: mound radius per plate radius, the mound's
+    # distance past the hinge per plate radius, and how fast the relief fades.
+    mound_radius_factor: 1.0
+    mound_distance_factor: 1.0
+    relief_half_life_years: 20.0
+
 plot:
   # A plot of independent trees (treegen/plot.py, tools/plot.py).  Trees
   # differ by seed, by germination year (natural regeneration on a clear
@@ -1288,3 +1408,178 @@ soil_water_balance:
   # 1970-2004 Forsmark mean (no 2018 PET opened).
   dry_year_precipitation_mm: [6.8, 26.5, 89.1, 105.1, 44.6]
   drought_scenario: false
+
+# How the tree looks, for treegen/appearance.py, treegen/textures.py and tools/game_export.py.
+# Growth reads nothing in this block, so no value here can change a growth number.
+# Another species needs a block like this one and no new code.
+# No true/false values and no integer key called "stage" in this block: run manifests list those
+# as options, and the golden hash would count them.
+# Every number here is covered by a line in "provenance": SOURCE means read from the paper or
+# dataset named, DERIVED worked out from a source with a stated step, TUNED chosen by eye or
+# against what it says, with no direct source. Colours are sRGB 0-255 unless named _linear.
+appearance:
+  provenance:
+    bark.thickness.hansen_double_mm: "SOURCE: Hansen, Rahlf, Astrup & Gobakken 2023, Scand. J. For. Res. 38:413, doi:10.1080/02827581.2023.2243821, as coded in taperNOR 0.2.1 (tools/bark.py). Birch, Norwegian NFI."
+    bark.thickness.calibration: "DERIVED: Vihera-Aarnio & Velling 2017, Silva Fennica 51(4):7731, Table 5, age 22, single wall, over Hansen's single wall at the same diameter: 0.61, 0.62 at 3 m, 0.61, 0.59 at 6 m."
+    bark.thickness.rough_ratio: "DERIVED: same Table 5, Tuusula: 11.4 mm at the stump against 3.6 mm at the calibrated baseline (Hansen at a 14 cm stump x 0.61); the 14 cm stump is an estimate."
+    bark.thickness.min_fraction_of_diameter: "DERIVED: same Table 5, walls at 3 m and 6 m over the diameter there from taperNOR: 2.5-2.6 %. Hansen goes negative on twigs, so this floor is carried down to them, which nobody measured."
+    bark.thickness.fissure_depth_fraction: "TUNED: by eye on the close-up renders; how deep a fissure runs into the bark has no source here."
+    bark.tile_size_m: "TUNED: a size that holds several plates and lenticels at under 0.5 mm a texel."
+    bark.tile_px: "TUNED: game setting."
+    bark.stem_texture_px: "TUNED: game setting."
+    bark.atlas_px: "TUNED: game setting."
+    bark.branch_circumference_m: "TUNED: game setting, doubling classes."
+    bark.stem_rows: "TUNED: game setting: most rows where a player stands next to the stem."
+    bark.stages: "TUNED: every colour, roughness and pattern size in the stages, by eye on the renders, with the maintainer's description (red-brown twigs; white with dark lenticels and peeling strips; rough black base) and birch-data/REPORT.md section 14, an unsourced summary. No measured bark reflectance or lenticel survey was opened."
+    bark.stage_ramps.papery: "TUNED: against the sequence in birch-data/REPORT.md section 14 (red-brown to about year 5, white after), which gives no source; the size limit by eye. Trockenbrodt 1991 and 1994 (IAWA) should hold birch bark by age: brill.com answered 403, not read."
+    bark.stage_ramps.rhytidome.climbs.onset_age: "TUNED: so the zone sits between the stump and 1.3 m at age 22."
+    bark.stage_ramps.rhytidome.climbs.height_max_m: "TUNED: so the top is 2.6 m at 60 and 3.2 m at 80, inside the 2-4 m at 60-80 of birch-data/REPORT.md section 14, which gives no source. No primary source for the climb was found: gardening and nursery pages say only 'black and fissured at the base with age'."
+    bark.stage_ramps.rhytidome.climbs.time_constant_years: "TUNED: as height_max_m. One anchor comes from a measurement, by proxy: thick bark at the stump and little extra at 1.3 m at age 22 (Vihera-Aarnio & Velling 2017, Table 5), read as where the rough bark is."
+    bark.stage_ramps.rhytidome.climbs.band_m: "TUNED: as height_max_m; by eye for the uneven upper edge."
+    bark.stage_ramps.rhytidome.diameter_m: "TUNED: by eye; thin parts stay smooth at any age."
+    bark.peel: "TUNED: by eye on the renders; no survey of peeling by age or size was opened. The stem's white bark peels in thin horizontal sheets (birch-data/REPORT.md section 14, no source)."
+    bark.marks: "TUNED: by eye; the dark chevrons above branches are a known birch feature, no measurement."
+    leaves.chlorophyll_ramp: "SOURCE: LOPEX93 (Hosgood et al. 1993, EcoSIS, CC0) via tools/leaf_colour_table.py: birch 306-310 at 1.0; linden 86-90 and wild grape 11-15 at 0.5; soybean 321-325 at 0.038, the only yellow leaves in it; log-space mix between (an assumption). Birch itself is measured only at 1.0."
+    leaves.yellow_lift: "TUNED: by eye for the maintainer's autumn yellow: the only yellow leaf measured is a soybean, browner than a birch in autumn. No yellow birch leaf was opened. Takes the top of the ramp from ochre to yellow, with the measured ramp left as it is."
+    leaves.summer_chlorophyll_ug_cm2: "SOURCE: LOPEX93 metadata, Betula pendula samples 306-310."
+    leaves.summer_carotenoid_ug_cm2: "SOURCE: LOPEX93 metadata, Betula pendula samples 306-310. Kept through senescence: Zhang, Dai & Ge 2020, Sci. Rep. 10:9039, doi:10.1038/s41598-020-65704-8 (other species)."
+    leaves.specular_f0: "TUNED: the usual dielectric PBR value; taken off the measured reflectance, which includes the leaf's shine, so it isn't counted twice."
+    leaves.season: "TUNED: day-of-year timing by eye for central Sweden, no birch series opened (the Turku and Tree-journal papers were blocked). The 50 % and 95 % chlorophyll marks are the leaf-colouring start and end of Zhang, Dai & Ge 2020 (other species)."
+    leaves.light_effect: "TUNED: by eye; a sun leaf paler than a shade leaf, read from the model's own LMA."
+    leaves.turn_spread_days: "TUNED: by eye. Senescence is patchy and spread out in time (Zhang, Dai & Ge 2020); how much is a guess."
+    leaves.long_shoot_delay_days: "TUNED: by eye; late leaves on long shoots colour after short-shoot leaves, no value opened."
+    leaves.old_tree_advance_days: "TUNED: by eye; old trees turn a little earlier than young ones, no value opened."
+    leaves.interveinal_lead: "TUNED: by eye. Chlorophyll goes first between the veins: a search abstract only (fp24012, Funct. Plant Biol.), not read in full."
+    leaves.shape: "TUNED: by eye for a birch's triangular, double-toothed blade; the aspect of 1.4 as tools/render_stand.py had it."
+    leaves.inclination_deg: "TUNED: from tools/render_stand.py; steep leaves, as K_PAR 0.37 in Hagemeier & Leuschner 2019 implies."
+    leaves.petiole_m: "TUNED: from the 1-2 cm petiole in this file's light.leaf_spread comment, which gives no paper."
+    leaves.fold_deg: "TUNED: by eye."
+    leaves.texture_size_px: "TUNED: game setting."
+    game: "TUNED: game settings, no engine or budget named yet. Every budget and size here is a setting."
+  bark:
+    thickness:
+      # double bark (mm) = b0 + b1 DBH + b2 d, over-bark cm; the model's radii are wood
+      hansen_double_mm: [-0.48552367, 0.04957885, 0.84676248]
+      calibration: 0.61
+      rough_ratio: 3.2
+      min_fraction_of_diameter: 0.026
+      fissure_depth_fraction: 0.72
+    tile_size_m: 0.5
+    tile_px: 1024
+    # stem texture: width, height. stem_rows gives the share of rows below each height, so the part
+    # near the ground gets the most: here 1.5 mm a row to 3 m, then 5 mm to 10 m, then the rest
+    stem_texture_px: [1024, 4096]
+    stem_rows: [[3.0, 0.48], [10.0, 0.82]]
+    # branch atlas: width, height; one column per circumference class, each a whole turn of the branch
+    atlas_px: [2048, 1024]
+    branch_circumference_m: [0.015, 0.03, 0.06, 0.12, 0.24, 0.48]
+    # When each stage after the first takes over, from a part's own age and over-bark diameter
+    # (each pair is a ramp, low to high, and all must pass). "climbs" is a stage that starts at
+    # the base and rises: top = height_max (1 - exp(-(part age - onset) / time)).
+    stage_ramps:
+      papery:
+        part_age_years: [4.0, 10.0]
+        diameter_m: [0.012, 0.042]
+      rhytidome:
+        diameter_m: [0.05, 0.10]
+        climbs: {onset_age: 10.0, height_max_m: 6.0, time_constant_years: 90.0, band_m: 0.7}
+    # Layered in this order, each covering the last through its own pattern as its weight rises.
+    stages:
+      - name: twig
+        colour: [86, 44, 34]
+        colour_variation: [62, 30, 26]
+        blotch_m: [0.03, 0.12]
+        roughness: 0.40
+        fibre_depth_m: 0.00004
+        lenticels: {per_m2: 1600, length_m: [0.002, 0.007], height_m: [0.0006, 0.0014], colour: [176, 158, 132], rim_m: 0.00012, inset_m: 0.0}
+      - name: papery
+        colour: [234, 230, 219]
+        colour_variation: [206, 200, 188]
+        blotch_m: [0.2, 0.03]
+        roughness: 0.68
+        fibre_depth_m: 0.00005
+        lenticels: {per_m2: 1100, length_m: [0.005, 0.07], height_m: [0.0009, 0.0042], colour: [38, 32, 30], rim_m: 0.0004, inset_m: 0.0005}
+        peel: {under_colours: [[232, 214, 194], [216, 178, 150], [178, 122, 94]], sheet_m: [0.05, 0.008], layer_m: 0.0005}
+        reveal_patch_m: [0.07, 0.009]
+        reveal_softness: 0.6
+      - name: rhytidome
+        colour: [33, 31, 29]
+        colour_variation: [74, 70, 64]
+        blotch_m: [0.05, 0.16]
+        roughness: 0.92
+        fibre_depth_m: 0.0001
+        plates: {size_m: [0.012, 0.07], furrow_colour: [11, 10, 9], furrow_width: 0.95, cross_crack: 0.7}
+        reveal_softness: 0.12
+    # How much of the white bark has lifted, by part age and diameter; none on rough bark.
+    peel:
+      on_stage: papery
+      part_age_years: [6.0, 22.0]
+      diameter_m: [0.03, 0.12]
+      coverage_max: 0.2
+      # free strips standing off the bark, at the near level only
+      strips_per_m2: 7.0
+      strip_length_m: [0.04, 0.15]
+      strip_height_m: [0.012, 0.04]
+      curl_m: 0.016
+      life_years: [2.0, 7.0]
+      opacity_young: 1.0
+      opacity_old: 0.72
+      outer_colour: [226, 220, 206]
+      inner_colour: [198, 132, 94]
+    marks:
+      # the dark mark at each branch on the stem: half width and drop, in branch radii and diameters
+      chevron_width: 4.0
+      chevron_height: 2.1
+      min_branch_radius_m: 0.008
+      colour: [24, 21, 20]
+      # white bark greys with age, from the base up: most at this age
+      grime_age_years: 70.0
+      grime_strength: 0.26
+  leaves:
+    summer_chlorophyll_ug_cm2: 36.713
+    summer_carotenoid_ug_cm2: 8.617
+    specular_f0: 0.04
+    chlorophyll_ramp:
+      - {chlorophyll_fraction: 1.0, reflectance_linear: [0.0763, 0.1015, 0.0569], transmittance_linear: [0.0542, 0.0748, 0.0058]}
+      - {chlorophyll_fraction: 0.75, reflectance_linear: [0.0864, 0.1198, 0.0471], transmittance_linear: [0.0958, 0.1260, 0.0120]}
+      - {chlorophyll_fraction: 0.5, reflectance_linear: [0.0979, 0.1416, 0.0377], transmittance_linear: [0.1694, 0.2128, 0.0242]}
+      - {chlorophyll_fraction: 0.35, reflectance_linear: [0.1450, 0.1527, 0.0393], transmittance_linear: [0.2030, 0.1880, 0.0132]}
+      - {chlorophyll_fraction: 0.2, reflectance_linear: [0.2123, 0.1647, 0.0406], transmittance_linear: [0.2397, 0.1661, 0.0051]}
+      - {chlorophyll_fraction: 0.1, reflectance_linear: [0.2729, 0.1731, 0.0413], transmittance_linear: [0.2665, 0.1529, 0.0010]}
+      - {chlorophyll_fraction: 0.038, reflectance_linear: [0.3187, 0.1785, 0.0417], transmittance_linear: [0.2844, 0.1453, 0.0000]}
+    yellow_lift: {below_chlorophyll: 0.4, factor: [1.55, 1.8, 1.0]}
+    season:
+      # chlorophyll fraction of a leaf by day of year: flush, full, turning (50 %), yellow (5 %)
+      chlorophyll_by_day: [[120, 0.15], [132, 0.35], [150, 0.8], [170, 1.0], [245, 1.0], [272, 0.5], [290, 0.05]]
+      days: {spring: 142, summer: 200, early_autumn: 262, autumn: 287}
+    light_effect:
+      # chlorophyll fraction of a full-sun leaf against a shade leaf
+      sun_chlorophyll_factor: 0.86
+    turn_spread_days: 7.0
+    long_shoot_delay_days: 6.0
+    old_tree_advance_days: 4.0
+    interveinal_lead: 0.35
+    shape:
+      aspect: 1.4
+      widest_at: 0.36
+      teeth: 13
+      secondary_veins: 7
+      vein_lightness: 0.18
+    inclination_deg: [30.0, 70.0]
+    petiole_m: 0.018
+    fold_deg: 24.0
+    texture_size_px: 256
+  game:
+    # Budgets are triangles; null = no limit. Wood and leaves share the budget.
+    lods:
+      - {name: lod0, kind: full, budget: null, stem_texture_scale: 1.0, atlas_scale: 1.0, leaf_kind: blades, peel_strips: 1}
+      - {name: lod1, kind: reduced, budget: 16000, wood_share: 0.4, stem_texture_scale: 0.5, atlas_scale: 0.5, leaf_kind: cards, peel_strips: 0}
+      - {name: lod2, kind: far, budget: 12, cards: 3, texture_px: 1024}
+    # the near level's mesh: how many sides a tube's rings may have
+    full_mesh: {sides_allowed: [4, 6, 8, 12, 16, 24, 32, 48]}
+    # the reduced level's mesh: edge length m, ring spacing as radii, min and max ring spacing m, max turn between rings
+    reduced_mesh: {edge_target: 0.09, sides_allowed: [3, 4, 5, 6, 8, 12], ring_spacing_factor: 6.0, min_ring_spacing: 0.12, max_ring_spacing: 1.2, max_turn_deg: 24.0}
+    leaf_card: {variants: 4, texture_px: 1024, leaves_per_variant: 14}
+    # colour and packed maps as jpeg to keep files small; png wherever alpha is needed
+    jpeg_quality: 88
+    texture_seed: 4177

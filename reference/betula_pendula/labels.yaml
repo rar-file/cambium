@@ -1,0 +1,373 @@
+# Where each value in species/betula_pendula.yaml came from.
+#
+#   sourced  a source gives it for this species; checked: page if someone read the page and it supports the value
+#   TUNED    no direct source; set against what 'against' says
+#   VERIFY   neither yet: estimated, borrowed from elsewhere, or unchecked
+#
+# 'value' is the value when labelled: if the species file's value differs, tools/species_report.py counts it
+# as unchecked until someone looks.  First written from reports/parameter_audit.csv (M1c) and its checks, 2026-11-06.
+shoot.internode_length: {status: VERIFY, value: 0.025, note: 'borrowed: US plant patent PP15768'}
+shoot.short_shoot_internode_length: {status: VERIFY, value: 0.002, note: 'Short-shoot internodes do not elongate beyond a few mm [CK66]; a short shoot adds ~2 mm and 2-3 leaves a year. Recorded for leaf placement; short shoots are not meshed. VERIFY'}
+shoot.max_shoot_length: {status: VERIFY, value: 1.2, note: 'Longest annual shoot near the ground: ~1.2 m/yr, the upper end of juvenile birch leader growth. In metres; the number of metamers follows from internode_length. VERIFY'}
+shoot.min_expansion: {status: VERIFY, value: 0.2, note: 'Internode length and leaf size scale with turgor-driven expansion, computed from leaf water potential (see hydraulics [K04]); this floor keeps internodes at least ~5 mm. VERIFY'}
+shoot.min_height_above_ground: {status: VERIFY, value: 0.05, note: Shoots are kept this far above the ground plane (m). Model guard.}
+shoot.ground_contact_height: {status: VERIFY, value: 0.4, note: 'A descending shoot apex below this height has reached the herb layer and stops (contact, browsing). VERIFY'}
+resource.alpha: {status: TUNED, value: 4.8, against: 'about 1080 carbon units per m2 of leaf on the natural plot, years 16-20, commit c3fd2dc (from Aosaar 2016''s production): one point, reports/milestone_M1.md'}
+resource.apical_dominance: {status: VERIFY, value: 0.62, note: set by eye; no target recorded and no source gives it}
+resource.apical_control_young: {status: VERIFY, value: 0.6, note: set by eye; no target recorded and no source gives it}
+resource.apical_control_old: {status: VERIFY, value: 0.5, note: set by eye; no target recorded and no source gives it}
+resource.apical_control_transition_age: {status: VERIFY, value: 22, note: 'Apical control, used where the lateral is a branch. Strong when young (excurrent leader, conical crown), weaker when old (rounder, more open crown) [A92]. Logistic transition between the two values. V'}
+resource.apical_control_transition_width: {status: VERIFY, value: 6, note: 'Apical control, used where the lateral is a branch. Strong when young (excurrent leader, conical crown), weaker when old (rounder, more open crown) [A92]. Logistic transition between the two values. V'}
+resource.gravimorphism: {status: VERIFY, value: 1.0, note: 'Gravimorphism: shoot orientation changes vigour; upward shoots are more vigorous than horizontal or hanging ones (Wareing & Nasr 1961, Ann. Bot. 25:321). BH weight of a bud = Q * max(0.05, 1 + g * d_z'}
+resource.branch_aging_years: {status: VERIFY, value: 20, note: 'Physiological ageing of meristems (Barthelemy & Caraglio 2007, Ann. Bot. 99:375): the sink strength of all buds on a first-order branch decays as exp(-branch_age / branch_aging_years), so old scaffold'}
+resource.stem_aging_years: {status: VERIFY, value: 45, note: 'Physiological ageing of meristems (Barthelemy & Caraglio 2007, Ann. Bot. 99:375): the sink strength of all buds on a first-order branch decays as exp(-branch_age / branch_aging_years), so old scaffold'}
+resource.reiteration.min_age: {status: VERIFY, value: 30}
+resource.reiteration.decline_fraction: {status: VERIFY, value: 0.5}
+resource.reiteration.upper_crown_fraction: {status: VERIFY, value: 0.25}
+resource.reiteration.min_light: {status: VERIFY, value: 0.8, note: 'Model''s own choice, as the comment says. How 0.8 was chosen is not recorded. Two searches found nothing.'}
+resource.reiteration.min_relative_vigour: {status: VERIFY, value: 0.3}
+resource.reiteration.interval_years: {status: TUNED, value: 5, against: 'about six reiterated limbs between ages 30 and 60, as the 4-7 major limbs in the reference photos'}
+resource.reiteration.rejuvenation: {status: VERIFY, value: 0.5}
+resource.reiteration.setpoint_angle_deg: {status: VERIFY, value: 0}
+resource.maintenance_per_internode: {status: TUNED, value: 0.5, against: whole-tree carbon use efficiency about 0.47 (Waring 1998); natural plot 0.42 from age 20}
+resource.growth_respiration_coefficient: {status: VERIFY, value: 0.25, note: Full text blocked.}
+resource.leaf_costs.wood_basic_density_kg_m3: {status: sourced, value: 530.0, source: 'Aosaar et al. 2016, 10.14214/sf.1628', checked: page}
+resource.leaf_costs.carbon_fraction: {status: VERIFY, value: 0.48, note: 'borrowed: Thomas & Martin 2012, Forests 3:332, 10.3390/f3020332'}
+resource.leaf_costs.leaf_maintenance_gc_per_g: {status: VERIFY, value: 0.79, note: 'derived, the page only partly supports it: Oleksyn et al. 2000, Trees 14:271, 10.1007/PL00009768'}
+resource.leaf_costs.fine_root_to_leaf_mass: {status: sourced, value: 0.48, source: 'derived: Aosaar et al. 2016, 10.14214/sf.1628', checked: page}
+resource.leaf_costs.fine_root_maintenance_gc_per_g: {status: VERIFY, value: 0.93, note: 'borrowed: Ryan, Lavigne & Gower 1997, JGR 102:28871, 10.1029/97JD01236'}
+resource.branch_export_fraction: {status: VERIFY, value: null, note: 'Branch autonomy (Sprugel, Hinckley & Schaap 1991, Annu. Rev. Ecol. Syst. 22:309): a first-order limb lives on the carbon its own leaves fix, imports none and exports this fraction to the stem; the ste'}
+resource.root_share_min: {status: VERIFY, value: 0.25, note: 'Carbon split between crown and roots: functional balance (Brouwer 1963; Thornley 1972 Ann. Bot. 36:431) sends more to the roots the more the leaves are water-limited. Root share runs from min (no wate'}
+resource.root_share_max: {status: VERIFY, value: 0.6, note: Model's own choice (inferred). 0.6 is above the comment's own 25-40 %. Aosaar's 17.8 % is below it.}
+resource.root_segments_per_unit: {status: VERIFY, value: 0.2, note: 'Root segments (segment_length each) built per unit of carbon, relative to one shoot metamer. VERIFY'}
+bud_fate.long_shoot_threshold: {status: VERIFY, value: 3.0, note: 'A bud with v forms floor(v) metamers [P09]. Axis tips extend with v >= 1; a lateral bud forms a long shoot with v >= this many metamers, otherwise a short shoot. Birch shoots are dimorphic: a lateral'}
+bud_fate.min_tip_extension: {status: VERIFY, value: 0.1, note: 'Axis tips extend continuously: shoot length is l0 * v, and a tip that can afford less than one metamer still makes one shorter internode (it used to stop: seedlings in the field layer, at ~38 % light,'}
+bud_fate.density_control.af_full: {status: VERIFY, value: 0.3}
+bud_fate.density_control.af_zero: {status: VERIFY, value: 3.2}
+bud_fate.density_control.cell_m: {status: VERIFY, value: 0.5}
+bud_fate.short_shoot_light: {status: VERIFY, value: 0.3, note: 'Short shoots are cheap and self-financing, so their fate is local and driven by light, not by BH resource: a lateral bud that does not extend forms a short shoot (spur) if its exposure Q reaches short'}
+bud_fate.short_shoot_survival_light: {status: VERIFY, value: 0.21, note: 'A spur dies when its exposure falls below this: the lowermost shade leaves of Betula pendula stands sit at 21 % relative light (median of 120-150 measurements; Hagemeier & Leuschner 2019, Forests 10:9'}
+bud_fate.spur_release_threshold: {status: VERIFY, value: 6.0, note: 'A spur releases a long shoot only with clearly more resource than a fresh bud; release of short shoots into long shoots is uncommon [M82]. VERIFY'}
+bud_fate.spur_lifespan: {status: sourced, value: null, source: 'Short-shoot lifespan in years; birch short shoots persist for several years [M82]. null: no fixed lifespan, a short shoot dies only of light (below short_shoot_survival_light); 8 years made the lower '}
+bud_fate.dormant_bud_lifespan: {status: VERIFY, value: 3, note: 'Years an unbroken lateral bud stays viable; birch builds few epicormic shoots from old dormant buds [A92]. VERIFY'}
+light.voxel_size: {status: VERIFY, value: 0.1, note: 'Voxel edge (m) for shadow propagation [P09 Sec. 4.2]: ~4 internodes, about one leaf length. Results are insensitive to it because the shadow per leaf is conserved: 0.1, 0.15 and 0.2 m give the same li'}
+light.extinction_coefficient: {status: sourced, value: 0.37, source: 'Hagemeier & Leuschner 2019, Forests 10:925, Table 5: K_PAR 0.37, B. pendula', checked: page}
+light.leaf_area_m2: {status: VERIFY, value: 0.0015, note: 'derived, the page only partly supports it: Ounapuu-Pikas et al. 2022, Forests 13:594, 10.3390/f13040594, Table 1'}
+light.sun_shade.lma_shade_g_m2: {status: sourced, value: 50.5, source: 'Hagemeier & Leuschner 2019, Forests 10:265, 10.3390/f10030265, Table 4', checked: page}
+light.sun_shade.lma_sun_increase_g_m2: {status: sourced, value: 38.7, source: As light.sun_shade.lma_shade_g_m2, checked: page}
+light.sun_shade.lma_exponent: {status: sourced, value: 3.3, source: As light.sun_shade.lma_shade_g_m2, checked: page}
+light.sun_shade.lma_reference_g_m2: {status: sourced, value: 60.8, source: 'Ounapuu-Pikas et al. 2022, 10.3390/f13040594', checked: page}
+light.sun_shade.size_lma_exponent: {status: VERIFY, value: 1.0}
+light.leaf_spread: {status: VERIFY, value: 0.06, note: 'Leaves stand off the node on a 1-2 cm petiole with a 3-7 cm blade, so a bud''s leaf area is spread over a Gaussian of this standard deviation (m) around the node rather than piled into one voxel. VERIF'}
+light.shadow_decay_length: {status: VERIFY, value: 30.0, note: 'Shade is conserved going down apart from slow scattering (e-folding length per metre of depth, m), so a closed canopy shades the crowns below it as Beer-Lambert says. It fades over shadow_horizontal_r'}
+light.shadow_horizontal_reach: {status: VERIFY, value: 6.0, note: 'Shade is conserved going down apart from slow scattering (e-folding length per metre of depth, m), so a closed canopy shades the crowns below it as Beer-Lambert says. It fades over shadow_horizontal_r'}
+light.penumbra_diffusion: {status: VERIFY, value: 0.11, note: 'Shade is conserved going down apart from slow scattering (e-folding length per metre of depth, m), so a closed canopy shades the crowns below it as Beer-Lambert says. It fades over shadow_horizontal_r'}
+light.horizontal_margin: {status: VERIFY, value: 8.0, note: Margin (m) that keeps the periodic wrap of the layer FFT off the crown.}
+light.foliage_weight.new_leaf: {status: VERIFY, value: 1.0}
+light.foliage_weight.spur: {status: VERIFY, value: 2.5}
+light.foliage_weight.dormant: {status: VERIFY, value: 0.0}
+light.foliage_weight.early_leaves: {status: VERIFY, value: 2.5, note: 2-3 fits short shoots; opened sources say two on long shoots. 2.5 is the short-shoot cluster reused (be146aa). The cited paper was not opened.}
+light.foliage_weight.late_leaf_season_fraction: {status: VERIFY, value: 0.5, note: 'Neoformed late leaves on long shoots unfold sequentially over June-July (Tenkanen et al. 2020, Tree Physiol. 40:198, DOI 10.1093/treephys/tpz124; Miyazawa & Kikuzawa 2004, Tree Physiol. 24:631, DOI 10'}
+light.perception_radius: {status: VERIFY, value: 0.5, note: 'Perception volume for the optimal growth direction V [P09]: probe distance (m), cone half-angle, number of probe directions, soft-min width (shadow units). VERIFY'}
+light.perception_cone_deg: {status: VERIFY, value: 80, note: 'Perception volume for the optimal growth direction V [P09]: probe distance (m), cone half-angle, number of probe directions, soft-min width (shadow units). VERIFY'}
+light.perception_samples: {status: VERIFY, value: 64, note: 'Perception volume for the optimal growth direction V [P09]: probe distance (m), cone half-angle, number of probe directions, soft-min width (shadow units). VERIFY'}
+light.perception_softmin: {status: VERIFY, value: 0.05, note: 'Perception volume for the optimal growth direction V [P09]: probe distance (m), cone half-angle, number of probe directions, soft-min width (shadow units). VERIFY'}
+light.woody_shade.k_wood: {status: VERIFY, value: 0.4, note: 'No source read gives 0.40 for wood, in any form. Approved on by default in DECISIONS.md row 3; the species file contradicts itself at light.extinction_coefficient.'}
+shedding.light_per_leaf_threshold: {status: VERIFY, value: 0.21, note: 'Set to the same light, as its comment says.'}
+shedding.min_branch_age: {status: VERIFY, value: 2, note: Branches younger than this are never shed. VERIFY}
+architecture.phyllotaxis_orthotropic_deg: {status: VERIFY, value: 137.5, note: Divergence angle on the vertical leader (spiral phyllotaxis). VERIFY}
+architecture.phyllotaxis_plagiotropic_deg: {status: VERIFY, value: 180.0, note: 'Alternate, two-ranked buds on lateral shoots: Betula leaves are alternate [A92]; distichous arrangement on plagiotropic shoots. VERIFY'}
+architecture.distichous_jitter_deg: {status: VERIFY, value: 25, note: Random scatter of distichous buds around the horizontal plane. VERIFY}
+architecture.branch_angle_deg:
+  status: sourced
+  value: [43, 42, 48]
+  source: Zeltins et al. 2018, Forests 9:52, https://www.mdpi.com/1999-4907/9/2/52
+  checked: page
+architecture.sympodial_deviation_deg: {status: VERIFY, value: 8, note: 'Long shoots of Betula are sympodial: the true terminal bud aborts and the distal lateral bud continues the axis, deflecting it slightly each year. VERIFY (angle)'}
+architecture.sympodial_bend_length_m: {status: VERIFY, value: 0.1, note: The renewal shoot's deflection is a curvature over this first length of the new shoot (m) instead of a kink at one node; fine twigs that add only 2-3 internodes a year then bend gradually. null = kink}
+architecture.direction_noise_per_sqrt_m: {status: VERIFY, value: 0.126, note: 'Random perturbation of shoot direction per sqrt(metre) of growth (a random walk, so independent of internode length). VERIFY'}
+architecture.direction_noise_correlation_m: {status: VERIFY, value: 0.3, note: 'Correlation length (m) of that noise along a shoot: the noise bends the shoot as a smooth random curvature (same wander per metre) instead of independent kinks at every internode, so twigs fall in arc'}
+tropism.phototropism_per_m:
+  status: VERIFY
+  value: [0.8, 0.8, 1.2, 1.5]
+  note: 'Primary tropisms of elongating shoots: D'' = D + xi*V + eta*T [P09 Sec. 4.3], with xi and eta per metre of growth (multiplied by the internode length each step) so they do not depend on resolution. By'
+tropism.gravitropism_per_m:
+  status: TUNED
+  value: [2.0, 3.5, 2.0, 0.5]
+  against: '144 hand-traced birch stems (reference/stem_traces.json): lean, off-line and turning; the stem''s value only, other orders unsourced'
+tropism.setpoint_angle_deg:
+  status: VERIFY
+  value: [0, 43, 45, 65]
+  note: 'derived, the page only partly supports it: Zeltins et al. 2018, as architecture.branch_angle_deg'
+mechanics.wood_density: {status: VERIFY, value: 850.0, note: 'derived, the page only partly supports it: none cited; Tomczak et al. 2021, 10.14214/sf.10545; fgr data'}
+mechanics.leaf_mass: {status: VERIFY, value: 0.0002, note: 'Fresh mass of one leaf (kg): 12 cm^2 at ~70 g/m^2 dry mass and ~65 % water. VERIFY'}
+mechanics.youngs_modulus_wood: {status: VERIFY, value: 10000000000.0, note: 'derived, the page only partly supports it: Herajarvi 2004; fgr data; USDA Wood Handbook'}
+mechanics.youngs_modulus_shoot: {status: VERIFY, value: 2500000000.0, note: 'Stiffness of thin current-year shoots (Pa): mostly primary tissue; birch shoots lose 2-2.5x stiffness when thawing (Russian shoot-bending study, doi:10.1134/S1995425522070150). VERIFY'}
+mechanics.reaction_wood_coefficient: {status: VERIFY, value: 0.012, note: 'Posture control: corrective curvature per year <= C * dr / r^2 [AF09], C = 4 * (maturation-strain asymmetry of reaction wood, ~0.003). VERIFY'}
+mechanics.sine_law_saturation_deg: {status: VERIFY, value: 10.0, note: 'Posture control follows the sine law of gravitropism (Galland 2002, Physiol. Plant. 115:481; Bastien et al. 2013, PNAS 110:755): the correction scales with the sine of the deviation from the set-point'}
+mechanics.pendulous_radius: {status: VERIFY, value: 0.006, note: 'The pendulous trait of silver birch [A92]: shoots thinner than this radius (m) are soft and cannot correct their posture, so long thin shoots hang under their own weight and the load they carry. Stiff'}
+mechanics.pendulous_sharpness: {status: VERIFY, value: 4.0, note: 'The pendulous trait of silver birch [A92]: shoots thinner than this radius (m) are soft and cannot correct their posture, so long thin shoots hang under their own weight and the load they carry. Stiff'}
+mechanics.substeps: {status: VERIFY, value: 4, note: The year's load increment is applied in sub-steps on the updated shape; no internode turns more than this per sub-step (rad). Model guard.}
+mechanics.max_rotation_per_step: {status: VERIFY, value: 0.25, note: The year's load increment is applied in sub-steps on the updated shape; no internode turns more than this per sub-step (rad). Model guard.}
+pipe_model.exponent: {status: VERIFY, value: 2.5, note: 'r_parent^g = sum r_child^g [S64]. Measured exponents for trees lie between ~2 and 3; the brief asked for ~2.5. VERIFY'}
+pipe_model.tip_radius: {status: VERIFY, value: 0.001, note: 'Radius of a current-year long-shoot tip (m): birch twigs ~2 mm thick. VERIFY'}
+pipe_model.spur_radius: {status: VERIFY, value: 0.0008, note: Pipe added by each short shoot (m). VERIFY}
+pipe_model.sapwood_senescence_per_year: {status: VERIFY, value: 0.014, note: 'borrowed: Gebauer, Horna & Leuschner 2008, 10.1093/treephys/28.12.1821'}
+pipe_model.huber_radius_exponent: {status: TUNED, value: 0.312, against: 'cross-section per leaf area at breast height, Konopka 2023 and Repola 2008 (tools/fit_huber_exponent.py); not in use at stem_theory stage 2'}
+pipe_model.huber_path_exponent: {status: TUNED, value: 0.283, against: 'cross-section per leaf area at breast height, Konopka 2023 and Repola 2008 (tools/fit_huber_exponent.py --path); not in use at stem_theory stage 2'}
+pipe_model.huber_path_reference_m: {status: VERIFY, value: 0.14, note: 'derived, the page only partly supports it: Ounapuu-Pikas et al. 2022, 10.3390/f13040594'}
+pipe_model.wood_volume_per_carbon: {status: VERIFY, value: 1.2e-06, note: 'an old calibration that can''t be reproduced: it predates git and was made in rings mode'}
+pipe_model.stress_floor.wood_mor_green_mpa: {status: VERIFY, value: 57.0, note: 'derived, the page only partly supports it: Herajarvi 2004, 10.1007/s00226-003-0209-1; USDA Wood Handbook FPL-GTR-282'}
+pipe_model.stress_floor.safety_factor: {status: VERIFY, value: 3.5, note: 'Treated as unread (the maintainer, 2026-11-06).'}
+pipe_model.wind_load.wind_speed_m_s: {status: VERIFY, value: 25.0}
+pipe_model.wind_load.wood_mor_green_mpa: {status: VERIFY, value: 63.0, note: 'borrowed: fgr data, github.com/tom-locatelli/fgr; Lavers 1969; Hale et al. 2015'}
+pipe_model.wind_load.knot_factor: {status: VERIFY, value: 1.0, note: 'borrowed: fgr data; Hale et al. 2015 (unread)'}
+pipe_model.wind_load.safety_factor: {status: VERIFY, value: 3.5, note: 'Treated as unread (the maintainer, 2026-11-06). Niklas & Spatz 2000, cited in the comment, not opened.'}
+pipe_model.wind_load.air_density_kg_m3: {status: sourced, value: 1.22, source: fgr constants; ForestGALES 2.5 manual, checked: page}
+pipe_model.wind_load.streamlining_c: {status: VERIFY, value: 1.9627, note: 'borrowed: fgr data; Mayhead 1973; Vollsinger et al. 2005, 10.1139/x05-051'}
+pipe_model.wind_load.streamlining_n: {status: VERIFY, value: 0.881, note: 'borrowed: As pipe_model.wind_load.streamlining_c'}
+pipe_model.wind_load.streamlining_min_wind_m_s: {status: VERIFY, value: 10.0, note: 'borrowed: fgr code and manual'}
+pipe_model.wind_load.streamlining_max_wind_m_s: {status: VERIFY, value: 20.0, note: 'borrowed: fgr code and manual'}
+pipe_model.wind_load.deflection_loading_factor: {status: VERIFY, value: 1.136, note: 'borrowed: fgr vignette Deflection_Loading_Factor.Rmd, crediting Hale et al. 2015, 10.1016/j.envsoft.2015.01.016 (the comment used to credit Gardiner et al. 2000)'}
+pipe_model.stem_theory.wind_speed_m_s: {status: VERIFY, value: 12.0, note: An assumption.}
+pipe_model.stem_theory.canopy_wind_attenuation: {status: VERIFY, value: 2.0, note: 'borrowed: Inoue 1963, J Meteorol Soc Jpn 41:317'}
+geometry.root_collar_height_coef:
+  status: VERIFY
+  value: [0.4862, 0.4979]
+  note: 'Root flare. "buttress": the stem base rises in ridges over the main structural roots (mesh._buttresses): each ridge as wide and as high at the ground line as its root is thick, fading upwards; the lar'
+geometry.root_flare_extra: {status: VERIFY, value: 0.35, note: 'Root flare. "buttress": the stem base rises in ridges over the main structural roots (mesh._buttresses): each ridge as wide and as high at the ground line as its root is thick, fading upwards; the lar'}
+geometry.root_flare_height: {status: VERIFY, value: 0.45, note: 'Root flare. "buttress": the stem base rises in ridges over the main structural roots (mesh._buttresses): each ridge as wide and as high at the ground line as its root is thick, fading upwards; the lar'}
+geometry.junction_blend: {status: VERIFY, value: 0.6, note: Junction fillet radius as a fraction of the child radius. VERIFY}
+geometry.collar_extra: {status: VERIFY, value: 0.35, note: 'Branch collar: extra radius of a lateral where it leaves its parent and the decay length of that swelling in child radii. VERIFY'}
+geometry.collar_length: {status: VERIFY, value: 1.5, note: 'Branch collar: extra radius of a lateral where it leaves its parent and the decay length of that swelling in child radii. VERIFY'}
+reference.height.site_index_low: {status: sourced, value: 20, source: 'Hossfeld IV site-index model [E97]: H50 at breast-height age 50 (m). 20-26 m spans medium to good Swedish birch sites; planted birch on former farmland averages ~28 m (Karlsson et al. 1997).'}
+reference.height.site_index_high: {status: sourced, value: 26, source: 'Hossfeld IV site-index model [E97]: H50 at breast-height age 50 (m). 20-26 m spans medium to good Swedish birch sites; planted birch on former farmland averages ~28 m (Karlsson et al. 1997).'}
+reference.height.asi: {status: sourced, value: 7, source: 'Hossfeld IV site-index model [E97]: H50 at breast-height age 50 (m). 20-26 m spans medium to good Swedish birch sites; planted birch on former farmland averages ~28 m (Karlsson et al. 1997).'}
+reference.height.beta: {status: sourced, value: 394, source: 'Hossfeld IV site-index model [E97]: H50 at breast-height age 50 (m). 20-26 m spans medium to good Swedish birch sites; planted birch on former farmland averages ~28 m (Karlsson et al. 1997).'}
+reference.height.b2: {status: sourced, value: 1.387, source: 'Hossfeld IV site-index model [E97]: H50 at breast-height age 50 (m). 20-26 m spans medium to good Swedish birch sites; planted birch on former farmland averages ~28 m (Karlsson et al. 1997).'}
+reference.height.years_to_breast_height: {status: VERIFY, value: 4, note: Years from germination to 1.3 m on a good site. VERIFY. Used only by the height check in stats.json. The scorecard's band now uses Elfving 2010 p. 56 instead (T13 = 150/SIS; reference/targets.yaml).}
+reference.crown.intercept_m: {status: sourced, value: 0.96, source: 'Linear fit to the open-grown silver birch table of [H05]: crown diameter (m) = 0.96 + 16.2 * dbh (m).'}
+reference.crown.slope_m_per_m: {status: sourced, value: 16.2, source: 'Linear fit to the open-grown silver birch table of [H05]: crown diameter (m) = 0.96 + 16.2 * dbh (m).'}
+reference.dbh.open_grown_band_cm:
+  status: VERIFY
+  value: [30, 50]
+  note: Open-grown / crown-released silver birch reaches 40-50 cm in 60 years (target trees, Forests 12(5):599, 2021); stand-grown trees at rotation (50-60 yr) are ~25-30 cm [H10]. VERIFY
+reference.dbh.band_age: {status: VERIFY, value: 60, note: 'Open-grown / crown-released silver birch reaches 40-50 cm in 60 years (target trees, Forests 12(5):599, 2021); stand-grown trees at rotation (50-60 yr) are ~25-30 cm [H10]. VERIFY'}
+leader_damage.replacement_leaders: {status: VERIFY, value: 2, note: 'Loss of the leader''s last annual shoot. Each season the highest leader tip is tested against every event whose height range holds it; a hit kills that shoot, and the uppermost replacement_leaders late'}
+leader_damage.replacement_zone_m: {status: VERIFY, value: 0.5, note: 'Loss of the leader''s last annual shoot. Each season the highest leader tip is tested against every event whose height range holds it; a hit kills that shoot, and the uppermost replacement_leaders late'}
+leader_damage.bite_diameter_m: {status: VERIFY, value: 0.0022, note: 'borrowed: Mathisen, Milner & Skarpe 2017, BMC Ecology 17:12, 10.1186/s12898-017-0122-3'}
+leader_damage.events:
+  status: sourced
+  value:
+  - {name: moose browsing, min_height_m: 0.3, max_height_m: 3.0, probability_per_year: 0.168}
+  source: Bergqvist, Bergstrom & Wallgren 2014, Silva Fennica 48:1077
+  checked: page
+damage.dbh_over_bark_factor: {status: sourced, value: 1.098, source: 'Hansen et al. 2023, coefficients as in tools/bark.py; intercept dropped'}
+damage.stem_form_factor: {status: sourced, value: 0.45, source: 'Krisans et al. 2022 Tables 1-2, site means: V / (pi/4 D2 H) = 0.45 at both sites'}
+damage.old_age.amax_b0: {status: sourced, value: 4.6246, source: 'Elfving 2010 p. 67 Table 3, birch', checked: page}
+damage.old_age.amax_b1: {status: sourced, value: -0.02192, source: 'Elfving 2010 p. 67 Table 3, birch', checked: page}
+damage.old_age.amax_b2: {status: sourced, value: 0.1742, source: 'Elfving 2010 p. 67 Table 3, birch', checked: page}
+damage.old_age.amax_n: {status: sourced, value: 10000, source: 'Elfving 2010 p. 67: read at n = 10 000', checked: page}
+damage.old_age.site_index_sis_m: {status: VERIFY, value: 27.5, note: 'a choice of site, about SI 23; the band SI 20-26 is 25.08-29.93 m on this scale (targets.yaml)'}
+damage.old_age.ageing_a: {status: sourced, value: 10.0, source: 'Elfving 2010 p. 68, from Hynynen et al. 2002', checked: page}
+damage.old_age.ageing_b: {status: sourced, value: 12.0, source: 'Elfving 2010 p. 68, from Hynynen et al. 2002', checked: page}
+damage.old_age.years_to_breast_height: {status: sourced, value: 5.5, source: 'Elfving 2010 p. 56: T13 = 150 / SIS, at this site index', checked: page}
+damage.wind.intercept: {status: sourced, value: -5.03, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1; at the means, as her Figs. 1-2 confirm', checked: page}
+damage.wind.site_effect: {status: sourced, value: 0.0, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1: dry mineral soil is the reference level', checked: page}
+damage.wind.prior_damage: {status: sourced, value: 1.46, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1', checked: page}
+damage.wind.period_years: {status: sourced, value: 5, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 p. 3: five-year remeasurement', checked: page}
+damage.wind.population_offset: {status: TUNED, value: 1.23, against: 2.9-3.4 % of all birches damaged per 5-year period (Kitenberga 2021 p. 6); her fixed effects alone give 0.9 % on the mean tree and soil mix}
+damage.wind.storm_return_years: {status: TUNED, value: 5, against: 'no target: a storm year in five, so that trees go in groups; the damage per year doesn''t change with it'}
+damage.wind.wind_from_deg: {status: TUNED, value: 240.0, against: 'no target, looks only'}
+damage.wind.wind_from_sd_deg: {status: TUNED, value: 40.0, against: 'no target, looks only'}
+damage.wind.min_dbh_cm: {status: VERIFY, value: 14.0, note: 'Kitenberga 2021 p. 3 prints ''DBH; 14 cm'': the sign is lost in the PDF''s text, read as 14 cm and over'}
+damage.wind.age.per_sd: {status: sourced, value: 0.39, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1', checked: page}
+damage.wind.age.mean: {status: sourced, value: 57.35, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
+damage.wind.age.sd: {status: sourced, value: 21.35, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
+damage.wind.age.range:
+  status: sourced
+  value: [11.0, 216.0]
+  source: Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2
+  checked: page
+damage.wind.stems_per_ha.per_sd: {status: sourced, value: -0.7, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1', checked: page}
+damage.wind.stems_per_ha.mean: {status: sourced, value: 1128.0, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
+damage.wind.stems_per_ha.sd: {status: sourced, value: 890.0, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
+damage.wind.stems_per_ha.range:
+  status: sourced
+  value: [100.0, 11520.0]
+  source: Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2
+  checked: page
+damage.wind.basal_area_m2_ha.per_sd: {status: sourced, value: 0.21, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1', checked: page}
+damage.wind.basal_area_m2_ha.mean: {status: sourced, value: 27.5, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
+damage.wind.basal_area_m2_ha.sd: {status: sourced, value: 10.05, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
+damage.wind.basal_area_m2_ha.range:
+  status: sourced
+  value: [3.0, 67.0]
+  source: Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2
+  checked: page
+damage.wind.slenderness.per_sd: {status: sourced, value: 0.39, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1', checked: page}
+damage.wind.slenderness.mean: {status: sourced, value: 1.0, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
+damage.wind.slenderness.sd: {status: sourced, value: 0.2, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2, mean of the two periods', checked: page}
+damage.wind.slenderness.range:
+  status: sourced
+  value: [0.3, 1.9]
+  source: Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2
+  checked: page
+damage.failure.mor_green_mpa: {status: sourced, value: 44.0, source: 'Nykanen et al. 1997 p. 198, from Peltola et al. 1997: 70 % of clear-wood MOR, birch', checked: page}
+damage.failure.even_odds_log_ratio: {status: TUNED, value: -0.46, against: '31-35 % of damaged birches uprooted (Kitenberga 2021 p. 6), on her mean tree'}
+damage.failure.spread: {status: TUNED, value: 0.5, against: 'the same; a width chosen, not fitted, since no share by tree size is published for birch'}
+damage.snap.intercept: {status: sourced, value: 0.532, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 3', checked: page}
+damage.snap.slenderness: {status: sourced, value: -0.097, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 3', checked: page}
+damage.snap.prior_damage: {status: sourced, value: -0.09, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 3', checked: page}
+damage.snap.beta_concentration: {status: sourced, value: 3.2, source: 'read from Kitenberga et al. 2021, Silva Fennica 55(2):10483 Fig. 4: SD 24 % of height', checked: page}
+damage.snow.return_years: {status: sourced, value: 5, source: 'Solantie 1994 in Nykanen et al. 1997 p. 201: every 5 years in southern Finland; a stand-in for Uppland', checked: page}
+damage.snow.load_range_kg_m2:
+  status: sourced
+  value: [20.0, 60.0]
+  source: 'Zubizarreta-Gerendiain et al. 2012 p. 192: 20-40 kg/m2; Solantie 1994 in Nykanen et al. 1997 Fig. 1: over 60 mm is severe'
+  checked: page
+damage.snow.crown_catch_fraction: {status: TUNED, value: 0.1, against: 'a 12 m birch at taper 1:120 stands 60 kg/m2 (Nykanen 1997 Fig. 2); about 2 % of a young stand broken in one severe event (Donis 2024, in KNOWN_ISSUES.md, not reopened); saved plots base_plots ages 8-15 give 1-4 %'}
+damage.snow.lever_fraction: {status: TUNED, value: 0.02, against: 'the same as crown_catch_fraction; barely matters, since most failures are buckling'}
+damage.snow.spread: {status: TUNED, value: 0.5, against: 'the same as crown_catch_fraction; barely matters, since most failures are buckling'}
+damage.snow.bend_buckling_factor: {status: TUNED, value: 6.0, against: 'about 29 % of a young stand bent in one severe event (Donis 2024, in KNOWN_ISSUES.md, not reopened); saved plots base_plots ages 8-15 give 18-39 %'}
+damage.snow.bend_max_dbh_cm: {status: TUNED, value: 10.0, against: the same; bending is a trait of small stems (Nykanen 1997 p. 195)}
+damage.snow.min_break_dbh_cm: {status: TUNED, value: 2.0, against: 'the same as crown_catch_fraction: without it stems under 2 cm, too tall for their age in this model, are most of the failures'}
+damage.uproot.mound_radius_factor: {status: TUNED, value: 1.0, against: 'no target, looks only'}
+damage.uproot.mound_distance_factor: {status: TUNED, value: 1.0, against: 'no target, looks only'}
+damage.uproot.relief_half_life_years: {status: TUNED, value: 20.0, against: 'no target, looks only'}
+plot.germination_years:
+  status: VERIFY
+  value: [0, 1, 2, 3]
+  note: A plot of independent trees (treegen/plot.py, tools/plot.py). Trees differ by seed, by germination year (natural regeneration on a clear felling establishes over a few years; VERIFY) and by a heritabl
+plot.germination_weights:
+  status: VERIFY
+  value: [0.4, 0.3, 0.2, 0.1]
+  note: A plot of independent trees (treegen/plot.py, tools/plot.py). Trees differ by seed, by germination year (natural regeneration on a clear felling establishes over a few years; VERIFY) and by a heritabl
+plot.vigour_sd: {status: VERIFY, value: 0.06, note: 'A plot of independent trees (treegen/plot.py, tools/plot.py). Trees differ by seed, by germination year (natural regeneration on a clear felling establishes over a few years; VERIFY) and by a heritabl'}
+regeneration.seeds_ref: {status: sourced, value: 137000, source: 'Liu & Evans 2021, Forests 12:929: both birches, UK', checked: page}
+regeneration.dbh_ref_m: {status: sourced, value: 0.2, source: 'Natural regeneration in a plot (treegen/regeneration.py; tools/plot.py --regeneration). Seeds shed in a year by a tree of 20 cm DBH: ~137,000 (Wytham Woods, UK, 2015, inverse modelling of seed traps) '}
+regeneration.fecundity_exponent: {status: VERIFY, value: 2.0, note: Seed output in proportion to basal area (DBH^2). VERIFY}
+regeneration.maturity_years: {status: VERIFY, value: 10, note: Age from which a tree sheds seed. Grafts and seedlings in Finnish seed orchards flower from 2-3 years; no figure found for stand-grown trees. VERIFY}
+regeneration.dispersal_mean_m: {status: sourced, value: 38.0, source: 'Liu & Evans 2021, Forests 12:929: both birches, UK; the kernel''s shape is a choice', checked: page}
+regeneration.establishment_mineral: {status: sourced, value: 0.18, source: 'derived: Dahlgren Lidman et al. 2024 (online 2023), New Forests, 10.1007/s11056-023-09971-z', checked: page}
+regeneration.establishment_organic: {status: sourced, value: 0.003, source: 'derived: As regeneration.establishment_mineral', checked: page}
+regeneration.cell_m: {status: sourced, value: 1.0, source: 'Ground grid cell (m); at most one recruit per cell and year: more than one seedling per m2 adds little because birch seedlings outcompete each other within a few years [Dahlgren Lidman et al. 2023].'}
+regeneration.mineral_initial: {status: VERIFY, value: 0.3, note: 'Exposed mineral soil: share of the ground at the start (the stand grows up after a stand-replacing disturbance), share newly exposed each year (uprooting, animals, frost heave) and half-life of its co'}
+regeneration.mineral_new_per_year: {status: VERIFY, value: 0.005, note: 'Exposed mineral soil: share of the ground at the start (the stand grows up after a stand-replacing disturbance), share newly exposed each year (uprooting, animals, frost heave) and half-life of its co'}
+regeneration.mineral_half_life_years: {status: VERIFY, value: 5.0, note: 'Exposed mineral soil: share of the ground at the start (the stand grows up after a stand-replacing disturbance), share newly exposed each year (uprooting, animals, frost heave) and half-life of its co'}
+stand.cell_trees: {status: VERIFY, value: 4, note: '--stand: neighbour trees as shadow volumes. The light grid is one periodic cell of a hexagonal stand lattice; every lattice point is a copy of the focal crown turned by a fixed random angle, and the g'}
+stand.shadow_horizontal_reach: {status: VERIFY, value: 1000.0, note: 'In a closed stand nothing breaks up low-angle shade, so it does not fade sideways (m).'}
+stand.shadow_decay_length: {status: VERIFY, value: 1000.0, note: 'Nor does it fade on the way down below the canopy (the open-tree e-folding length of 30 m let light recover towards the ground, and limbs from the seedling years lived on at 0.2-1.5 m in a 60-year-old'}
+stand.min_distance: {status: VERIFY, value: 0.6, note: 'Neighbour layout. "lattice": the hexagonal lattice, every point a copy of the focal crown turned by a random angle (symmetric light, dead straight stems). "random": cell_trees^2 trees at random positi'}
+stand.size_cv: {status: VERIFY, value: 0.1, note: 'Neighbour layout. "lattice": the hexagonal lattice, every point a copy of the focal crown turned by a random angle (symmetric light, dead straight stems). "random": cell_trees^2 trees at random positi'}
+stand.thinning:
+  status: sourced
+  value:
+  - {from_height_m: 0.0, stems_per_ha: 1800}
+  - {from_height_m: 11.0, stems_per_ha: 1000}
+  - {from_height_m: 16.0, stems_per_ha: 450}
+  source: 'derived: Rytter et al. 2014, Skogsskotselserien 9, Skogsstyrelsen'
+  checked: page
+stats.crown_base_min_leaf_share: {status: VERIFY, value: 0.005, note: A first-order limb counts towards the crown base only if its subtree carries at least this share of the tree's leaves.}
+stats.hanging_twig_min_length: {status: VERIFY, value: 0.2, note: Hanging runs shorter than this (m) are not counted as hanging twigs.}
+hydraulics.transpiration_max: {status: VERIFY, value: 3.0e-05, note: 'derived, the page only partly supports it: Sellin & Lubenets 2010, 10.1002/eco.133 (comment cites PMC4602113, which has no such value); Sellin et al. 2014, 10.1186/1471-2229-14-72'}
+hydraulics.xylem_conductivity: {status: TUNED, value: 4.0, against: top leaves of a well-watered tree staying above the branch P50 (-1.8 to -2.0 MPa); doubled from 2.0}
+hydraulics.huber_value: {status: sourced, value: 0.000124, source: 'Ounapuu-Pikas et al. 2022, 10.3390/f13040594', checked: page}
+hydraulics.conductivity_reference_radius: {status: VERIFY, value: 0.02, note: 'Abstracts only, and they give no value: not the same as a page that says otherwise. Model''s own choice (inferred). Unchanged since 31876b9.'}
+hydraulics.conductivity_exponent: {status: VERIFY, value: 0.7, note: 'Abstracts only, and they give no value: not the same as a page that says otherwise. Model''s own choice (inferred). Sources use path length, the model uses radius. Full texts not read. Unchanged since'}
+hydraulics.root_xylem_conductivity: {status: VERIFY, value: 4.0, note: Root wood conducts better than stem wood (wider vessels). VERIFY}
+hydraulics.psi_stomata_open: {status: VERIFY, value: -1.0, note: Stomata start closing at psi_stomata_open and are shut at psi_stomata_closed (MPa); silver birch is drought-sensitive and cavitation-prone. VERIFY}
+hydraulics.psi_stomata_closed: {status: VERIFY, value: -2.0, note: Stomata start closing at psi_stomata_open and are shut at psi_stomata_closed (MPa); silver birch is drought-sensitive and cavitation-prone. VERIFY}
+hydraulics.psi_full_expansion: {status: VERIFY, value: -0.9, note: 'Expansion is full above psi_full_expansion and stops at the turgor-loss point (MPa) [K04]. VERIFY: Hannus et al. 2021 (doi 10.1007/s00468-020-02059-7) measured a mean of -2.47 in B. pendula, -2.32 to'}
+hydraulics.psi_turgor_loss: {status: VERIFY, value: -2.1, note: 'Sources suggest about -2.5, not -2.1.'}
+roots.segment_length: {status: VERIFY, value: 0.05, note: 'Root growth (roots.py): bud competition for soil water. Structural root segment (m); fine roots are represented by the uptake of young segments, not drawn. VERIFY'}
+roots.max_extension_per_year: {status: VERIFY, value: 0.8, note: Longest annual extension of a root tip (m). VERIFY}
+roots.radicle_segments: {status: VERIFY, value: 2, note: 'Radicle of the germinating seed, in segments.'}
+roots.tip_radius: {status: VERIFY, value: 0.001, note: Root tip radius (m) for the pipe model. VERIFY}
+roots.min_depth: {status: VERIFY, value: 0.02, note: Roots never come closer to the surface than this (m).}
+roots.taproot_fade_years: {status: VERIFY, value: 4, note: 'Silver birch has no lasting taproot: the seedling''s vertical tap root turns horizontal after ~30 cm or is overtaken by side roots [L35]; its pull fades with this time constant (years). VERIFY'}
+roots.taproot_max_depth: {status: VERIFY, value: 0.4, note: '... and stops at this depth (m), so the main laterals leave from the root collar zone. VERIFY'}
+roots.taproot_setpoint_deg: {status: VERIFY, value: 180, note: 'Gravitropic set-points (deg from vertical-up; 180 = straight down) and strengths (1/m). Main laterals run nearly horizontally in the top soil, most root length lies in the top 20-30 cm (76 % of fine r'}
+roots.taproot_gravitropism_per_m: {status: VERIFY, value: 3.0, note: 'Gravitropic set-points (deg from vertical-up; 180 = straight down) and strengths (1/m). Main laterals run nearly horizontally in the top soil, most root length lies in the top 20-30 cm (76 % of fine r'}
+roots.lateral_setpoint_deg: {status: VERIFY, value: 97, note: 'Gravitropic set-points (deg from vertical-up; 180 = straight down) and strengths (1/m). Main laterals run nearly horizontally in the top soil, most root length lies in the top 20-30 cm (76 % of fine r'}
+roots.lateral_setpoint_spread_deg: {status: VERIFY, value: 4, note: 'Gravitropic set-points (deg from vertical-up; 180 = straight down) and strengths (1/m). Main laterals run nearly horizontally in the top soil, most root length lies in the top 20-30 cm (76 % of fine r'}
+roots.lateral_gravitropism_per_m: {status: VERIFY, value: 1.5, note: 'Gravitropic set-points (deg from vertical-up; 180 = straight down) and strengths (1/m). Main laterals run nearly horizontally in the top soil, most root length lies in the top 20-30 cm (76 % of fine r'}
+roots.sinker_setpoint_deg: {status: VERIFY, value: 180, note: 'Sinker roots drop from main laterals near the stem to the compact subsoil; birch root plates are ~0.9 m deep at the centre (31 trees, Finnish re-measurement of [L35]). VERIFY'}
+roots.sinker_gravitropism_per_m: {status: VERIFY, value: 4.0, note: 'Sinker roots drop from main laterals near the stem to the compact subsoil; birch root plates are ~0.9 m deep at the centre (31 trees, Finnish re-measurement of [L35]). VERIFY'}
+roots.sinker_probability: {status: VERIFY, value: 0.06, note: 'Sinker roots drop from main laterals near the stem to the compact subsoil; birch root plates are ~0.9 m deep at the centre (31 trees, Finnish re-measurement of [L35]). VERIFY'}
+roots.sinker_zone_radius: {status: VERIFY, value: 1.5, note: 'Sinker roots drop from main laterals near the stem to the compact subsoil; birch root plates are ~0.9 m deep at the centre (31 trees, Finnish re-measurement of [L35]). VERIFY'}
+roots.hydrotropism_per_m: {status: VERIFY, value: 0.8, note: Hydrotropism towards the wettest nearby soil (1/m) and random wander (1/sqrt m). VERIFY}
+roots.direction_noise_per_sqrt_m: {status: VERIFY, value: 0.25, note: Hydrotropism towards the wettest nearby soil (1/m) and random wander (1/sqrt m). VERIFY}
+roots.probe_radius: {status: VERIFY, value: 0.15, note: Hydrotropism towards the wettest nearby soil (1/m) and random wander (1/sqrt m). VERIFY}
+roots.branch_angle_deg: {status: VERIFY, value: 70, note: Lateral roots leave their parent at this angle (deg). VERIFY}
+roots.apical_dominance: {status: VERIFY, value: 0.7, note: 'Borchert-Honda split for roots, as for shoots. VERIFY'}
+roots.apical_control: {status: VERIFY, value: 0.55, note: 'Borchert-Honda split for roots, as for shoots. VERIFY'}
+roots.primordium_weight: {status: VERIFY, value: 0.5, note: 'Borchert-Honda split for roots, as for shoots. VERIFY'}
+roots.lateral_threshold: {status: VERIFY, value: 3.0, note: 'A primordium forms a lateral root with at least this many segments of resource, and dies unused after this many years. VERIFY'}
+roots.primordium_lifespan: {status: VERIFY, value: 2, note: 'A primordium forms a lateral root with at least this many segments of resource, and dies unused after this many years. VERIFY'}
+roots.collar_primordium_weight: {status: VERIFY, value: 1.0, note: 'The root collar (the taproot zone): a birch seedling forms its main laterals from the upper taproot in the first years and they radiate evenly around the stem [L35]. Collar primordia need less to brea'}
+roots.collar_lateral_threshold: {status: VERIFY, value: 1.0, note: 'The root collar (the taproot zone): a birch seedling forms its main laterals from the upper taproot in the first years and they radiate evenly around the stem [L35]. Collar primordia need less to brea'}
+roots.collar_primordium_lifespan: {status: VERIFY, value: 10, note: 'The root collar (the taproot zone): a birch seedling forms its main laterals from the upper taproot in the first years and they radiate evenly around the stem [L35]. Collar primordia need less to brea'}
+roots.collar_divergence_deg: {status: VERIFY, value: 137.5, note: 'The root collar (the taproot zone): a birch seedling forms its main laterals from the upper taproot in the first years and they radiate evenly around the stem [L35]. Collar primordia need less to brea'}
+roots.collar_apical_control: {status: VERIFY, value: 0.5, note: 'The root collar (the taproot zone): a birch seedling forms its main laterals from the upper taproot in the first years and they radiate evenly around the stem [L35]. Collar primordia need less to brea'}
+roots.depletion_coefficient: {status: VERIFY, value: 0.004, note: 'Water draw-down: availability falls as exp(-k * RLD) with the tree''s own absorbing root length density RLD (m/m^3), blurred over the depletion radius (m) around each root. VERIFY'}
+roots.depletion_radius: {status: VERIFY, value: 0.12, note: 'Water draw-down: availability falls as exp(-k * RLD) with the tree''s own absorbing root length density RLD (m/m^3), blurred over the depletion radius (m) around each root. VERIFY'}
+roots.absorbing_years: {status: VERIFY, value: 3, note: Roots younger than this (years) carry the fine-root cloud that takes up water. VERIFY}
+roots.uptake_conductance_per_m: {status: TUNED, value: 2.0e-05, against: 'soil-to-branch conductance of 5-year saplings, 2.28 mmol/m2/s/MPa (Sellin 2014); used only with fine_root_uptake off'}
+roots.fine_root_uptake.specific_root_length_m_per_g: {status: VERIFY, value: 90.0, note: Citation is probably the wrong Ostonen 2007; needs full text.}
+roots.fine_root_uptake.root_conductance_per_leaf_area: {status: sourced, value: 0.000433, source: 'Sellin et al. 2015, Front Plant Sci 6:860, 10.3389/fpls.2015.00860', checked: page}
+roots.fine_root_uptake.fine_root_per_leaf_mass: {status: sourced, value: 0.46, source: 'Sellin et al. 2015, 10.3389/fpls.2015.00860', checked: page}
+roots.fine_root_uptake.leaf_mass_per_area_g_m2: {status: VERIFY, value: 60.8}
+roots.tip_survival_availability: {status: VERIFY, value: 0.08, note: Tips die where availability drops below this; a lateral root is shed when the mean availability at its tips and primordia does. VERIFY}
+roots.shed_availability: {status: VERIFY, value: 0.1, note: Tips die where availability drops below this; a lateral root is shed when the mean availability at its tips and primordia does. VERIFY}
+roots.field_margin: {status: VERIFY, value: 0.5, note: Margin of the soil grid around the roots (m).}
+roots.zrt_radius_per_dbh: {status: VERIFY, value: 2.2, note: 'Zone of rapid taper: near the stem, structural roots carry extra wood for anchorage and thin fast; beyond it they follow their own pipe model. The zone reaches 2.2 x DBH from the stem [D05, Pinus pina'}
+roots.zrt_fade_fraction: {status: VERIFY, value: 0.5, note: 'Zone of rapid taper: near the stem, structural roots carry extra wood for anchorage and thin fast; beyond it they follow their own pipe model. The zone reaches 2.2 x DBH from the stem [D05, Pinus pina'}
+roots.avoid_clearance_m: {status: VERIFY, value: 0.03, note: 'Near the collar growing roots keep clear of the stem column and of other roots (root-stem and root-root avoidance): a push away from any root closer than both radii plus the clearance (m), within this'}
+roots.avoid_zone_radius_m: {status: VERIFY, value: 1.5, note: 'Near the collar growing roots keep clear of the stem column and of other roots (root-stem and root-root avoidance): a push away from any root closer than both radii plus the clearance (m), within this'}
+roots.avoid_weight: {status: VERIFY, value: 1.5, note: 'Near the collar growing roots keep clear of the stem column and of other roots (root-stem and root-root avoidance): a push away from any root closer than both radii plus the clearance (m), within this'}
+roots.max_turn_deg_per_segment: {status: VERIFY, value: 30, note: 'A growing root turns by at most this much per segment (deg), so avoidance and tropisms bend it smoothly; stones can still deflect it sharply. null = no limit. VERIFY'}
+anchorage.plate_root_diameter: {status: VERIFY, value: 0.02, note: 'Root-soil plate and root strength for later storm modelling (numbers only). The plate is the zone of rapid taper: each main root counts up to where it thins below this diameter (m). VERIFY'}
+anchorage.plate_structural_share: {status: VERIFY, value: 0.8, note: 'The plate radius comes from the main structural roots: the fewest main roots that carry this share of the base cross-section of all main roots, weighted by cross-section. VERIFY'}
+anchorage.tensile_strength_1mm_mpa: {status: VERIFY, value: 30.0, note: 'Root tensile strength sigma = sigma_1mm * (d / 1 mm)^-beta (MPa): the power law used for broadleaf roots (Bischetti et al. 2005, Plant Soil 278:11; values for birch not published, broadleaf band). VER'}
+anchorage.tensile_strength_exponent: {status: VERIFY, value: 0.6, note: 'Root tensile strength sigma = sigma_1mm * (d / 1 mm)^-beta (MPa): the power law used for broadleaf roots (Bischetti et al. 2005, Plant Soil 278:11; values for birch not published, broadleaf band). VER'}
+anchorage.root_strength_mobilised: {status: VERIFY, value: 0.25, note: 'Windward roots slip and break progressively, so only part of their breaking strength is mobilised when the plate turns over; root tension is about half of anchorage in pulling tests [C86]. VERIFY'}
+anchorage.h_dbh2_coefficient_knm_per_m3: {status: sourced, value: 31.0, source: 'derived: Krisans et al. 2022, Forests 13:127', checked: page}
+anchorage.h_dbh2_coefficient_range:
+  status: sourced
+  value: [25.0, 38.0]
+  source: Krisans et al. 2022 Tables 1-2, site means
+anchorage.critical_moment_per_stem_volume_knm_per_m3: {status: sourced, value: 101.0, source: 'derived: Krisans et al. 2022, Forests 13:127', checked: page}
+anchorage.rooting_depth_radius_m: {status: VERIFY, value: 1.5, note: 'Critical turning moment, ForestGALES-style: an empirical regression of tree-pulling moments on stem size, M = C_reg x stem volume. Silver birch pulled to uprooting [K22, Tables 1-2], site means: V 0.6'}
+anchorage.reference_rooting_depth_m: {status: sourced, value: 0.85, source: 'Krisans et al. 2022, Forests 13:127', checked: page}
+anchorage.depth_factor_min: {status: VERIFY, value: 0.5, note: 'Critical turning moment, ForestGALES-style: an empirical regression of tree-pulling moments on stem size, M = C_reg x stem volume. Silver birch pulled to uprooting [K22, Tables 1-2], site means: V 0.6'}
+anchorage.depth_factor_max: {status: VERIFY, value: 1.2, note: 'Critical turning moment, ForestGALES-style: an empirical regression of tree-pulling moments on stem size, M = C_reg x stem volume. Silver birch pulled to uprooting [K22, Tables 1-2], site means: V 0.6'}
+anchorage.root_tension_share: {status: VERIFY, value: 0.5, note: 'Critical turning moment, ForestGALES-style: an empirical regression of tree-pulling moments on stem size, M = C_reg x stem volume. Silver birch pulled to uprooting [K22, Tables 1-2], site means: V 0.6'}
+field_layer_competition.max_height_m: {status: sourced, value: 0.45, source: Mean mature grass sward height (Nilsson & Örlander 1999)}
+field_layer_competition.max_lai: {status: sourced, value: 3.3, source: Mature sward LAI (~3 Mg/ha aboveground biomass; Nilsson & Örlander 1999)}
+field_layer_competition.extinction: {status: sourced, value: 0.45, source: Beer-Lambert k for erectophile grass canopy (Nilsson & Örlander 1999)}
+field_layer_competition.years_to_mature: {status: sourced, value: 4.0, source: Years post-harvest to reach peak sward biomass (Nilsson & Örlander 1999)}
+germination.seed_dry_mass_mg: {status: VERIFY, value: 0.21, note: 'Seed dry mass ~0.21 mg (Perala & Alm 1990; Miles 1974; Grime et al. 1988: none opened). USDA Woody Plant Seed Manual, Betula, Table 4: ~0.19 mg per cleaned de-winged B. pendula seed (range 0.09-0.30).'}
+germination.cotyledon_area_cm2: {status: VERIFY, value: 0.05, note: 'Cotyledon photosynthetic area ~0.05 cm2 = 5e-6 m2 (Perala & Alm 1990; Laitakari 1935: not opened). Not used by the code. VERIFY'}
+germination.germination_respiration_fraction: {status: VERIFY, value: 0.35, note: 'Heterotrophic respiration loss of seed reserves during germination prior to autotrophy (Bewley & Black 1994; Penning de Vries et al. 1979: not opened; no Betula source found, phase 40). VERIFY'}
+germination.hypocotyl_height_m: {status: VERIFY, value: 0.015, note: Initial hypocotyl height at emergence (m). VERIFY}
+germination.initial_taproot_depth_m: {status: VERIFY, value: 0.02, note: Initial radicle taproot depth at emergence (m). VERIFY (not yet hooked to root system)}
+germination.first_year_effective_leaves: {status: VERIFY, value: 0.2, note: an effective value with no stated target}
+germination.juvenile_scale_bh_m: {status: VERIFY, value: 1.3, note: 'Breast-height reference where heteroblastic juvenile leaves reach adult size (m). No source: no published leaf-size vs height relation for young Betula found (phase 40); the linear ramp in growth.py i'}
+germination.min_juvenile_scale: {status: VERIFY, value: 0.2, note: 'Minimum juvenile leaf scale at emergence (~3 cm2 juvenile leaf vs 15 cm2 adult; neither value has a source, phase 40). VERIFY'}
+soil_water_balance.awc_mm: {status: VERIFY, value: 75.0, note: 'Extractable water of the rooting zone at field capacity, mm (EWM). Cited as Lundin et al. 1999 (Agric. For. Meteorol. 98-99:53) Table 1 for 0.7 m of till; not opened (paywalled). VERIFY'}
+soil_water_balance.rew_threshold: {status: sourced, value: 0.4, source: 'REW below which transpiration declines linearly: 0.4 (Granier 1999 p. 271 and Table 1; Breda et al. 2006, Ann. For. Sci. 63:625, p. 630)'}
+soil_water_balance.transpiration_lai_slope: {status: sourced, value: 0.125, source: 'Granier et al. 1999 Eq. 2, p. 271; not opened in M1'}
+soil_water_balance.transpiration_ratio_max: {status: sourced, value: 0.75, source: 'Granier et al. 1999 Eq. 2, p. 271; not opened in M1'}
+soil_water_balance.precipitation_mm:
+  status: sourced
+  value: [39.3, 61.2, 57.4, 73.6, 48.6]
+  source: 'Precipitation May-Sep, mm: SMHI 1991-2020 normals, Uppsala station 97520 (Normal-nbd-1991-2020.xlsx, smhi.se)'
+soil_water_balance.pet_mm:
+  status: sourced
+  value: [79.8, 98.9, 103.4, 68.5, 30.1]
+  source: 'Penman (1953) PET May-Sep, mm, computed for Forsmark (coastal north Uppland) 1970-2004: SKB TR-06-45 (Gustafsson et al. 2006) Table A1-10, p. 44'
+soil_water_balance.dry_year_precipitation_mm:
+  status: sourced
+  value: [6.8, 26.5, 89.1, 105.1, 44.6]
+  source: 'drought_scenario: use the 2018 precipitation, Uppsala 97520, SMHI open data (parameter 23, monthly sums): dry May-June, wet July-August; its May-Sep total (272 mm) is close to the normal (280 mm). PET'

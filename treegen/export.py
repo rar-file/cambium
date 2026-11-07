@@ -123,6 +123,259 @@ class GLBWriter:
         return info
 
 
+# -- GLB for games (tools/game_export.py) ----------------------------------------
+def encode_image(rgb, alpha=None, kind: str = "jpeg", quality: int = 88) -> tuple:
+    """Encode an array (0-1, rows from v = 0) as (bytes, mime type).  Values are written as given,
+    so a colour map has to be sRGB-encoded first."""
+    import io
+
+    from PIL import Image
+
+    a = np.clip(np.asarray(rgb, np.float32), 0.0, 1.0)
+    buf = io.BytesIO()
+    if a.ndim == 2:
+        a = a[..., None]
+    if alpha is not None:
+        a = np.concatenate([a, np.clip(np.asarray(alpha, np.float32), 0.0, 1.0)[..., None]], axis=-1)
+    u8 = (a * 255.0 + 0.5).astype(np.uint8)
+    img = Image.fromarray(u8[..., 0] if u8.shape[-1] == 1 else u8)
+    if alpha is not None or kind == "png":
+        img.save(buf, "PNG", optimize=False, compress_level=6)
+        return buf.getvalue(), "image/png"
+    img.save(buf, "JPEG", quality=int(quality), subsampling=0 if kind == "jpeg_full" else 2)
+    return buf.getvalue(), "image/jpeg"
+
+
+class GameGLB:
+    """A .glb with PBR materials and embedded textures: any number of meshes, each with its own
+    material.  Internal frame is z-up; written y-up, as glTF requires."""
+
+    def __init__(self, path, name: str, metadata: dict):
+        self.path = Path(path)
+        self.name = name
+        self.metadata = metadata
+        self.blob = bytearray()
+        self.views, self.accessors, self.images, self.textures, self.samplers, self.materials, self.meshes = [], [], [], [], [], [], []
+        self.nodes = []
+        self.extensions = set()
+        self.triangles = 0
+        self.vertices = 0
+
+    def _view(self, data: bytes, target=None) -> int:
+        self.blob.extend(b"\0" * (-len(self.blob) % 4))
+        view = {"buffer": 0, "byteOffset": len(self.blob), "byteLength": len(data)}
+        if target:
+            view["target"] = target
+        self.blob.extend(data)
+        self.views.append(view)
+        return len(self.views) - 1
+
+    def _accessor(self, arr: np.ndarray, type_: str, component: int, target, normalized=False, bounds=False) -> int:
+        view = self._view(arr.tobytes(), target)
+        acc = {"bufferView": view, "componentType": component, "count": len(arr), "type": type_}
+        if normalized:
+            acc["normalized"] = True
+        if bounds:
+            acc["min"] = [float(x) for x in arr.min(0)]
+            acc["max"] = [float(x) for x in arr.max(0)]
+        self.accessors.append(acc)
+        return len(self.accessors) - 1
+
+    def add_texture(self, data: bytes, mime: str, wrap_s: int = 10497, wrap_t: int = 10497, name: str = "") -> int:
+        """Wrap: 10497 repeat, 33071 clamp to edge.  Returns the texture index."""
+        view = self._view(data)
+        self.images.append({"bufferView": view, "mimeType": mime, "name": name})
+        sampler = {"magFilter": 9729, "minFilter": 9987, "wrapS": wrap_s, "wrapT": wrap_t}
+        if sampler not in self.samplers:
+            self.samplers.append(sampler)
+        self.textures.append({"source": len(self.images) - 1, "sampler": self.samplers.index(sampler), "name": name})
+        return len(self.textures) - 1
+
+    def add_material(self, material: dict) -> int:
+        self.materials.append(material)
+        self.extensions |= set(material.get("extensions", {}))
+        return len(self.materials) - 1
+
+    def add_mesh(self, name: str, material: int, vertices, normals, faces, uv=None, tangents=None, colour=None, attributes=None):
+        """One glTF mesh with one primitive.  ``attributes``: name -> float array per vertex, written
+        with a leading underscore, as glTF has it for application data."""
+        faces = np.asarray(faces)
+        if not len(faces):
+            return None
+        rot = lambda v: np.stack([v[:, 0], v[:, 2], -v[:, 1]], axis=1)  # noqa: E731
+        p = np.ascontiguousarray(rot(np.asarray(vertices)), dtype="<f4")
+        attrs = {"POSITION": self._accessor(p, "VEC3", 5126, 34962, bounds=True)}
+        n = np.asarray(normals, np.float64)
+        n = n / np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-12)
+        attrs["NORMAL"] = self._accessor(np.ascontiguousarray(rot(n), dtype="<f4"), "VEC3", 5126, 34962)
+        if tangents is not None:
+            t = np.asarray(tangents, np.float64)
+            t3 = t[:, :3] / np.maximum(np.linalg.norm(t[:, :3], axis=1, keepdims=True), 1e-12)
+            attrs["TANGENT"] = self._accessor(np.ascontiguousarray(np.c_[rot(t3), t[:, 3]], dtype="<f4"), "VEC4", 5126, 34962)
+        if uv is not None:
+            attrs["TEXCOORD_0"] = self._accessor(np.ascontiguousarray(uv, dtype="<f4"), "VEC2", 5126, 34962)
+        if colour is not None:
+            c = (np.clip(np.asarray(colour, np.float64), 0.0, 1.0) * 65535.0 + 0.5).astype("<u2")
+            attrs["COLOR_0"] = self._accessor(np.ascontiguousarray(c), "VEC4", 5123, 34962, normalized=True)
+        for key, val in (attributes or {}).items():
+            attrs["_" + key] = self._accessor(np.ascontiguousarray(val, dtype="<f4"), "SCALAR", 5126, 34962)
+        idx = self._accessor(np.ascontiguousarray(faces.ravel(), dtype="<u4"), "SCALAR", 5125, 34963)
+        self.meshes.append({"name": name, "primitives": [{"attributes": attrs, "indices": idx, "material": material, "mode": 4}]})
+        self.nodes.append({"mesh": len(self.meshes) - 1, "name": name})
+        self.triangles += len(faces)
+        self.vertices += len(p)
+        return len(self.meshes) - 1
+
+    def write(self) -> dict:
+        doc = {
+            "asset": {"version": "2.0", "generator": "treegen game export", "extras": self.metadata},
+            "scene": 0,
+            "scenes": [{"name": self.name, "nodes": list(range(len(self.nodes)))}],
+            "nodes": self.nodes,
+            "meshes": self.meshes,
+            "materials": self.materials,
+            "accessors": self.accessors,
+            "bufferViews": self.views,
+            "buffers": [{"byteLength": len(self.blob)}],
+        }
+        if self.images:
+            doc.update(images=self.images, textures=self.textures, samplers=self.samplers)
+        if self.extensions:
+            doc["extensionsUsed"] = sorted(self.extensions)    # none required: they fall back to plain PBR
+        js = json.dumps(doc, separators=(",", ":")).encode("utf-8")
+        js += b" " * (-len(js) % 4)
+        self.blob.extend(b"\0" * (-len(self.blob) % 4))
+        with open(self.path, "wb") as out:
+            out.write(struct.pack("<4sII", b"glTF", 2, 12 + 8 + len(js) + 8 + len(self.blob)))
+            out.write(struct.pack("<I4s", len(js), b"JSON"))
+            out.write(js)
+            out.write(struct.pack("<I4s", len(self.blob), b"BIN\x00"))
+            out.write(self.blob)
+        return {"triangles": int(self.triangles), "vertices": int(self.vertices), "file_mb": round(self.path.stat().st_size / 2**20, 2)}
+
+
+_COMPONENTS = {5120: ("i1", 1), 5121: ("u1", 1), 5122: ("<i2", 2), 5123: ("<u2", 2), 5125: ("<u4", 4), 5126: ("<f4", 4)}
+_TYPE_SIZES = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4, "MAT4": 16}
+
+
+def read_glb(path) -> tuple:
+    """(json document, binary chunk) of a .glb, checking its header and chunks."""
+    with open(path, "rb") as f:
+        data = f.read()
+    if len(data) < 28:
+        raise ValueError(f"{path}: too short for a .glb")
+    magic, version, total = struct.unpack_from("<4sII", data, 0)
+    if magic != b"glTF" or version != 2:
+        raise ValueError(f"{path}: not a glTF 2 binary")
+    if total != len(data):
+        raise ValueError(f"{path}: header says {total} bytes, file has {len(data)}")
+    n_json, kind = struct.unpack_from("<I4s", data, 12)
+    if kind != b"JSON" or n_json % 4:
+        raise ValueError(f"{path}: first chunk is not a 4-byte-aligned JSON chunk")
+    doc = json.loads(data[20:20 + n_json])
+    at = 20 + n_json
+    bin_chunk = b""
+    if at < total:
+        n_bin, kind = struct.unpack_from("<I4s", data, at)
+        if kind != b"BIN\x00":
+            raise ValueError(f"{path}: second chunk is not binary")
+        bin_chunk = data[at + 8:at + 8 + n_bin]
+    return doc, bin_chunk
+
+
+def glb_accessor(doc: dict, blob: bytes, index: int) -> np.ndarray:
+    """An accessor's values, as a numpy array (tightly packed, as GameGLB writes them)."""
+    acc = doc["accessors"][index]
+    view = doc["bufferViews"][acc["bufferView"]]
+    fmt, size = _COMPONENTS[acc["componentType"]]
+    k = _TYPE_SIZES[acc["type"]]
+    a = np.frombuffer(blob, fmt, acc["count"] * k, view.get("byteOffset", 0) + acc.get("byteOffset", 0))
+    return a if k == 1 else a.reshape(-1, k)
+
+
+def validate_glb(path) -> dict:
+    """Check a .glb by reading it through: header and chunks, every buffer view inside the buffer,
+    accessors inside their views, indices in range, positions finite, normals unit length, colours in
+    range, texture and material references good, images really images.  Raises ValueError on
+    anything wrong; returns counts."""
+    doc, blob = read_glb(path)
+    errs = []
+    if doc.get("asset", {}).get("version") != "2.0":
+        errs.append("asset.version is not 2.0")
+    for i, v in enumerate(doc.get("bufferViews", [])):
+        end = v.get("byteOffset", 0) + v["byteLength"]
+        if end > len(blob):
+            errs.append(f"bufferView {i} runs past the buffer")
+    for i, a in enumerate(doc.get("accessors", [])):
+        fmt, size = _COMPONENTS[a["componentType"]]
+        need = a["count"] * _TYPE_SIZES[a["type"]] * size
+        if a.get("byteOffset", 0) + need > doc["bufferViews"][a["bufferView"]]["byteLength"]:
+            errs.append(f"accessor {i} runs past its view")
+        if (doc["bufferViews"][a["bufferView"]].get("byteOffset", 0) + a.get("byteOffset", 0)) % size:
+            errs.append(f"accessor {i} is misaligned")
+    n_tex = len(doc.get("textures", []))
+    for t in doc.get("textures", []):
+        if t["source"] >= len(doc["images"]) or t.get("sampler", 0) >= len(doc.get("samplers", [{}])):
+            errs.append("a texture points at a missing image or sampler")
+    for img in doc.get("images", []):
+        v = doc["bufferViews"][img["bufferView"]]
+        head = blob[v.get("byteOffset", 0):v.get("byteOffset", 0) + 4]
+        good = {"image/png": head[:4] == b"\x89PNG", "image/jpeg": head[:2] == b"\xff\xd8"}.get(img.get("mimeType"), False)
+        if not good:
+            errs.append(f"image {img.get('name')} isn't the {img.get('mimeType')} it says it is")
+
+    def refs(o):
+        if isinstance(o, dict):
+            if "index" in o and isinstance(o["index"], int) and ("texCoord" in o or len(o) <= 3):
+                yield o["index"]
+            for v in o.values():
+                yield from refs(v)
+        elif isinstance(o, list):
+            for v in o:
+                yield from refs(v)
+
+    for m in doc.get("materials", []):
+        if any(k >= n_tex for k in refs(m)):
+            errs.append(f"material {m.get('name')} points at a missing texture")
+    tris = verts = 0
+    for mesh in doc.get("meshes", []):
+        for prim in mesh["primitives"]:
+            if prim.get("material", 0) >= len(doc.get("materials", [])):
+                errs.append(f"mesh {mesh.get('name')} points at a missing material")
+            attrs = prim["attributes"]
+            pos = glb_accessor(doc, blob, attrs["POSITION"])
+            idx = glb_accessor(doc, blob, prim["indices"])
+            if len(idx) % 3:
+                errs.append(f"mesh {mesh.get('name')}: index count isn't a multiple of 3")
+            if len(idx) and (idx.max() >= len(pos)):
+                errs.append(f"mesh {mesh.get('name')}: an index is out of range")
+            if not np.isfinite(pos).all():
+                errs.append(f"mesh {mesh.get('name')}: positions aren't finite")
+            acc = doc["accessors"][attrs["POSITION"]]
+            if "min" not in acc or "max" not in acc:
+                errs.append(f"mesh {mesh.get('name')}: POSITION has no bounds")
+            elif np.abs(np.asarray(acc["min"]) - pos.min(0)).max() > 1e-3 or np.abs(np.asarray(acc["max"]) - pos.max(0)).max() > 1e-3:
+                errs.append(f"mesh {mesh.get('name')}: POSITION bounds are wrong")
+            for name, index in attrs.items():
+                a = glb_accessor(doc, blob, index)
+                if len(a) != len(pos):
+                    errs.append(f"mesh {mesh.get('name')}: {name} has {len(a)} values for {len(pos)} vertices")
+                if not np.isfinite(np.asarray(a, np.float64)).all():
+                    errs.append(f"mesh {mesh.get('name')}: {name} has values that aren't finite")
+                if name == "NORMAL" and len(a) and np.abs(np.linalg.norm(a, axis=1) - 1.0).max() > 0.01:
+                    errs.append(f"mesh {mesh.get('name')}: a normal isn't unit length")
+                if name == "TANGENT" and len(a) and (np.abs(np.linalg.norm(a[:, :3], axis=1) - 1.0).max() > 0.01 or np.abs(np.abs(a[:, 3]) - 1.0).max() > 1e-3):
+                    errs.append(f"mesh {mesh.get('name')}: a tangent isn't unit length with w = +-1")
+                if name not in ("POSITION", "NORMAL", "TANGENT", "COLOR_0") and not name.startswith(("TEXCOORD", "_")):
+                    errs.append(f"mesh {mesh.get('name')}: {name} isn't an allowed attribute name")
+            tris += len(idx) // 3
+            verts += len(pos)
+    if errs:
+        raise ValueError(f"{path}: " + "; ".join(errs[:8]))
+    return {"triangles": tris, "vertices": verts, "meshes": len(doc.get("meshes", [])), "materials": len(doc.get("materials", [])),
+            "images": len(doc.get("images", [])), "extensions_used": doc.get("extensionsUsed", [])}
+
+
 # -- USD ------------------------------------------------------------------------
 def _define_mesh(stage, path: str, m: MeshData, color):
     from pxr import Gf, Sdf, UsdGeom, Vt

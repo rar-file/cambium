@@ -1,0 +1,755 @@
+# Template for a new species.  See docs/adding_a_species.md.
+# Written by tools/species_report.py --write-template; birch's values are only a starting point.
+# Copy this file to species/<name>.yaml, then replace each value you have a source for or can
+# tune against, and say which in reference/<name>/labels.yaml.  A value left as it is stays VERIFY.
+
+species:
+  # scientific name, with authority
+  scientific_name: Genus species Author
+  # common name
+  common_name: common name
+
+shoot:
+  # long-shoot internode length; one model node is one real node; 0.001 to 0.2 m
+  internode_length: 0.025
+  # short-shoot internode length; recorded, no code reads it; 0.0001 to 0.05 m
+  short_shoot_internode_length: 0.002
+  # longest annual shoot; 0.05 to 5 m
+  max_shoot_length: 1.2
+  # smallest share of full expansion a dry year allows; 0 to 1
+  min_expansion: 0.2
+  # shoots stay this far above the ground; 0 to 1 m
+  min_height_above_ground: 0.05
+  # a descending tip below this has reached the herb layer; 0 to 3 m
+  ground_contact_height: 0.4
+  # a shoot reaching the ground stops, instead of turning along it
+  stop_at_ground: true
+
+resource:
+  # carbon one reference leaf fixes in full light; 0.1 to 50 carbon units per leaf per year
+  alpha: 4.8
+  # share of a split going to the apex where the lateral is a bud or spur; 0 to 1
+  apical_dominance: 0.62
+  # the same where the lateral is a branch, young tree; 0 to 1
+  apical_control_young: 0.6
+  # the same, old tree; 0 to 1
+  apical_control_old: 0.5
+  # middle of the change from young to old; 0 to 1000 years
+  apical_control_transition_age: 22
+  # width of that change; 0.01 to 500 years
+  apical_control_transition_width: 6
+  # how much more vigour an upward shoot has; 0 to 5
+  gravimorphism: 1.0
+  # vigour of a limb's buds decays with this time constant; 0.1 to 2000 years
+  branch_aging_years: 20
+  # the same for the stem's buds; 0.1 to 5000 years
+  stem_aging_years: 45
+  # a limb's buds start at the age the stem had when it made them
+  limbs_inherit_stem_age: true
+  reiteration:
+    # old crowns rebuild from upper limbs
+    enabled: true
+    # from this tree age; 0 to 2000 years
+    min_age: 30
+    # the leader's growth below this share of its peak; 0 to 1
+    decline_fraction: 0.5
+    # limb attached in this upper share of the crown; 0 to 1
+    upper_crown_fraction: 0.25
+    # limb tip lit at least this much; 0 to 1 relative light
+    min_light: 0.8
+    # at least this share of the leader's vigour; 0 to 10
+    min_relative_vigour: 0.3
+    # years between new complexes; 0 to 200 years
+    interval_years: 5
+    # a complex's bud age is multiplied by this; 0 to 1
+    rejuvenation: 0.5
+    # direction a complex then seeks; 0 to 180 deg from vertical
+    setpoint_angle_deg: 0
+  # upkeep of one living internode; 0 to 10 carbon units per year
+  maintenance_per_internode: 0.5
+  # respired while building tissue; 0 to 2 g C per g C built
+  growth_respiration_coefficient: 0.25
+  leaf_costs:
+    # leaves and fine roots cost carbon
+    enabled: true
+    # wood basic density; 150 to 1300 kg/m3
+    wood_basic_density_kg_m3: 530.0
+    # carbon in dry matter; 0.3 to 0.65 g C/g
+    carbon_fraction: 0.48
+    # leaf maintenance respiration; 0 to 10 g C/g/year
+    leaf_maintenance_gc_per_g: 0.79
+    # fine root per leaf dry mass; 0 to 20 g/g
+    fine_root_to_leaf_mass: 0.48
+    # charge next spring's clusters on fresh lateral buds
+    charge_fresh_laterals: false
+    # fine-root maintenance respiration; 0 to 10 g C/g/year
+    fine_root_maintenance_gc_per_g: 0.93
+  # share a limb exports to the stem; null = one shared pool; 0 to 1
+  branch_export_fraction: null
+  # young limbs draw on the stem pool until they export
+  young_limbs_import: true
+  # root share of carbon without water stress; 0 to 1
+  root_share_min: 0.25
+  # root share with stomata shut; 0 to 1
+  root_share_max: 0.6
+  # root segments built per carbon unit; 0 to 10 per carbon unit
+  root_segments_per_unit: 0.2
+
+bud_fate:
+  # a lateral bud makes a long shoot with at least this many nodes of resource; 0 to 100 nodes
+  long_shoot_threshold: 3.0
+  # below this share of a node a tip doesn't extend; 0 to 1 nodes
+  min_tip_extension: 0.1
+  # an increment below one node still makes an axillary bud
+  axillary_buds_below_one_metamer: false
+  density_control:
+    # dense local foliage suppresses buds
+    enabled: false
+    # leaf density below which no bud is lost; 0 to 50 m2/m3
+    af_full: 0.3
+    # leaf density above which no bud grows; 0 to 100 m2/m3
+    af_zero: 3.2
+    # grid cell for leaf density; 0.01 to 10 m
+    cell_m: 0.5
+    # density read after this year's growth
+    after_growth: false
+  # a bud that doesn't extend makes a short shoot at this light; above 1 no short shoots form; 0 to 5 relative light
+  short_shoot_light: 0.3
+  # a short shoot dies below this; 0 to 1 relative light
+  short_shoot_survival_light: 0.21
+  # resource a short shoot needs to become a long shoot; 0 to 1000 nodes
+  spur_release_threshold: 6.0
+  # short shoots are no sink in the split
+  short_shoots_self_financing: true
+  # buds that won't grow this year take no share
+  idle_buds_no_sink: false
+  # the split as published, without this model's weights
+  borchert_honda_published: false
+  # short-shoot lifespan; null = dies only of light; 1 to 500 years
+  spur_lifespan: null
+  # years an unbroken lateral bud stays viable; 0 to 500 years
+  dormant_bud_lifespan: 3
+
+light:
+  # voxel edge for shade; 0.02 to 1 m
+  voxel_size: 0.1
+  # canopy K_PAR; 0.1 to 1.5
+  extinction_coefficient: 0.37
+  # one-sided area of one reference leaf; 1e-06 to 0.5 m2
+  leaf_area_m2: 0.0015
+  sun_shade:
+    # leaf size and mass follow the leaf's light
+    enabled: true
+    # leaf mass per area in deep shade; 5 to 500 g/m2
+    lma_shade_g_m2: 50.5
+    # added in full sun; 0 to 500 g/m2
+    lma_sun_increase_g_m2: 38.7
+    # shape of that rise; 0 to 20
+    lma_exponent: 3.3
+    # leaf mass per area where leaf_area_m2 applies; 5 to 500 g/m2
+    lma_reference_g_m2: 60.8
+    # leaf size goes as (reference / LMA) to this; 0 to 5
+    size_lma_exponent: 1.0
+  # SD of a bud's leaf area around its node; 0 to 2 m
+  leaf_spread: 0.06
+  # no shoot shades itself
+  exclude_own_shoot: true
+  # shade fades with this length going down; 1 to 1e+06 m
+  shadow_decay_length: 30.0
+  # shade fades over this sideways travel; 0.5 to 1e+06 m
+  shadow_horizontal_reach: 6.0
+  # how fast a shadow's edge widens; 0 to 5 m
+  penumbra_diffusion: 0.11
+  # keeps the grid's wrap off the crown; 0 to 200 m
+  horizontal_margin: 8.0
+  foliage_weight:
+    # leaves at a fresh node; 0 to 100 leaves
+    new_leaf: 1.0
+    # leaves on a short shoot; 0 to 100 leaves
+    spur: 2.5
+    # leaves at a dormant bud; 0 to 100 leaves
+    dormant: 0.0
+    # extra cluster at the base of a season's shoot; 0 to 100 leaves
+    early_leaves: 2.5
+    # share of the season late leaves work; 0 to 1
+    late_leaf_season_fraction: 0.5
+  # how far a bud senses light; 0.01 to 20 m
+  perception_radius: 0.5
+  # half-angle it senses in; 1 to 180 deg
+  perception_cone_deg: 80
+  # directions it probes; 1 to 4096 directions
+  perception_samples: 64
+  # softness of choosing the lightest direction; 1e-06 to 10 shade units
+  perception_softmin: 0.05
+  woody_shade:
+    # wood casts shade of its own
+    enabled: true
+    # extinction by wood; 0 to 3
+    k_wood: 0.4
+
+shedding:
+  # a limb is shed when its leaves' mean light falls below this; 0 to 1 relative light
+  light_per_leaf_threshold: 0.21
+  # younger limbs aren't shed; 0 to 500 years
+  min_branch_age: 2
+  # a limb that can't pay its upkeep is shed
+  carbon_balance: true
+
+architecture:
+  # divergence on the upright leader; 0 to 360 deg
+  phyllotaxis_orthotropic_deg: 137.5
+  # divergence on side shoots; 0 to 360 deg
+  phyllotaxis_plagiotropic_deg: 180.0
+  # scatter around the side shoot's plane; 0 to 180 deg
+  distichous_jitter_deg: 25
+  # insertion angle by the new lateral's order; 0 to 180 deg
+  branch_angle_deg: [43, 42, 48]
+  # yearly deflection of the axis; 0 = monopodial; 0 to 180 deg
+  sympodial_deviation_deg: 8
+  # over this length; null = a kink; 0 to 10 m
+  sympodial_bend_length_m: 0.1
+  # random wander of a growing shoot; 0 to 10 1/sqrt(m)
+  direction_noise_per_sqrt_m: 0.126
+  # correlation length of that wander; null = independent; 0 to 50 m
+  direction_noise_correlation_m: 0.3
+
+tropism:
+  # turning towards light, by order; 0 to 100 1/m
+  phototropism_per_m: [0.8, 0.8, 1.2, 1.5]
+  # turning to the set-point, by order; 0 to 100 1/m
+  gravitropism_per_m: [2.0, 3.5, 2.0, 0.5]
+  # the leader turns to the lit side of the crown
+  stem_crown_phototropism: true
+  # direction sought, by order; 0 to 180 deg from vertical
+  setpoint_angle_deg: [0, 43, 45, 65]
+
+mechanics:
+  # bending under load and posture control
+  enabled: true
+  # fresh wood density; 200 to 1600 kg/m3
+  wood_density: 850.0
+  # fresh mass of one leaf; 1e-07 to 0.1 kg
+  leaf_mass: 0.0002
+  # bending stiffness of wood; 1e+08 to 5e+10 Pa
+  youngs_modulus_wood: 10000000000.0
+  # stiffness of thin new shoots; 1e+07 to 5e+10 Pa
+  youngs_modulus_shoot: 2500000000.0
+  # yearly posture correction; 0 to 1
+  reaction_wood_coefficient: 0.012
+  # correction follows the sine of the error
+  sine_law: true
+  # full correction from this error on; 0.1 to 90 deg
+  sine_law_saturation_deg: 10.0
+  # shoots thinner than this hang; very small = none hang; 1e-05 to 0.5 m
+  pendulous_radius: 0.006
+  # how sharply; 0 to 50
+  pendulous_sharpness: 4.0
+  # load steps per year; 1 to 100 steps
+  substeps: 4
+  # most an internode turns in a step; 0.001 to 3.2 rad
+  max_rotation_per_step: 0.25
+
+pipe_model:
+  # diagnosis only
+  sapwood_for_next_season: false
+  # r_parent^g = sum r_child^g; 1 to 5
+  exponent: 2.5
+  # radius of a new long-shoot tip; 1e-05 to 0.05 m
+  tip_radius: 0.001
+  # pipe added by a short shoot; 1e-06 to 0.05 m
+  spur_radius: 0.0008
+  # how radii grow; pipe | stem_rings | rings | lignum
+  growth: lignum
+  # share of conducting wood that stops each year; 0 to 1 per year
+  sapwood_senescence_per_year: 0.014
+  # the requirement is on conducting wood, with senescence
+  sapwood: true
+  # sapwood below the crown retires to heartwood
+  crown_rise_heartwood: false
+  # ring replacement counts as upkeep in the death test
+  sapwood_replacement_is_upkeep: false
+  # Huber value's rise with radius; 0 to 5
+  huber_radius_exponent: 0.312
+  # Huber value's rise with path length; 0 to 5
+  huber_path_exponent: 0.283
+  # path length where huber_value was measured; 0.001 to 50 m
+  huber_path_reference_m: 0.14
+  # the size of the model's carbon unit; 1e-09 to 0.01 m3 per carbon unit
+  wood_volume_per_carbon: 1.2e-06
+  stress_floor:
+    # rings at least keep self-weight stress safe
+    enabled: true
+    # green modulus of rupture; 1 to 300 MPa
+    wood_mor_green_mpa: 57.0
+    # strength over working stress; 1 to 50
+    safety_factor: 3.5
+  wind_load:
+    # rings at least keep wind stress safe
+    enabled: false
+    # design wind speed; 0 to 90 m/s
+    wind_speed_m_s: 25.0
+    # green modulus of rupture; 1 to 300 MPa
+    wood_mor_green_mpa: 63.0
+    # strength lost to knots; 0 to 2
+    knot_factor: 1.0
+    # strength over working stress; 1 to 50
+    safety_factor: 3.5
+    # air density; 0.8 to 1.6 kg/m3
+    air_density_kg_m3: 1.22
+    # crown drag coefficient; 0 to 50
+    streamlining_c: 1.9627
+    # its fall with wind speed; 0 to 5
+    streamlining_n: 0.881
+    # streamlining starts; 0 to 90 m/s
+    streamlining_min_wind_m_s: 10.0
+    # streamlining ends; 0 to 90 m/s
+    streamlining_max_wind_m_s: 20.0
+    # extra load from the stem's deflection; 1 to 5
+    deflection_loading_factor: 1.136
+  stem_theory:
+    # 0 off; 1 plain pipe model below the crown; 2 plus the wind envelope; 0 to 2 stage
+    stage: 2
+    # wind at the canopy top; 0 to 90 m/s
+    wind_speed_m_s: 12.0
+    # wind's fall below the canopy top; 0 to 20
+    canopy_wind_attenuation: 2.0
+
+geometry:
+  # shape of the stem base; buttress | bell
+  root_flare_mode: buttress
+  # root collar height from DBH and height; 0 to 10 cm per cm, cm per m
+  root_collar_height_coef: [0.4862, 0.4979]
+  # radius gain at the ground, bell shape; 0 to 10
+  root_flare_extra: 0.35
+  # its decay height; 0.01 to 20 m
+  root_flare_height: 0.45
+  # junction fillet, per child radius; 0 to 10
+  junction_blend: 0.6
+  # branch collar's extra radius; 0 to 10
+  collar_extra: 0.35
+  # its decay length; 0 to 50 child radii
+  collar_length: 1.5
+
+reference:
+  height:
+    # lower site index of the height check; 1 to 80 m
+    site_index_low: 20
+    # upper site index of the height check; 1 to 80 m
+    site_index_high: 26
+    # Hossfeld IV curve: asi; 0.01 to 1000
+    asi: 7
+    # Hossfeld IV curve: beta; 0.01 to 1e+06
+    beta: 394
+    # Hossfeld IV curve: b2; 0.01 to 10
+    b2: 1.387
+    # germination to 1.3 m; 0 to 100 years
+    years_to_breast_height: 4
+  crown:
+    # crown diameter from DBH: intercept; -10 to 30 m
+    intercept_m: 0.96
+    # crown diameter from DBH: slope; 0 to 100 m/m
+    slope_m_per_m: 16.2
+  dbh:
+    # open-grown DBH band; 0 to 500 cm
+    open_grown_band_cm: [30, 50]
+    # at this age; 1 to 5000 years
+    band_age: 60
+
+leader_damage:
+  # the leader's last shoot can be lost
+  enabled: true
+  # side shoots that become leaders; 0 to 20 shoots
+  replacement_leaders: 2
+  # from this far below the wound; 0 to 20 m
+  replacement_zone_m: 0.5
+  # browsing clips down to this diameter; 0 to 0.2 m
+  bite_diameter_m: 0.0022
+  # what can take the leader
+  events: [{max_height_m: 3.0, min_height_m: 0.3, name: moose browsing, probability_per_year: 0.168}]
+
+damage:
+  # old age, wind and snow can act (treegen/damage.py)
+  enabled: false
+  # over-bark DBH per wood DBH; 1 to 2 cm/cm
+  dbh_over_bark_factor: 1.098
+  # stem volume over pi/4 DBH^2 H; 0.2 to 1
+  stem_form_factor: 0.45
+  old_age:
+    # ageing can kill
+    enabled: false
+    # ln(maximum age) = b0 + b1 SIS + b2 ln(n); -20 to 30
+    amax_b0: 4.6246
+    # b1; -1 to 1 per m
+    amax_b1: -0.02192
+    # b2; -2 to 2
+    amax_b2: 0.1742
+    # n the maximum age is read at; 1 to 1e+07 trees
+    amax_n: 10000
+    # site index on the top-height-at-100 scale; 1 to 80 m
+    site_index_sis_m: 27.5
+    # p = 1 / (1 + exp(a - b A / AMAX)): a; 0 to 100
+    ageing_a: 10.0
+    # b; 0 to 100
+    ageing_b: 12.0
+    # A counts rings at breast height; 0 to 100 years
+    years_to_breast_height: 5.5
+  wind:
+    # storms can snap and uproot
+    enabled: false
+    # chance of wind damage per period on the mean tree; -20 to 20 logit
+    intercept: -5.03
+    # soil type's effect; -10 to 10 logit
+    site_effect: 0.0
+    # effect of earlier stem damage; -10 to 10 logit
+    prior_damage: 1.46
+    # the period the chance is per; 0.1 to 100 years
+    period_years: 5
+    # brings the mean tree to the observed damage; -10 to 10 logit
+    population_offset: 1.23
+    # years between storms; 1 to 1000 years
+    storm_return_years: 5
+    # where storms come from; 0 to 360 deg
+    wind_from_deg: 240.0
+    # scatter of that; 0 to 180 deg
+    wind_from_sd_deg: 40.0
+    # smaller trees take no wind damage; 0 to 100 cm
+    min_dbh_cm: 14.0
+    age:
+      # effect of age, per standard deviation; -10 to 10 logit per SD
+      per_sd: 0.39
+      # mean in the data; 0 to 5000 years
+      mean: 57.35
+      # standard deviation in the data; 1e-06 to 5000 years
+      sd: 21.35
+      # kept inside the data's range; 0 to 5000 years
+      range: [11.0, 216.0]
+    stems_per_ha:
+      # effect of stems_per_ha, per standard deviation; -10 to 10 logit per SD
+      per_sd: -0.7
+      # mean in the data; 0 to 1e+06 stems/ha
+      mean: 1128.0
+      # standard deviation in the data; 1e-06 to 1e+06 stems/ha
+      sd: 890.0
+      # kept inside the data's range; 0 to 1e+06 stems/ha
+      range: [100.0, 11520.0]
+    basal_area_m2_ha:
+      # effect of basal_area_m2_ha, per standard deviation; -10 to 10 logit per SD
+      per_sd: 0.21
+      # mean in the data; 0 to 500 m2/ha
+      mean: 27.5
+      # standard deviation in the data; 1e-06 to 500 m2/ha
+      sd: 10.05
+      # kept inside the data's range; 0 to 500 m2/ha
+      range: [3.0, 67.0]
+    slenderness:
+      # effect of slenderness, per standard deviation; -10 to 10 logit per SD
+      per_sd: 0.39
+      # mean in the data; 0 to 10 m/cm
+      mean: 1.0
+      # standard deviation in the data; 1e-06 to 10 m/cm
+      sd: 0.2
+      # kept inside the data's range; 0 to 10 m/cm
+      range: [0.3, 1.9]
+  failure:
+    # stem strength under short loads; 1 to 300 MPa
+    mor_green_mpa: 44.0
+    # ln(root moment / stem moment) at even odds of uprooting; -10 to 10
+    even_odds_log_ratio: -0.46
+    # width of that choice; 0.01 to 10
+    spread: 0.5
+  snap:
+    # relative snapping height = intercept + slenderness x H/D + prior damage; 0 to 1
+    intercept: 0.532
+    # slenderness; -1 to 1 per m/cm
+    slenderness: -0.097
+    # prior damage; -1 to 1
+    prior_damage: -0.09
+    # spread of the snapping height; 0.1 to 1000
+    beta_concentration: 3.2
+  snow:
+    # wet snow can break and bend
+    enabled: false
+    # years between damaging snowfalls; 1 to 1000 years
+    return_years: 5
+    # load of a damaging snowfall; 0 to 500 kg/m2 of crown
+    load_range_kg_m2: [20.0, 60.0]
+    # share of the crown's area that holds the load; 0 to 1
+    crown_catch_fraction: 0.1
+    # the load's offset from the stem, per height; 0 to 1
+    lever_fraction: 0.02
+    # width of the break; 0.01 to 10
+    spread: 0.5
+    # stems below this buckling factor bend; 0 to 1000
+    bend_buckling_factor: 6.0
+    # only stems under this DBH bend; 0 to 500 cm
+    bend_max_dbh_cm: 10.0
+    # stems under this DBH bend and don't break; 0 to 500 cm
+    min_break_dbh_cm: 2.0
+  uproot:
+    # mound radius per plate radius; 0.1 to 10
+    mound_radius_factor: 1.0
+    # mound's distance past the hinge per plate radius; 0 to 10
+    mound_distance_factor: 1.0
+    # how fast pit and mound fade; 0.1 to 5000 years
+    relief_half_life_years: 20.0
+
+plot:
+  # germination delays, with weights below; 0 to 100 years
+  germination_years: [0, 1, 2, 3]
+  # their shares, adding up to 1; 0 to 1
+  germination_weights: [0.4, 0.3, 0.2, 0.1]
+  # heritable spread of carbon gain, lognormal SD; 0 to 2
+  vigour_sd: 0.06
+
+regeneration:
+  # seeds of a tree of dbh_ref_m; 0 to 1e+09 seeds/year
+  seeds_ref: 137000
+  # that tree's DBH; 0.01 to 5 m
+  dbh_ref_m: 0.2
+  # seeds go as DBH to this; 0 to 10
+  fecundity_exponent: 2.0
+  # first seed at this age; 0 to 1000 years
+  maturity_years: 10
+  # mean seed flight; 0.1 to 20000 m
+  dispersal_mean_m: 38.0
+  # one-year seedlings per seed on bare mineral soil; 0 to 1 per seed
+  establishment_mineral: 0.18
+  # the same on the organic layer; 0 to 1 per seed
+  establishment_organic: 0.003
+  # ground grid cell; 0.05 to 20 m
+  cell_m: 1.0
+  # bare soil share at the start; 0 to 1
+  mineral_initial: 0.3
+  # newly bared each year; 0 to 1 per year
+  mineral_new_per_year: 0.005
+  # half-life of bare soil; 0.01 to 1000 years
+  mineral_half_life_years: 5.0
+
+stand:
+  # trees across the light grid's cell; 1 to 50 trees
+  cell_trees: 4
+  # sideways fading in a closed stand; 0.5 to 1e+06 m
+  shadow_horizontal_reach: 1000.0
+  # downward fading; null = as light; 1 to 1e+06 m
+  shadow_decay_length: 1000.0
+  # how neighbours stand; lattice | random
+  layout: random
+  # closest neighbours, per mean spacing; 0 to 1
+  min_distance: 0.6
+  # spread of neighbours' size; 0 to 2
+  size_cv: 0.1
+  # stem density by top height
+  thinning: [{from_height_m: 0.0, stems_per_ha: 1800}, {from_height_m: 11.0, stems_per_ha: 1000}, {from_height_m: 16.0, stems_per_ha: 450}]
+
+stats:
+  # a limb counts for the crown base with this share of the leaves; 0 to 1
+  crown_base_min_leaf_share: 0.005
+  # shorter hanging runs aren't counted; 0 to 50 m
+  hanging_twig_min_length: 0.2
+
+hydraulics:
+  # transpiration of a fully lit leaf at midday; 1e-07 to 0.01 kg/m2/s
+  transpiration_max: 3.0e-05
+  # xylem-specific conductivity; 0.001 to 500 kg/m/s/MPa
+  xylem_conductivity: 4.0
+  # xylem area per leaf area; null = from the visible wood; 1e-07 to 0.1 m2/m2
+  huber_value: 0.000124
+  # conductivity is full from this radius; 0.0001 to 5 m
+  conductivity_reference_radius: 0.02
+  # its fall in thin wood; 0 to 10
+  conductivity_exponent: 0.7
+  # the same for roots; 0.001 to 500 kg/m/s/MPa
+  root_xylem_conductivity: 4.0
+  # stomata start closing; -50 to 0 MPa
+  psi_stomata_open: -1.0
+  # stomata shut; -50 to 0 MPa
+  psi_stomata_closed: -2.0
+  # expansion full above this; -50 to 0 MPa
+  psi_full_expansion: -0.9
+  # expansion stops; -50 to 0 MPa
+  psi_turgor_loss: -2.1
+  # which water potential drives expansion; predawn | midday
+  expansion_water_potential: predawn
+
+roots:
+  # structural root segment; 0.005 to 1 m
+  segment_length: 0.05
+  # longest annual extension of a root tip; 0.01 to 20 m
+  max_extension_per_year: 0.8
+  # the germinating seed's root; 1 to 100 segments
+  radicle_segments: 2
+  # root tip radius; 1e-05 to 0.05 m
+  tip_radius: 0.001
+  # roots stay this deep; 0 to 2 m
+  min_depth: 0.02
+  # the taproot's downward pull fades over this; 0.01 to 5000 years
+  taproot_fade_years: 4
+  # and stops at this depth; 0 to 50 m
+  taproot_max_depth: 0.4
+  # taproot direction; 0 to 180 deg from up
+  taproot_setpoint_deg: 180
+  # taproot's pull; 0 to 100 1/m
+  taproot_gravitropism_per_m: 3.0
+  # lateral direction; 0 to 180 deg from up
+  lateral_setpoint_deg: 97
+  # scatter of that; 0 to 90 deg
+  lateral_setpoint_spread_deg: 4
+  # lateral's pull; 0 to 100 1/m
+  lateral_gravitropism_per_m: 1.5
+  # sinker direction; 0 to 180 deg from up
+  sinker_setpoint_deg: 180
+  # sinker's pull; 0 to 100 1/m
+  sinker_gravitropism_per_m: 4.0
+  # chance a lateral near the stem is a sinker; 0 to 1
+  sinker_probability: 0.06
+  # within this of the stem; 0 to 50 m
+  sinker_zone_radius: 1.5
+  # turning to wetter soil; 0 to 100 1/m
+  hydrotropism_per_m: 0.8
+  # random wander; 0 to 10 1/sqrt(m)
+  direction_noise_per_sqrt_m: 0.25
+  # how far a root tip senses; 0.01 to 5 m
+  probe_radius: 0.15
+  # lateral root insertion angle; 0 to 180 deg
+  branch_angle_deg: 70
+  # split for roots: at a primordium; 0 to 1
+  apical_dominance: 0.7
+  # split for roots: at a branch; 0 to 1
+  apical_control: 0.55
+  # a primordium's weight in the split; 0 to 100
+  primordium_weight: 0.5
+  # a primordium forms a root with this much resource; 0 to 1000 segments
+  lateral_threshold: 3.0
+  # and dies unused after this; 0 to 1000 years
+  primordium_lifespan: 2
+  # the same at the root collar; 0 to 100
+  collar_primordium_weight: 1.0
+  # the same at the root collar; 0 to 1000 segments
+  collar_lateral_threshold: 1.0
+  # the same at the root collar; 0 to 1000 years
+  collar_primordium_lifespan: 10
+  # angle between collar roots; 0 to 360 deg
+  collar_divergence_deg: 137.5
+  # split along the taproot; 0 to 1
+  collar_apical_control: 0.5
+  # water availability falls with root density; 0 to 10 m3/m
+  depletion_coefficient: 0.004
+  # over this radius around a root; 0 to 5 m
+  depletion_radius: 0.12
+  # younger roots carry the fine-root cloud; 0 to 1000 years
+  absorbing_years: 3
+  # uptake per metre of absorbing root; 0 to 1 kg/s/MPa/m
+  uptake_conductance_per_m: 2.0e-05
+  fine_root_uptake:
+    # water enters through the fine roots the tree pays for
+    enabled: true
+    # fine-root length per mass; 1 to 1000 m/g
+    specific_root_length_m_per_g: 90.0
+    # root-system conductance per leaf area; 1e-07 to 1 kg/m2/s/MPa
+    root_conductance_per_leaf_area: 0.000433
+    # fine root per leaf mass of the same trees; 0 to 20 g/g
+    fine_root_per_leaf_mass: 0.46
+    # their leaf mass per area; 5 to 500 g/m2
+    leaf_mass_per_area_g_m2: 60.8
+  # root tips die below this water availability; 0 to 1
+  tip_survival_availability: 0.08
+  # lateral roots are shed below this; 0 to 1
+  shed_availability: 0.1
+  # soil grid's margin; 0 to 20 m
+  field_margin: 0.5
+  # zone of rapid taper reaches this far, per DBH; 0 to 50 m/m
+  zrt_radius_per_dbh: 2.2
+  # fade length, per zone radius; 0.01 to 5
+  zrt_fade_fraction: 0.5
+  # growing roots keep this clear; null = off; 0 to 2 m
+  avoid_clearance_m: 0.03
+  # within this of the stem; 0 to 50 m
+  avoid_zone_radius_m: 1.5
+  # strength of that push; 0 to 100
+  avoid_weight: 1.5
+  # most a root turns per segment; null = no limit; 0 to 180 deg
+  max_turn_deg_per_segment: 30
+  # the taproot decays below the deepest main lateral
+  trim_taproot: true
+
+anchorage:
+  # a main root counts up to where it thins below this; 0.001 to 1 m
+  plate_root_diameter: 0.02
+  # share of main-root area the plate is measured from; 0 to 1
+  plate_structural_share: 0.8
+  # plate radius rule; taper_zone_end | structural_roots_2cm | median_all_main_roots_2cm | structural_roots_quarter_base
+  plate_radius_rule: taper_zone_end
+  # root tensile strength at 1 mm; 0.1 to 500 MPa
+  tensile_strength_1mm_mpa: 30.0
+  # its fall with diameter; 0 to 5
+  tensile_strength_exponent: 0.6
+  # share of root strength in use when the plate turns; 0 to 1
+  root_strength_mobilised: 0.25
+  # pulling resistance per H DBH^2; 0 to 1000 kN m/m3
+  h_dbh2_coefficient_knm_per_m3: 31.0
+  # its range; 0 to 1000 kN m/m3
+  h_dbh2_coefficient_range: [25.0, 38.0]
+  # critical turning moment per stem volume; 1 to 2000 kN m/m3
+  critical_moment_per_stem_volume_knm_per_m3: 101.0
+  # deepest root within this of the stem; 0 to 50 m
+  rooting_depth_radius_m: 1.5
+  # plate depth of the pulled trees; 0.01 to 20 m
+  reference_rooting_depth_m: 0.85
+  # depth factor's limits; 0 to 10
+  depth_factor_min: 0.5
+  # depth factor's limits; 0 to 10
+  depth_factor_max: 1.2
+  # share of the moment from windward roots; 0 to 1
+  root_tension_share: 0.5
+
+field_layer_competition:
+  # clear-cut field layer competes for light
+  enabled: false
+  # mature sward height; 0 to 10 m
+  max_height_m: 0.45
+  # mature sward LAI; 0 to 20
+  max_lai: 3.3
+  # its light extinction; 0 to 3
+  extinction: 0.45
+  # years to the mature sward; 0.01 to 100 years
+  years_to_mature: 4.0
+
+germination:
+  # seedling emergence from seed reserves
+  enabled: false
+  # seed dry mass; 0.001 to 100000 mg
+  seed_dry_mass_mg: 0.21
+  # cotyledon area; no code reads it; 0 to 100 cm2
+  cotyledon_area_cm2: 0.05
+  # share of reserves respired; 0 to 1
+  germination_respiration_fraction: 0.35
+  # height at emergence; 0 to 1 m
+  hypocotyl_height_m: 0.015
+  # taproot at emergence; no code reads it; 0 to 2 m
+  initial_taproot_depth_m: 0.02
+  # first year's leaf equivalent; 0 to 100 leaves
+  first_year_effective_leaves: 0.2
+  # juvenile leaves reach adult size at this height; 0.01 to 50 m
+  juvenile_scale_bh_m: 1.3
+  # smallest juvenile leaf scale; 0 to 1
+  min_juvenile_scale: 0.2
+
+soil_water_balance:
+  # season soil-water bucket
+  enabled: false
+  # extractable water at field capacity; 1 to 2000 mm
+  awc_mm: 75.0
+  # below this share transpiration falls; 0 to 1
+  rew_threshold: 0.4
+  # transpiration over PET per LAI; 0 to 2 per LAI
+  transpiration_lai_slope: 0.125
+  # its limit; 0 to 2
+  transpiration_ratio_max: 0.75
+  # May-September rain; 0 to 3000 mm
+  precipitation_mm: [39.3, 61.2, 57.4, 73.6, 48.6]
+  # May-September PET; 0 to 3000 mm
+  pet_mm: [79.8, 98.9, 103.4, 68.5, 30.1]
+  # the drought year's rain; 0 to 3000 mm
+  dry_year_precipitation_mm: [6.8, 26.5, 89.1, 105.1, 44.6]
+  # use the drought year's rain
+  drought_scenario: false
