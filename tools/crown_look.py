@@ -1,7 +1,7 @@
 """Full renders of grown trees, for judging by eye, with nothing heavy left behind.
 
 One sheet per seed: the whole tree at each age in summer, and the same tree with its leaves taken off.  With --group, also the row of trees tools/crown_group.py
-draws, at the last age.  Grows and exports through tools/game_export.py (lod0, summer only), renders, and deletes its own .glb files, so a run costs disk only while it runs.
+draws, at each age: group.png at the last, group_<age>.png at the others.  Grows and exports through tools/game_export.py (lod0, summer only), renders, and deletes its own .glb files, so a run costs disk only while it runs.
 
     python tools/crown_look.py --label node_c2x --seeds 3,5,7 --ages 30,60 --open --sets cases/crown_best.txt --set crown_frame.limp_twigs=true
     python tools/crown_look.py --label node_c2x --seeds 3,5,7 --ages 30,60 --group --sets cases/crown_best.txt
@@ -67,7 +67,8 @@ def main(argv=None) -> int:
         folders = list(ex.map(one, seeds, [a.set] * len(seeds), [ages] * len(seeds), [not a.open] * len(seeds), [out] * len(seeds), [a.res] * len(seeds)))
     if a.group:
         import crown_group
-        crown_group.main(folders + ["--age", str(max(ages)), "--out", str(out / "group.png")])
+        for age in ages:
+            crown_group.main(folders + ["--age", str(age), "--out", str(out / ("group.png" if age == max(ages) else f"group_{age}.png"))])
     for f in folders:
         shutil.rmtree(f, ignore_errors=True)
     return 0

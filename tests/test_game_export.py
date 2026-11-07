@@ -763,9 +763,13 @@ def test_moss_is_patches_on_one_side_with_no_edge(look):
     assert rows[-1] == 0.0 and np.abs(np.diff(np.convolve(rows, np.ones(20) / 20.0, mode="valid"))).max() < 0.25 * rows[:40].mean()
 
 
+# about what a stand tree's DBH is at these ages, over bark, cm
+_DBH = {11: 4.0, 12: 5.0, 15: 7.0, 30: 15.0, 50: 25.0, 60: 27.5, 100: 38.0}
+
+
 def _rough_at(look, seed, age, z):
     """The rough stage's weight round a stem at these heights, 256 places round."""
-    edge = tx.UnevenTop(look, age, seed)
+    edge = tx.UnevenTop(look, age, seed, np.interp(age, list(_DBH), list(_DBH.values())))
     u = (np.arange(256) + 0.5) / 256.0
     n, W = len(z), len(u)
     # a stem whose parts high up are a little younger, as a tree's are
@@ -783,14 +787,14 @@ def uneven(look):
 
 def test_the_rough_base_is_level_unless_asked(look):
     assert float(look["bark"]["uneven_top"]["strength"]) == 0.0
-    assert tx.uneven_top(look, 60.0, 5) is None
+    assert tx.uneven_top(look, 60.0, 5, 27.5) is None
     assert ap.stem_stub_share(look) == 0.0
 
 
 def test_the_unreal_target_asks_for_an_uneven_base(look):
     import treegen.game_unreal as gu
 
-    assert tx.uneven_top(gu.unreal_look(look), 60.0, 5) is not None
+    assert tx.uneven_top(gu.unreal_look(look), 60.0, 5, 27.5) is not None
     assert ap.stem_stub_share(gu.unreal_look(look)) > 0.0
 
 
@@ -798,22 +802,23 @@ def test_the_unreal_target_asks_for_an_uneven_base(look):
 def test_every_old_stem_has_a_rough_base_and_stops_at_no_one_level(uneven, seed):
     z = np.linspace(0.05, 7.0, 400)
     w = _rough_at(uneven, seed, 60, z)
+    black = tx.tree_black(uneven, seed, _DBH[60])
     # black low down on every tree, whatever its seed
-    assert w[z < 0.5].mean() > 0.7
-    # the highest it's on, column by column: more than half a metre between low and high round one stem
+    assert w[z < 0.5 * black].mean() > 0.7
+    # the highest it's on, column by column: well apart round one stem
     on = w > 0.5
     top = z[on.shape[0] - 1 - np.argmax(on[::-1], axis=0)]
-    assert np.percentile(top, 95) - np.percentile(top, 5) > 0.5
+    assert np.percentile(top, 95) - np.percentile(top, 5) > 0.3 * black
     # and in hard-edged patches: where it's between all and nothing, the bark is one or the other, with little between
-    assert ((w > 0.2) & (w < 0.8))[z < 4.0].mean() < 0.12
-    changing = (z > 1.0) & (z < 2.5)
+    assert ((w > 0.2) & (w < 0.8))[z < 2.0 * black].mean() < 0.12
+    changing = (z > 0.6 * black) & (z < 1.5 * black)
     assert 0.1 < w[changing].mean() < 0.95
 
 
 def test_the_rough_base_differs_by_tree_and_grows_with_it(uneven):
     z = np.linspace(0.05, 7.0, 400)
     black = [float(_rough_at(uneven, seed, 60, z).mean()) for seed in range(1, 11)]
-    assert max(black) > 1.3 * min(black)
+    assert max(black) > 2.0 * min(black)
     # an older tree has more of it, in the same place: the pattern is the tree's
     young, old = _rough_at(uneven, 5, 30, z), _rough_at(uneven, 5, 60, z)
     assert old.sum() > 1.5 * young.sum()
@@ -821,6 +826,57 @@ def test_the_rough_base_differs_by_tree_and_grows_with_it(uneven):
     assert np.corrcoef(young[rows].ravel(), old[rows].ravel())[0, 1] > 0.3
     # a young stem has next to none
     assert _rough_at(uneven, 5, 12, z).mean() < 0.02
+
+
+def test_black_height_between_trees_is_what_the_trials_measured(uneven):
+    # Jones et al. 2021 and 2023, about ages 15 to 19: means 46 to 70 cm at DBH about 10.6 cm, CV 48 to 74 %,
+    # highest 4 to 5 times the mean, lowest near nothing, r with DBH about 0.5
+    rng = np.random.default_rng(1)
+    dbh = 10.6 * rng.lognormal(0.0, 0.26, 4000)
+    black = np.array([tx.tree_black(uneven, seed, d) for seed, d in enumerate(dbh)])
+    assert 0.46 < black.mean() < 0.75
+    assert 0.6 < black.std() / black.mean() < 0.8
+    assert 3.5 < black.max() / black.mean() < 6.5
+    assert black.min() / black.mean() < 0.25
+    assert 0.35 < np.corrcoef(black, dbh)[0, 1] < 0.65
+
+
+def test_black_height_is_where_half_the_bark_has_gone_over(uneven):
+    u = (np.arange(256) + 0.5) / 256.0
+    z = np.linspace(0.02, 11.0, 550)
+    for seed, dbh in ((1, 15.0), (5, 27.5), (7, 27.5), (9, 38.0)):
+        edge = tx.UnevenTop(uneven, 60.0, seed, dbh)
+        share = edge.gone_over(u, z, z).mean(1)
+        # the first height where less than half has gone over, smoothed over 40 cm so a patch doesn't decide it
+        smooth_share = np.convolve(share, np.ones(21) / 21.0, mode="same")
+        half = z[10:][np.argmax(smooth_share[10:] < 0.5)]
+        assert abs(half - edge.black) < 0.2 * edge.black + 0.1
+
+
+def test_a_trees_black_only_rises_as_it_thickens(uneven):
+    u = (np.arange(64) + 0.5) / 64.0
+    z = np.linspace(0.02, 8.0, 200)
+    for seed in (1, 2, 3, 5, 7):
+        before = None
+        for dbh in np.linspace(4.0, 45.0, 42):
+            edge = tx.UnevenTop(uneven, 60.0, seed, dbh)
+            now = edge.gone_over(u, z, z)
+            if before is not None:
+                # bark that's gone over stays over, in the same place
+                assert (now >= before - 1e-3).all()
+                # and a centimetre of DBH never moves it far
+                assert edge.black <= last * (dbh / last_dbh) ** 1.37 + 1e-6
+            before, last, last_dbh = now, edge.black, dbh
+
+
+def test_a_tree_low_on_black_is_not_black_up_to_the_stages_own_top(uneven):
+    u = (np.arange(256) + 0.5) / 256.0
+    z = np.linspace(0.02, 5.0, 250)
+    edge = next(e for e in (tx.UnevenTop(uneven, 60.0, s, 27.5) for s in range(1, 60)) if e.black < 0.5 * e.top)
+    # the rule's own band has no say: above its tongues, this tree's stem is white
+    cfg = uneven["bark"]["uneven_top"]
+    assert edge.gone_over(u, z, z)[z > edge.level + edge.scale * (cfg["side_share"] + cfg["tongue_share"])].mean() < 1e-3
+    assert edge.gone_over(u, z, z)[(z > 2.0 * edge.black) & (z < edge.top)].mean() < 0.25
 
 
 def test_thin_limbs_are_dark_only_with_the_look_on(look, uneven):

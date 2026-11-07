@@ -1806,7 +1806,14 @@ appearance:
     bark.stage_ramps.rhytidome.climbs.time_constant_years: "TUNED: as height_max_m. One anchor comes from a measurement, by proxy: thick bark at the stump and little extra at 1.3 m at age 22 (Vihera-Aarnio & Velling 2017, Table 5), read as where the rough bark is."
     bark.stage_ramps.rhytidome.climbs.band_m: "TUNED: as height_max_m; by eye for the uneven upper edge."
     bark.stage_ramps.rhytidome.diameter_m: "TUNED: by eye; thin parts stay smooth at any age."
-    bark.uneven_top: "TUNED: by eye against reference/brastad_sweden_first_snow.jpg, reference/gullmarsskogen_stand_5.jpg and birch-data/summer_reference (Arnhem-Delhuyzen, Bouleau verruqueux Tronc 1, Hange-Birke Stamm alter Baum 9992): black fissures climb in tongues, further on one side, with hard-edged white plates 5-15 cm wide left between, to different heights tree to tree. Plates of old bark 3-8 cm across and 10-30 cm long. No measurement of this found. strength is a setting: 0 keeps the plain export's bytes."
+    bark.uneven_top: "TUNED: by eye against reference/brastad_sweden_first_snow.jpg, reference/gullmarsskogen_stand_5.jpg and birch-data/summer_reference (Arnhem-Delhuyzen, Bouleau verruqueux Tronc 1, Hange-Birke Stamm alter Baum 9992): black fissures climb in tongues, further on one side, with hard-edged white plates 5-15 cm wide left between. The height tree to tree has its own sources, under black. No source measures the side of the stem: Jones et al. 2021 took one height per stem. Plates of old bark 3-8 cm across and 10-30 cm long. No measurement of this found. strength is a setting: 0 keeps the plain export's bytes."
+    bark.uneven_top.black.height_m: "Jones et al. 2021, Forests 12:159, Table 2, and Jones et al. 2023, Forests 14:2031, Table 1 and text (publisher's PDFs). The height at which smooth silver bark dominates, silver birch, means of each trial: 67 cm at DBH 110 mm (Hyssna, age 19, n 1141), 46 cm at 98 mm (Brunsberg, age 19, n 1390), 70 cm at 110 mm (southern Sweden, age 15, n 118). This is the mean of the three."
+    bark.uneven_top.black.at_dbh_cm: "As height_m: the mean of the three trials' mean DBH."
+    bark.uneven_top.black.size_power: "Jones et al. 2021, Tables 2 and 3: the slope at the mean, r(bark height, DBH at 19) x CV(bark height) / CV(DBH at 19), is 0.53 x 65/25 = 1.38 at Hyssna and 0.51 x 74/28 = 1.35 at Brunsberg. That's between trees of one age. GUESSED: that one tree follows the same line as it thickens. No source follows a tree through time. Support: it gives about 2.2 m at DBH 27.5 cm, against 2-4 m at age 60-80 in birch-data/REPORT.md section 14, which itself has no source, and the three trials' means fit size better than age (70 cm at age 15 and 67 cm at age 19, both at 110 mm; 46 cm at age 19 at 98 mm)."
+    bark.uneven_top.black.tree_parts: "Chosen so the spread matches Jones et al. 2021 and 2023: 3 draws give a CV of 58 % for the tree's own share, and 71 % with the size term at a DBH CV of 26 %, inside the 48 % (33/69, 2023), 65 % and 74 % (2021) measured at those ages. GUESSED: that the same proportional spread holds at 50 and 60. Nobody measured it there; by eye, reference/gullmarsskogen_stand_1.jpg and gullmarsskogen_stand_5.jpg show stems of one mature stand from near-white at the foot to dark far up."
+    bark.uneven_top.black.tree_range: "Jones et al. 2021, Table 2: lowest over mean 0/67 and 10/46, highest over mean 280/67 and 240/46. These limits are 0.15 and the lower of the two highest."
+    bark.uneven_top.black.highest_m: "TUNED: a limit, so a thick tree with a high share doesn't go black up into its crown. No source; the highest measured is 2.8 m, at age 19. Rarely reached."
+    bark.uneven_top.black.highest_top_m: "TUNED: as highest_m, for the highest tongue."
     bark.uneven_top.stage_ramps: "TUNED: by eye, against reference/meilen_switzerland_solitary.jpg, oslo_norway.jpg and hallinden_sweden.jpg, limb widths judged against the stem's in the same photo: white holds on limbs of about 5 cm and more and goes dark by about 2.5 cm. birch-data/REPORT.md section 14 says branches stay white, with no source; these photos don't bear that out for thin ones. No measurement found."
     bark.peel: "TUNED: by eye on the renders; no survey of peeling by age or size was opened. The stem's white bark peels in thin horizontal sheets (birch-data/REPORT.md section 14, no source)."
     bark.marks: "TUNED: by eye; the dark chevrons above branches are a known birch feature, no measurement."
@@ -1902,18 +1909,28 @@ appearance:
       rhytidome:
         diameter_m: [0.05, 0.10]
         climbs: {onset_age: 10.0, height_max_m: 6.0, time_constant_years: 90.0, band_m: 0.7}
-    # The bark's look, on or off.  A climbing stage stops at no one level.  At each height a share of the
-    # bark has gone over, all of it below solid_share of how high the stage has climbed, none above the top,
-    # which moves by tree_share, side_share and tongue_share of that climb, and falls_off says how fast the
-    # share drops between (over 1, soon; under 1, late).  solid_share and falls_off run from the lightest tree
-    # to the darkest.  Which bark goes first is the field "islands", so what shows is hard-edged black tongues
-    # and white plates, whatever the tree.  tongues and islands: turns round the stem, metres up it, weight.
+    # The bark's look, on or off.  A climbing stage stops at no one level.  black says how high it goes on one
+    # tree: height_m at at_dbh_cm over bark, by (DBH / at_dbh_cm)^size_power, times the tree's own share for life
+    # (a gamma of mean 1 from tree_parts draws, kept to tree_range), up to highest_m.  That's where half of the
+    # bark round the stem has gone over.  Above and below, at each height a share of the bark has gone over, all
+    # of it below solid_share of the tree's level, none above its top, which moves by side_share and tongue_share
+    # of the level, up to highest_top_m, and falls_off says how fast the share drops between (over 1, soon; under
+    # 1, late).  solid_share and falls_off run from the lightest tree to the darkest.  Which bark goes first is
+    # the field "islands", so what shows is hard-edged black tongues and white plates, whatever the tree.
+    # tongues and islands: turns round the stem, metres up it, weight.
     # plates: rough bark's, at their real size.  stage_ramps: how thick a limb is before it's white.
     # strength 0 leaves all of this out, as the plain export has it; the Unreal target has its own switch,
     # game.unreal.stem_relief.uneven_top.
     uneven_top:
       strength: 0.0
-      tree_share: 0.25
+      black:
+        height_m: 0.61
+        at_dbh_cm: 10.6
+        size_power: 1.36
+        tree_parts: 3
+        tree_range: [0.15, 4.2]
+        highest_m: 8.0
+        highest_top_m: 12.0
       side_share: 0.4
       tongue_share: 1.0
       tongue_power: 2.5
