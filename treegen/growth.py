@@ -974,7 +974,7 @@ class GrowthModel:
             named = np.isin(lat_nodes, np.fromiter(self._frame_buds().keys(), np.int64))
             Glat[lat_nodes[on_stem & ~named]] = 0.0
             every = getattr(sp.crown_frame, "twig_bud_every", None)
-            if every:
+            if every and not self._frame_earns():
                 # on anything finer, one bud in so many can start a long shoot, the rest stay short shoots.  Odd, so
                 # they take turns on the two sides of a two-ranked shoot
                 Glat[lat_nodes[~on_stem & (T.phyllo[lat_nodes] % int(every) != 0)]] = 0.0
