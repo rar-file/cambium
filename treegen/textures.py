@@ -639,37 +639,56 @@ def _paint_marks(look: dict, maps: dict, marks: list, length: float, circ: np.nd
         maps["height"][ix] = maps["height"][ix] + 0.0015 * m
 
 
-def atlas_layout(look: dict, px=None) -> list:
-    """Branch atlas columns: (left, right, top) texel positions and circumference for each class."""
+def atlas_layout(look: dict, px=None, circumferences=None, span_m: float | None = None) -> list:
+    """Branch atlas columns: (left, right, top) texel positions and circumference for each class, or for
+    each of ``circumferences``.  ``span_m``: how much branch the atlas's height holds."""
     bark = look["bark"]
     W, H = px or bark["atlas_px"]
-    tile_px = float(bark["tile_size_m"]) / float(H)
+    tile_px = float(span_m or bark["tile_size_m"]) / float(H)
     pad = 4
     out = []
     x = pad
-    total = sum(c / tile_px for c in bark["branch_circumference_m"]) + 2 * pad * len(bark["branch_circumference_m"])
+    columns = bark["branch_circumference_m"] if circumferences is None else circumferences
+    total = sum(c / tile_px for c in columns) + 2 * pad * len(columns)
     shrink = min(1.0, (W - 1.0) / total)
-    for c in bark["branch_circumference_m"]:
+    for c in columns:
         w = max(int(c / tile_px * shrink), 8)
         out.append((x, x + w, float(c)))
         x += w + 2 * pad
     return out
 
 
-def bake_branch_atlas(look: dict, tiles: list, states: list, px=None) -> dict:
+def limb_field(cfg: dict, seed: int, rows: int, span_m: float) -> np.ndarray:
+    """Which bark on a limb goes white first: 0 first, 1 last, evenly, so a share means that share of the
+    bark.  In turns round the limb and metres along it, so it's the same place on the limb whatever the
+    limb's size, as it thickens from one column to the next.  It wraps both ways."""
+    columns = 512
+    field = 0.0
+    for k, (turns, along_m, weight) in enumerate(cfg["patches"]):
+        field = field + float(weight) * noise((rows, columns), seed + 11 * k, (float(along_m) * rows / span_m, float(turns) * columns), 2.2)
+    return rank01(field).astype(np.float32)
+
+
+def bake_branch_atlas(look: dict, tiles: list, states: list, px=None, columns: list | None = None, seed: int = 0) -> dict:
     """One column per circumference class, from ``states``: the mean state of the parts in the class
-    (or None).  Each column is a whole turn of a branch and repeats along it."""
+    (or None).  Each column is a whole turn of a branch and repeats along it.  With ``columns``, a dict
+    for each state, its circumference and the share of its bark that's gone white, and that share is
+    laid on in hard-edged patches, the same patches at every share and every circumference, so more
+    white only ever adds to what's there."""
     bark = look["bark"]
-    W, H = px or bark["atlas_px"]
-    layout = atlas_layout(look, (W, H))
+    limbs = bark["uneven_top"]["limbs"] if columns is not None else None
+    W, H = px or (limbs["atlas_px"] if limbs else bark["atlas_px"])
+    span_m = float(limbs["span_m"]) if limbs else None
+    layout = atlas_layout(look, (W, H), [c["circumference"] for c in columns] if limbs else None, span_m)
+    field = limb_field(limbs, seed, H, span_m) if limbs else None
     alb = np.zeros((H, W, 3), np.float32)
     rough = np.ones((H, W), np.float32) * 0.6
     height = np.zeros((H, W), np.float32)
     tile_m = float(bark["tile_size_m"])
     means = []
-    dy = tile_m / H
+    dy = (span_m or tile_m) / H
     y = (np.arange(H) + 0.5) * dy
-    for (x0, x1, c), st in zip(layout, states):
+    for i, ((x0, x1, c), st) in enumerate(zip(layout, states)):
         w = x1 - x0
         dx = c / w
         X = np.broadcast_to(((np.arange(w) + 0.5) * dx)[None, :], (H, w))
@@ -682,6 +701,11 @@ def bake_branch_atlas(look: dict, tiles: list, states: list, px=None) -> dict:
                   "fissure_m": np.full((H, w), float(state["fissure_m"]), np.float32),
                   "peel": np.full((H, w), float(state["peel"]), np.float32),
                   "grime": np.full((H, w), float(state["grime"]), np.float32)}
+        if limbs and st is not None:
+            k = float(limbs["edge"])
+            here = field[:, ((np.arange(w) + 0.5) / w * field.shape[1]).astype(np.int64)]
+            names = [t["name"] for t in bark["stages"]]
+            fields["weights"][names.index(limbs["stage"])] = smooth(here - k, here + k, float(columns[i]["share"]) * (1.0 + 2.0 * k) - k).astype(np.float32)
         m = compose(tiles, samples, fields, (H, w))
         alb[:, x0:x1] = m["albedo"]
         rough[:, x0:x1] = m["rough"]
@@ -700,6 +724,7 @@ def bake_branch_atlas(look: dict, tiles: list, states: list, px=None) -> dict:
     # the normal map's x slope above used a single texel size; columns are close enough to it
     out["layout"] = layout
     out["column_mean"] = np.array(means)
+    out["span_m"] = span_m or tile_m
     return out
 
 

@@ -161,7 +161,7 @@ def measure(model, sp, raw, snap, age: int, seed: int) -> dict:
         leaves.pos_node = pos[leaves.node]
         res[name] = leaves
     off, on = res["off"], res["on"]
-    assert np.array_equal(off.node, on.node) and np.array_equal(off.area, on.area)
+    assert np.array_equal(off.node, on.node) and abs(float(off.area.sum()) - float(on.area.sum())) < 1e-6
     per_node = np.bincount(off.node, minlength=T.n).astype(float)
     area = np.zeros(T.n)
     np.add.at(area, off.node, off.area)
@@ -179,7 +179,8 @@ def measure(model, sp, raw, snap, age: int, seed: int) -> dict:
               "short_shoots": int(spur.sum()), "new_long_nodes": int(new.sum()),
               "leaves": int(len(off.node)), "leaf_area_m2": round(float(off.area.sum()), 3), "model_leaf_area_m2": model.stats[age]["leaf_area_m2"], "model_leaves_reference_units": model.stats[age]["leaves"]}
     out["on_nodes"] = counts
-    out["leaf_size_cm2"] = {"median": round(float(np.median(off.area)) * 1e4, 1), "p10": round(float(np.percentile(off.area, 10)) * 1e4, 1), "p90": round(float(np.percentile(off.area, 90)) * 1e4, 1)}
+    out["leaf_size_cm2"] = {name: {"mean": round(float(v.area.mean()) * 1e4, 2), "cv": round(float(v.area.std() / v.area.mean()), 3), "total_m2": round(float(v.area.sum()), 3),
+                                   "p5_p50_p95": [round(float(np.percentile(v.area, q)) * 1e4, 1) for q in (5, 50, 95)], "min_max": [round(float(v.area.min()) * 1e4, 1), round(float(v.area.max()) * 1e4, 1)]} for name, v in res.items()}
     # the twigs, by order from the stem
     rows, tw, axis, twigs = twig_table(T, pos, r_wood, alive, per_node, area, spur, stub)
     out["by_order"], out["twigs"] = rows, tw

@@ -1268,7 +1268,7 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
                     _bark_mesh(glb, wood, arrays["stem"], "stem", m, flex, phase, turns, tile_m)
                 if "branch" in arrays:
                     m = maps.material(glb, branch_slot, branch_files, CLAMP, REPEAT)
-                    _bark_mesh(glb, wood, arrays["branch"], "branches", m, flex, phase, _column_turns(look, arrays["branch"]["col"], tile_m), tile_m)
+                    _bark_mesh(glb, wood, arrays["branch"], "branches", m, flex, phase, _column_turns(look, arrays["branch"]["class"], tile_m), tile_m)
                 parts["wood"] = glb.triangles
                 surface = surface_a[lod["kind"]]
                 if surface is not None:

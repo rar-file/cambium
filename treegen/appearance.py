@@ -89,6 +89,12 @@ def stem_stub_share(look: dict) -> float:
     return float(edge["stem_stub_share"]) if edge and float(edge["strength"]) > 0.0 else 0.0
 
 
+def limb_level_step(look: dict) -> float:
+    """How finely a limb's bark follows its own share of white, or 0: one atlas column to a circumference."""
+    edge = look["bark"].get("uneven_top")
+    return float(edge["limbs"]["level_step"]) if edge and float(edge["strength"]) > 0.0 else 0.0
+
+
 def climb_top(climb: dict, part_age) -> np.ndarray:
     """How high a stage that climbs has reached on a part this old, in metres."""
     return float(climb["height_max_m"]) * (1.0 - np.exp(-np.maximum(np.asarray(part_age, float) - float(climb["onset_age"]), 0.0) / float(climb["time_constant_years"])))
@@ -258,12 +264,22 @@ def _on_shoot(cfg: dict, snap: LeafSnapshot, pos: np.ndarray, r: np.ndarray, nod
     return tip, stalk / np.maximum(np.linalg.norm(stalk, axis=1, keepdims=True), 1e-9), az
 
 
+def _size_spread(cfg: dict, key: np.ndarray, area: np.ndarray) -> np.ndarray:
+    """Leaves of one kind differ in size.  Each leaf's own share, the same every year, with the tree's
+    total leaf area held: the model's sizes and their mean stay as they are."""
+    sigma = np.sqrt(np.log(1.0 + float(cfg["size_cv"]) ** 2))
+    z = np.sqrt(-2.0 * np.log(np.maximum(hash01(key, 6), 1e-9))) * np.cos(2.0 * np.pi * hash01(key, 7))
+    low, high = cfg["size_limits_sd"]
+    share = np.exp(sigma * np.clip(z, float(low), float(high)))
+    return area * share * (area.sum() / max(float((area * share).sum()), 1e-12))
+
+
 def leaf_instances(look: dict, sp, snap: LeafSnapshot, pos: np.ndarray, radius: np.ndarray, tree_age: int, fill: float = 1.0) -> LeafInstances:
     """One blade for each leaf the model has: its count (a node's leaves over its size share) and its
     size, placed by a hash of the node, so a leaf keeps its place from age to age.  ``fill`` is the
     share of a blade's diamond its outline fills; the diamond is enlarged so the visible area is the
-    model's.  With ``leaves.on_shoots`` asked for, each leaf leaves its shoot as a birch's does; the
-    leaves and their sizes are the same."""
+    model's.  With ``leaves.on_shoots`` asked for, each leaf leaves its shoot as a birch's does and has
+    a size of its own round the model's; the leaves, and the tree's total leaf area, are the same."""
     lv = look["leaves"]
     a_ref = snap.reference_area
     size = np.where(snap.size > 0, snap.size, a_ref)
@@ -291,6 +307,8 @@ def leaf_instances(look: dict, sp, snap: LeafSnapshot, pos: np.ndarray, radius: 
     across = across * np.cos(roll)[:, None] + n0 * np.sin(roll)[:, None]
     aspect = float(lv["shape"]["aspect"])
     area = size[node]
+    if on_shoots and len(area):
+        area = _size_spread(place, key, area)
     diamond = area / max(fill, 1e-3)
     L = np.sqrt(2.0 * diamond * aspect)
     # the petiole leaves the bark, not the centre of the wood

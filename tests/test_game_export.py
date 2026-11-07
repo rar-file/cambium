@@ -893,9 +893,75 @@ def _shoot_leaves(look, strength, age=12):
 def test_placing_leaves_on_their_shoots_changes_only_where_they_are(look):
     off, _ = _shoot_leaves(look, 0.0)
     on, _ = _shoot_leaves(look, 1.0)
-    for name in ("node", "length", "width", "area", "sun", "delay"):
+    for name in ("node", "sun", "delay"):
         assert np.array_equal(getattr(off, name), getattr(on, name))
     assert not np.allclose(off.base, on.base)
+    # the same number of leaves, with the same total area: sizes differ round the model's
+    assert len(off.area) == len(on.area)
+    assert abs(off.area.sum() - on.area.sum()) < 1e-12
+
+
+def test_leaves_differ_in_size_with_the_trees_total_held(look):
+    n = 6000
+    size = np.full(n, 0.0017)
+    size[::3] = 0.0015
+    lk = copy.deepcopy(look)
+    lk["leaves"]["on_shoots"]["strength"] = 1.0
+    snap = ap.LeafSnapshot(40, np.full(n, 1.0) * size / 0.0015, size, np.full(n, 60.0), np.zeros(n, bool), 0.0015, lat_dir=np.tile([1.0, 0.0, 0.0], (n, 1)), birth=np.zeros(n))
+    pos = np.zeros((n, 3))
+    r = np.full(n, 0.002)
+    on = ap.leaf_instances(lk, None, snap, pos, r, 40)
+    off = ap.leaf_instances(look, None, snap, pos, r, 40)
+    assert len(on.area) == len(off.area)
+    assert abs(on.area.sum() - off.area.sum()) < 1e-9
+    # a spread like a real one's, and no blade past what floras and measurements have
+    cv = on.area.std() / on.area.mean()
+    assert 0.2 < cv < 0.35
+    assert off.area.std() / off.area.mean() < 0.07
+    assert on.area.max() < 0.0030 and on.area.min() > 0.0006
+    # the same leaf the same size from year to year
+    again = ap.leaf_instances(lk, None, snap, pos, r, 41)
+    assert np.allclose(on.area, again.area)
+
+
+def _limb_atlas(look, shares):
+    tiles = tx.make_tiles(look)
+    columns = [{"circumference": c, "share": s} for c in (0.12, 0.24) for s in shares]
+    w = np.array([1.0, 0.0, 0.0])
+    states = [{"weights": w.copy(), "peel": 0.0, "grime": 0.0, "fissure_m": 0.0} for _ in columns]
+    return tx.bake_branch_atlas(look, tiles, states, px=(1024, 512), columns=columns, seed=5), tiles, columns
+
+
+def test_a_limbs_bark_goes_white_a_little_at_a_time_and_only_adds(uneven):
+    shares = [0.0, 0.25, 0.5, 0.75, 1.0]
+    atlas, tiles, columns = _limb_atlas(uneven, shares)
+    white = []
+    for x0, x1, _ in atlas["layout"]:
+        # how far each texel is from the twig stage's colour towards the white stage's
+        y = atlas["albedo"][:, x0:x1].mean(-1)
+        white.append(y)
+    # a column's mean brightness rises evenly with its share, at each circumference, with no jump between them
+    means = np.array([w.mean() for w in white]).reshape(2, len(shares))
+    assert np.all(np.diff(means, axis=1) > 0.0)
+    steps = np.diff(means, axis=1)
+    assert steps.max() < 2.0 * steps.mean()
+    # the same share looks the same at the next circumference
+    assert np.abs(means[0] - means[1]).max() < 0.5 * steps.mean()
+    # and hard-edged patches: part way, the bark is one or the other, not a grey mix
+    mid = white[2]
+    lo, hi = white[0].mean(), white[4].mean()
+    between = ((mid > lo + 0.3 * (hi - lo)) & (mid < lo + 0.6 * (hi - lo))).mean()
+    assert between < 0.5
+
+
+def test_the_same_patches_at_every_level_and_circumference(uneven):
+    field = tx.limb_field(uneven["bark"]["uneven_top"]["limbs"], 5, 512, 1.0)
+    # evenly spread, so a share of the field is that share of the bark
+    assert abs(float((field < 0.3).mean()) - 0.3) < 0.01
+    # longer than they're wide: on a limb of 12 cm round, the field changes faster round it than along it, by the metre
+    d_along = np.abs(np.diff(field, axis=0)).mean() * (512 / 1.0)
+    d_round = np.abs(np.diff(field, axis=1)).mean() * (512 / 0.12)
+    assert d_round > d_along
 
 
 def test_a_short_shoots_leaves_stand_at_the_end_of_its_own_axis_and_fan_out(look):
