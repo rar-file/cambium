@@ -725,11 +725,14 @@ def run_table(a) -> None:
     kernel_rows = []
     plain = []
     chaos = []
+    saves = []
     for folder in a.folders:
         for p in sorted(Path(folder).expanduser().glob("*.json")):
             d = json.loads(p.read_text(encoding="utf-8"))
             if p.name.startswith("chaos_"):
                 chaos.append(d)
+            elif p.name.startswith("saves_"):
+                saves.append(d)
             elif p.name.startswith("kernels_"):
                 kernel_rows += d
             elif p.name.startswith("tree_") and d.get("plain"):
@@ -751,6 +754,8 @@ def run_table(a) -> None:
         out.append(table_kernels(kernel_rows))
     for d in chaos:
         out.append(table_chaos(d))
+    if saves:
+        out.append(table_saves(saves))
     for k, docs in sorted(trees.items()):
         out.append(table_tree(docs, f"Stand tree, {k}"))
     for k, docs in sorted(plots.items()):
@@ -823,6 +828,53 @@ def table_chaos(doc: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def run_saves(a) -> None:
+    """What one tree would cost on disk: the whole state pickled as Python saves it, and the node arrays of living nodes alone, in single precision."""
+    import gzip
+    import pickle
+    import zlib
+
+    out = BASE / a.label
+    out.mkdir(parents=True, exist_ok=True)
+    cli, checkpoint, sp, _ = load(a)
+    checkpoint.set_values(sp, settings(a))
+    from treegen.growth import GrowthModel
+
+    env_p, _ = cli.load_environment("sweden_open_field")
+    m = GrowthModel(sp, cli.make_environment(env_p), a.seed, stand=True, soil=cli.make_soil(env_p), lean=True)
+    rows = {}
+    mb = 2.0 ** 20
+    for _ in range(a.years):
+        m.step()
+        if m.year not in AGES:
+            continue
+        keep = m._field, getattr(m, "_plot_view", None), m.light, m.roots.field, getattr(m.roots, "_kept_soil", None)
+        m._field = m._plot_view = m.light = None
+        m.roots.field = None
+        m.roots._kept_soil = None
+        blob = pickle.dumps(m, protocol=pickle.HIGHEST_PROTOCOL)
+        m._field, m._plot_view, m.light, m.roots.field, m.roots._kept_soil = keep
+        parts = []
+        for T in (m.tree, m.roots.tree):
+            alive = T.death[: T.n] < 0
+            for name in list(T.VEC) + list(T.SCALAR):
+                x = getattr(T, name)[: T.n][alive]
+                parts.append((x.astype(np.float32) if x.dtype == np.float64 else x).tobytes())
+        raw = b"".join(parts)
+        rows[m.year] = {"pickle_mb": len(blob) / mb, "pickle_gz_mb": len(gzip.compress(blob, 1)) / mb, "live32_mb": len(raw) / mb, "live32_z1_mb": len(zlib.compress(raw, 1)) / mb, "live32_z6_mb": len(zlib.compress(raw, 6)) / mb}
+        print(m.year, rows[m.year], flush=True)
+    (out / f"saves_{a.speed}_s{a.seed}.json").write_text(json.dumps({"seed": a.seed, "speed": a.speed, "rows": {str(k): v for k, v in rows.items()}}), encoding="utf-8")
+
+
+def table_saves(docs: list) -> str:
+    lines = ["### One tree on disk, MB", "", "| Age | Speed | Seed | Whole state, pickled | Pickled, gzip | Living nodes' arrays, single precision | Those, zlib level 1 | Those, zlib level 6 |", "|---|---|---|---|---|---|---|---|"]
+    for d in docs:
+        for a, r in d["rows"].items():
+            if int(a) in PLAN_AGES:
+                lines.append(f"| {a} | {d['speed']} | {d['seed']} | {r['pickle_mb']:.1f} | {r['pickle_gz_mb']:.1f} | {r['live32_mb']:.1f} | {r['live32_z1_mb']:.1f} | {r['live32_z6_mb']:.1f} |")
+    return "\n".join(lines) + "\n"
+
+
 def run_batch(a) -> None:
     import subprocess
 
@@ -837,7 +889,7 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="what", required=True)
-    for name in ("tree", "plot", "mesh", "hot", "lines", "chaos"):
+    for name in ("tree", "plot", "mesh", "hot", "lines", "chaos", "saves"):
         p = sub.add_parser(name)
         p.add_argument("--label", required=True)
         p.add_argument("--seed", type=int, default=1)
@@ -856,7 +908,7 @@ def main():
     b = sub.add_parser("batch", help="several of these one after another, each its own process: one core, no overlap")
     b.add_argument("commands", nargs="+")
     a = ap.parse_args()
-    {"tree": run_tree, "plot": run_plot, "mesh": run_mesh, "hot": run_hot, "lines": run_lines, "chaos": run_chaos, "table": run_table, "batch": run_batch}[a.what](a)
+    {"tree": run_tree, "plot": run_plot, "mesh": run_mesh, "hot": run_hot, "lines": run_lines, "chaos": run_chaos, "saves": run_saves, "table": run_table, "batch": run_batch}[a.what](a)
 
 
 if __name__ == "__main__":
