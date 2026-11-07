@@ -373,7 +373,90 @@ def stem_s(look: dict, v, length: float):
     return np.interp(v, vv, z)
 
 
-def bake_stem(look: dict, tiles: list, profile: StemProfile, part_state_fn, marks: list, px=None, block: int = 512, y_offset: float = 0.0) -> dict:
+class UnevenTop:
+    """Where a climbing stage has got to at each place on a stem: how far above or below its level its
+    top reaches, and how far down its plates stay uncovered.  The same at every age of one tree, growing
+    with the climb itself, and different from tree to tree."""
+
+    SPAN_M, ROWS, COLUMNS = 8.0, 1024, 256
+
+    def __init__(self, look: dict, part_age, tree_seed: int = 0):
+        from .appearance import climb_top, hash01
+
+        self.cfg = cfg = look["bark"]["uneven_top"]
+        climb = next(r["climbs"] for r in look["bark"]["stage_ramps"].values() if r.get("climbs"))
+        self.band = float(climb["band_m"])
+        self.top = float(climb_top(climb, part_age))
+        key = int(look["game"]["texture_seed"]) + 7919 * (int(tree_seed) + 1)
+        self.tree = 2.0 * float(hash01(np.array([key]), 91)[0]) - 1.0
+        self.toward = float(hash01(np.array([key]), 92)[0])
+        rows_per_m = self.ROWS / self.SPAN_M
+        field = 0.0
+        for k, (turns, along_m, weight) in enumerate(cfg["tongues"]):
+            field = field + float(weight) * noise((self.ROWS, self.COLUMNS), key + 11 * k, (float(along_m) * rows_per_m, float(turns) * self.COLUMNS), 2.2)
+        p = float(cfg["tongue_power"])
+        t = rank01(field) ** p
+        self.tongue = ((t - t.mean()) / (1.0 - t.mean())).astype(np.float32)
+        patch = 0.0
+        for k, (turns, along_m, weight) in enumerate(cfg["patches"]):
+            patch = patch + float(weight) * noise((self.ROWS, self.COLUMNS), key + 97 + k, (float(along_m) * rows_per_m, float(turns) * self.COLUMNS), 2.0)
+        self.patch = patch.astype(np.float32)
+        self.scale = float(cfg["strength"]) * self.top
+        # how far up the highest tongue gets, on this tree
+        self.reach = max(self.scale * (float(cfg["tree_share"]) * self.tree + float(cfg["side_share"]) + float(cfg["tongue_share"])), 0.0)
+        # below this the stage has covered everything; a darker tree has it higher
+        low, high = cfg["solid_share"]
+        self.solid = self.top * (float(low) + (float(high) - float(low)) * (0.5 + 0.5 * self.tree))
+        low, high = cfg["leaves_covered"]
+        self.leaves = float(low) + (float(high) - float(low)) * (0.5 + 0.5 * self.tree)
+
+    def _read(self, field: np.ndarray, u: np.ndarray, s: np.ndarray) -> np.ndarray:
+        """A field at ``s`` metres up (rows) and ``u`` round (columns), bilinear, wrapping both ways."""
+        y = np.mod(np.asarray(s, float) / self.SPAN_M, 1.0) * self.ROWS
+        x = np.mod(np.asarray(u, float), 1.0) * self.COLUMNS
+        y0 = np.floor(y).astype(np.int64)
+        x0 = np.floor(x).astype(np.int64)
+        fy = (y - y0)[:, None].astype(np.float32)
+        fx = (x - x0)[None, :].astype(np.float32)
+        y0, y1 = y0 % self.ROWS, (y0 + 1) % self.ROWS
+        x0, x1 = x0 % self.COLUMNS, (x0 + 1) % self.COLUMNS
+        return (field[np.ix_(y0, x0)] * (1 - fx) + field[np.ix_(y0, x1)] * fx) * (1 - fy) + (field[np.ix_(y1, x0)] * (1 - fx) + field[np.ix_(y1, x1)] * fx) * fy
+
+    def shift(self, u: np.ndarray, s: np.ndarray) -> np.ndarray:
+        """Metres, rows x columns, for ``s`` metres up the stem (rows) and ``u`` round it (columns)."""
+        cfg = self.cfg
+        tongue = self._read(self.tongue, u, s)
+        side = np.cos(2.0 * np.pi * (np.asarray(u, float) - self.toward)).astype(np.float32)
+        total = float(cfg["tree_share"]) * self.tree + float(cfg["side_share"]) * side[None, :] + float(cfg["tongue_share"]) * tongue
+        return self.scale * np.maximum(total, -float(cfg["lowest_share"]))
+
+    def heights(self, u: np.ndarray, s: np.ndarray, z: np.ndarray) -> np.ndarray:
+        """The height, rows x columns, at which the ageing rule should read each texel of a stem with
+        heights ``z`` by row: it's moved by ``shift``, and the rule's short band from covered to bare is
+        drawn out over all the height from ``solid`` to the top, leaving covered quickly and bare slowly.
+        Part-way through a band a stage has taken the furrows and left the plates, so that's a long
+        stretch of black cracks and white plates, with patches of more of each."""
+        cfg = self.cfg
+        at = z[:, None] - self.shift(u, s)
+        low, high = self.top - self.band, self.top + self.band
+        f0 = np.clip((at - self.solid) / max(high - self.solid, 1e-6), 0.0, 1.0)
+        # patches go to nothing at both ends of the band, so nothing jumps there
+        f = f0 + float(cfg["patch_share"]) * self._read(self.patch, u, s) * smooth(0.0, 0.15, f0) * (1.0 - smooth(0.85, 1.0, f0))
+        drawn = low + np.clip(f, 0.0, 1.0) ** self.leaves * (high - low)
+        return np.where(at >= high, at, np.where(at <= self.solid, low + (at - self.solid), drawn))
+
+
+def uneven_top(look: dict, part_age, tree_seed: int = 0) -> UnevenTop | None:
+    """``None`` unless ``bark.uneven_top.strength`` asks for it: then a stem's rough base stops at no one
+    level.  It climbs in tongues, further on one side, to a different height on each tree."""
+    cfg = look["bark"].get("uneven_top")
+    climbs = any(r.get("climbs") for r in look["bark"].get("stage_ramps", {}).values())
+    if not cfg or float(cfg["strength"]) <= 0.0 or not climbs:
+        return None
+    return UnevenTop(look, part_age, tree_seed)
+
+
+def bake_stem(look: dict, tiles: list, profile: StemProfile, part_state_fn, marks: list, px=None, block: int = 512, y_offset: float = 0.0, tree_seed: int = 0) -> dict:
     """The stem's own texture, baked from the state at every row.  ``marks``: (around 0-1, s, branch
     radius) of each branch that leaves the stem, living or shed, for the dark chevrons.
 
@@ -390,7 +473,10 @@ def bake_stem(look: dict, tiles: list, profile: StemProfile, part_state_fn, mark
     s = stem_s(look, v, length)
     r = np.interp(s, profile.s, profile.radius)
     circ = 2.0 * np.pi * np.maximum(r, 1e-4)
-    state = part_state_fn(np.interp(s, profile.s, profile.part_age), np.interp(s, profile.s, profile.d_wood), np.interp(s, profile.s, profile.z))
+    age_row, d_row, z_row = np.interp(s, profile.s, profile.part_age), np.interp(s, profile.s, profile.d_wood), np.interp(s, profile.s, profile.z)
+    state = part_state_fn(age_row, d_row, z_row)
+    # the rough base's top, place by place, where that's asked for
+    edge = None if profile.part_age.size == 0 else uneven_top(look, float(np.max(profile.part_age)), tree_seed)
     dy = np.gradient(s)
     dx = circ / W
     u = (np.arange(W) + 0.5) / W
@@ -401,7 +487,7 @@ def bake_stem(look: dict, tiles: list, profile: StemProfile, part_state_fn, mark
     alb = np.zeros((H, W, 3), np.float32)
     rough = np.zeros((H, W), np.float32)
     height = np.zeros((H, W), np.float32)
-    edge = 0.3
+    hand = 0.3
     # each tile's height of stem takes the tile from its own random offset, handed over patch by patch
     # at the end of the band, so nothing repeats up the stem
     from .appearance import hash01
@@ -417,10 +503,10 @@ def bake_stem(look: dict, tiles: list, profile: StemProfile, part_state_fn, mark
         n = len(rows)
         y = np.broadcast_to(s[rows, None] - y_offset, (n, W))
         patch = sample_tile(tiles[0], np.broadcast_to(u[None, :] * tile_m, (n, W)), y, np.maximum(tile_m / W, dy[rows]))[..., PATCH]
-        mix = smooth(patch, patch + edge, share[rows, None] * (1.0 + edge))[..., None]
+        mix = smooth(patch, patch + hand, share[rows, None] * (1.0 + hand))[..., None]
         xa = u[None, :] * ka[rows, None]
         near = np.nonzero(frac[rows] > hand_over)[0]
-        over = smooth(patch[near], patch[near] + edge, ((frac[rows][near, None] - hand_over) / (1.0 - hand_over)) * (1.0 + edge))[..., None]
+        over = smooth(patch[near], patch[near] + hand, ((frac[rows][near, None] - hand_over) / (1.0 - hand_over)) * (1.0 + hand))[..., None]
 
         def fetch(t, rr, ox_, oy_):
             sa = sample_tile(t, xa[rr] + ox_[rows][rr, None], y[rr] + oy_[rows][rr, None], np.maximum(ka[rows][rr] / W, dy[rows][rr]))
@@ -437,6 +523,11 @@ def bake_stem(look: dict, tiles: list, profile: StemProfile, part_state_fn, mark
                 sa[near] = sa[near] + (fetch(t, near, ox2, oy2) - sa[near]) * over
             samples.append(sa)
         st = {"weights": state["weights"][:, rows], "fissure_m": state["fissure_m"][rows], "peel": state["peel"][rows], "grime": state["grime"][rows]}
+        if edge is not None and z_row[rows].min() - edge.reach < edge.top + edge.band:
+            # the same rules, at the height each texel's bark behaves as if it's at
+            shape2 = (n, W)
+            at = part_state_fn(np.broadcast_to(age_row[rows, None], shape2), np.broadcast_to(d_row[rows, None], shape2), edge.heights(u, s[rows], z_row[rows]))
+            st = {"weights": at["weights"], "fissure_m": at["fissure_m"], "peel": at["peel"], "grime": st["grime"]}
         m = compose(tiles, samples, st, (n, W))
         alb[rows] = m["albedo"]
         rough[rows] = m["rough"]

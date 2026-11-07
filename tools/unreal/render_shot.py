@@ -1,7 +1,7 @@
 """Inside Unreal: stand trees on a plain ground in sunlight and take pictures of them.
 
 Runs under ``tools/unreal_test.py render``.  The light copies the game's sky actor (AWorldClock): the sun
-at 120,000 lux and 0.53 degrees wide, a sky atmosphere, a sky light from the real sky, thin fog, Lumen and
+at 120,000 lux and 0.53 degrees wide, a sky atmosphere, a sky light (empty here: see "fill_lux"), thin fog, Lumen and
 virtual shadow maps from the project's settings.  No clouds, no moving time, a fixed exposure, and none
 of the game's world around the tree; the report says so.
 
@@ -106,6 +106,17 @@ def build_scene():
     # the renderer takes these when the light registers; a commandlet doesn't tick, so make it register again
     skyc.set_visibility(False)
     skyc.set_visibility(True)
+    # A scene capture can't update a real-time sky light (ReflectionEnvironmentRealTimeCapture.cpp,
+    # AllocateAndCaptureFrameSkyEnvMap), and these pictures are only scene captures, so their shade has no
+    # sky in it.  "fill_lux": stand-ins for what's missing, shadowless light straight down and straight up, lux
+    for lux, pitch in zip(JOB.get("fill_lux", ()), (-90.0, 90.0)):
+        fill = spawn(unreal.DirectionalLight, (0, 0, 2000), (pitch, 0.0, 0.0))
+        lc = fill.get_component_by_class(unreal.DirectionalLightComponent)
+        lc.set_mobility(unreal.ComponentMobility.MOVABLE)
+        lc.set_editor_property("intensity", float(lux))
+        lc.set_editor_property("cast_shadows", False)
+        lc.set_editor_property("atmosphere_sun_light", False)
+        lc.set_editor_property("forward_shading_priority", 1 if pitch < 0.0 else 2)
     fog = spawn(unreal.ExponentialHeightFog)
     fogc = fog.get_component_by_class(unreal.ExponentialHeightFogComponent)
     fogc.set_editor_property("fog_density", 0.003)

@@ -91,6 +91,7 @@ def export_stage(model, sp, look: dict, tiles: list, age: int, snap: ap.LeafSnap
     settings0 = mesh.MeshSettings(ring_attributes=True, stem_sides_by_radius=True, sides_allowed=tuple(gcfg_full["sides_allowed"]))
     crown0 = game.crown_mesh(skel, np.ones(n, bool), rad_ob, is_root, orig, sp.geometry, settings0)
     wood = game.WoodParts(look, tiles, age, height, dbh_w, T.birth[: T.n], r_wood)
+    wood.tree_seed = int(meta["seed"])
     game.bake_wood(wood, crown0, T, pos, model.radius_history)
     arrays0 = game.wood_arrays(wood, crown0, relief=True)
     log(f"age {age}: H {height:.1f} m, wood {len(crown0.faces)} triangles, baked in {time.time() - t0:.1f} s")

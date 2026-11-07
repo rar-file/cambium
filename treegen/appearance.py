@@ -83,6 +83,11 @@ def _ramp(spec, name, x):
     return 1.0 if pair is None else smooth(pair[0], pair[1], x)
 
 
+def climb_top(climb: dict, part_age) -> np.ndarray:
+    """How high a stage that climbs has reached on a part this old, in metres."""
+    return float(climb["height_max_m"]) * (1.0 - np.exp(-np.maximum(np.asarray(part_age, float) - float(climb["onset_age"]), 0.0) / float(climb["time_constant_years"])))
+
+
 def part_state(look: dict, part_age, d_wood_m, height_m, tree_height_m: float, dbh_ob_cm: float) -> dict:
     """The look of parts with these ages, wood diameters and heights.
 
@@ -103,7 +108,7 @@ def part_state(look: dict, part_age, d_wood_m, height_m, tree_height_m: float, d
         w = _ramp(spec, "part_age_years", part_age) * _ramp(spec, "diameter_m", d0) * np.ones_like(d0)
         climb = spec.get("climbs")
         if climb is not None:
-            top = float(climb["height_max_m"]) * (1.0 - np.exp(-np.maximum(part_age - float(climb["onset_age"]), 0.0) / float(climb["time_constant_years"])))
+            top = climb_top(climb, part_age)
             band = float(climb["band_m"])
             w = w * (1.0 - smooth(top - band, top + band, z)) * np.clip(top / band, 0.0, 1.0)
             rough = w

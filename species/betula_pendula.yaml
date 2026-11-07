@@ -1733,6 +1733,7 @@ appearance:
     bark.stage_ramps.rhytidome.climbs.time_constant_years: "TUNED: as height_max_m. One anchor comes from a measurement, by proxy: thick bark at the stump and little extra at 1.3 m at age 22 (Vihera-Aarnio & Velling 2017, Table 5), read as where the rough bark is."
     bark.stage_ramps.rhytidome.climbs.band_m: "TUNED: as height_max_m; by eye for the uneven upper edge."
     bark.stage_ramps.rhytidome.diameter_m: "TUNED: by eye; thin parts stay smooth at any age."
+    bark.uneven_top: "TUNED: by eye against reference/brastad_sweden_first_snow.jpg, reference/gullmarsskogen_stand_5.jpg and birch-data/summer_reference (Arnhem-Delhuyzen): black fissures climb in tongues, further on one side, with white plates between, to different heights tree to tree. No measurement of this found. strength is a setting: 0 keeps the plain export's bytes."
     bark.peel: "TUNED: by eye on the renders; no survey of peeling by age or size was opened. The stem's white bark peels in thin horizontal sheets (birch-data/REPORT.md section 14, no source)."
     bark.marks: "TUNED: by eye; the dark chevrons above branches are a known birch feature, no measurement."
     leaves.chlorophyll_ramp: "SOURCE: LOPEX93 (Hosgood et al. 1993, EcoSIS, CC0) via tools/leaf_colour_table.py: birch 306-310 at 1.0; linden 86-90 and wild grape 11-15 at 0.5; soybean 321-325 at 0.038, the only yellow leaves in it; log-space mix between (an assumption). Birch itself is measured only at 1.0."
@@ -1813,6 +1814,25 @@ appearance:
       rhytidome:
         diameter_m: [0.05, 0.10]
         climbs: {onset_age: 10.0, height_max_m: 6.0, time_constant_years: 90.0, band_m: 0.7}
+    # A climbing stage stops at no one level: it reaches further in tongues, further on one side, and
+    # to a different height on each tree, all as shares of how high it has climbed.  Below its top it
+    # breaks up, black cracks and white plates, and has covered everything only below solid_share (from
+    # the lightest tree to the darkest).  strength 0 leaves it level, as the plain export has it; 1 is the
+    # look these numbers were set for (the Unreal target has its own, game.unreal.stem_relief.uneven_top).
+    # tongues and patches: turns round the stem, metres up it, weight.  leaves_covered, lightest tree to
+    # darkest: under 1, going up, it leaves solid black soon and bare bark late.
+    uneven_top:
+      strength: 0.0
+      tree_share: 0.45
+      side_share: 0.3
+      tongue_share: 0.6
+      tongue_power: 2.5
+      lowest_share: 0.6
+      solid_share: [0.0, 0.2]
+      leaves_covered: [0.4, 0.8]
+      patches: [[0.07, 0.3, 1.0], [0.2, 0.1, 0.7], [0.03, 0.15, 0.5]]
+      patch_share: 0.4
+      tongues: [[0.16, 0.7, 1.0], [0.035, 0.35, 0.8], [0.01, 0.08, 0.3]]
     # Layered in this order, each covering the last through its own pattern as its weight rises.
     stages:
       - name: twig
@@ -1963,6 +1983,8 @@ appearance:
         rings_under_m: 0.025
         mesh_blur_px: 2
         normal_keeps_deep_share: 0.5
+        # bark.uneven_top.strength, in this target
+        uneven_top: 1.0
         # of the species' geometry.root_flare_extra, as a swell of the stem into the ground
         swell_share: 1.0
         # the rough bark's plates, in place of the plain export's
