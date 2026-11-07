@@ -919,6 +919,12 @@ class GrowthModel:
                               mechanics.pendulous_factor(axis_base_r[term_nodes], mp.pendulous_radius, mp.pendulous_sharpness))
         g_lat = g * np.where(T.order[lat_nodes] == 0, 1.0,
                              mechanics.pendulous_factor(axis_base_r[lat_nodes], mp.pendulous_radius, mp.pendulous_sharpness))
+        limbs = self._limb_nodes(n0)
+        if limbs is not None:
+            g_term = g * np.where(T.order[term_nodes] == 0, 1.0,
+                                  np.where(limbs[term_nodes],
+                                           mechanics.pendulous_factor(axis_base_r[term_nodes], mp.pendulous_radius_limb, mp.pendulous_sharpness),
+                                           mechanics.pendulous_factor(axis_base_r[term_nodes], mp.pendulous_radius, mp.pendulous_sharpness)))
         Gterm = np.zeros(n0)
         Glat = np.zeros(n0)
         # a bud's pull also scales with its stomatal opening: water-starved
@@ -1226,7 +1232,7 @@ class GrowthModel:
             setpoint = np.where(stem, gsa_o[0], setpoint)
             mechanics.bend_and_correct(T, levels, alive, mp, leaves_now, T.leaves[:n].astype(float),
                                        r_prev, setpoint, float(self.sp.shoot.min_height_above_ground),
-                                       self._stem_posture_target(n), stem)
+                                       self._stem_posture_target(n), stem, self._limb_nodes(n))
         T.leaves[:n] = leaves_now
         if not self.lean and self.keyframe_step > 0 and t % self.keyframe_step == 0:
             self.keyframes[t] = T.pos[:n].astype(np.float32).copy()
@@ -1786,6 +1792,16 @@ class GrowthModel:
         return lam, ring
 
     # -- the height limit (height_driver in the species file) -----------
+    def _limb_nodes(self, n: int):
+        """With mechanics.pendulous_radius_limb set: which of the first n nodes belong to a limb, a side axis on the stem.  The
+        pendulous trait is then a twig trait: limbs go soft only where they're thinner than that radius, near their tips.  None if unset."""
+        if getattr(self.sp.mechanics, "pendulous_radius_limb", None) is None:
+            return None
+        T = self.tree
+        on = np.isin(T.axis[:n], np.fromiter(self.leader_axes, np.int64))
+        first = T.is_lateral[:n] & ~on & on[np.maximum(T.parent[:n], 0)]
+        return np.isin(T.axis[:n], T.axis[:n][first])
+
     def _sapwood_loss(self, n: int):
         """The share of last year's sapwood that stops conducting this year, on the first n nodes.  With
         pipe_model.branch_sapwood_senescence set, side axes have their own rate; otherwise one figure for the whole tree."""
@@ -1832,6 +1848,9 @@ class GrowthModel:
         T, hd = self.tree, self.sp.height_driver
         leaders = np.fromiter(self.leader_axes, np.int64)
         tips = np.nonzero(np.isin(T.axis[term_nodes], leaders))[0]
+        if self.loss_of_dominance_year is not None and bool(getattr(hd, "leader_lost_in_crown", False)) and len(term_nodes):
+            # once the leader has lost its dominance (resource.reiteration), whichever tip stands highest carries the height
+            tips = np.arange(len(term_nodes))
         if tips.size:
             bud = int(tips[np.argmax(T.pos[term_nodes[tips], 2])])
             node, is_tip, q, dz = int(term_nodes[bud]), True, float(Qterm[term_nodes[bud]]), float(T.term_dir[term_nodes[bud], 2])
@@ -1866,6 +1885,9 @@ class GrowthModel:
         ratio = getattr(self.sp.height_driver, "lateral_cap_ratio", None)
         if ratio is not None:
             caps = np.minimum(caps, float(ratio) * lead_len / full)
+            if self.reit_axes and bool(getattr(self.sp.height_driver, "leader_lost_in_crown", False)):
+                # a reiterated limb is a small tree on the tree: only the top of the crown holds it back
+                caps = np.where(np.isin(T.axis[starts], np.fromiter(self.reit_axes, np.int64)) & (np.arange(len(starts)) < n_term), float(nmax), caps)
         dz = np.concatenate([T.term_dir[starts[:n_term], 2], T.lat_dir[starts[n_term:], 2]])
         top = max(hd["z"] + lead_len * hd["dz"], float(hd["ref"]))
         room = np.maximum(top - T.pos[starts, 2], 0.0)
@@ -1988,6 +2010,11 @@ class GrowthModel:
         mp = sp.mechanics
         r_ref = np.where(is_lat, T.radius[starts], self._axis_base_radius()[starts])
         weak = mechanics.pendulous_factor(r_ref, float(mp.pendulous_radius), float(mp.pendulous_sharpness))
+        limbs = self._limb_nodes(T.n)
+        if limbs is not None:
+            # a limb's own shoots, new or continuing, have its radius for softness, not the twigs'
+            limb_start = np.where(is_lat, on_lead, limbs[starts])
+            weak = np.where(limb_start, mechanics.pendulous_factor(r_ref, float(mp.pendulous_radius_limb), float(mp.pendulous_sharpness)), weak)
         eta = np.where((order >= 1) & ~lead_ax, eta * weak, eta)
         noise = float(sp.architecture.direction_noise_per_sqrt_m)
         corr = getattr(sp.architecture, "direction_noise_correlation_m", None)

@@ -575,6 +575,9 @@ mechanics:
   # and correction are scaled by s(r) = (r/r_p)^p / (1 + (r/r_p)^p). VERIFY
   pendulous_radius: 0.006
   pendulous_sharpness: 4.0
+  # Set: limbs (side axes on the stem) have this radius instead, so limbs ascend and only their thin ends arch over,
+  # and the hanging is the twigs'.  null (as it has been): one radius for all.  TUNED, against nothing yet.
+  pendulous_radius_limb: null
   # The year's load increment is applied in sub-steps on the updated shape;
   # no internode turns more than this per sub-step (rad). Model guard.
   substeps: 4
@@ -1330,6 +1333,9 @@ height_driver:
   leaf_growth_max: 1.5
   # TUNED, against nothing yet: no side shoot longer than this share of the leader's shoot this year.  null = no limit.
   lateral_cap_ratio: null
+  # Once the leader has lost dominance (resource.reiteration), whichever tip stands highest carries the height, and
+  # reiterated limbs aren't held to the side shoot cap, so the leader can be lost in the crown.  false: the stem's own tip, always.
+  leader_lost_in_crown: false
   # TUNED, against nothing yet: the most of the pool the year's rings may take; the rest of their need waits.  null = no limit.
   ring_share_max: null
   # TUNED, against nothing yet: the share of each year's pool that waits for next year (a small carbon store).  null = none.

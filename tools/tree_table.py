@@ -85,13 +85,102 @@ def snapshot(model, year: int) -> dict:
                  "fine_root_kg": float(carbon.get("leaf_dm_g", 0.0)) * float(lc.fine_root_to_leaf_mass) / 1000.0,
                  "root_share": float(s.get("water", {}).get("root_share", 0.0)),
                  "root_carbon": float(carbon.get("root", 0.0)), "fixed_carbon": float(carbon.get("fixed", 0.0))}
-    return {"age": year, **roots, "d0_mm": 2000.0 * float(T.radius[0]), "stem_top_m": float(T.pos[stem_nodes[-1], 2]), "stem_m3": stem_v,
+    return {"age": year, **roots, "shape": crown_shape(model), "d0_mm": 2000.0 * float(T.radius[0]), "stem_top_m": float(T.pos[stem_nodes[-1], 2]), "stem_m3": stem_v,
             "crown_base_stem_m": crown_base_stem, "lowest_stem_branch_m": lowest_stem,
             "crown_ratio_stem": None if crown_base_stem is None or h <= 0.0 else (h - crown_base_stem) / h, "leader_losses": len(model.leader_losses),
             "stem_kg": stem_v * DENSITY, "branch_kg": (total_v - stem_v) * DENSITY,
             "leaf_kg": float(s["carbon"].get("leaf_dm_g", 0.0)) / 1000.0, "branches": len(real),
             "mean_branch_m": statistics.fmean(real) if real else 0.0, "median_branch_m": statistics.median(real) if real else 0.0,
             "p90_branch_m": float(np.percentile(real, 90)) if real else 0.0}
+
+
+def crown_shape(model) -> dict:
+    """Crown shape from the living nodes, for telling a birch from a cone.  Reads only.
+
+    widest_at: where the widest tenth of the crown sits, 0 at the crown base and 1 at the top.  Width of a tenth: twice the 95th
+    percentile of its leafy nodes' distance from the stem.  width_ratio_top: the top third's mean width over the widest.
+    angle_low, _mid, _up: limbs' angle from vertical at the stem, by where they sit in the crown: from their first node to the point
+    0.5 m along (or their end).  tip_angle: the same from their base to their tip.
+    leader_rival: in the top 20 % of the crown, the thickest limb's base diameter over the stem's diameter there; near 1, no one leader.
+    tops: living tips within 0.5 m of the top, the stem's own not counted.  bare_top_m: stem above its highest limb of 0.3 m or longer.
+    hang_mean, hang_p90, hang_max: hanging runs of 0.2 m or more (internodes over 30 deg below level), length of each.  hang_leaves: share of
+    leaves on such runs.  lone: limbs below the height under which 5 % of the leaves sit.  gap_m: largest stretch of stem with no limb,
+    between the lowest limb and the top.
+    """
+    import numpy as np
+
+    T, s = model.tree, model.stats[-1]
+    n = T.n
+    alive = T.death[:n] < 0
+    H = float(s["height_m"])
+    stem = np.asarray(T.trunk_chain(model.leader_axes), dtype=np.int64)
+    on_lead = np.isin(T.axis[:n], np.fromiter(model.leader_axes, np.int64))
+    limbs = np.nonzero(alive & T.is_lateral[:n] & ~on_lead & on_lead[np.maximum(T.parent[:n], 0)])[0]
+    leaves = np.where(alive, T.leaves[:n], 0.0).astype(float)
+    leafy = np.nonzero(leaves > 0)[0]
+    if not limbs.size or not leafy.size:
+        return {}
+    pos = T.pos[:n]
+    stem_z = pos[stem, 2]
+    at = np.clip(np.searchsorted(stem_z, pos[leafy, 2]), 0, len(stem) - 1)
+    radial = np.hypot(pos[leafy, 0] - pos[stem[at], 0], pos[leafy, 1] - pos[stem[at], 1])
+    order = np.argsort(pos[leafy, 2])
+    cum = np.cumsum(leaves[leafy][order]) / leaves[leafy].sum()
+    z5 = float(pos[leafy, 2][order][np.searchsorted(cum, 0.05)])
+    lv = T.basipetal(T.levels(alive), leaves)[limbs]
+    carrying = limbs[lv >= max(5.0, float(model.sp.stats.crown_base_min_leaf_share) * float(leaves.sum()))]
+    base = float(pos[T.parent[carrying], 2].min()) if carrying.size else z5
+    crown = max(H - base, 1e-6)
+    band = np.clip(((pos[leafy, 2] - base) / crown * 10).astype(int), 0, 9)
+    widths = np.array([2.0 * float(np.percentile(radial[band == b], 95)) if (band == b).sum() >= 5 else 0.0 for b in range(10)])
+    widest = float(widths.max())
+    out = {"widest_at": (int(np.argmax(widths)) + 0.5) / 10.0, "width_ratio_top": float(widths[7:].mean()) / max(widest, 1e-6), "profile": [round(float(x), 2) for x in widths]}
+    rel = (pos[T.parent[limbs], 2] - base) / crown
+    angles, tips, lengths = [], [], []
+    for start in limbs:
+        node, along, first = int(start), 0.0, int(T.parent[start])
+        chord = None
+        while node >= 0 and alive[node]:
+            along += float(T.length[node])
+            if chord is None and along >= 0.5:
+                chord = pos[node] - pos[first]
+            last = node
+            node = int(T.main_child[node])
+        whole = pos[last] - pos[first]
+        chord = whole if chord is None else chord
+        angles.append(float(np.degrees(np.arctan2(np.hypot(chord[0], chord[1]), chord[2]))))
+        tips.append(float(np.degrees(np.arctan2(np.hypot(whole[0], whole[1]), whole[2]))))
+        lengths.append(along)
+    angles, tips, lengths = np.array(angles), np.array(tips), np.array(lengths)
+    for name, lo, hi in (("low", -9.0, 1 / 3), ("mid", 1 / 3, 2 / 3), ("up", 2 / 3, 9.0)):
+        hit = (rel >= lo) & (rel < hi) & (lengths >= 0.3)
+        out[f"angle_{name}"] = float(np.mean(angles[hit])) if hit.any() else None
+        out[f"tip_angle_{name}"] = float(np.mean(tips[hit])) if hit.any() else None
+    top_z = base + 0.8 * crown
+    upper = limbs[pos[T.parent[limbs], 2] >= top_z]
+    rival = 0.0
+    if upper.size:
+        rival = float((T.radius[upper] / np.maximum(T.radius[T.parent[upper]], 1e-9)).max())
+    out["leader_rival"] = rival
+    tips_all = np.nonzero(alive & (T.term[:n] == 1))[0]
+    stem_axes = np.isin(T.axis[tips_all], np.fromiter(model.leader_axes, np.int64))
+    out["tops"] = int(((pos[tips_all, 2] >= H - 0.5) & ~stem_axes).sum())
+    real = pos[T.parent[limbs], 2][lengths >= 0.3]
+    out["bare_top_m"] = H - float(real.max()) if real.size else H
+    run = model.hanging_runs()
+    ends = alive & (T.main_child[:n] < 0)
+    ends[0] = False
+    hr = run[ends]
+    hr = hr[hr >= 0.2]
+    out["hang_mean"] = float(hr.mean()) if hr.size else 0.0
+    out["hang_p90"] = float(np.percentile(hr, 90)) if hr.size else 0.0
+    out["hang_max"] = float(hr.max()) if hr.size else 0.0
+    out["hang_count"] = int(hr.size)
+    out["hang_leaves"] = float(leaves[run[:n] > 0].sum() / max(leaves.sum(), 1e-9))
+    attach = np.sort(pos[T.parent[limbs], 2])
+    out["lone"] = int((attach < z5).sum())
+    out["gap_m"] = float(np.max(np.diff(np.concatenate([attach, [H]])))) if attach.size else H
+    return out
 
 
 def shed_events(model) -> dict:
@@ -370,6 +459,27 @@ def stem(labels: list) -> None:
             print(f"| `{label}` | {s} | {sn.get('leader_losses')} | {p['height_m']:.2f} | {sn.get('stem_top_m') or 0:.2f} | {sn.get('stem_m3') or 0:.3f} | {sn['stem_kg']:.0f} | {rp[0]:.0f} | {sn['branch_kg']:.1f} | {rp[1]:.1f} |")
 
 
+def shape(labels: list, per_seed: bool = False) -> None:
+    """Crown shape at 30, 50, 60.  Angle from vertical.  Published: mean branch angle 43.2 deg, range 15-80, SD 10.4 (clonal plantation, Latvia, Forests 9:52, as the
+    species file quotes it); no value by height in the crown, for where the crown is widest, for leader loss or for how far twigs hang in anything read so far."""
+    print("Angle from vertical. Published: mean branch angle 43.2 deg, range 15-80 (Forests 9:52, as the species file quotes it). Nothing read gives a value by crown position, for where the crown is widest, for leader loss or for twig drop. Means over seeds, (lowest-highest).\n")
+    print("| Set | Age | Seeds | Widest point, share of crown length | Top third's width over the widest | Limb angle at the stem, low | mid | up | Tip chord, low | mid | up | Thickest top-crown limb over stem | Rival tops | Bare stem at the top (m) | Hanging run, mean, p90, max (m) | Hanging runs | Leaves on them | Lone limbs below the crown | Longest gap in limbs (m) |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    for label in labels:
+        runs = load(label)
+        for age in (30, 50, 60):
+            sh = {s: r["snap"][age]["shape"] for s, r in runs.items() if age in r["snap"] and r["snap"][age].get("shape")}
+            if not sh:
+                continue
+            rows = [("mean", list(sh.values()))] + ([(str(s), [x]) for s, x in sh.items()] if per_seed else [])
+            for name, xs in rows:
+                def m(key, f=".1f"):
+                    v = [x[key] for x in xs if x.get(key) is not None]
+                    return "-" if not v else (f"{statistics.fmean(v):{f}}" if len(v) == 1 else fmt(v, f))
+                tag = f"`{label}`" if name == "mean" else f"seed {name}"
+                print(f"| {tag} | {age} | {len(xs)} | {m('widest_at', '.2f')} | {m('width_ratio_top', '.2f')} | {m('angle_low', '.0f')} | {m('angle_mid', '.0f')} | {m('angle_up', '.0f')} | {m('tip_angle_low', '.0f')} | {m('tip_angle_mid', '.0f')} | {m('tip_angle_up', '.0f')} | {m('leader_rival', '.2f')} | {m('tops', '.1f')} | {m('bare_top_m', '.1f')} | {m('hang_mean', '.2f')}, {m('hang_p90', '.2f')}, {m('hang_max', '.2f')} | {m('hang_count', '.0f')} | {m('hang_leaves', '.2f')} | {m('lone', '.1f')} | {m('gap_m', '.1f')} |")
+
+
 def rootsheet(labels: list) -> None:
     """Roots: their share of the carbon, and their mass.  Wood: pi r^2 L x 530 kg/m3, as the crown's.  Fine roots: 0.48 x
     leaf mass (resource.leaf_costs), so they follow the leaves by construction."""
@@ -426,7 +536,7 @@ def main(argv=None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("what", choices=("run", "one", "table", "seeds", "fall", "driver", "young", "stem", "roots"))
+    ap.add_argument("what", choices=("run", "one", "table", "seeds", "fall", "driver", "young", "stem", "roots", "shape", "shapeseeds"))
     ap.add_argument("labels", nargs="*")
     ap.add_argument("--label")
     ap.add_argument("--seeds", type=int, default=8)
@@ -452,6 +562,10 @@ def main(argv=None) -> int:
         stem(a.labels)
     elif a.what == "roots":
         rootsheet(a.labels)
+    elif a.what == "shape":
+        shape(a.labels)
+    elif a.what == "shapeseeds":
+        shape(a.labels, per_seed=True)
     else:
         driver(a.labels[0])
     return 0
