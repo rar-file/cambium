@@ -42,10 +42,72 @@ def light_environment(species, environment):
 
 
 @njit(cache=True)
-def deposit(d, i, j, k, v):
-    """np.add.at(d, (i, j, k), v), in order, on a float32 grid."""
+def deposit(d, pos, v, vs, lo, wrap, check):
+    """Add each point's amount into its voxel of a layer-first grid d[z, x, y], in order: floor(pos / vs) - lo, x and y wrapped when
+    wrap, and only points inside the grid when check (inside in z alone, when wrap)."""
+    nz, nx, ny = d.shape
+    lx, ly, lz = lo[0], lo[1], lo[2]
     for n in range(v.shape[0]):
-        d[i[n], j[n], k[n]] += v[n]
+        i = int(np.floor(pos[n, 0] / vs)) - lx
+        j = int(np.floor(pos[n, 1] / vs)) - ly
+        k = int(np.floor(pos[n, 2] / vs)) - lz
+        if wrap:
+            i = i % nx
+            j = j % ny
+        if check and (k < 0 or k >= nz or (not wrap and (i < 0 or i >= nx or j < 0 or j >= ny))):
+            continue
+        d[k, i, j] += v[n]
+
+
+@njit(cache=True)
+def sample_wrap(s, c, out):
+    """map_coordinates(S, c.T, order=1, mode="grid-wrap") with S held layer first, s[z, x, y]: the same operations.  c: (m, 3)
+    in x, y, z.  Each coordinate is brought into the grid as scipy brings it, and the eight corners are summed in scipy's order,
+    each corner's float32 value read as a double and multiplied by the x, y and z weights in that order."""
+    nz, nx, ny = s.shape
+    dims = (nx, ny, nz)
+    for n in range(c.shape[0]):
+        lo0, lo1, lo2, w0, w1, w2 = 0, 0, 0, 0.0, 0.0, 0.0
+        for h in range(3):
+            v = c[n, h]
+            ln = dims[h]
+            if v < 0.0:
+                if ln <= 1:
+                    v = 0.0
+                else:
+                    v += ln * (int(-v / ln) + 1)
+            elif v > ln - 1:
+                if ln <= 1:
+                    v = 0.0
+                else:
+                    v -= ln * int(v / ln)
+            st = int(math.floor(v))
+            t = v - math.floor(v)
+            if h == 0:
+                lo0, w0 = st, t
+            elif h == 1:
+                lo1, w1 = st, t
+            else:
+                lo2, w2 = st, t
+        x0 = lo0 % nx
+        x1 = (lo0 + 1) % nx
+        y0 = lo1 % ny
+        y1 = (lo1 + 1) % ny
+        z0 = lo2 % nz
+        z1 = (lo2 + 1) % nz
+        a0, a1 = 1.0 - w0, w0
+        b0, b1 = 1.0 - w1, w1
+        g0, g1 = 1.0 - w2, w2
+        t = 0.0
+        t += np.float64(s[z0, x0, y0]) * a0 * b0 * g0
+        t += np.float64(s[z1, x0, y0]) * a0 * b0 * g1
+        t += np.float64(s[z0, x0, y1]) * a0 * b1 * g0
+        t += np.float64(s[z1, x0, y1]) * a0 * b1 * g1
+        t += np.float64(s[z0, x1, y0]) * a1 * b0 * g0
+        t += np.float64(s[z1, x1, y0]) * a1 * b0 * g1
+        t += np.float64(s[z0, x1, y1]) * a1 * b1 * g0
+        t += np.float64(s[z1, x1, y1]) * a1 * b1 * g1
+        out[n] = t
 
 
 @njit(cache=True)

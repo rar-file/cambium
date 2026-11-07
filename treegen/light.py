@@ -166,7 +166,11 @@ class ShadowPropagation:
         """
         vs = self.vs
         has_wood = wood_pos is not None and wood_area is not None and len(wood_pos) > 0
-        if has_wood:
+        layers = bool(getattr(self, "fast_layers", False))
+        if has_wood and layers:
+            hi = np.floor(np.maximum(src_pos.max(0), wood_pos.max(0)) / vs).astype(int)
+            lo = np.floor(np.minimum(src_pos.min(0), wood_pos.min(0)) / vs).astype(int)
+        elif has_wood:
             all_pts = np.concatenate([src_pos, wood_pos])
             hi = np.floor(all_pts.max(0) / vs).astype(int)
             lo = np.floor(all_pts.min(0) / vs).astype(int)
@@ -187,24 +191,31 @@ class ShadowPropagation:
             lo[0] = int(round(x0 / vs))
             lo[1] = int(round(y0 / vs))
             nz = int(hi[2] - lo[2] + 1)
-            idx = np.floor(src_pos / vs).astype(int) - lo
-            idx[:, 0] %= nx
-            idx[:, 1] %= ny
+            if not layers:
+                idx = np.floor(src_pos / vs).astype(int) - lo
+                idx[:, 0] %= nx
+                idx[:, 1] %= ny
         else:
             m = int(math.ceil(self.margin / vs))
             lo[:2] -= m
             hi[:2] += m
             nx, ny, nz = (int(v) for v in (hi - lo + 1))
-            idx = np.floor(src_pos / vs).astype(int) - lo
+            if not layers:
+                idx = np.floor(src_pos / vs).astype(int) - lo
         shape = (int(nx), int(ny), int(nz))
-        layers = bool(getattr(self, "fast_layers", False))
         if layers:
             nx, ny, nz = shape
             D = self._buffer("D", (nz, nx, ny), np.float32)    # layer first: see _sweep_layers
-            fast.deposit(D, idx[:, 2], idx[:, 0], idx[:, 1], (self.a * src_w).astype(np.float32))
-        else:
-            D = np.zeros(shape, dtype=np.float32)
-            np.add.at(D, (idx[:, 0], idx[:, 1], idx[:, 2]), (self.a * src_w).astype(np.float32))
+            fast.deposit(D, np.ascontiguousarray(src_pos), (self.a * src_w).astype(np.float32), vs, lo, periodic is not None, False)
+            if has_wood:
+                fast.deposit(D, np.ascontiguousarray(wood_pos), (float(k_wood) * wood_area / (vs ** 2)).astype(np.float32), vs, lo, periodic is not None, True)
+            field = self._sweep_layers(D, lo, nx, ny, nz, region, read_low, periodic is not None, diffuse_heights)
+            # only the field's own grid stays between years: the rest would cost more memory than its reuse saves in time
+            for name in ("D", "blurred", "B", "H"):
+                self.__dict__.get("_buffers", {}).pop(name, None)
+            return field
+        D = np.zeros(shape, dtype=np.float32)
+        np.add.at(D, (idx[:, 0], idx[:, 1], idx[:, 2]), (self.a * src_w).astype(np.float32))
         if has_wood:
             idx_wood = np.floor(wood_pos / vs).astype(int) - lo
             if periodic is not None:
@@ -216,12 +227,7 @@ class ShadowPropagation:
             if ok_w.any():
                 iw = idx_wood[ok_w]
                 wood_d = (float(k_wood) * wood_area[ok_w] / (vs ** 2)).astype(np.float32)
-                if layers:
-                    fast.deposit(D, iw[:, 2], iw[:, 0], iw[:, 1], wood_d)
-                else:
-                    np.add.at(D, (iw[:, 0], iw[:, 1], iw[:, 2]), wood_d)
-        if layers:
-            return self._sweep_layers(D, lo, nx, ny, nz, region, read_low, periodic is not None, diffuse_heights)
+                np.add.at(D, (iw[:, 0], iw[:, 1], iw[:, 2]), wood_d)
         if self.leaf_sigma > 0:
             mode = ("wrap", "wrap", "constant") if periodic is not None else "constant"
             D = gaussian_filter(D, self.leaf_sigma, mode=mode, truncate=3.0)
@@ -336,6 +342,7 @@ class ShadowPropagation:
             np.maximum(S, 0.0, out=S)
             field = LightField(self, S.transpose(1, 2, 0), lo, periodic)
             field.diffuse_layers = diffuse
+            field.S_layers = S
             return field
         B = self._buffer("B", tf.shape, np.complex64)
         for z in range(top, bottom - 1, -1):
@@ -348,6 +355,7 @@ class ShadowPropagation:
         np.maximum(S, 0.0, out=S)
         field = LightField(self, S.transpose(1, 2, 0), lo, periodic)
         field.diffuse_layers = diffuse
+        field.S_layers = S
         return field
 
 
@@ -399,7 +407,12 @@ class LightField:
             # wrap horizontally; above or below the grid there is no shade
             c[:, 0] %= self.S.shape[0]
             c[:, 1] %= self.S.shape[1]
-            out = map_coordinates(self.S, c.T, order=1, mode="grid-wrap")
+            s_layers = self.__dict__.get("S_layers")
+            if s_layers is not None:
+                out = np.empty(len(c), np.float32)
+                fast.sample_wrap(s_layers, np.ascontiguousarray(c), out)
+            else:
+                out = map_coordinates(self.S, c.T, order=1, mode="grid-wrap")
             return np.where((c[:, 2] < -0.5) | (c[:, 2] > self.S.shape[2] - 0.5), 0.0, out)
         return map_coordinates(self.S, c.T, order=1, mode="constant", cval=0.0)
 
