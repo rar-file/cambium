@@ -1218,6 +1218,10 @@ class GrowthModel:
         sm = ~g_lat_mask & is_spur
         sn = lat_nodes[sm]
         old = (t - T.spur_birth[sn] >= bf.spur_lifespan) if bf.spur_lifespan is not None else np.zeros(sn.size, bool)
+        full_age = getattr(sp.crown_frame, "full_crown_spur_years", None) if self._frame_on() else None
+        if full_age and getattr(self, "_frame_crown_full", False):
+            # a crown with all the leaves it can hold makes room at the back: its oldest short shoots go, so the foliage moves out with the new shoots
+            old = old | (t - T.spur_birth[sn] >= int(full_age))
         sdie = sn[self._falls(Qlat[sn], q_die) | old]
         T.lat[sdie] = LAT_DEAD
         for nd in sdie.tolist():
@@ -1852,6 +1856,7 @@ class GrowthModel:
                     # spends everything on more leaves, and they pay for more still
                     room_la = max(float(sp.crown_frame.crown_lai_max) * math.pi * self._frame_reach_max() ** 2 - float(la_now[0]), 0.0)
                     full_crown = room_la < limit
+                    self._frame_crown_full = full_crown
                     limit = min(limit, room_la)
 
                 def side_area(x):
