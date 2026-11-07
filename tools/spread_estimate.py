@@ -101,8 +101,13 @@ def run(a) -> dict:
         if leaves is not None:
             leaves[:, 0] = (leaves[:, 0] + lx / 2) % lx - lx / 2
             leaves[:, 1] = (leaves[:, 1] + ly / 2) % ly - ly / 2
-        R.read_canopy(leaves)
-        light = np.where(R.overhead >= float(sp.regeneration.spread.canopy_cover_max), 0.25, 1.0)
+        # each tree's leaf area, shared over its crown's points: a stand of 4 m2/m2 at full cover
+        area = None
+        if tall.any():
+            per_point = (4.0 * math.pi * r * r) / (3 * 8)
+            area = np.tile(np.repeat(per_point, 8), 3)
+        R.read_canopy(leaves, area)
+        light = np.where(R.overhead >= float(sp.regeneration.spread.canopy_lai_max), 0.25, 1.0)
         occupied = np.zeros(R.cx.shape, bool)
         i, j = R._cell(np.stack([X, Y], 1))
         occupied[i, j] = True

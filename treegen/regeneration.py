@@ -162,12 +162,13 @@ class SpreadRegeneration(Regeneration):
       lognormal has a hole at the tree and too thin a tail (``kernel``).
     * Crops differ between years, the same year for every tree: mast years, and a tree
       sheds seed only from a stem diameter on, so a cohort doesn't start all at once.
-    * A germinant's chance rises with light between two values, and it needs a sky
-      over it: none takes where the canopy covers most of the ground around it.  The
-      plain class has one cut-off, the light at which birch leaves die, and that
-      passes the ground of a closed canopy in this model (it reads 22-34 %).  The
-      light field alone can't tell a gap from a canopy here: its contrast is low
-      (a windthrow plot read 0.42 at the 10th percentile, 0.52 at the 90th).
+    * A germinant's chance rises with light between two values, and it needs an opening
+      over it: none takes where the leaf area overhead, read over a crown's width, is
+      over ``canopy_lai_max``.  The plain class has one cut-off, the light at which birch
+      leaves die, and that passes the ground of a closed canopy in this model (it read
+      22-34 % on older settings).  The light field alone can't tell a gap from a canopy
+      here: its contrast is low (a windthrow plot read 0.42 at the 10th percentile, 0.52
+      at the 90th).
     * Open ground starts with the mineral soil of old ground (new exposure balances
       cover), not the share bared by a stand-replacing disturbance.
     * ``max_recruits_per_year``, a limit on memory and not a model value: it keeps
@@ -212,15 +213,16 @@ class SpreadRegeneration(Regeneration):
         j = np.floor((xy[:, 1] + 0.5 * self.ly) / self.csy).astype(int) % self.ny
         return i % self.nx, j
 
-    def read_canopy(self, leaves: np.ndarray | None) -> None:
-        """Share of the ground around each cell with a leaf above 2 m directly over it."""
+    def read_canopy(self, leaves: np.ndarray | None, leaf_area: np.ndarray | None = None) -> None:
+        """Leaf area above 2 m per m2 of ground around each cell (m2 per m2), over a crown's width."""
         grid = np.zeros((self.nx, self.ny))
         if leaves is not None and len(leaves):
-            high = leaves[leaves[:, 2] >= 2.0]
-            if len(high):
-                i, j = self._cell(high[:, :2])
-                grid[i, j] = 1.0
-        self.overhead = np.clip(np.fft.irfft2(np.fft.rfft2(grid) * self._cover_ft, s=grid.shape), 0.0, 1.0)
+            high = leaves[:, 2] >= 2.0
+            if high.any():
+                i, j = self._cell(leaves[high, :2])
+                np.add.at(grid, (i, j), np.ones(int(high.sum())) if leaf_area is None else leaf_area[high])
+                grid /= self.csx * self.csy
+        self.overhead = np.maximum(np.fft.irfft2(np.fft.rfft2(grid) * self._cover_ft, s=grid.shape), 0.0)
 
     def count_trees(self, big_xy: np.ndarray) -> None:
         """Big trees in each 10 m cell of the ground, as Liu & Evans counted them."""
@@ -331,7 +333,7 @@ class SpreadRegeneration(Regeneration):
         # already holds that shade: both seedbeds read only the canopy's light here
         chance_light = self.light_chance(canopy_light)
         if self.overhead is not None:
-            chance_light = chance_light * (self.overhead < float(p.spread.canopy_cover_max))
+            chance_light = chance_light * (self.overhead < float(p.spread.canopy_lai_max))
         e_m = rain * self.mineral * float(p.establishment_mineral) * chance_light
         e_o = rain * organic * float(p.establishment_organic) * chance_light
         expected = e_m + e_o
@@ -359,6 +361,9 @@ class SpreadRegeneration(Regeneration):
                      "ground_light_p10": float(np.percentile(canopy_light, 10)),
                      "ground_light_p90": float(np.percentile(canopy_light, 90)),
                      "open_share": float((chance_light > 0.0).mean()),
+                     "canopy_lai_mean": float(self.overhead.mean()) if self.overhead is not None else None,
+                     "canopy_lai_p05": float(np.percentile(self.overhead, 5)) if self.overhead is not None else None,
+                     "light_at_thinnest_canopy": float(canopy_light[self.overhead <= np.percentile(self.overhead, 5)].mean()) if self.overhead is not None else None,
                      "expected_per_m2": float(expected.sum() / area), "recruits": len(out),
                      "recruits_on_mineral": sum(1 for r in out if r[2]),
                      "recruits_offered": int(len(hit[0])), "mineral_share": float(self.mineral.mean())}

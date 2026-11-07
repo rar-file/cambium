@@ -284,9 +284,12 @@ def test_seedlings_take_in_the_open_and_not_under_a_closed_canopy():
     seeds = np.array([1e7])
     free = np.zeros(r.cx.shape, bool)
     closed = np.full(r.cx.shape, 0.22)     # this model's closed canopy, at the ground
+    # under a closed canopy's leaf area nothing takes, whatever the light reads
+    r.read_canopy(np.stack([r.cx.ravel(), r.cy.ravel(), np.full(r.cx.size, 15.0)], 1), np.full(r.cx.size, 4.0 * r.csx * r.csy))
     assert r.step(xy, seeds, closed, 0.38, free) == []
+    r.overhead = None
     assert len(r.step(xy, seeds, np.ones(r.cx.shape), 0.38, free)) > 100
-    half = np.where(r.cx < 0.0, 0.22, 1.0)                # half the ground is a gap
+    half = np.where(r.cx < 0.0, 0.10, 1.0)                # half the ground is a gap
     placed = np.array(r.step(xy, seeds, half, 0.38, free))
     assert len(placed) and (placed[:, 0] > -0.1 * r.csx).mean() > 0.99
 
@@ -296,12 +299,12 @@ def test_no_seedling_takes_under_cover_however_bright_the_light_reads():
     r.count_trees(np.zeros((0, 2)))
     xs, ys = np.meshgrid(np.arange(-20.0, 0.0, 0.5), np.arange(-20.0, 20.0, 0.5), indexing="ij")
     canopy = np.stack([xs.ravel(), ys.ravel(), np.full(xs.size, 15.0)], 1)    # crowns over the half with x < 0
-    r.read_canopy(canopy)
-    assert r.overhead[(r.cx > -15.0) & (r.cx < -5.0)].min() > 0.9 and r.overhead[(r.cx > 5.0) & (r.cx < 15.0)].max() < 0.1
+    r.read_canopy(canopy, np.full(xs.size, 4.0 * 0.25))                       # 4 m2 of leaf per m2 of ground
+    assert r.overhead[(r.cx > -15.0) & (r.cx < -5.0)].min() > 3.5 and r.overhead[(r.cx > 5.0) & (r.cx < 15.0)].max() < 0.4
     placed = np.array(r.step(np.array([[0.0, 0.0]]), np.array([1e7]), np.ones(r.cx.shape), 0.38, np.zeros(r.cx.shape, bool)))
     assert len(placed) > 50 and (placed[:, 0] < -6.0).sum() <= 0.1 * len(placed)    # what's left is at the far edge, across the repeat
     low = np.stack([xs.ravel(), ys.ravel(), np.full(xs.size, 1.0)], 1)        # young growth under 2 m is no canopy
-    r.read_canopy(low)
+    r.read_canopy(low, np.full(xs.size, 1.0))
     assert r.overhead.max() == 0.0
 
 

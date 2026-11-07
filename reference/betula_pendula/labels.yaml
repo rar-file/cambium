@@ -398,7 +398,7 @@ regeneration.spread.mast_share: {status: sourced, value: 0.333, source: 'Sarvas 
 regeneration.spread.mast_factor: {status: sourced, value: 4.3, source: 'Tiebel et al. 2020: 1,500,000 against 350,000 seeds at DBH 20 cm, 2016 against 2015', checked: page}
 regeneration.spread.ln_mean_m: {status: sourced, value: 4.18, source: 'Liu & Evans 2021, Forests 12:929, Table 1: 65 m in the open', checked: page}
 regeneration.spread.ln_mean_per_tree: {status: sourced, value: -0.18, source: 'Liu & Evans 2021, Table 1: 38 m at 3 trees a 10 m cell', checked: page}
-regeneration.spread.establishment_light: {status: TUNED, value: [0.3, 0.6], against: 'recruits dying at 25-30 % light; gaps and open ground taking in full'}
-regeneration.spread.canopy_cover_max: {status: TUNED, value: 0.5, against: 'one windthrow plot, where the light field could not tell a gap from a canopy'}
-regeneration.spread.canopy_radius_m: {status: TUNED, value: 3.0, against: 'as canopy_cover_max; about a crown width'}
+regeneration.spread.establishment_light: {status: TUNED, value: [0.15, 0.4], against: 'a storm gap taking: about 25 % of the sky in a 14 m gap under 24 m (my arithmetic); birch in openings of 78-314 m2, Hokka et al. 2012'}
+regeneration.spread.canopy_lai_max: {status: TUNED, value: 2.0, against: 'closed canopy LAI 3.6-5.4, Hagemeier and Leuschner 2019b; storm patches on server plots'}
+regeneration.spread.canopy_radius_m: {status: TUNED, value: 3.0, against: 'as canopy_lai_max; about a crown width'}
 regeneration.spread.cell_m: {status: TUNED, value: 2.0, against: 'memory, not biology: the densest a young stand can be is one recruit per 4 m2 a year'}

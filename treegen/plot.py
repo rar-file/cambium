@@ -249,7 +249,7 @@ class Plot:
             # long past its disturbance (new exposure = cover each year)
             self.regen.mineral[:] = self.regen.equilibrium_mineral()
 
-    def _regenerate(self, field, leaves=None):
+    def _regenerate(self, field, leaves=None, leaf_area=None):
         """Seed rain from the living trees onto the ground grid, germination
         where the light and seedbed allow, and this year's recruits."""
         R = self.regen
@@ -279,7 +279,7 @@ class Plot:
             # what a seed's way out depends on: the big trees around its source
             big = [self._offset(k)[:2] for k in self.alive if self._dbh(k) * 100.0 >= float(R.p.spread.tree_dbh_cm)]
             R.count_trees(np.array(big).reshape(-1, 2))
-            R.read_canopy(leaves)
+            R.read_canopy(leaves, leaf_area)
         ground = light.reshape(R.cx.shape)
         for x, y, mineral in R.step(np.array(xy).reshape(-1, 2), np.array(seeds), ground, field_layer, occupied):
             self._recruit(float(x), float(y), mineral)
@@ -378,7 +378,8 @@ class Plot:
         else:
             self._thin()
         if getattr(self, "regen", None) is not None and self.alive:
-            self._regenerate(field, np.concatenate(srcs) if srcs and isinstance(self.regen, SpreadRegeneration) else None)
+            spreading = isinstance(self.regen, SpreadRegeneration) and srcs
+            self._regenerate(field, np.concatenate(srcs) if spreading else None, np.concatenate(ws) * self.light.leaf_area if spreading else None)
         self.stats.append(self.measure())
 
     def _dbh(self, k):
