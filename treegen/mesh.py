@@ -52,6 +52,7 @@ class MeshSettings:
     stem_rings_under: float = 0.025     # only add rings where the edge asked for is under this
     buttress_hold_m: float = 0.0        # the stem's root ridges keep their full size down to at least this far below z = 0
     no_stem_ridges: bool = False        # no ridges, bell or fillets from roots on the stem: whoever asks shapes the foot itself
+    stem_stub_share: float = 0.0        # where the old trunk runs on past a replacement leader no thicker than this share of it, the replacement is still the stem
 
 
 
@@ -276,14 +277,16 @@ def plan_chunks(T, select, radius, geometry, settings: MeshSettings | None = Non
         yield np.concatenate(parts), T.axis[first[C]]
 
 
-def continue_trunk(tree, select):
+def continue_trunk(tree, select, radius=None, stub_share: float = 0.0):
     """A view of ``tree`` for drawing, in which the stem is one tube: where
     the trunk (axis 0) ends because its leader was lost and the way to the
     top goes on in a lateral (a replacement leader), that lateral's axis is
     drawn as axis 0, without the end cap on the old trunk and the branch
     collar on the lateral.  Only where the trunk has no selected
-    continuation of its own (a living fork is left as it is).  The tree
-    itself is not changed."""
+    continuation of its own (a living fork is left as it is), or, with
+    ``stub_share``, one no thicker than that share of the lateral: the lost
+    leader's last thread, which is drawn as a side shoot.  The tree itself is
+    not changed."""
     n = tree.n
     sel = np.asarray(select[:n], bool)
     idx = np.nonzero(sel)[0]
@@ -302,7 +305,13 @@ def continue_trunk(tree, select):
     for a, b in zip(path[:-1], path[1:]):
         if axis[a] == 0 and axis[b] != 0 and lat[b]:
             kids = idx[par[idx] == a]
-            if not np.any(axis[kids] == 0):
+            own = kids[axis[kids] == 0]
+            if own.size and stub_share > 0.0 and np.max(radius[own]) <= stub_share * radius[b]:
+                depth = np.asarray(tree.depth[:n])
+                axis[(axis == 0) & (depth > depth[a])] = axis.max() + 1
+                lat[own] = True
+                own = own[:0]
+            if not own.size:
                 axis[axis == axis[b]] = 0
                 lat[b] = False
                 changed = True
@@ -317,7 +326,7 @@ def build_mesh_chunks(tree, select, radius, geometry, settings: MeshSettings | N
     """Mesh the selection a chunk at a time (see ``plan_chunks``); yields
     MeshData.  Peak memory follows the chunk size, not the tree size.  A stem
     whose leader was replaced is drawn as one tube (``continue_trunk``)."""
-    tree = continue_trunk(tree, select)
+    tree = continue_trunk(tree, select, radius, settings.stem_stub_share if settings else 0.0)
     full = np.asarray(select[: tree.n], bool).copy()
     full[0] = False
     sel = np.zeros(tree.n, bool)

@@ -1769,7 +1769,8 @@ appearance:
     bark.stage_ramps.rhytidome.climbs.time_constant_years: "TUNED: as height_max_m. One anchor comes from a measurement, by proxy: thick bark at the stump and little extra at 1.3 m at age 22 (Vihera-Aarnio & Velling 2017, Table 5), read as where the rough bark is."
     bark.stage_ramps.rhytidome.climbs.band_m: "TUNED: as height_max_m; by eye for the uneven upper edge."
     bark.stage_ramps.rhytidome.diameter_m: "TUNED: by eye; thin parts stay smooth at any age."
-    bark.uneven_top: "TUNED: by eye against reference/brastad_sweden_first_snow.jpg, reference/gullmarsskogen_stand_5.jpg and birch-data/summer_reference (Arnhem-Delhuyzen): black fissures climb in tongues, further on one side, with white plates between, to different heights tree to tree. No measurement of this found. strength is a setting: 0 keeps the plain export's bytes."
+    bark.uneven_top: "TUNED: by eye against reference/brastad_sweden_first_snow.jpg, reference/gullmarsskogen_stand_5.jpg and birch-data/summer_reference (Arnhem-Delhuyzen, Bouleau verruqueux Tronc 1, Hange-Birke Stamm alter Baum 9992): black fissures climb in tongues, further on one side, with hard-edged white plates 5-15 cm wide left between, to different heights tree to tree. Plates of old bark 3-8 cm across and 10-30 cm long. No measurement of this found. strength is a setting: 0 keeps the plain export's bytes."
+    bark.uneven_top.stage_ramps: "TUNED: by eye, against reference/meilen_switzerland_solitary.jpg, oslo_norway.jpg and hallinden_sweden.jpg, limb widths judged against the stem's in the same photo: white holds on limbs of about 5 cm and more and goes dark by about 2.5 cm. birch-data/REPORT.md section 14 says branches stay white, with no source; these photos don't bear that out for thin ones. No measurement found."
     bark.peel: "TUNED: by eye on the renders; no survey of peeling by age or size was opened. The stem's white bark peels in thin horizontal sheets (birch-data/REPORT.md section 14, no source)."
     bark.marks: "TUNED: by eye; the dark chevrons above branches are a known birch feature, no measurement."
     leaves.chlorophyll_ramp: "SOURCE: LOPEX93 (Hosgood et al. 1993, EcoSIS, CC0) via tools/leaf_colour_table.py: birch 306-310 at 1.0; linden 86-90 and wild grape 11-15 at 0.5; soybean 321-325 at 0.038, the only yellow leaves in it; log-space mix between (an assumption). Birch itself is measured only at 1.0."
@@ -1819,7 +1820,6 @@ appearance:
     game.unreal.roots.under_share: "TUNED: as visible_radii."
     game.unreal.roots.sink_power: "TUNED: as visible_radii. A root goes under while it's still thick, so it cuts the ground in a long rounded tongue, not a spike."
     game.unreal.stem_relief.relief_on_swell: "TUNED: by eye. A swell's face is slanted, so the map is stretched over it, and full relief folds the surface; the normal map keeps the look."
-    game.unreal.stem_relief.plates: "TUNED: plates of old bark 3-8 cm across and 10-30 cm long, with few breaks across them, read by eye off birch-data/summer_reference/Hange-Birke (Stamm alter Baum 9992) and the Arnhem-Delhuyzen photo. The plain export's rhytidome stays as it was."
     game.unreal.roots.origin_below_lowest_m: "DERIVED: M_Surface's moss at a model's base reads height above the origin and takes up to GroundBlendCm 20 + 6 cm of noise (the game's Tools/Editor/build_materials.py), so an origin this far below the tree keeps that moss, which smears up an upright stem, off."
     game.unreal.roots.moss_reach_m: "TUNED: by eye on reference/gullmarsskogen_stand_5.jpg: moss to about 30-40 cm on old stems, less on young."
     game.unreal.roots.moss_colour: "TUNED: by eye against reference/gullmarsskogen_stand_5.jpg; a little under the mean colour of the game's Moss001 at the albedo it holds moss to, 0.085 (the game's build_materials.py GROUND_ALBEDO), and greener, as a moss cushion on a stem."
@@ -1865,25 +1865,33 @@ appearance:
       rhytidome:
         diameter_m: [0.05, 0.10]
         climbs: {onset_age: 10.0, height_max_m: 6.0, time_constant_years: 90.0, band_m: 0.7}
-    # A climbing stage stops at no one level: it reaches further in tongues, further on one side, and
-    # to a different height on each tree, all as shares of how high it has climbed.  Below its top it
-    # breaks up, black cracks and white plates, and has covered everything only below solid_share (from
-    # the lightest tree to the darkest).  strength 0 leaves it level, as the plain export has it; 1 is the
-    # look these numbers were set for (the Unreal target has its own, game.unreal.stem_relief.uneven_top).
-    # tongues and patches: turns round the stem, metres up it, weight.  leaves_covered, lightest tree to
-    # darkest: under 1, going up, it leaves solid black soon and bare bark late.
+    # The bark's look, on or off.  A climbing stage stops at no one level.  At each height a share of the
+    # bark has gone over, all of it below solid_share of how high the stage has climbed, none above the top,
+    # which moves by tree_share, side_share and tongue_share of that climb, and falls_off says how fast the
+    # share drops between (over 1, soon; under 1, late).  solid_share and falls_off run from the lightest tree
+    # to the darkest.  Which bark goes first is the field "islands", so what shows is hard-edged black tongues
+    # and white plates, whatever the tree.  tongues and islands: turns round the stem, metres up it, weight.
+    # plates: rough bark's, at their real size.  stage_ramps: how thick a limb is before it's white.
+    # strength 0 leaves all of this out, as the plain export has it; the Unreal target has its own switch,
+    # game.unreal.stem_relief.uneven_top.
     uneven_top:
       strength: 0.0
-      tree_share: 0.45
-      side_share: 0.3
-      tongue_share: 0.6
+      tree_share: 0.25
+      side_share: 0.4
+      tongue_share: 1.0
       tongue_power: 2.5
-      lowest_share: 0.6
-      solid_share: [0.0, 0.2]
-      leaves_covered: [0.4, 0.8]
-      patches: [[0.07, 0.3, 1.0], [0.2, 0.1, 0.7], [0.03, 0.15, 0.5]]
-      patch_share: 0.4
+      lowest_share: 0.45
+      solid_share: [0.08, 0.2]
+      falls_off: [0.9, 0.55]
       tongues: [[0.16, 0.7, 1.0], [0.035, 0.35, 0.8], [0.01, 0.08, 0.3]]
+      islands: [[0.07, 0.4, 1.0], [0.025, 0.14, 0.45], [0.2, 0.9, 0.5]]
+      island_edge: 0.05
+      plates: {size_m: [0.03, 0.16], furrow_width: 0.6, cross_crack: 0.3, lit: [0.75, 1.0]}
+      # the lost leader's last thread: at no more than this share of the replacement's radius, the replacement is the stem
+      stem_stub_share: 0.25
+      stage_ramps:
+        papery:
+          diameter_m: [0.025, 0.07]
     # Layered in this order, each covering the last through its own pattern as its weight rises.
     stages:
       - name: twig
@@ -2061,8 +2069,6 @@ appearance:
         uneven_top: 1.0
         # of the species' geometry.root_flare_extra, as a swell of the stem into the ground
         swell_share: 1.0
-        # the rough bark's plates, in place of the plain export's
-        plates: {size_m: [0.03, 0.16], furrow_width: 0.6, cross_crack: 0.3}
       # leaf atlas: columns from this chlorophyll fraction to that one; a leaf's level picks its column
       leaf_levels: 8
       leaf_level_range: [0.04, 1.0]
