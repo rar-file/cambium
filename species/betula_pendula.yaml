@@ -538,6 +538,9 @@ tropism:
   # width and kept limbs almost parallel to the stem (poplar-like).  Higher
   # orders VERIFY.
   setpoint_angle_deg: [0, 43, 45, 65]
+  # true: twigs (order 2 and up) keep their gravitropism however thin they are, so a set-point below level above makes
+  # them grow down, in curtains.  false (as it has been): thin shoots lose it.  TUNED, against nothing yet.
+  twigs_keep_gravitropism: false
 
 mechanics:
   # Bending under load and posture control ([J00], [AF09]; mechanics.py).
@@ -1474,6 +1477,8 @@ height_driver:
   leaf_growth_max: 1.5
   # TUNED, against nothing yet: no side shoot longer than this share of the leader's shoot this year.  null = no limit.
   lateral_cap_ratio: null
+  # TUNED, against nothing yet: no twig (order 2 and up) longer than this share of the leader's shoot.  null = no limit of its own.
+  twig_cap_ratio: null
   # Once the leader has lost dominance (resource.reiteration), whichever tip stands highest carries the height, and
   # reiterated limbs aren't held to the side shoot cap, so the leader can be lost in the crown.  false: the stem's own tip, always.
   leader_lost_in_crown: false

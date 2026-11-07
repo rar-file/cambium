@@ -1883,6 +1883,11 @@ class GrowthModel:
         lead_len = float(full[lead_at]) * float(min(hd["v"], nmax))
         caps = np.full(len(starts), float(nmax))
         ratio = getattr(self.sp.height_driver, "lateral_cap_ratio", None)
+        twig_ratio = getattr(self.sp.height_driver, "twig_cap_ratio", None)
+        if twig_ratio is not None:
+            # twigs (shoots of order 2 and up) have a cap of their own, so the limbs that carry them keep the lead
+            is_twig = (T.order[starts].astype(np.int64) + (np.arange(len(starts)) >= n_term)) >= 2
+            caps = np.where(is_twig, np.minimum(caps, float(twig_ratio) * lead_len / full), caps)
         if ratio is not None:
             caps = np.minimum(caps, float(ratio) * lead_len / full)
             if self.reit_axes and bool(getattr(self.sp.height_driver, "leader_lost_in_crown", False)):
@@ -2015,6 +2020,9 @@ class GrowthModel:
             # a limb's own shoots, new or continuing, have its radius for softness, not the twigs'
             limb_start = np.where(is_lat, on_lead, limbs[starts])
             weak = np.where(limb_start, mechanics.pendulous_factor(r_ref, float(mp.pendulous_radius_limb), float(mp.pendulous_sharpness)), weak)
+        if bool(getattr(tr, "twigs_keep_gravitropism", False)):
+            # twigs turn towards their own set-point however thin they are; with a set-point below level, they grow down
+            weak = np.where(order >= 2, 1.0, weak)
         eta = np.where((order >= 1) & ~lead_ax, eta * weak, eta)
         noise = float(sp.architecture.direction_noise_per_sqrt_m)
         corr = getattr(sp.architecture, "direction_noise_correlation_m", None)
