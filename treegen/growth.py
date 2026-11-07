@@ -1861,6 +1861,8 @@ class GrowthModel:
             self._frame_since = 0.0    # stem grown since the last named bud (m)
             self._frame_azimuth = 0.0
             self._frame_rng = np.random.default_rng([self.seed, 7741])
+            # does this tree fork?  Drawn once, as clones differ (Zeltins et al. 2018): reiterated limbs of the others stay limbs
+            self._frame_forks = bool(self._frame_rng.random() < float(self.sp.crown_frame.fork_share_of_trees))
         return d
 
     def _frame_setpoints(self) -> np.ndarray:
@@ -1869,7 +1871,7 @@ class GrowthModel:
         out = np.full(len(self.axis_phase), np.nan)
         if self._frame_gsa:
             out[np.fromiter(self._frame_gsa.keys(), np.int64)] = np.fromiter(self._frame_gsa.values(), float)
-        if self.reit_axes:
+        if self.reit_axes and self._frame_forks:
             # a limb that has become a small tree on the tree stands up, as the rest of the model has it
             out[np.fromiter(self.reit_axes, np.int64)] = math.radians(float(self.sp.resource.reiteration.setpoint_angle_deg))
         return out
@@ -2028,10 +2030,10 @@ class GrowthModel:
         lead_len = float(full[hd["lead_at"]]) * float(min(hd["v"], nmax)) if "lead_at" in hd else 0.0
         longest = max(lead_len, float(cf.limb_shoot_floor_m))
         grow = np.minimum(float(cf.chase) * np.maximum(room, 0.0), longest)
-        if self.reit_axes:
+        if self.reit_axes and self._frame_forks:
             # a reiterated limb goes up as a second top: only the room under the tree's top holds it (_frame_room)
             grow = np.where(limb_tip[at] & np.isin(T.axis[node], np.fromiter(self.reit_axes, np.int64)), longest, grow)
-        light = np.minimum(1.0, q_bud[at] / float(cf.light_full))
+        light = np.minimum(q_bud[at], 1.0)      # a limb's yearly shoot goes with the light at its own tip
         # a limb loses vigour as it ages (resource.branch_aging_years, Barthelemy & Caraglio 2007), so the crown's old lower limbs fall
         # behind the younger ones above them, as a crown in the open needs, or it's a cone
         age = np.where(limb_tip[at], np.maximum(self.year + 1.0 - T.scaffold_birth[node], 0.0), 0.0)

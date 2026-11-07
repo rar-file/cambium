@@ -1386,10 +1386,13 @@ crown_frame:
   angle_sd_deg: 10.4
   angle_min_deg: 15.0
   angle_max_deg: 80.0
+  # The share of trees that fork in the upper crown, drawn once per tree: their reiterated limbs (resource.reiteration) climb as second tops.
+  # Double tops in 34.9 % of trees, 6.0-75.1 by clone: Zeltins et al. 2018 Table 1, as above; not defined there.  Age 40, selected clones.
+  fork_share_of_trees: 0.349
   # -- how far they reach ------------------------------------------------------------------------------------------------
   # Crown diameter of an open-grown birch from its stem, m and cm over bark: Hemery et al. 2005 Table 1, as the target file
   # gives it (paper not opened).  Evo and Tallo stay out of this, so they remain checks.  A stand's crowns fall short of it in
-  # each other's shade, by light_full below.
+  # each other's shade: a limb's yearly shoot goes with the light at its tip.
   crown_a: 0.932
   crown_b: 0.177
   # TUNED, against the open-grown band in this file's reference.dbh: 40-50 cm at 60, where the curve's height is 23.7 m, so about 1.9.
@@ -1424,8 +1427,6 @@ crown_frame:
   limb_shoot_floor_m: 0.3
   # TUNED, against nothing: the longest shoot of anything finer in a year (m).
   twig_shoot_max_m: 0.4
-  # TUNED, against nothing: light at a limb's tip from which light no longer limits its shoot.
-  light_full: 0.6
   # TUNED, against Repola 2008 Eq. 12's foliage at a 45 cm stem (15 kg, about 200 m2 at SLA 13.6) over Hemery's crown there (62 m2):
   # the most leaf area the crown carries, per m2 of the frame's crown.  A sink limit standing in for what really stops a tree with light to
   # spare.  Eq. 12 is valid for DBH 11-26 cm, so 45 cm is outside its range.

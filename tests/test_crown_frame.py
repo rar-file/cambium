@@ -111,3 +111,37 @@ def test_steep_limb_does_not_climb_the_stem():
     alive = T.death[: T.n] < 0
     length = np.bincount(T.axis[: T.n][alive], weights=T.length[: T.n][alive])
     assert float(length[T.axis[limb]].max()) < 0.5 * float(model.stats[-1]["height_m"])
+
+
+def test_a_full_crown_stops_making_leaves_and_its_surplus_is_paid_for():
+    """In the open, leaf area stays near the frame's limit, and the stem's extra rings come out of carbon the crown couldn't use."""
+    model = grow(22, ON, stand=False)
+    cf = model.sp.crown_frame
+    room = float(cf.crown_lai_max) * np.pi * model._frame_reach_max() ** 2
+    # new shoots' leaves count from next spring, and a year's shoots can overshoot a little
+    assert float(model.stats[-1]["leaf_area_m2"]) < 1.6 * room
+
+
+def test_whether_a_tree_forks_is_drawn_once_per_tree():
+    sp, _ = load_species("betula_pendula")
+    checkpoint.set_values(sp, ON)
+    env, _ = load_environment("sweden_open_field")
+    drawn = []
+    for seed in range(1, 41):
+        model = GrowthModel(sp, make_environment(env), seed, stand=True, soil=make_soil(env), lean=True)
+        model._frame_buds()
+        first = model._frame_forks
+        model._frame_buds()
+        assert model._frame_forks == first
+        drawn.append(first)
+    assert 0.15 < sum(drawn) / len(drawn) < 0.6      # about 0.349
+
+
+def test_limbs_keep_their_distance_on_the_stem():
+    model = grow(14, ON)
+    T = model.tree
+    z = np.sort(T.pos[T.parent[limbs_of(model)], 2])
+    cf = model.sp.crown_frame
+    gaps = np.diff(z)
+    # the floor, less its scatter, along the stem; a little under for a leaning stem
+    assert float(np.median(gaps)) >= 0.9 * float(cf.gap_min_m) * (1.0 - float(cf.gap_scatter))
