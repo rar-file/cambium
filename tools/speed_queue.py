@@ -60,9 +60,10 @@ def trees(name: str) -> int:
 
 
 def plots(name: str) -> int:
+    name, _, count = name.partition(":")      # A_base:2 is two plots instead of five
     sets, first = SETS[name]
     label = f"{PREFIX}_p_{name}"
-    cmd = [sys.executable, str(ROOT / "tools" / "ensemble.py"), "plots", "--label", label, "--seeds", "5", "--first-seed", str(1 if first == 1 else 6), "--years", "60",
+    cmd = [sys.executable, str(ROOT / "tools" / "ensemble.py"), "plots", "--label", label, "--seeds", count or "5", "--first-seed", str(1 if first == 1 else 6), "--years", "60",
            "--mode", "natural", "--trees", "25", "--no-saves"]
     for s in speedy(name) + sets:
         cmd += ["--set", s]
