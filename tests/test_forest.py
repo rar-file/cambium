@@ -257,7 +257,7 @@ def test_no_seedling_takes_under_cover_however_bright_the_light_reads():
 
 def test_a_windthrow_takes_the_trees_in_its_circle_and_bares_soil():
     sp = species("plot.natural_start.enabled=true", "plot.natural_start.stems_per_ha=4000", "plot.natural_start.area_m2=100",
-                 "regeneration.spread.enabled=true", "regeneration.spread.open_ends=false", "mortality.enabled=true", "plot.stand_measures=true")
+                 "regeneration.spread.enabled=true", "regeneration.spread.repeat_ends=true", "mortality.enabled=true", "plot.stand_measures=true")
     plot = make_plot(sp, lean=True)
     plot.enable_regeneration()
     plot.step()

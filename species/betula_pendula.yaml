@@ -927,8 +927,9 @@ regeneration:
     tree_dbh_cm: 15.0
     # Their Figure 2 stops at 5 trees a cell (0.05 trees/m2); no further here.
     max_trees_counted: 5
-    # Seed past the two ends of x is lost; the sides repeat.
-    open_ends: true
+    # Seed past the two ends of x is lost, and the sides repeat; true: x repeats too,
+    # for a plot in the middle of a forest.
+    repeat_ends: false
     # How far the kernel's table runs; 6 mean distances at the open-ground mean.
     kernel_reach_m: 400.0
     # TUNED: the share of germinants living through the first season rises from 0

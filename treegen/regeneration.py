@@ -194,7 +194,7 @@ class SpreadRegeneration(Regeneration):
                         np.full(self.cx.size * k * k, -0.01)], 1)
         self.surface_stone = soil.is_stone(pts, self.seed).reshape(self.nx, self.ny, k * k).mean(-1)
         # room for seed to run past the end of x and stop, rather than come round
-        self.nx_pad = 2 * self.nx if bool(rp.spread.open_ends) else self.nx
+        self.nx_pad = self.nx if bool(rp.spread.repeat_ends) else 2 * self.nx
         self._kernels = {}
         self.trees_in_cell = None
         self.overhead = None
@@ -247,15 +247,15 @@ class SpreadRegeneration(Regeneration):
         dy = np.minimum(jy, ny - jy) * self.csy
         reach = int(math.ceil(float(s.kernel_reach_m) / self.ly)) + 1
         K = np.zeros((nxp, ny))
-        images_x = (0,) if bool(s.open_ends) else range(-(int(math.ceil(float(s.kernel_reach_m) / self.lx)) + 1),
-                                                        int(math.ceil(float(s.kernel_reach_m) / self.lx)) + 2)
+        images_x = range(-(int(math.ceil(float(s.kernel_reach_m) / self.lx)) + 1),
+                         int(math.ceil(float(s.kernel_reach_m) / self.lx)) + 2) if bool(s.repeat_ends) else (0,)
         for m in images_x:
             for n in range(-reach, reach + 1):
                 r = np.hypot(dx[:, None] + m * self.lx, dy[None, :] + n * self.ly)
                 r = np.maximum(r, 0.25 * min(self.csx, self.csy))
                 K += np.exp(-((np.log(r) - mu) ** 2) / (2.0 * p * p)) / ((2.0 * math.pi) ** 1.5 * p * r * r)
         K *= self.csx * self.csy
-        if not bool(s.open_ends):
+        if bool(s.repeat_ends):
             K /= K.sum()       # every seed lands somewhere in the repeating ground
         else:
             K = np.minimum(K, 1.0)
