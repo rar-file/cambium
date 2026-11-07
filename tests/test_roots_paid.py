@@ -133,3 +133,17 @@ def test_trees_in_a_plot_pay_for_their_roots_too():
         plot.step()
     logs = [plot.trees[k].roots.carbon_log for k in plot.alive]
     assert logs and all("rings" in log for log in logs)
+
+
+def test_measuring_the_roots_changes_nothing():
+    import json
+
+    for paid in (False, True):
+        plain, read = _model(paid), _model(paid)
+        for year in range(1, 13):
+            plain.step()
+            wood = root_measure.wood_kg(read)
+            read.step()
+            root_measure.ledger_year(read, year, wood)
+            root_measure.architecture(read)
+        assert json.dumps(plain.stats, sort_keys=True) == json.dumps(read.stats, sort_keys=True)
