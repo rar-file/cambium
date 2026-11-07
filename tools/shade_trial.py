@@ -81,7 +81,7 @@ def trial(a, light: float, soil: str, items: list, herb: bool) -> dict:
         if plot.year in READ_AT or plot.year == a.years:
             alive = [k for k in plot.alive if plot.trees[k].stats]
             h = [plot.trees[k].stats[-1]["height_m"] for k in alive]
-            bal = [plot.trees[k].carbon.get("fixed", 0.0) / max(plot.trees[k].carbon.get("upkeep", 0.0), 1e-12) for k in alive if plot.trees[k].carbon]
+            bal = [plot.trees[k].carbon.get("fixed", 0.0) / max(plot.trees[k].carbon.get("upkeep", 0.0), 1e-12) for k in alive if getattr(plot.trees[k], "carbon", None)]
             rows[plot.year] = dict(alive=len(plot.alive) / n, height_m=float(np.mean(h)) if h else None, height_max_m=max(h) if h else None,
                                    fixed_over_upkeep=float(np.median(bal)) if bal else None)
     causes = {}
