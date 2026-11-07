@@ -2,6 +2,25 @@
 
 **Status: tree results are complete; plot accuracy isn't.** I was asked to hand back while the plot ensembles were still queued, so nothing that changes neighbour light has passed its plot test yet. "How to finish" below has the commands. Nothing here is switched on, and no default or golden hash changed.
 
+## Update: the compiled carbon sum had drifted from the model (fixed at 04c9d3b)
+
+The Crown agent added the frame's limbs to `shoots()`, and my copy in `fast.py` didn't have them. `speed.compiled_carbon` with `crown_frame.enabled=true` then gave different trees, from year 4-5 (a small plot from year 9). So any run with both on before 04c9d3b is invalid, including `node_int_P` at 7b24c48. The other five settings didn't change results. **I wrote earlier that `tests/test_speed.py` fails if the copies drift: that was only true for paths switched on in what it tested.**
+
+**The fix:** the compiled sum now calls the model's own `shoots()`, so that part isn't a copy any more. `drop_dead` also crashed on the crown settings and now renumbers the frame's buds; it's still not lossless.
+
+**Proof at 04c9d3b, the six settings against none:**
+| Check | Settings | Result |
+|---|---|---|
+| Stand trees to 60, seeds 1-6, all six, server | Crown | Same, every yearly stat and tree array (441 s against 751 s in all) |
+| 25-tree plot to 60, all six, server | Crown | Same (333 s against 809 s) |
+| Trees to 30, seeds 1-3, each of the six alone, PC | Crown | Same |
+| All four golden runs, all six, server and PC | Default | Identical |
+| All tests, PC | | 324 pass |
+
+**What now guards against this:** the speed tests run on the crown settings too. Any edit to code the compiled versions copy now fails a test that names the copy to change; I haven't tried that on a deliberate edit. Run `tools/speed_drift.py` on whatever settings are in use before trusting a speed setting on them.
+
+**What this leaves open:** the accuracy tables below are for the default and Test A settings. `light_rows` and the lossy settings haven't been tested on the crown settings, and `node_speed_q5b`, the plot check for `light_rows`, was cancelled because it used the old Test A settings.
+
 ## The answer
 
 - **Without changing a single number:** a tree to 60 runs about 2x faster, and a 100-tree plot to 60 about 2.8x (one run each way).
