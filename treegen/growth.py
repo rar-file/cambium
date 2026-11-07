@@ -2397,6 +2397,9 @@ class GrowthModel:
             # twigs turn towards their own set-point however thin they are; with a set-point below level, they grow down
             weak = np.where(order >= 2, 1.0, weak)
         eta = np.where((order >= 1) & ~lead_ax, eta * weak, eta)
+        if self._frame_on() and bool(getattr(self.sp.crown_frame, "limp_twigs", False)):
+            # a shoot too thin to hold itself up can't turn to the light either: thin twigs hang, as the pendulous trait has it
+            xi = np.where((order >= 2) & ~lead_ax, xi * weak, xi)
         noise = float(sp.architecture.direction_noise_per_sqrt_m)
         corr = getattr(sp.architecture, "direction_noise_correlation_m", None)
         psm = getattr(sp.tropism, "phototropism_smoothing_m", None)

@@ -1657,6 +1657,8 @@ crown_frame:
   # TUNED: with a value, a limb's reach and its side shoots' length go with its carbon this year over the best limb's on the tree, to this power,
   # in place of the table by place in the crown (top_share, peak_depth, base_share, profile_power) and limb ageing.  null: off.
   earned_power: null
+  # TUNED, against the look: thin twigs don't turn to the light any more than they turn up (mechanics.pendulous_radius), so they hang instead of spraying outward.
+  limp_twigs: false
 
 # Field-layer competition on clearcuts (Option A, Nilsson & Örlander 1999).
 # Sourced clear-cut field-layer sward growth and light extinction.
