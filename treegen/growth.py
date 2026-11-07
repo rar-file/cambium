@@ -1712,9 +1712,11 @@ class GrowthModel:
                             # 28 cm2 a year (seed 3 at 45), whatever its crown does
                             a_su = hv * la_now
                             last = self.__dict__.get("_frame_la_tot")
-                            if last is not None and self._frame_earns() and bool(getattr(sp.crown_frame, "sapwood_kept", False)):
-                                # sapwood isn't retired to this year's old leaves alone and built again for the new ones: what last year's whole crown asked for stays
-                                a_su = np.maximum(a_su, hv * np.concatenate([last, np.zeros(max(n0 - len(last), 0))])[:n0])
+                            kept = float(getattr(sp.crown_frame, "sapwood_kept", 0.0) or 0.0) if self._frame_earns() else 0.0
+                            if last is not None and kept > 0.0:
+                                # sapwood isn't all retired to this year's old leaves and built again for the new ones: this share of what last year's whole crown asked for stays
+                                wanted = hv * np.concatenate([last, np.zeros(max(n0 - len(last), 0))])[:n0]
+                                a_su = np.maximum(a_su, a_su + kept * (wanted - a_su))
                         excess = below & (T.sap_area[:n0] > a_su)
                         if excess.any():
                             T.sap_area[:n0] = np.where(excess, a_su, T.sap_area[:n0])

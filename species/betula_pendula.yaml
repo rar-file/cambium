@@ -1660,8 +1660,8 @@ crown_frame:
   limb_ageing_years: 80
   # TUNED, under test: a limb's carbon balance counts the sapwood its leaves ask for.
   limb_pays_sapwood: false
-  # TUNED, under test: sapwood below the crown keeps what last year's whole crown asked for.
-  sapwood_kept: false
+  # TUNED, against stem size in stands: below the crown, this share of the sapwood last year's new leaves asked for isn't retired and rebuilt each year.  0: all of it is, as heartwood_by_own_foliage has it.
+  sapwood_kept: 0.0
   # TUNED, against the look and the light: a limb's shoot falls with the stem's age when it was born, over this many years.  null: resource.stem_aging_years.
   limb_born_years: null
   # TUNED, against lone low limbs: a limb dies when the light on its leaves is under this share of the crown's mean: it's in the crown's own shade, however bright the sky.  null: off.
