@@ -1663,6 +1663,8 @@ crown_frame:
   earned_size: 0.0
   # TUNED, against the look: a limb carrying more than this leaf area (m2) per axis of its own makes another axis, a fork.  null: none.
   fork_leaf_area_m2: null
+  # TUNED, against the width of open-grown trees: a limb's yearly shoot falls with its age over this many years.  null: resource.branch_aging_years.
+  limb_ageing_years: null
   # TUNED, against the look: thin twigs don't turn to the light any more than they turn up (mechanics.pendulous_radius), so they hang instead of spraying outward.
   limp_twigs: false
 

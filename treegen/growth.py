@@ -2217,7 +2217,8 @@ class GrowthModel:
         age = np.where(limb_tip[at], np.maximum(self.year + 1.0 - T.scaffold_birth[node], 0.0), 0.0)
         if getattr(self, "_frame_rel", None) is not None:
             age = 0.0 * age     # a limb grows on for as long as it earns
-        grow = grow * light * float(hd["water"]) * np.exp(-age / float(self.sp.resource.branch_aging_years))
+        limb_years = getattr(cf, "limb_ageing_years", None)
+        grow = grow * light * float(hd["water"]) * np.exp(-age / float(limb_years if limb_years else self.sp.resource.branch_aging_years))
         return at, np.minimum(grow / full[at], float(nmax))
 
     # -- the height limit (height_driver in the species file) -----------
@@ -2324,6 +2325,10 @@ class GrowthModel:
                 sc = T.scaffold[starts].astype(np.int64)
                 twig_m = twig_m * np.where(sc > 0, lit[np.minimum(sc, len(lit) - 1)], 1.0)
             caps = np.minimum(caps, twig_m / full)
+            if bool(getattr(self.sp.crown_frame, "limp_twigs", False)):
+                # gravimorphism (Wareing & Nasr 1961): a shoot heading down is a weak one, however thin, so a hanging twig stops lengthening
+                dz_cap = np.concatenate([T.term_dir[starts[:n_term], 2], T.lat_dir[starts[n_term:], 2]])
+                caps = np.minimum(caps, twig_m * np.maximum(0.05, 1.0 + float(self.sp.resource.gravimorphism) * dz_cap) / full)
         ratio = getattr(self.sp.height_driver, "lateral_cap_ratio", None)
         twig_ratio = getattr(self.sp.height_driver, "twig_cap_ratio", None)
         if twig_ratio is not None:
