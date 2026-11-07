@@ -107,6 +107,46 @@ def scan_bark(cfg):
         eal.save_asset(f"{folder}/{name}", only_if_is_dirty=False)
 
 
+def through_gain(gain):
+    """On the test project's copy of M_Foliage only: the share of a leaf's colour that light takes passing
+    through it, for showing what docs/unreal.md's addition 7 would do.  The game's script fixes it at 0.25."""
+    path = "/Game/World/Materials/M_Foliage"
+    material = unreal.load_asset(path)
+    node = unreal.MaterialEditingLibrary.get_material_property_input_node(material, unreal.MaterialProperty.MP_SUBSURFACE_COLOR)
+    node.set_editor_property("const_b", float(gain))
+    unreal.MaterialEditingLibrary.recompile_material(material)
+    eal.save_asset(path, only_if_is_dirty=False)
+
+
+def static_displacement(cfg):
+    """Epic's build-time alternative to relief in the mesh, for comparing: Nanite Static Displacement
+    Mapping, driven by a height map on one material slot."""
+    task = unreal.AssetImportTask()
+    task.set_editor_property("filename", cfg["height_file"])
+    task.set_editor_property("destination_path", "/Game/T")
+    task.set_editor_property("automated", True)
+    task.set_editor_property("save", True)
+    task.set_editor_property("replace_existing", True)
+    unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
+    name = os.path.splitext(os.path.basename(cfg["height_file"]))[0]
+    tex = unreal.load_asset(f"/Game/T/{name}")
+    tex.set_editor_property("srgb", False)
+    tex.set_editor_property("address_x", unreal.TextureAddress.TA_WRAP)
+    tex.set_editor_property("address_y", unreal.TextureAddress.TA_CLAMP)
+    eal.save_asset(f"/Game/T/{name}", only_if_is_dirty=False)
+    mesh = unreal.load_asset(cfg["mesh"])
+    nanite = mesh.get_editor_property("nanite_settings")
+    entry = unreal.MeshDisplacementMap()
+    entry.set_editor_property("texture", tex)
+    entry.set_editor_property("magnitude", float(cfg["magnitude_cm"]))
+    entry.set_editor_property("center", float(cfg["center"]))
+    nanite.set_editor_property("displacement_uv_channel", 0)
+    nanite.set_editor_property("displacement_maps", [entry])
+    nanite.set_editor_property("trim_relative_error", float(cfg["trim"]))
+    mesh.set_editor_property("nanite_settings", nanite)
+    eal.save_asset(cfg["mesh"], only_if_is_dirty=False)
+
+
 def import_files(files):
     os.environ["GAME_FILES"] = ";".join(files)
     os.environ.pop("GAME_FINISH", None)
@@ -195,6 +235,12 @@ def main():
     if JOB.get("scan_bark"):
         scan_bark(JOB["scan_bark"])
         step("our wood under the scan")
+    if "through_gain" in JOB:
+        through_gain(JOB["through_gain"])
+        step("through gain", gain=JOB["through_gain"])
+    if JOB.get("static_displacement"):
+        static_displacement(JOB["static_displacement"])
+        step("static displacement")
     for asset, voxel in JOB.get("voxelize", {}).items():
         for name in voxel:
             path = f"/Game/World/PolyHaven/{asset}/{name}"
@@ -212,6 +258,10 @@ def main():
                 report["imports"].append(read_mesh(p.split(".")[0]))
                 step("read", mesh=p.split(".")[0].rsplit("/", 1)[-1])
                 unreal.SystemLibrary.collect_garbage()
+    # what the engine's own build came to, from the saved assets, without loading a mesh
+    for path in JOB.get("asset_tags", []):
+        data = eal.find_asset_data(path)
+        step("asset tags", mesh=path.rsplit("/", 1)[-1], **{tag: str(data.get_tag_value(tag)) for tag in ("Triangles", "Vertices", "NaniteTriangles", "NaniteVertices")})
     log("done")
 
 

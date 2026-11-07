@@ -175,7 +175,7 @@ def bake_wood(wood: WoodParts, crown, shoot, pos: np.ndarray, radius_history) ->
     stem_md = {"node": nd, "s": s, "around": np.nan_to_num(crown.attributes["ring_around"][is_stem], nan=0.0), "pos": crown.vertices[is_stem],
                "z_profile": np.maximum.accumulate(z_p), "s_profile": uniq}
     marks = _axis_marks(wood, stem_md, shoot, pos, wood.age, radius_history)
-    wood.stem_bake = tx.bake_stem(look, wood.tiles, prof, wood.state, marks)
+    wood.stem_bake = tx.bake_stem(look, wood.tiles, prof, wood.state, marks, y_offset=getattr(wood, "stem_y_offset", 0.0))
     wood.marks = marks
     wood.profile = prof
     # branch classes: the mean state of the parts in each, by surface area

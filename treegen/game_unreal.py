@@ -10,7 +10,12 @@ the game's own pipeline reads, and nothing it would lose on the way in:
 * COLOR_0 as the game's plants carry it, for its wind: R flex by path length, G one phase for the
   whole tree, B 1 on leaves, A a leaf id (255 off leaves).  Nothing else goes in vertex colour;
 * what Unreal's glTF import throws away (any attribute of our own) in UV channels, at most 4 of them,
-  Nanite's limit.  Which channel holds what: ``UV_LAYOUT``, and docs/unreal.md.
+  Nanite's limit.  Which channel holds what: ``UV_LAYOUT``, and docs/unreal.md;
+* the file's origin far enough below the tree's lowest point that M_Surface's ground moss, which it
+  reads by height above the origin and which smears up an upright surface, stays off: the moss is in
+  our own stem map instead, and the game's seat by the lowest point is as right as ever;
+* on the nearest level, the bark's height map in the stem's mesh, by the same ageing rules as its
+  colour, and each leaf's real outline, from ``appearance.game.unreal.leaf``.
 
 Colour that the plain export gave per vertex now lives in textures, so an unmodified M_Surface and
 M_Foliage show it: a leaf's UV picks the column of its chlorophyll level in a leaf atlas.
@@ -37,7 +42,7 @@ UV_LAYOUT = {
     "bark": {"UV0": "colour, normal and roughness maps", "UV1": "bark wrap: a whole number of tile widths round the part, tile widths along it",
              "UV2": "x: birth year of the part (part age = stage age - x); y: wood radius, cm",
              "UV3": "x: how white (0-1); y: how rough (0-1)"},
-    "leaf": {"UV0": "leaf atlas: the column is the leaf's chlorophyll level on the export's day, the row and the rest of x the blade",
+    "leaf": {"UV0": "leaf atlas: the column is the leaf's chlorophyll level on the export's day, the row its outline variant, the rest of the cell the blade; the cell's corner holds the stalk's colour",
              "UV1": "x + 1024 y: node id", "UV2": "x: days later (+) or earlier (-) than the tree's average to colour; y: light, 0 shade to 1 sun",
              "UV3": "x: chlorophyll fraction on the export's day, before the level is rounded; y: leaf area, cm2"},
     "strip": {"UV0": "strip atlas: the column is the strip's opacity level", "UV1": "x + 1024 y: node id", "UV2": "x: birth year of the part; y: wood radius, cm",
@@ -55,6 +60,12 @@ def unreal_look(look: dict) -> dict:
     out = copy.deepcopy(look)
     u = look["game"]["unreal"]
     out["leaves"]["season"] = {"chlorophyll_by_day": u["chlorophyll_by_day"], "days": u["days"]}
+    out["leaves"]["shape"] = u["leaf"]["shape"]
+    out["leaves"]["texture_size_px"] = int(u["leaf"]["texture_px"])
+    # rough bark's plates at their real size, which is also one the stem's mesh can carry
+    for stage in out["bark"]["stages"]:
+        if stage.get("plates"):
+            stage["plates"] = {**stage["plates"], **u["stem_relief"]["plates"]}
     return out
 
 
@@ -204,21 +215,189 @@ def ground_line(model, age: int, cfg: dict) -> float:
     return -min(float(cfg["ground_line_max_m"]), float(cfg["ground_line_radii"]) * collar)
 
 
-def split_roots(md: meshlib.MeshData | None, cfg: dict, line: float) -> tuple:
+def sink_roots(md: meshlib.MeshData | None, line: float, centre: np.ndarray, foot_r: float, collar: float, cfg: dict) -> meshlib.MeshData | None:
+    """The ground meets the tree below the model's zero at the stem, and at it further out: so a root's
+    place in the soil holds out there, and it comes out of the foot and sinks along its length.  Each
+    root keeps its path as seen from above, its radius and its branches; only its height moves, ring by
+    ring so its section stays round: none stands off the ground as a strut, a thick root lies half
+    buried, and by the time it's thin it is under the soil, where the model has its thin ends."""
+    if md is None:
+        return None
+    V = md.vertices.copy()
+    root = md.attributes["axis_id"] != 0
+    if not root.any():
+        return md
+    # one entry per ring: its centre and its radius
+    ring = np.stack([md.attributes["axis_id"][root].astype(np.int64), np.round(md.attributes["ring_along"][root] * 1.0e5).astype(np.int64)], 1)
+    _, inv = np.unique(ring, axis=0, return_inverse=True)
+    inv = np.ravel(inv)
+    count = np.bincount(inv).astype(float)
+    centre_of = lambda values: np.bincount(inv, values) / count  # noqa: E731
+    zc = centre_of(V[root, 2])
+    rc = centre_of(md.attributes["radius"][root])
+    rho = np.hypot(centre_of(V[root, 0]) - centre[0], centre_of(V[root, 1]) - centre[1])
+    L = max(float(cfg["sink_length_radii"]) * collar, 1e-3)
+    sunk = zc + line * (1.0 - np.exp(-np.maximum(rho - foot_r, 0.0) / L))
+    # fully thick: this share of a radius above the ground; at half the thickness that goes on showing: under it
+    thr = max(float(cfg["surface_min_radius_m"]), float(cfg["surface_min_radius_share"]) * collar)
+    s = np.clip((rc / thr - 0.5) / 0.5, 0.0, 1.0)
+    s = s * s * (3.0 - 2.0 * s)
+    highest = line + s * float(cfg["centre_above_ground_radii"]) * rc - (1.0 - s) * (rc + 0.01)
+    V[root, 2] += (np.minimum(sunk, highest) - zc)[inv]
+    return meshlib.MeshData(V, md.faces, md.normals, md.attributes)
+
+
+def split_roots(md: meshlib.MeshData | None, cfg: dict, line: float, collar: float) -> tuple:
     """The roots as three parts: the stem's foot and the thick roots, which go with the tree, down to a
     little below the ground line so uneven ground meets them without a gap, and everything else, which
-    is under ground.  They share their rings' vertices, so no seam.  Thin roots stay in the last part
-    even if they're shallow: drawn, they'd hang as threads over the ground, because the model's run
-    just under its z = 0, above the ground line."""
+    is under ground.  They share their rings' vertices, so no seam.  A thick root stays until it sinks;
+    a root never thick stays in the last part, shallow or not: drawn, it'd be a hair on the soil."""
     if md is None:
         return None, None, None
     z = md.vertices[md.faces][..., 2]
     radius = md.attributes["radius"][md.faces].mean(1)
-    stem = md.attributes["axis_id"][md.faces[:, 0]] == 0
+    axis = md.attributes["axis_id"][md.faces[:, 0]]
+    stem = axis == 0
+    thr = max(float(cfg["surface_min_radius_m"]), float(cfg["surface_min_radius_share"]) * collar)
     near = z.min(1) >= line - float(cfg["surface_depth_m"])
     foot = near & stem
-    surface = near & ~stem & (radius >= float(cfg["surface_min_radius_m"]))
+    thick_axes = np.unique(axis[radius >= thr])
+    surface = near & ~stem & np.isin(axis, thick_axes) & ((radius >= thr) | (z.max(1) > line - 0.01))
     return _face_subset(md, foot), _face_subset(md, surface), _face_subset(md, ~(foot | surface))
+
+
+def stem_goes_down(skel, is_root: np.ndarray, line: float, cfg: dict):
+    """The skeleton with the stem carried straight down to below the ground line.  In the model the
+    stem runs on as the taproot, whose first half metre leans well out to one side.  That's buried
+    in the model; with the ground lower, and the stem's thickness on it, it would be a great hoof."""
+    from types import SimpleNamespace
+
+    n = skel.n
+    pos = np.array(skel.pos, float)
+    root = np.asarray(is_root[:n], bool)
+    axis0 = np.asarray(skel.axis[:n]) == 0
+    stem = np.nonzero(axis0 & ~root)[0]
+    chain = np.nonzero(axis0 & root)[0]
+    if not len(stem) or not len(chain):
+        return skel
+    base = pos[stem[np.argmin(pos[stem, 2])], :2]
+    start = line - float(cfg["surface_depth_m"])
+    t = np.clip((start - pos[chain, 2]) / max(float(cfg["foot_fade_m"]), 1e-6), 0.0, 1.0)
+    pos[chain, :2] = base + (pos[chain, :2] - base) * (t * t * (3.0 - 2.0 * t))[:, None]
+    return SimpleNamespace(n=n, pos=pos, parent=skel.parent, axis=skel.axis, is_lateral=skel.is_lateral, order=skel.order, birth=skel.birth, death=skel.death, depth=skel.depth)
+
+
+def as_stem(foot: meshlib.MeshData | None, stem_node: int) -> meshlib.MeshData | None:
+    """The stem under the model's zero, as part of the stem: the node at its foot, for its age and size."""
+    if foot is None:
+        return None
+    attrs = dict(foot.attributes)
+    attrs["node_id"] = np.full(len(foot.vertices), stem_node, np.int32)
+    return meshlib.MeshData(foot.vertices, foot.faces, foot.normals, attrs)
+
+
+def stem_edges(wood: game.WoodParts, z_nodes: np.ndarray, age_nodes: np.ndarray, d_nodes: np.ndarray, line: float, surface_depth: float, cfg: dict) -> tuple:
+    """How fine the stem's mesh must be at each height: by how deep the ageing rules make its cracks
+    there.  Almost none on young white bark, finest on the old black base."""
+    grid = np.arange(line - surface_depth, float(z_nodes.max()) + 0.25, 0.05)
+    fissure = wood.state(np.interp(grid, z_nodes, age_nodes), np.interp(grid, z_nodes, d_nodes), grid)["fissure_m"]
+    t = np.clip(fissure / float(cfg["full_at_fissure_m"]), 0.0, 1.0)
+    t = t * t * (3.0 - 2.0 * t)
+    coarse, fine = float(cfg["edge_coarse_m"]), float(cfg["edge_fine_m"])
+    edge = coarse + (fine - coarse) * t
+    return ((float(grid[0]) - 0.06, coarse),) + tuple((float(a), float(b)) for a, b in zip(grid, edge))
+
+
+def weld_normals(V: np.ndarray, F: np.ndarray, fallback: np.ndarray) -> np.ndarray:
+    """Vertex normals from the faces, the same for every vertex at one place, so a seam or a cut shades through."""
+    q = np.round(V * 2.0e5).astype(np.int64)
+    key = q[:, 0] * 73856093 ^ q[:, 1] * 19349663 ^ q[:, 2] * 83492791
+    _, inv = np.unique(key, return_inverse=True)
+    fn = np.cross(V[F[:, 1]] - V[F[:, 0]], V[F[:, 2]] - V[F[:, 0]])
+    total = np.zeros((inv.max() + 1, 3))
+    for k in range(3):
+        np.add.at(total, inv[F[:, k]], fn)
+    N = total[inv]
+    ln = np.linalg.norm(N, axis=1, keepdims=True)
+    return np.where(ln > 1e-14, N / np.maximum(ln, 1e-14), fallback)
+
+
+def _bilinear(m: np.ndarray, u: np.ndarray, v: np.ndarray) -> np.ndarray:
+    """Across the columns wrapping, up the rows clamped."""
+    H, W = m.shape
+    x = np.mod(u, 1.0) * W - 0.5
+    y = np.clip(v * H - 0.5, 0.0, H - 1.0)
+    x0 = np.floor(x).astype(np.int64)
+    y0 = np.floor(y).astype(np.int64)
+    fx, fy = x - x0, y - y0
+    x0, x1 = x0 % W, (x0 + 1) % W
+    y1 = np.minimum(y0 + 1, H - 1)
+    return (m[y0, x0] * (1 - fx) + m[y0, x1] * fx) * (1 - fy) + (m[y1, x0] * (1 - fx) + m[y1, x1] * fx) * fy
+
+
+def shape_stem(a: dict, wood: game.WoodParts, line: float, floor: float, swell: tuple, table: tuple | None, cfg: dict) -> dict:
+    """The stem's real surface: the butt swell into the ground, steepest at the ground as on a real
+    butt, and, on the nearest level, the bark's own height map in the mesh, so plates stand out of the
+    outline and cracks hold shadow.  Depth is what the bake holds: what the ageing rules gave each
+    height.  Nothing goes below ``floor``, since the game seats a tree by its lowest point."""
+    V, N, UV, F = a["V"], a["N"], a["UV"], a["F"]
+    extra, reach = swell
+    above = np.maximum(V[:, 2] - line, 0.0) / max(reach, 1e-6)
+    out = V + N * (a["radius"] * extra * np.exp(-2.0 * above))[:, None]
+    if table is not None:
+        t = np.asarray(table, float)
+        edge = np.interp(V[:, 2], t[:, 0], t[:, 1])
+        lim, fine = float(cfg["rings_under_m"]), float(cfg["edge_fine_m"])
+        w = np.clip((lim - edge) / max(lim - fine, 1e-6), 0.0, 1.0)
+        depth = w * _bilinear(wood.deep_height, UV[:, 0], UV[:, 1]) + (1.0 - w) * game._relief(wood, UV[:, 0], UV[:, 1])
+        out = out + N * depth[:, None]
+    out[:, 2] = np.maximum(out[:, 2], floor)
+    N2 = weld_normals(out, F, N)
+    return {**a, "V": out, "N": N2, "T": game._tangents(out, N2, UV, F)}
+
+
+def split_detail(wood: game.WoodParts, cfg: dict) -> dict:
+    """The bake's height as what the mesh will carry and what stays in the normal map.  The map holds
+    all that the mesh can't, and a share of what it can, since a mesh shades only as sharply as its
+    edges are short.  Returns the bake with that normal map."""
+    bake = wood.stem_bake
+    r = int(cfg["mesh_blur_px"])
+    wood.deep_height = tx._box_v(tx._box_u(bake["height"], r), r)
+    dx, dy = bake["texel_m"]
+    keep = float(cfg["normal_keeps_deep_share"])
+    fine = tx.finish({"albedo": bake["albedo"], "rough": bake["rough"], "height": bake["height"] - (1.0 - keep) * wood.deep_height}, np.broadcast_to(dx, dy.shape), dy)
+    return {**bake, "normal": fine["normal"]}
+
+
+def moss_on_stem(look: dict, wood: game.WoodParts, line: float, cfg: dict, seed: int) -> None:
+    """Moss at the foot, in the stem's own colour map.  The game's M_Surface would add it by world
+    position, which smears up any upright surface, so the file's origin keeps that off (``origin_z``)."""
+    bake = wood.stem_bake
+    alb = bake["albedo"]
+    H, W = alb.shape[:2]
+    v = (np.arange(H) + 0.5) / H
+    s = tx.stem_s(look, v, wood.stem_length)
+    prof = wood.profile
+    z = np.interp(s, prof.s, np.maximum.accumulate(prof.z))
+    reach = min(float(cfg["moss_reach_m"]) + float(cfg["moss_reach_per_year_m"]) * wood.age, float(cfg["moss_reach_max_m"]))
+    above = (z - line) / max(reach, 1e-6)
+    rough = wood.state(np.interp(s, prof.s, prof.part_age), np.interp(s, prof.s, prof.d_wood), z)["weights"][-1]
+    rows = np.nonzero(above < 1.6)[0]
+    if not len(rows):
+        return
+    h = int(rows[-1]) + 1
+    n1 = tx.noise((h, W), seed, (28.0, 28.0))
+    n2 = tx.noise((h, W), seed + 1, (5.0, 5.0))
+    # on one side of the stem, as on real ones, and only a little way up the others
+    u = (np.arange(W) + 0.5) / W
+    toward = float(ap.hash01(np.array([seed]), 72)[0])
+    side = (0.5 + 0.5 * np.cos(2.0 * np.pi * (u - toward))) ** float(cfg["moss_side_power"])
+    share = float(cfg["moss_elsewhere"]) + (1.0 - float(cfg["moss_elsewhere"])) * side
+    fade = 1.0 - np.clip(above[:h, None] / share[None, :] + float(cfg["moss_patchiness"]) * n1 + 0.12 * n2, 0.0, 1.0)
+    amount = (fade * fade * (3.0 - 2.0 * fade) * (float(cfg["moss_on_white"]) + (1.0 - float(cfg["moss_on_white"])) * rough[:h, None])).astype(np.float32)
+    colour = np.asarray(cfg["moss_colour"], np.float32) * (1.0 + 0.25 * n2[..., None])
+    alb[:h] = alb[:h] + (colour - alb[:h]) * amount[..., None]
+    bake["rough"][:h] = bake["rough"][:h] + (0.9 - bake["rough"][:h]) * amount
 
 
 def root_radii(look: dict, model, age: int, rad_ob: np.ndarray, skel, is_root: np.ndarray, line: float, cfg: dict, dbh_ob: float) -> np.ndarray:
@@ -239,24 +418,11 @@ def root_radii(look: dict, model, age: int, rad_ob: np.ndarray, skel, is_root: n
         foot_r = float(rad_ob[stem[np.argmin(z[stem])]])
         chain = axis0 & root
         fade = float(cfg["foot_fade_m"])
-        t = np.clip((line - z) / max(fade, 1e-6), 0.0, 1.0)
+        # the fade starts below all that can show, or the smoothing along the stem brings it up as a waist
+        t = np.clip((line - float(cfg["surface_depth_m"]) - z) / max(fade, 1e-6), 0.0, 1.0)
         want = foot_r + (out[:n] - foot_r) * (t * t * (3.0 - 2.0 * t))
         out[:n] = np.where(chain, np.maximum(out[:n], want), out[:n])
     return out
-
-
-def foot_arrays(look: dict, wood: game.WoodParts, md: meshlib.MeshData | None, stem_node: int) -> dict | None:
-    """The stem below the model's z = 0, down to where the ground can reach, in the stem's own bake:
-    its texture rows mirrored at z = 0 and its relief carried on, so no line shows where it joins."""
-    if md is None:
-        return None
-    nf, old, u, _ = game._unwrap(md.faces, md.attributes["ring_around"])
-    V, N = md.vertices[old], md.normals[old]
-    s = np.abs(md.attributes["ring_along"][old].astype(np.float64) - wood.s0)
-    v = tx.stem_v(look, s, wood.stem_length)
-    UV = np.stack([u, v], 1)
-    V = V + N * game._relief(wood, u, v)[:, None]
-    return {"V": V, "N": N, "F": nf, "UV": UV, "T": game._tangents(V, N, UV, nf), "node": np.full(len(V), stem_node, np.int64), "around": u, "along": s}
 
 
 def root_state(wood: game.WoodParts, part_age, d_wood) -> dict:
@@ -344,20 +510,33 @@ def root_table(model, age: int) -> dict:
             "highest_top_cm": round(float(top.max()) * 100.0, 1)}
 
 
-def thick_breaking(model, age: int, line: float) -> dict:
-    """The roots of 1 cm or more that break the ground at this line."""
-    R = model.roots.tree
-    h = np.asarray(model.roots.radius_history[age], float)
-    m = len(h)
-    idx = np.nonzero((R.birth[:m] <= age) & ((R.death[:m] < 0) | (R.death[:m] > age)))[0]
-    idx = idx[(idx > 0) & (R.pos[idx, 2] + h[idx] > line) & (h[idx] > 0.01)]
-    if not len(idx):
-        return {"length_m": 0.0, "reach_m": 0.0}
-    seg = np.linalg.norm(R.pos[idx] - R.pos[R.parent[idx]], axis=1)
-    return {"length_m": round(float(seg.sum()), 2), "reach_m": round(float(np.hypot(R.pos[idx, 0], R.pos[idx, 1]).max()), 2)}
+def roots_showing(surface: meshlib.MeshData | None, line: float, centre: np.ndarray) -> dict:
+    """What of the roots stands above the ground in the file: how many, and how far out."""
+    if surface is None:
+        return {"roots": 0, "reach_m": 0.0}
+    above = surface.vertices[:, 2] > line
+    if not above.any():
+        return {"roots": 0, "reach_m": 0.0}
+    return {"roots": int(len(np.unique(surface.attributes["axis_id"][above]))), "reach_m": round(float(np.hypot(*(surface.vertices[above, :2] - centre).T).max()), 2)}
 
 
-def black_zone(wood: game.WoodParts) -> dict:
+def seat_sheets(f: dict, lowest: float) -> dict:
+    """The far level's sheets, cut off at the tree's lowest point, since the game seats each level by
+    its own."""
+    V, UV = f["V"].copy(), f["UV"].copy()
+    for q in range(0, len(V), 4):
+        z = V[q:q + 4, 2]
+        lo, hi = z.min(), z.max()
+        if lo >= lowest or hi <= lowest:
+            continue
+        v_lo, v_hi = UV[q:q + 4, 1][np.argmin(z)], UV[q:q + 4, 1][np.argmax(z)]
+        bottom = z < 0.5 * (lo + hi)
+        UV[q:q + 4, 1][bottom] = v_lo + (lowest - lo) / (hi - lo) * (v_hi - v_lo)
+        V[q:q + 4, 2][bottom] = lowest
+    return {**f, "V": V, "UV": UV}
+
+
+def black_zone(wood: game.WoodParts, origin_z: float = 0.0) -> dict:
     """Up the stem, where the rough base gives way to what's above it: BarkStartCm and BarkBlendCm for
     M_Surface's UpperBark, which fades from the colour map to a tiled scan."""
     prof = wood.profile
@@ -368,7 +547,7 @@ def black_zone(wood: game.WoodParts) -> dict:
     lo = z[rough >= 0.1]
     start = float(hi.max()) if len(hi) else 0.0
     end = float(lo.max()) if len(lo) else start
-    return {"bark_start_cm": round(start * 100.0, 1), "bark_blend_cm": round(max(end - start, 0.05) * 100.0, 1)}
+    return {"bark_start_cm": round((start + origin_z) * 100.0, 1), "bark_blend_cm": round(max(end - start, 0.05) * 100.0, 1)}
 
 
 # -- leaves -----------------------------------------------------------------------------------------
@@ -380,89 +559,189 @@ def leaf_atlas(look: dict, seed: int) -> dict:
     fractions = np.linspace(float(u["leaf_level_range"][0]), float(u["leaf_level_range"][1]), levels)
     n = int(look["leaves"]["texture_size_px"])
     R, _ = ap.leaf_colours(look, fractions)
-    rgb = np.zeros((n, n * levels, 3), np.float32)
-    nrm = np.zeros((n, n * levels, 3), np.float32)
-    rough = np.full((n, n * levels), 0.5, np.float32)
-    mask = None
-    for i, f in enumerate(fractions):
-        blade = tx.leaf_blade(look, seed, game._turning(float(f), look["leaves"]["interveinal_lead"]))
-        a = blade["alpha"]
-        mean = np.maximum((blade["rgb"] * a[..., None]).reshape(-1, 3).sum(0) / max(float(a.sum()), 1.0), 1e-4)
-        colour = blade["rgb"] * (R[i] / mean).astype(np.float32)
-        # the mesh is cut to the blade's outline, so what lies past it only needs to be leaf-coloured
-        rgb[:, i * n:(i + 1) * n] = tx.push_pull_fill(colour, (a >= 0.5).astype(np.float32))
-        nrm[:, i * n:(i + 1) * n] = blade["normal"]
-        rough[:, i * n:(i + 1) * n] = 0.5 - 0.12 * np.clip(blade["normal"][..., 2] - 0.9, 0.0, 0.1) * 10.0
-        mask = a
-    return {"rgb": rgb, "normal": nrm, "rough": rough, "fractions": fractions, "mask": mask}
+    sh = look["leaves"]["shape"]
+    rows = int(sh["variants"])
+    rgb = np.zeros((n * rows, n * levels, 3), np.float32)
+    nrm = np.zeros((n * rows, n * levels, 3), np.float32)
+    rough = np.full((n * rows, n * levels), 0.5, np.float32)
+    alpha = np.zeros((n * rows, n * levels), np.float32)
+    uv_half = float(sh["uv_half"]) * 2.0
+    unit = np.zeros(rows)
+    stalk = np.asarray(u["leaf"]["stalk_colour"], np.float32)
+    s = max(n // 40, 3)
+    for v in range(rows):
+        y0, y1 = v * n, (v + 1) * n
+        for i, f in enumerate(fractions):
+            blade = tx.leaf_blade(look, seed + 37 * v, game._turning(float(f), look["leaves"]["interveinal_lead"]), variant=v)
+            a = blade["alpha"]
+            mean = np.maximum((blade["rgb"] * a[..., None]).reshape(-1, 3).sum(0) / max(float(a.sum()), 1.0), 1e-4)
+            colour = blade["rgb"] * (R[i] / mean).astype(np.float32)
+            colour = tx.push_pull_fill(colour, (a >= 0.5).astype(np.float32))
+            # the leaf stalk's colour, in the corner the blade doesn't reach
+            colour[-s:, :s] = stalk
+            rgb[y0:y1, i * n:(i + 1) * n] = colour
+            nrm[y0:y1, i * n:(i + 1) * n] = blade["normal"]
+            rough[y0:y1, i * n:(i + 1) * n] = 0.5 - 0.12 * np.clip(blade["normal"][..., 2] - 0.9, 0.0, 0.1) * 10.0
+            alpha[y0:y1, i * n:(i + 1) * n] = a
+            alpha[y1 - s:y1, i * n:i * n + s] = 1.0
+        # the blade's area for a length of 1: the cell is 1 long and hmax / uv_half wide
+        hmax = tx.leaf_margin(sh, v)["hmax"]
+        unit[v] = float((a >= 0.35).mean()) * 2.0 * hmax / uv_half
+    return {"rgb": rgb, "normal": nrm, "rough": rough, "alpha": alpha, "fractions": fractions, "unit": unit, "stalk_px": s, "cell_px": n, "rows": rows}
 
 
-def blade_mesh(look: dict, leaves: ap.LeafInstances, chl: np.ndarray, fractions: np.ndarray) -> dict:
-    """Each leaf its real outline, cut in the mesh (as the game's plants are), with no alpha for a voxel
-    build to lose and a midrib fold that gives it some depth: rows from base to tip,
-    folded along the midrib and bent back at the tip, with coarse teeth.  Area exactly the model's."""
-    u = look["game"]["unreal"]
-    rows = int(u["leaf_rows"])
-    lv = look["leaves"]
-    t = np.linspace(0.0, 1.0, rows + 1)
-    tooth = np.where(np.arange(rows + 1) % 2 == 1, float(u["leaf_tooth"]), 0.0)
-    half = np.maximum(tx.leaf_half_width(look, t) - tooth, 0.0)
-    half[0] = half[-1] = 0.0
-    aspect = float(lv["shape"]["aspect"])
-    # area of the outline for a blade of length 1: 2 sides x half width x 1 / (2 aspect)
-    unit = float(np.trapezoid(half, t)) / aspect
+def hang_leaves(leaves: ap.LeafInstances, z_rel: np.ndarray, cfg: dict) -> ap.LeafInstances:
+    """The leaves' angle to the horizontal as measured (Hagemeier & Leuschner 2019a): they hang, 49
+    degrees on average, about 55 at the top of the crown and about 30 at its bottom.  That's a blade's
+    slope from its base to its tip, so the curl ``blade_mesh`` will give each leaf is taken off here."""
     n = len(leaves.node)
-    L = np.sqrt(leaves.area / unit)
-    Wh = 0.5 * L / aspect
+    key = np.arange(n)
+    table = np.asarray(cfg["angle_by_height"], float)
+    mean = np.interp(z_rel, table[:, 0], table[:, 1])
+    curl = float(cfg["curl"][0]) + (float(cfg["curl"][1]) - float(cfg["curl"][0])) * ap.hash01(key, 86)
+    inc = np.radians(mean + float(cfg["angle_spread_deg"]) * (ap.hash01(key, 81) - 0.5) * 2.0) - np.arctan(curl)
+    az = np.arctan2(leaves.along[:, 1], leaves.along[:, 0])
+    outward = np.stack([np.cos(az), np.sin(az), np.zeros(n)], 1)
+    along = outward * np.cos(inc)[:, None] + np.array([0.0, 0.0, -1.0]) * np.sin(inc)[:, None]
+    across = np.stack([-np.sin(az), np.cos(az), np.zeros(n)], 1)
+    roll = (ap.hash01(key, 3) - 0.5) * float(cfg["roll_rad"])
+    n0 = np.cross(along, across)
+    across = across * np.cos(roll)[:, None] + n0 * np.sin(roll)[:, None]
+    out = copy.copy(leaves)
+    out.along, out.across = along, across
+    return out
+
+
+def _zipper(t_mid: np.ndarray, t_side: np.ndarray, side0: int, flip: bool) -> list:
+    """Triangles between the midrib's chain (vertices 0 up, base and tip its ends) and one margin's
+    chain, walking both by position along the leaf.  The margin starts at the base and ends at the tip."""
+    n_mid = len(t_mid)
+    ext = [0] + [side0 + k for k in range(len(t_side))] + [n_mid - 1]
+    t_ext = np.r_[0.0, t_side, 1.0]
+    tri = []
+    i, j = 0, 0
+    while i < n_mid - 1 or j < len(ext) - 1:
+        go_mid = j == len(ext) - 1 or (i < n_mid - 1 and t_mid[i + 1] <= t_ext[j + 1])
+        if go_mid:
+            f = (i, i + 1, ext[j])
+            i += 1
+        else:
+            f = (i, ext[j + 1], ext[j])
+            j += 1
+        if len(set(f)) == 3:
+            tri.append(f[::-1] if flip else f)
+    return tri
+
+
+def blade_mesh(look: dict, leaves: ap.LeafInstances, chl: np.ndarray, atlas: dict, z_rel: np.ndarray) -> dict:
+    """Each leaf its real outline, curved, with its main teeth in the mesh and the small ones cut by the
+    colour map's alpha, a stalk from the twig, a fold along the midrib, a droop to the tip and a slight
+    twist, all differing from leaf to leaf.  Visible area exactly the model's."""
+    cfg = look["game"]["unreal"]["leaf"]
+    sh = look["leaves"]["shape"]
+    fractions = atlas["fractions"]
+    levels = len(fractions)
+    rows = atlas["rows"]
+    n = len(leaves.node)
+    key = np.arange(n)
+    h = lambda salt: ap.hash01(key, salt)  # noqa: E731
+    variant = (h(82) * rows).astype(np.int64)
+    flip_uv = h(83) < 0.5
+    width = float(cfg["width_low"]) + (float(cfg["width_high"]) - float(cfg["width_low"])) * h(84)
+    fold = np.radians(float(cfg["fold_deg"][0]) + (float(cfg["fold_deg"][1]) - float(cfg["fold_deg"][0])) * h(85))
+    curl = float(cfg["curl"][0]) + (float(cfg["curl"][1]) - float(cfg["curl"][0])) * h(86)
+    twist = float(cfg["twist_rad"]) * (h(87) - 0.5) * 2.0
+    bend = float(cfg["side_bend"]) * (h(88) - 0.5) * 2.0
+    ripple = float(cfg["ripple"]) * h(89)
+    L = np.sqrt(leaves.area / (atlas["unit"][variant] * width))
+    hmax = np.array([tx.leaf_margin(sh, v)["hmax"] for v in range(rows)])
+    # the stalk: from the twig's surface, out and arching down to the blade's base
+    outward = leaves.base - leaves.twig
+    plen = np.linalg.norm(outward, axis=1)
+    out_dir = outward / np.maximum(plen, 1e-9)[:, None]
+    plen = plen * (0.8 + 0.5 * h(90))
+    z_up = np.array([0.0, 0.0, 1.0])
+    p0 = leaves.twig
+    p1 = p0 + out_dir * (0.55 * plen)[:, None] + z_up * (0.12 * plen)[:, None]
+    p2 = p0 + out_dir * (0.85 * plen)[:, None] - z_up * (0.35 * plen)[:, None]
     a, c = leaves.along, leaves.across
     nrm = np.cross(a, c)
-    fold = np.radians(float(lv["fold_deg"]))
-    curl = float(u["leaf_curl"])
-    # vertices: base, then (middle, +side, -side) per inner row, then tip
-    inner = rows - 1
-    per = 2 + 3 * inner
+    # vertices: blade (midrib, then each margin), then the stalk's three pairs
+    t_mid = np.asarray(cfg["midrib_at"], float)
+    n_mid = len(t_mid)
+    margins = [tx.leaf_margin(sh, v) for v in range(rows)]
+    t_lead = np.asarray(cfg["base_points_at"], float)
+    n_side = len(t_lead) + int(sh["main_teeth"])
+    blade_v = n_mid + 2 * n_side
+    per = blade_v + 6
     V = np.zeros((n, per, 3))
     UV = np.zeros((n, per, 2))
-    drop = (curl * L)[:, None] * (t ** 2)[None, :]
-    mid = leaves.base[:, None, :] + (L[:, None] * t[None, :])[..., None] * a[:, None, :] - drop[..., None] * nrm[:, None, :]
-    V[:, 0] = mid[:, 0]
-    V[:, -1] = mid[:, -1]
-    UV[:, 0] = [0.5, 1.0]
-    UV[:, -1] = [0.5, 0.0]
-    for r in range(1, rows):
-        o = 1 + 3 * (r - 1)
-        side = (Wh * half[r])[:, None]
-        V[:, o] = mid[:, r]
-        V[:, o + 1] = mid[:, r] + c * side * np.cos(fold) - nrm * side * np.sin(fold)
-        V[:, o + 2] = mid[:, r] - c * side * np.cos(fold) - nrm * side * np.sin(fold)
-        UV[:, o] = [0.5, 1.0 - t[r]]
-        UV[:, o + 1] = [0.5 + 0.49 * half[r], 1.0 - t[r]]
-        UV[:, o + 2] = [0.5 - 0.49 * half[r], 1.0 - t[r]]
-    # faces, the leaf's upper side turned up
-    tri = []
-    tri += [[0, 3, 1], [0, 1, 2]]
-    for r in range(1, inner):
-        o = 1 + 3 * (r - 1)
-        m0, p0, q0 = o, o + 1, o + 2
-        m1, p1, q1 = o + 3, o + 4, o + 5
-        tri += [[m0, q0, q1], [m0, q1, m1], [m0, m1, p1], [m0, p1, p0]]
-    o = 1 + 3 * (inner - 1)
-    tip = per - 1
-    tri += [[o, o + 2, tip], [o, tip, o + 1]]
+
+    def along_midrib(tv):
+        """Where the midrib is at tv (n x k), and the two directions across it there."""
+        t2 = tv * tv
+        tw = (twist[:, None] * tv)
+        cc, ss = np.cos(tw), np.sin(tw)
+        P = p2[:, None, :] + (L[:, None] * tv)[..., None] * a[:, None, :] + (L[:, None] * bend[:, None] * t2)[..., None] * c[:, None, :] - (L[:, None] * curl[:, None] * t2)[..., None] * nrm[:, None, :]
+        C = cc[..., None] * c[:, None, :] + ss[..., None] * nrm[:, None, :]
+        N_ = cc[..., None] * nrm[:, None, :] - ss[..., None] * c[:, None, :]
+        return P, C, N_
+
+    tm = np.broadcast_to(t_mid, (n, n_mid))
+    P_mid, _, _ = along_midrib(tm)
+    V[:, :n_mid] = P_mid
+    UV[:, :n_mid, 0] = 0.5
+    UV[:, :n_mid, 1] = 1.0 - tm
+    sides = {}
+    for k_side, (side, offset) in enumerate(((1, n_mid), (-1, n_mid + n_side))):
+        ts = np.zeros((n, n_side))
+        hs = np.zeros((n, n_side))
+        for v in range(rows):
+            sel = variant == v
+            m = margins[v]
+            tv = np.r_[t_lead, m["tips"][side]]
+            ts[sel] = tv
+            hs[sel] = tx.leaf_half_at(m, tv)
+        sides[side] = ts
+        P, C, N_ = along_midrib(ts)
+        half = (L * hmax[variant] * width)[:, None] * hs
+        up = np.sin(fold)[:, None] * half + (ripple * L)[:, None] * np.where(np.arange(n_side) % 2 == 0, 1.0, -1.0)
+        V[:, offset:offset + n_side] = P + (side * np.cos(fold)[:, None] * half)[..., None] * C + up[..., None] * N_
+        u = 0.5 + side * float(sh["uv_half"]) * hs
+        UV[:, offset:offset + n_side, 0] = u
+        UV[:, offset:offset + n_side, 1] = 1.0 - ts
+    # the stalk: a thin ribbon, across the leaf
+    w_stalk = float(cfg["stalk_width_m"]) * 0.5
+    o = blade_v
+    for k, p in enumerate((p0, p1, p2)):
+        V[:, o + 2 * k] = p - c * w_stalk
+        V[:, o + 2 * k + 1] = p + c * w_stalk
+    cell = atlas["cell_px"]
+    s_uv = (atlas["stalk_px"] * 0.5) / cell
+    UV[:, o:o + 6, 0] = s_uv
+    UV[:, o:o + 6, 1] = 1.0 - s_uv
+    # mirror half the leaves in the map; the column of the leaf's chlorophyll, the row of its variant
+    low, high = fractions[0], fractions[-1]
+    level = np.clip(np.round((chl - low) / max(high - low, 1e-6) * (levels - 1)), 0, levels - 1)
+    blade_u = UV[:, :blade_v, 0]
+    UV[:, :blade_v, 0] = np.where(flip_uv[:, None], 1.0 - blade_u, blade_u)
+    UV[..., 0] = (level[:, None] + UV[..., 0]) / levels
+    UV[..., 1] = (variant[:, None] + UV[..., 1]) / rows
+    # faces: one template, as the same counts hold for every leaf; which teeth sit where changes little
+    t_side_r = np.r_[t_lead, margins[0]["tips"][1]]
+    t_side_l = np.r_[t_lead, margins[0]["tips"][-1]]
+    tri = _zipper(t_mid, t_side_r, n_mid, False) + _zipper(t_mid, t_side_l, n_mid + n_side, True)
+    tri += [(o, o + 1, o + 2), (o + 1, o + 3, o + 2), (o + 2, o + 3, o + 4), (o + 3, o + 5, o + 4)]
     tri = np.asarray(tri, np.int64)
     F = (np.arange(n)[:, None, None] * per + tri[None]).reshape(-1, 3)
     V = V.reshape(-1, 3)
-    # the atlas column of the leaf's level
-    levels = len(fractions)
-    level = np.clip(np.round((chl - fractions[0]) / max(fractions[-1] - fractions[0], 1e-6) * (levels - 1)), 0, levels - 1)
     UV = UV.reshape(-1, 2)
-    UV[:, 0] = (np.repeat(level, per) + UV[:, 0]) / levels
     fn = np.cross(V[F[:, 1]] - V[F[:, 0]], V[F[:, 2]] - V[F[:, 0]])
     N = np.zeros_like(V)
     for k in range(3):
         np.add.at(N, F[:, k], fn)
     N /= np.maximum(np.linalg.norm(N, axis=1, keepdims=True), 1e-12)
-    return {"V": V, "N": N, "F": F, "UV": UV, "T": game._tangents(V, N, UV, F), "per": per, "level": level}
+    return {"V": V, "N": N, "F": F, "UV": UV, "T": game._tangents(V, N, UV, F), "per": per, "level": level, "tris_per_leaf": len(tri)}
 
 
 def card_atlas(look: dict, seed: int) -> dict:
@@ -611,16 +890,43 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
     root_cfg = u["roots"]
     line = ground_line(model, age, root_cfg)
     rad_ob = root_radii(look, model, age, rad_ob, skel, is_root, line, root_cfg, ap.over_bark_dbh_cm(look, dbh_w))
+    skel = stem_goes_down(skel, is_root, line, root_cfg)
     gfull = look["game"]["full_mesh"]
     clean = {k: u[k] for k in ("ring_tolerance", "ring_tolerance_m", "ring_longest_span")}
     clean["drop_hidden_rings"] = float(u["ring_tolerance"]) > 0.0 or float(u["ring_tolerance_m"]) > 0.0
-    settings0 = meshlib.MeshSettings(ring_attributes=True, stem_sides_by_radius=True, sides_allowed=tuple(gfull["sides_allowed"]), **clean)
-    crown0, roots0 = tree_meshes(skel, np.ones(n, bool), rad_ob, is_root, orig, sp.geometry, settings0)
     wood = game.WoodParts(look, tiles, age, height, dbh_w, T.birth[: T.n], r_wood)
-    game.bake_wood(wood, crown0, T, pos, model.radius_history)
-    arrays0 = game.wood_arrays(wood, crown0, relief=True)
-    wood.first_stem_node = int(arrays0["stem"]["node"][np.argmin(arrays0["stem"]["V"][:, 2])])
     alive = (T.birth[: T.n] <= age) & ((T.death[: T.n] < 0) | (T.death[: T.n] > age))
+    relief_cfg = u["stem_relief"]
+    surface_depth = float(root_cfg["surface_depth_m"])
+    # the stem's nodes, foot upwards
+    stem_ids = np.nonzero((np.asarray(T.axis[: T.n]) == 0) & alive)[0]
+    stem_ids = stem_ids[np.argsort(pos[stem_ids, 2])]
+    stem_node = int(stem_ids[0])
+    table = None
+    if float(relief_cfg["edge_fine_m"]) > 0.0:
+        table = stem_edges(wood, pos[stem_ids, 2], age - T.birth[stem_ids].astype(float), 2.0 * r_wood[stem_ids], line, surface_depth, relief_cfg)
+    # the ridges hold down to below where the ground can reach, so the foot only ever widens towards it
+    clean["buttress_hold_m"] = surface_depth - line
+    settings0 = meshlib.MeshSettings(ring_attributes=True, stem_sides_by_radius=True, sides_allowed=tuple(gfull["sides_allowed"]), stem_edge_by_height=table or (),
+                                     stem_along_factor=float(relief_cfg["along_factor"]), stem_rings_under=float(relief_cfg["rings_under_m"]), **clean)
+    crown0, roots0 = tree_meshes(skel, np.ones(n, bool), rad_ob, is_root, orig, sp.geometry, settings0)
+    collar = float(np.asarray(model.roots.radius_history[age], float).max())
+    swell = (float(sp.geometry.root_flare_extra) * float(relief_cfg["swell_share"]), float(sp.geometry.root_flare_height))
+    stem_r = crown0.attributes["radius"][crown0.attributes["axis_id"] == 0]
+    stem_v_low = crown0.vertices[crown0.attributes["axis_id"] == 0]
+    low = stem_v_low[:, 2] < float(stem_v_low[:, 2].min()) + 0.2
+    centre = stem_v_low[low, :2].mean(0)
+    foot_r = float(np.median(stem_r[low])) * (1.0 + swell[0])
+    foot0, surface0, below0 = split_roots(sink_roots(roots0, line, centre, foot_r, collar, root_cfg), root_cfg, line, collar)
+    merged0 = game.join_meshes([crown0, as_stem(foot0, stem_node)])
+    if foot0 is not None:
+        wood.stem_y_offset = float(crown0.attributes["ring_along"][crown0.attributes["axis_id"] == 0].min() - foot0.attributes["ring_along"].min())
+    game.bake_wood(wood, merged0, T, pos, model.radius_history)
+    moss_on_stem(look, wood, line, root_cfg, int(look["game"]["texture_seed"]) + 910)
+    stem_near = split_detail(wood, relief_cfg) if table is not None else wood.stem_bake
+    arrays0 = game.wood_arrays(wood, merged0)
+    arrays0["stem"] = shape_stem(arrays0["stem"], wood, line, line - surface_depth, swell, table, relief_cfg)
+    origin_z = float(root_cfg["origin_below_lowest_m"]) - (line - surface_depth)
     flex = wind_flex(pos, np.asarray(T.parent[: T.n]), alive, np.asarray(T.depth[: T.n]))
     phase = float(ap.hash01(np.array([int(ctx["seed"])]), 71)[0])
     seed = int(look["game"]["texture_seed"])
@@ -628,7 +934,7 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
     lods = {lod["name"]: lod for lod in look["game"]["lods"]}
     lod1 = next((v for v in lods.values() if v["kind"] == "reduced"), None)
     arrays1 = None
-    roots1 = None
+    surface1, below1 = None, None
     if lod1 is not None and lod1.get("budget") is not None:
         rm = look["game"]["reduced_mesh"]
         settings1 = meshlib.MeshSettings(edge_target=rm["edge_target"], sides_allowed=tuple(rm["sides_allowed"]), ring_spacing_factor=rm["ring_spacing_factor"],
@@ -636,14 +942,21 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
                                          ring_attributes=True, stem_sides_by_radius=True, **clean)
         thr = game.reduced_radius_threshold(skel, rad_ob, is_root, orig, sp.geometry, settings1, int(float(lod1["budget"]) * float(lod1["wood_share"])))
         crown1, roots1 = tree_meshes(skel, game.reduced_selection(skel, rad_ob, thr), rad_ob, is_root, orig, sp.geometry, settings1)
-        arrays1 = game.wood_arrays(wood, crown1)
+        foot1, surface1, below1 = split_roots(sink_roots(roots1, line, centre, foot_r, collar, root_cfg), root_cfg, line, collar)
+        arrays1 = game.wood_arrays(wood, game.join_meshes([crown1, as_stem(foot1, stem_node)]))
+        arrays1["stem"] = shape_stem(arrays1["stem"], wood, line, line - surface_depth, swell, None, relief_cfg)
     base_name = f"{asset}_age{age:03d}"
     maps = Maps(out, asset)
     split = out / "SourceArt" / "PolyHaven_split" / asset
     split.mkdir(parents=True, exist_ok=True)
     # bark maps, once per age
     stem_slot, branch_slot, strip_slot = f"{base_name}_stem_bark", f"{base_name}_branch_bark", f"{base_name}_bark_strip"
-    stem_files = _bark_maps(maps, stem_slot, wood.stem_bake)
+    stem_files = _bark_maps(maps, stem_slot, stem_near)
+    # a level without the relief in its mesh needs it all in its normal map
+    stem_far_slot, stem_far_files = stem_slot, stem_files
+    if stem_near is not wood.stem_bake and arrays1 is not None:
+        stem_far_slot = f"{stem_slot}_lod1"
+        stem_far_files = _bark_maps(maps, stem_far_slot, wood.stem_bake)
     branch_files = _bark_maps(maps, branch_slot, wood.atlas)
     stem_circ = 2.0 * np.pi * float(wood.profile.radius[0])
     turns = float(max(round(stem_circ / tile_m), 1))
@@ -653,10 +966,6 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
     root_slot = f"{base_name}_root_bark"
     root_bake = root_atlas(look, wood, tiles, roots0, root_birth, root_radius, root_cfg)
     root_files = _bark_maps(maps, root_slot, root_bake)
-    foot0, surface0, below0 = split_roots(roots0, root_cfg, line)
-    foot1, surface1, below1 = split_roots(roots1, root_cfg, line)
-    stem_node = int(wood.first_stem_node)
-    foot_a = {"full": foot_arrays(look, wood, foot0, stem_node), "reduced": foot_arrays(look, wood, foot1, stem_node)}
     surface_a = {"full": root_arrays(look, wood, surface0, root_bake, root_birth, root_radius), "reduced": root_arrays(look, wood, surface1, root_bake, root_birth, root_radius)}
     root_files_out = {}
     for lname, below_md in (("lod0", below0), ("lod1", below1)):
@@ -666,6 +975,7 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
         rname = f"{base_name}_roots" + ("" if lname == "lod0" else f"_{lname}")
         rpath = split / f"{rname}.gltf"
         rglb = GameGLB(rpath, rname, {**meta, "age": age, "level": lname, "part": "everything below ground", "color0": COLOR0, "uv_layout": UV_LAYOUT})
+        rglb.origin_z = origin_z
         _root_mesh(rglb, wood, arr, "roots_below_ground", maps.material(rglb, root_slot, root_files, CLAMP, REPEAT), root_birth, root_radius, phase, tile_m)
         info = rglb.write_gltf()
         info.update(file=str(rpath.relative_to(out)).replace("\\", "/"), variant=rname, min_z_m=round(float(arr["V"][:, 2].min()), 3))
@@ -673,9 +983,15 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
     # leaves
     blade0 = tx.leaf_blade(look, seed + 500)
     leaves = ap.leaf_instances(look, sp, ctx["snaps"][age], pos, r_wood, age, blade0["fill"])
+    # where each leaf's stalk leaves its twig: the base as placed, less the stalk's length
+    leaf_out = leaves.base - pos[leaves.node]
+    leaf_out /= np.maximum(np.linalg.norm(leaf_out, axis=1, keepdims=True), 1e-9)
+    leaves.twig = pos[leaves.node] + leaf_out * r_wood[leaves.node][:, None]
+    leaf_z_rel = np.clip(pos[leaves.node, 2] / max(height, 1e-3), 0.0, 1.0)
+    leaves = hang_leaves(leaves, leaf_z_rel, u["leaf"])
     atlas = leaf_atlas(look, seed + 500)
     leaf_slot = f"{base_name}_leaf"
-    leaf_files = maps.write(leaf_slot, atlas["rgb"], atlas["normal"], atlas["rough"], alpha=np.ones(atlas["rough"].shape, np.float32))
+    leaf_files = maps.write(leaf_slot, atlas["rgb"], atlas["normal"], atlas["rough"], alpha=atlas["alpha"])
     strips = ap.peel_strips(look, pos, T.parent[: T.n], r_wood, T.birth[: T.n], alive, age, height, ap.over_bark_dbh_cm(look, dbh_w))
     strip_tex = strip_atlas(look, seed + 600)
     strip_files = maps.write(strip_slot, strip_tex["rgb"], strip_tex["normal"], strip_tex["rough"], alpha=strip_tex["alpha"])
@@ -684,7 +1000,8 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
     card_files = maps.write(card_slot, cards["rgb"], cards["normal"], cards["rough"], alpha=cards["alpha"]) if cards is not None else None
     days = look["leaves"]["season"]["days"]
     out_stage = {"age": age, "height_m": height, "dbh_wood_cm": dbh_w, "dbh_over_bark_cm": round(ap.over_bark_dbh_cm(look, dbh_w), 2), "exported_leaves": int(len(leaves.node)),
-                 "roots": {**root_table(model, age), "ground_line_m": round(line, 3), "thick_root_breaking_ground": thick_breaking(model, age, line), "files": root_files_out}, "upper_bark": black_zone(wood),
+                 "roots": {**root_table(model, age), "ground_line_m": round(line, 3), "showing": roots_showing(surface0, line, centre), "files": root_files_out},
+                 "upper_bark": black_zone(wood, origin_z), "origin": {"model_zero_in_file_m": round(origin_z, 4), "ground_in_file_m": round(origin_z + line, 4), "lowest_in_file_m": round(origin_z + line - surface_depth, 4)},
                  "model_leaf_area_m2": st["leaf_area_m2"], "exported_leaf_area_m2": round(float(leaves.area.sum()), 3), "peel_strips": 0 if strips is None else strips.count,
                  "bark_texture_y": _texture_y(wood), "stem_height_range_m": stem_files["height_range_m"], "seasons": {}}
     for season in seasons:
@@ -696,10 +1013,12 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
             path = split / f"{variant}.gltf"
             lmeta = {**meta, "age": age, "season": season, "level": lname, "color0": COLOR0, "uv_layout": UV_LAYOUT}
             glb = GameGLB(path, variant, lmeta)
+            glb.origin_z = origin_z
             parts = {}
             if lod["kind"] == "far":
                 near = split / f"{base_name}{suffix}.gltf"
-                f = game.far_sheets(near, lod)
+                f = seat_sheets(game.far_sheets(near, lod), origin_z + line - surface_depth)
+                glb.origin_z = 0.0      # read from the near file, so already where it goes
                 H = f["albedo"].shape[0]
                 W = next_pot(f["albedo"].shape[1])
                 cov = pot(f["coverage"], W, H)
@@ -715,10 +1034,9 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
             else:
                 arrays = arrays0 if lod["kind"] == "full" else arrays1
                 if "stem" in arrays:
-                    m = maps.material(glb, stem_slot, stem_files, REPEAT, CLAMP)
+                    near_level = lod["kind"] == "full"
+                    m = maps.material(glb, stem_slot if near_level else stem_far_slot, stem_files if near_level else stem_far_files, REPEAT, CLAMP)
                     _bark_mesh(glb, wood, arrays["stem"], "stem", m, flex, phase, turns, tile_m)
-                    if foot_a[lod["kind"]] is not None:
-                        _bark_mesh(glb, wood, foot_a[lod["kind"]], "stem_foot", m, flex, phase, turns, tile_m)
                 if "branch" in arrays:
                     m = maps.material(glb, branch_slot, branch_files, CLAMP, REPEAT)
                     _bark_mesh(glb, wood, arrays["branch"], "branches", m, flex, phase, _column_turns(look, arrays["branch"]["col"], tile_m), tile_m)
@@ -741,8 +1059,8 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
                 if chl is not None and len(leaves.node):
                     tri0 = glb.triangles
                     if lod["leaf_kind"] == "blades":
-                        m = maps.material(glb, leaf_slot, leaf_files, CLAMP, CLAMP, two_sided=True, extras=_leaf_extras(look, float(np.mean(chl))))
-                        b = blade_mesh(look, leaves, chl, atlas["fractions"])
+                        m = maps.material(glb, leaf_slot, leaf_files, CLAMP, CLAMP, alpha_clip=float(u["alpha_clip"]), two_sided=True, extras=_leaf_extras(look, float(np.mean(chl))))
+                        b = blade_mesh(look, leaves, chl, atlas, leaf_z_rel)
                         per = b["per"]
                         node = np.repeat(leaves.node, per)
                         uv2 = np.stack([np.repeat(leaves.delay, per), np.repeat(leaves.sun, per)], 1)
@@ -759,7 +1077,7 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
                             glb.add_mesh("leaf_cards", m, a["V"], a["N"], a["F"], a["UV"], a["T"], colour=a["colour"], colour_8bit=True, extra_uv=[np.zeros((len(a["V"]), 2)), a["uv2"], a["uv3"]])
                             parts["leaf_area_represented_m2"] = round(a["represented_area"], 3)
                     parts["leaves"] = glb.triangles - tri0
-            all_v = [np.asarray(m_) for m_ in _positions(glb)]
+            all_v = _positions(glb)
             info = glb.write_gltf()
             bud = lod.get("budget")
             info.update(parts=parts, budget=bud, within_budget=bud is None or info["triangles"] <= int(bud), variant=variant, file=str(path.relative_to(out)).replace("\\", "/"))
