@@ -1668,6 +1668,8 @@ crown_frame:
   limb_rivalry: null
   # TUNED, against nothing: how many limbs on each side count as neighbours.
   limb_rivals: 5
+  # TUNED, against one limb running away in the open: no more than this many times its neighbours' median counts.
+  limb_rival_max: 3.0
   # TUNED, against the width of open-grown trees: no limb's reach over the published crown.
   reach_capped: false
   # TUNED: with a value, a limb's reach goes with the light on its leaves this year, to this power, and its side shoots' length with that light,

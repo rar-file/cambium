@@ -36,3 +36,4 @@ crown_frame.full_crown_spur_years=8
 crown_frame.reach_capped=true
 crown_frame.reach_scatter=0.2
 crown_frame.spacing_overlap=1.0
+crown_frame.limb_rivalry=0.5

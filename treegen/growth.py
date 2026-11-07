@@ -2125,7 +2125,7 @@ class GrowthModel:
                 k = int(cf.limb_rivals)
                 med = np.array([float(np.median(vals[max(i - k, 0): i + k + 1])) for i in range(len(vals))])
                 vig = np.ones(T.n)
-                vig[by_z] = np.power(vals / np.maximum(med, 1e-9), float(rivalry))
+                vig[by_z] = np.power(np.minimum(vals / np.maximum(med, 1e-9), float(cf.limb_rival_max)), float(rivalry))
                 self._frame_vig = vig
         if getattr(cf, "earned_power", None) is None:
             return
