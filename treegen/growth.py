@@ -1707,7 +1707,7 @@ class GrowthModel:
             return (shoot_vol + float((ring * L).sum())) / unit + leaf_units, ring
 
         if fast.on(sp, "compiled_carbon"):
-            parts = fast.parts_function(hd, lead_at, ahead, share, thr, caps, full, per_met, early, lma, extra_per_node, starts, z_node, levels, T.parent,
+            parts = fast.parts_function(hd, lead_at, ahead, share, thr, caps, full, per_met, early, lma, extra_per_node, starts, z_node, levels, alive, T.parent,
                                         la_now, hv, keep, L, f_wind, a_wind_coef, laz_now, z_base, wood_keep, ring_cap, tip_area, unit, g_per_unit, g_resp)
         c0, r0 = parts(0.0)
         self._ring_need = c0
