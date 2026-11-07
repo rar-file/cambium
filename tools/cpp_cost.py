@@ -734,6 +734,15 @@ def run_table(a) -> None:
         Path(a.out).write_text(text, encoding="utf-8")
 
 
+def run_batch(a) -> None:
+    import subprocess
+
+    for command in a.commands:
+        print(f"RUN {command}", flush=True)
+        done = subprocess.run([sys.executable, str(Path(__file__).resolve())] + command.split())
+        print(f"exit {done.returncode}: {command}", flush=True)
+
+
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -754,8 +763,10 @@ def main():
     t = sub.add_parser("table")
     t.add_argument("folders", nargs="+")
     t.add_argument("--out", default=None)
+    b = sub.add_parser("batch", help="several of these one after another, each its own process: one core, no overlap")
+    b.add_argument("commands", nargs="+")
     a = ap.parse_args()
-    {"tree": run_tree, "plot": run_plot, "mesh": run_mesh, "hot": run_hot, "lines": run_lines, "table": run_table}[a.what](a)
+    {"tree": run_tree, "plot": run_plot, "mesh": run_mesh, "hot": run_hot, "lines": run_lines, "table": run_table, "batch": run_batch}[a.what](a)
 
 
 if __name__ == "__main__":
