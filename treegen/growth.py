@@ -2267,7 +2267,7 @@ class GrowthModel:
             # a limb starts at the physiological age the stem had when it made it (Barthelemy & Caraglio 2007, as _scaffold_vigour has it), so the top of an old tree's crown rounds off
             grow = grow * np.where(limb_tip[at], np.exp(-T.scaffold_birth[node] / float(self.sp.resource.stem_aging_years)), 1.0)
         # the tree's one second top keeps up with the leader, and may catch it: only the room under the tree's top holds it (_frame_room)
-        grow = np.where(second_top, float(self.sp.height_driver.catch_up) * longest, grow)
+        grow = np.where(second_top, float(self.sp.height_driver.catch_up) * longest / np.maximum(np.where(limb_tip[at], T.term_dir[node, 2], 1.0), 0.5), grow)
         plan = np.minimum(grow / full[at], float(nmax))
         if earns:
             # each year a limb's and a fork's newest bud breaks by its own light, however little the rest of the crown leaves it: a limb in the sun is never a bare whip
