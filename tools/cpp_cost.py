@@ -1018,6 +1018,36 @@ def far_forms(m, history=None) -> dict:
         m.roots.__dict__.update(rk_)
     out["rest"] = {"raw": len(blob), "z": len(gzip.compress(blob, 6))}
     out["counts"] = counts
+    # how fast the fine structure turns over, and what fell this year
+    T, t = m.tree, int(m.year)
+    n = T.n
+    alive = T.death[:n] < 0
+    age = t - T.birth[:n].astype(np.int64)
+    lv = np.where(alive, T.leaves[:n].astype(np.float64), 0.0)
+    out["turnover"] = {f"young_{k}": {"nodes": float((alive & (age < k)).sum() / max(alive.sum(), 1)), "leaves": float(lv[alive & (age < k)].sum() / max(lv.sum(), 1e-12))} for k in (3, 5, 10)}
+    out["turnover"]["skeleton_0.01_share"] = float((alive & (T.radius[:n] >= 0.01)).sum() / max(alive.sum(), 1))
+    par = T.parent[:n].astype(np.int64)
+    fell = (T.death[:n] == t) & (par >= 0) & (T.death[np.maximum(par, 0)] != t)
+    roots_ = np.nonzero(fell)[0]
+    r0 = T.radius[:n][roots_]
+    sizes = {}
+    if roots_.size:
+        died = T.death[:n] == t
+        cnt = np.zeros(n)
+        cnt[died] = 1.0
+        lng = np.where(died, T.length[:n], 0.0)
+        acc = np.stack([cnt, lng], 1)
+        # subtree sums over this year's dead, deepest first (parents have lower depth)
+        order = np.argsort(-T.depth[:n][died])
+        idx = np.nonzero(died)[0][order]
+        for i in idx:
+            p = par[i]
+            if p >= 0 and died[p]:
+                acc[p] += acc[i]
+        for name, lo, hi in (("under_5mm", 0.0, 0.005), ("5mm_to_2cm", 0.005, 0.02), ("over_2cm", 0.02, 9.0)):
+            sel = (r0 >= lo) & (r0 < hi)
+            sizes[name] = {"count": int(sel.sum()), "nodes": int(acc[roots_[sel], 0].sum()), "length_m": float(acc[roots_[sel], 1].sum())}
+    out["fell_this_year"] = sizes
     # bringing the whole state back, Python: decompress the arrays, and load a whole pickled tree
     import zlib
     zb = zlib.compress(raw, 6)
@@ -1099,6 +1129,16 @@ def table_far(trees: list, plots: list) -> str:
                 ls.append(f"| {name} | " + " | ".join("" if v is None else f"{v:,.0f}" for v in vals) + " |")
             else:
                 ls.append(f"| {name} | " + " | ".join("" if v is None else f"{v:.3f}" for v in vals) + " |")
+        for k in (3, 5, 10):
+            for what in ("nodes", "leaves"):
+                vals = [_mean([r["turnover"][f"young_{k}"][what] for r in rows_by_age.get(str(a_), []) if "turnover" in r]) for a_ in PLAN_AGES]
+                ls.append(f"| Share of living {what} on wood under {k} years old | " + " | ".join("" if v is None else f"{100 * v:.0f} %" for v in vals) + " |")
+        vals = [_mean([r["turnover"]["skeleton_0.01_share"] for r in rows_by_age.get(str(a_), []) if "turnover" in r]) for a_ in PLAN_AGES]
+        ls.append("| Share of living nodes at least 1 cm thick | " + " | ".join("" if v is None else f"{100 * v:.1f} %" for v in vals) + " |")
+        for size in ("under_5mm", "5mm_to_2cm", "over_2cm"):
+            for what in ("count", "length_m"):
+                vals = [_mean([r.get("fell_this_year", {}).get(size, {}).get(what, 0) for r in rows_by_age.get(str(a_), []) if "turnover" in r]) for a_ in PLAN_AGES]
+                ls.append(f"| Shed that year, base {size.replace('_', ' ')}: {'pieces' if what == 'count' else 'length, m'} | " + " | ".join("" if v is None else f"{v:,.1f}" for v in vals) + " |")
         return ls + [""]
 
     if trees:
