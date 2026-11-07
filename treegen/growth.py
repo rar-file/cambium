@@ -957,6 +957,11 @@ class GrowthModel:
             on_stem = np.isin(T.axis[lat_nodes], np.fromiter(self.leader_axes, np.int64))
             named = np.isin(lat_nodes, np.fromiter(self._frame_buds().keys(), np.int64))
             Glat[lat_nodes[on_stem & ~named]] = 0.0
+            every = getattr(sp.crown_frame, "twig_bud_every", None)
+            if every:
+                # on anything finer, one bud in so many can start a long shoot, the rest stay short shoots.  Odd, so
+                # they take turns on the two sides of a two-ranked shoot
+                Glat[lat_nodes[~on_stem & (T.phyllo[lat_nodes] % int(every) != 0)]] = 0.0
         self._hd = self._height_limit_plan(t, term_nodes, lat_nodes, Qterm, Qlat, 1.0 - stress) if self._height_limit_on() else None
         if self._hd is not None:
             self._leader_phi = float((phi_t if self._hd["is_tip"] else phi_l)[self._hd["bud"]])
@@ -1983,10 +1988,16 @@ class GrowthModel:
             own[i] = named.get(int(node[i]), np.nan)
         mean = math.radians(float(cf.angle_mean_deg))
         steep = math.sin(mean) / np.maximum(np.sin(np.where(np.isfinite(own), own, mean)), float(cf.steep_limit))
-        grow = np.minimum(float(cf.chase) * np.maximum(goal * float(cf.length_per_reach) * steep - grown, 0.0), float(cf.limb_shoot_max_m))
+        reach = np.hypot(T.pos[node, 0] - T.pos[base, 0], T.pos[node, 1] - T.pos[base, 1])
+        out = np.where(limb_tip[at], np.hypot(T.term_dir[node, 0], T.term_dir[node, 1]), np.hypot(T.lat_dir[node, 0], T.lat_dir[node, 1]))
+        room = np.minimum(goal * float(cf.length_per_reach) * steep - grown, (goal - reach) / np.maximum(out, 0.5))
+        # apical control: no limb's shoot longer than the leader's this year, down to a floor for an old leader's short shoots
+        lead_len = float(full[hd["lead_at"]]) * float(min(hd["v"], nmax)) if "lead_at" in hd else float(cf.limb_shoot_max_m)
+        longest = min(float(cf.limb_shoot_max_m), max(lead_len, float(cf.limb_shoot_floor_m)))
+        grow = np.minimum(float(cf.chase) * np.maximum(room, 0.0), longest)
         if self.reit_axes and bool(cf.forks_climb):
             # a reiterated limb goes up as a second top: only the room under the tree's top holds it (_frame_room)
-            grow = np.where(limb_tip[at] & np.isin(T.axis[node], np.fromiter(self.reit_axes, np.int64)), float(cf.limb_shoot_max_m), grow)
+            grow = np.where(limb_tip[at] & np.isin(T.axis[node], np.fromiter(self.reit_axes, np.int64)), longest, grow)
         light = np.minimum(1.0, q_bud[at] / float(cf.light_full)) ** float(cf.light_exponent)
         grow = grow * light * float(hd["water"])
         return at, np.minimum(grow / full[at], float(nmax))

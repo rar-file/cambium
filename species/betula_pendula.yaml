@@ -1418,6 +1418,12 @@ crown_frame:
   chase: 0.5
   # TUNED, against nothing yet: the longest shoot a limb makes in a year (m).
   limb_shoot_max_m: 0.5
+  # TUNED, against the look: thin whips at the top go when a limb's shoot can't outrun the leader's.  This is the floor on that, m.
+  limb_shoot_floor_m: 0.15
+  # TUNED, against leaf area and stem of open-grown trees: one bud in this many, on limbs and finer, can start a long shoot; the
+  # rest stay short shoots.  Lintunen 2013 Fig. 6C (model output) has 2-4 long shoots per second-order branch.  With every bud
+  # free to break, a tree with light to spare spends it all on more shoots and runs away.  Odd: buds alternate sides.  null: all.
+  twig_bud_every: 13
   # TUNED, against nothing yet: light at a limb's tip from which light no longer limits its shoot.
   light_full: 0.6
   light_exponent: 1.0
