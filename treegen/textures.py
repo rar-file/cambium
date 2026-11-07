@@ -373,7 +373,7 @@ def stem_s(look: dict, v, length: float):
     return np.interp(v, vv, z)
 
 
-def bake_stem(look: dict, tiles: list, profile: StemProfile, part_state_fn, marks: list, px=None, block: int = 512) -> dict:
+def bake_stem(look: dict, tiles: list, profile: StemProfile, part_state_fn, marks: list, px=None, block: int = 512, y_offset: float = 0.0) -> dict:
     """The stem's own texture, baked from the state at every row.  ``marks``: (around 0-1, s, branch
     radius) of each branch that leaves the stem, living or shed, for the dark chevrons.
 
@@ -406,15 +406,16 @@ def bake_stem(look: dict, tiles: list, profile: StemProfile, part_state_fn, mark
     # at the end of the band, so nothing repeats up the stem
     from .appearance import hash01
     seed = int(look["game"]["texture_seed"])
-    band = np.floor(s / tile_m).astype(np.int64)
-    frac = s / tile_m - band
+    # y_offset: where the pattern's own zero is, if the rows start below it
+    band = np.floor((s - y_offset) / tile_m).astype(np.int64)
+    frac = (s - y_offset) / tile_m - band
     ox, oy = hash01(band + seed, 61) * tile_m, hash01(band + seed, 62) * tile_m
     ox2, oy2 = hash01(band + 1 + seed, 61) * tile_m, hash01(band + 1 + seed, 62) * tile_m
     hand_over = 0.82
     for start in range(0, H, block):
         rows = np.arange(start, min(start + block, H))
         n = len(rows)
-        y = np.broadcast_to(s[rows, None], (n, W))
+        y = np.broadcast_to(s[rows, None] - y_offset, (n, W))
         patch = sample_tile(tiles[0], np.broadcast_to(u[None, :] * tile_m, (n, W)), y, np.maximum(tile_m / W, dy[rows]))[..., PATCH]
         mix = smooth(patch, patch + edge, share[rows, None] * (1.0 + edge))[..., None]
         xa = u[None, :] * ka[rows, None]
@@ -558,11 +559,110 @@ def bake_branch_atlas(look: dict, tiles: list, states: list, px=None) -> dict:
 
 
 # -- leaves and strips ----------------------------------------------------------------------------
-def _leaf_outline(look: dict, n: int) -> np.ndarray:
+def leaf_half_width(look: dict, t) -> np.ndarray:
+    """The blade's half width at t (0 base, 1 tip), 1 at its widest, before its teeth: the same curve
+    as ``_leaf_outline``, for meshes that cut the leaf's real outline."""
+    w0 = float(look["leaves"]["shape"]["widest_at"])
+    t = np.asarray(t, float)
+    up = np.clip(t / w0, 0.0, 1.0)
+    down = np.clip(1.0 - (t - w0) / (1.0 - w0), 0.0, 1.0)
+    k = 0.32
+    d_ = np.clip(k - np.abs(up - down), 0.0, k) / k
+    rounded = np.minimum(up, down) - d_ * d_ * k * 0.25
+    half = rounded * (1.0 - 0.34 * smooth(0.55, 1.0, t) * (1.0 - smooth(0.9, 1.0, t)))
+    return np.where(t <= 0, 0.0, half)
+
+
+def push_pull_fill(rgb: np.ndarray, weight: np.ndarray) -> np.ndarray:
+    """Colour flooded into the texels of zero weight from their nearest weighted neighbours, coarse to
+    fine, so mips of a cut-out never average in what lies under the cut (the game's bleed_foliage.py
+    does this to its leaf textures, or distant crowns frost)."""
+    levels = []
+    colour, total = rgb * weight[..., None], weight
+    while min(colour.shape[:2]) > 1:
+        levels.append((colour, total))
+        h, w = colour.shape[0] // 2, colour.shape[1] // 2
+        colour = colour[:h * 2, :w * 2].reshape(h, 2, w, 2, 3).sum((1, 3))
+        total = total[:h * 2, :w * 2].reshape(h, 2, w, 2).sum((1, 3))
+    fill = colour / np.maximum(total, 1e-6)[..., None]
+    for colour, total in reversed(levels):
+        coarse = np.repeat(np.repeat(fill, 2, 0), 2, 1)
+        coarse = np.pad(coarse, ((0, colour.shape[0] - coarse.shape[0]), (0, colour.shape[1] - coarse.shape[1]), (0, 0)), mode="edge")
+        own = colour / np.maximum(total, 1e-6)[..., None]
+        have = np.minimum(total, 1.0)[..., None]
+        fill = own * have + coarse * (1.0 - have)
+    return fill.astype(np.float32)
+
+
+def leaf_margin(sh: dict, variant: int = 0) -> dict:
+    """A blade traced from real leaves (``half_width_by_length``), for the meshes that cut its outline.
+    Half width by position along it, smooth, in shares of its widest; and where each side's main teeth
+    end, at the tips of the side veins.  Teeth lean towards the leaf's tip, as on the real thing."""
+    table = np.asarray(sh["half_width_by_length"], float)
+    hmax = float(table[:, 1].max())
+    t = np.linspace(0.0, 1.0, 2049)
+    # each variant a little different: where the widest point sits, how long the tip is drawn out
+    warp = float(sh["variant_warp"]) * (variant % 2 * 2 - 1) if int(sh["variants"]) > 1 else 0.0
+    half = np.interp(t ** (1.0 + warp), table[:, 0], table[:, 1]) / hmax
+    half = np.convolve(np.pad(half, 40, mode="edge"), np.ones(81) / 81.0, mode="valid")
+    half[0] = half[-1] = 0.0
+    n = int(sh["main_teeth"])
+    first, last = float(sh["first_tooth_at"]), float(sh["last_tooth_at"])
+    tips = {}
+    for side, shift in ((1, 0.0), (-1, float(sh["side_offset"]))):
+        i = (np.arange(n) + shift) / max(n - 1 + shift, 1)
+        tips[side] = first + (last - first) * i ** float(sh["tooth_spacing_power"])
+    return {"t": t, "half": half, "hmax": hmax, "tips": tips}
+
+
+def leaf_half_at(margin: dict, t) -> np.ndarray:
+    return np.interp(t, margin["t"], margin["half"])
+
+
+def _tooth_depth(sh: dict, margin: dict, t: np.ndarray, side: int) -> np.ndarray:
+    """How far in from the outline's envelope the margin is: a main tooth to each side vein, smaller
+    ones between, every second to fourth tooth much the longer.  In shares of the widest half."""
+    tips = margin["tips"][side]
+    hmax = margin["hmax"]
+    main, minor = float(sh["main_tooth_depth"]) / hmax, float(sh["minor_tooth_depth"]) / hmax
+    m = int(sh["minor_per_main"])
+    knots = np.r_[tips, tips[-1] + (tips[-1] - tips[-2])]
+    phase = np.interp(t, knots, np.arange(len(knots)))
+    k = np.floor(phase)
+    f = phase - k
+    # each interval a slightly different number of small teeth
+    count = m + (np.mod(k * 7.0 + (side > 0) * 3.0, 3.0) > 1.0).astype(float)
+    g = np.mod(f * count, 1.0)
+    # past each tip the margin falls back quickly, slanting on towards the leaf's tip, then runs out to the next
+    def saw(x, fall=0.28):
+        return np.minimum(x / fall, (1.0 - x) / (1.0 - fall))
+    depth = main * saw(f, 0.2) * 0.7 + minor * saw(g)
+    # no teeth on the base's run in from the stalk, and only small ones on the drawn-out tip
+    depth = depth * smooth(tips[0] - 0.02, tips[0] + 0.005, t) * (1.0 - 0.75 * smooth(tips[-1], 1.0, t))
+    return depth
+
+
+def _leaf_outline_real(look: dict, n: int, variant: int) -> np.ndarray:
+    sh = look["leaves"]["shape"]
+    margin = leaf_margin(sh, variant)
+    Y, X = np.meshgrid((np.arange(n) + 0.5) / n, (np.arange(n) + 0.5) / n, indexing="ij")
+    t = 1.0 - Y[:, 0]
+    x = (2.0 * X - 1.0) / float(sh["uv_half"]) / 2.0
+    env = leaf_half_at(margin, t)
+    right = env - _tooth_depth(sh, margin, t, 1)
+    left = env - _tooth_depth(sh, margin, t, -1)
+    edge = np.where(x >= 0.0, right[:, None], left[:, None]) - np.abs(x)
+    aa = 2.5 / n
+    return np.clip(edge / aa + 0.5, 0.0, 1.0).astype(np.float32)
+
+
+def _leaf_outline(look: dict, n: int, variant: int = 0) -> np.ndarray:
     """A birch blade in a square, base at the bottom row, tip at the top: mask 0-1.  The outline
     is triangular with a truncate base and double teeth, and sits inside the diamond the mesh uses
     (corners at bottom middle, top middle, and at widest_at along the sides)."""
     sh = look["leaves"]["shape"]
+    if "half_width_by_length" in sh:
+        return _leaf_outline_real(look, n, variant)
     w0 = float(sh["widest_at"])
     teeth = float(sh["teeth"])
     Y, X = np.meshgrid((np.arange(n) + 0.5) / n, (np.arange(n) + 0.5) / n, indexing="ij")
@@ -586,28 +686,43 @@ def _leaf_outline(look: dict, n: int) -> np.ndarray:
     return (mask * (x <= diamond)).astype(np.float32)
 
 
-def leaf_blade(look: dict, seed: int, state_lead: float = 0.0) -> dict:
+def leaf_blade(look: dict, seed: int, state_lead: float = 0.0, variant: int = 0) -> dict:
     """The blade: a soft, near-white detail map (COLOR_0 gives each leaf its colour), with an alpha
     mask; lighter veins, a little mottling.  ``state_lead``: how yellow between the veins, 0-1;
     with it the map's own hue shifts from green at the veins to yellow between them."""
     n = int(look["leaves"]["texture_size_px"])
     sh = look["leaves"]["shape"]
-    mask = _leaf_outline(look, n)
+    mask = _leaf_outline(look, n, variant)
     Y, X = np.meshgrid((np.arange(n) + 0.5) / n, (np.arange(n) + 0.5) / n, indexing="ij")
     t = 1.0 - Y
     x = 2.0 * X - 1.0
     vein_light = float(sh["vein_lightness"])
     mid = np.exp(-(x / 0.018) ** 2)
-    nv = int(sh["secondary_veins"])
+    nv = int(sh["secondary_veins"]) if "secondary_veins" in sh else int(sh["main_teeth"])
     # secondary veins leave the midrib at a slant and run straight to the teeth
     phase = (t - 0.55 * np.abs(x)) * nv
     side = np.exp(-(((phase % 1.0) - 0.5) / 0.055) ** 2) * (t > 0.02)
+    v_near = None
+    if "half_width_by_length" in sh:
+        # ... each to the tip of a main tooth, each side its own
+        margin = leaf_margin(sh, variant)
+        h_norm = np.abs(x) / (2.0 * float(sh["uv_half"]))
+        best = np.full(t.shape, 9.0, np.float32)
+        for s_, sel in ((1, x >= 0.0), (-1, x < 0.0)):
+            tips = margin["tips"][s_]
+            starts = 0.015 + (tips - tips[0]) * float(sh["vein_start_share"])
+            ends = leaf_half_at(margin, tips)
+            d = np.stack([np.abs(t[sel] - (a_ + (b_ - a_) * h_norm[sel] / max(e_, 1e-3))) for a_, b_, e_ in zip(starts, tips, ends)], 0)
+            best[sel] = d.min(0)
+        side = np.exp(-(best / (0.055 / nv)) ** 2) * (t > 0.01)
+        v_near = np.exp(-(best / (0.22 / nv)) ** 2)
     veins = np.clip(mid + 0.6 * side, 0.0, 1.0)
     grain = noise((n, n), seed, (n / 40.0, n / 40.0), 1.8)
     cell = noise((n, n), seed + 1, (n / 170.0, n / 170.0), 1.0)
     base = 0.86 + 0.045 * grain + 0.03 * cell
     # chlorophyll goes first between the veins: yellow there, green by the veins
-    v_near = np.exp(-(((phase % 1.0) - 0.5) / 0.22) ** 2)
+    if v_near is None:
+        v_near = np.exp(-(((phase % 1.0) - 0.5) / 0.22) ** 2)
     between = np.clip(1.0 - np.maximum(v_near, np.exp(-(x / 0.09) ** 2)), 0.0, 1.0)
     lead = float(state_lead) * between * (0.6 + 0.4 * rank01(grain))
     rgb = np.stack([base + 0.20 * lead, base + 0.06 * lead, base * (1.0 - 0.45 * lead)], -1)

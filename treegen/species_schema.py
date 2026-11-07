@@ -30,6 +30,7 @@ OPTIONAL_BLOCKS = {
     "plot": "tools/plot.py can't run",
     "regeneration": "no natural regeneration in plots",
     "soil_water_balance": "no soil water balance option",
+    "speed": "no speed settings: everything runs the plain way",
 }
 
 
@@ -432,6 +433,19 @@ _l("soil_water_balance.precipitation_mm", "mm", 0.0, 3000.0, "May-September rain
 _l("soil_water_balance.pet_mm", "mm", 0.0, 3000.0, "May-September PET", length=(5, 5))
 _l("soil_water_balance.dry_year_precipitation_mm", "mm", 0.0, 3000.0, "the drought year's rain", length=(5, 5))
 _b("soil_water_balance.drought_scenario", "use the drought year's rain")
+# ---------------------------------------------------------------- speed (ways of running; reports/speed_research.md)
+_b("speed.compiled_carbon", "carbon solve compiled; same bits")
+_b("speed.quick_solve", "carbon solve in fewer evaluations; same bits on the runs tested")
+_b("speed.compiled_mechanics", "bending compiled; same bits")
+_b("speed.quick_levels", "the order of passes from a compiled count; same bits")
+_b("speed.light_layers", "light grids held layer first; same bits")
+_b("speed.keep_soil_grids", "soil grids kept between years; same bits")
+_b("speed.light_rows", "light by frequency rows, scipy's ffts; new rounding")
+_b("speed.drop_dead", "lean runs drop dead nodes; same yearly stats on the runs tested")
+_i("speed.light_every", "years", 1, 10, "years one light field lasts; lossy")
+_l("speed.sky_elevations_deg", "deg", 0.0, 90.0, "fewer sky directions; lossy", nullable=True)
+_i("speed.sky_azimuth_count", "-", 1, 64, "fewer sky directions; lossy", nullable=True)
+_n("speed.sun_hour_step", "h", 0.25, 6.0, "fewer sun directions; lossy", nullable=True)
 
 BY_PATH = {f.path: f for f in FIELDS}
 SWITCH_KINDS = ("switch", "choice", "text")

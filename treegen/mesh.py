@@ -43,6 +43,14 @@ class MeshSettings:
     radius_smoothing_iters: int = 8     # visual smoothing of the pipe-model steps at nodes
     ring_attributes: bool = False       # also output each vertex's place on its tube, for texture coordinates
     stem_sides_by_radius: bool = False  # the stem's rings follow its own radius, not the thin taproot tip below it
+    drop_hidden_rings: bool = False     # a branch's rings that lie wholly inside its parent are left out
+    ring_tolerance: float = 0.0         # leave out a ring if its surface stays within this share of its radius (0: keep all)
+    ring_tolerance_m: float = 0.0       # ... or within this many metres, whichever is more
+    ring_longest_span: float = 0.5      # m, the longest run of tube without a ring, so wind can bend it
+    stem_edge_by_height: tuple = ()     # ((height, edge m), ...): the stem's sides and rings as fine as this, for relief in the mesh
+    stem_along_factor: float = 1.4      # rings this many edges apart: bark's furrows run up the stem
+    stem_rings_under: float = 0.025     # only add rings where the edge asked for is under this
+    buttress_hold_m: float = 0.0        # the stem's root ridges keep their full size down to at least this far below z = 0
 
 
 
@@ -85,6 +93,33 @@ def _polyline_sdf(x, c, r):
     p = a[None] + t[..., None] * d[None]
     dist = np.linalg.norm(x[:, None, :] - p, axis=2) - (r[:-1][None] + t * (r[1:] - r[:-1])[None])
     return dist.min(1)
+
+
+def _thin_rings(ss, X, R, tol_rel, tol_abs, fixed, longest):
+    """Which rings of one axis to keep: those fixed, and whichever the rest can't be drawn without.  A
+    ring goes if the tube between its neighbours passes within the tolerance of it, by centre and radius
+    together (Douglas & Peucker 1973, over the rings)."""
+    keep = fixed.copy()
+    keep[0] = keep[-1] = True
+    at = np.nonzero(keep)[0].tolist()
+    stack = [(a, b) for a, b in zip(at[:-1], at[1:]) if b > a + 1]
+    while stack:
+        a, b = stack.pop()
+        span = ss[b] - ss[a]
+        t = ((ss[a + 1:b] - ss[a]) / max(span, 1e-12))[:, None]
+        err = np.linalg.norm(X[a + 1:b] - (X[a] + t * (X[b] - X[a])), axis=1) + np.abs(R[a + 1:b] - (R[a] + t[:, 0] * (R[b] - R[a])))
+        ratio = err / np.maximum(tol_rel * R[a + 1:b], tol_abs)
+        k = int(np.argmax(ratio))
+        if ratio[k] <= 1.0 and span <= longest:
+            continue
+        # over the longest span, the ring nearest the middle unless one is out of tolerance
+        m = a + 1 + (k if ratio[k] > 1.0 else int(np.argmin(np.abs(t[:, 0] - 0.5))))
+        keep[m] = True
+        if m > a + 1:
+            stack.append((a, m))
+        if b > m + 1:
+            stack.append((m, b))
+    return keep
 
 
 def _smin(a, b, k):
@@ -347,9 +382,10 @@ def _buttresses(T, radius: np.ndarray, sel_all: np.ndarray, geometry):
     return az, r, depth, h_collar * r / r.max(), h_collar
 
 
-def _buttress_offset(theta: np.ndarray, z: np.ndarray, r_stem: np.ndarray, bt) -> np.ndarray:
+def _buttress_offset(theta: np.ndarray, z: np.ndarray, r_stem: np.ndarray, bt, hold: float = 0.0) -> np.ndarray:
     """Radial offset of stem-surface points at azimuth ``theta`` and height
-    ``z`` (ring radius ``r_stem``) from the root ridges ``bt`` (_buttresses)."""
+    ``z`` (ring radius ``r_stem``) from the root ridges ``bt`` (_buttresses).
+    ``hold``: no ridge starts to fade above this depth."""
     az, rr, depth, hh, _ = bt
     out = np.zeros(len(theta))
     for a, r, dp, h in zip(az, rr, depth, hh):
@@ -357,7 +393,7 @@ def _buttress_offset(theta: np.ndarray, z: np.ndarray, r_stem: np.ndarray, bt) -
         sig = np.maximum(r / np.maximum(r_stem, 1e-6), 1e-3)
         across = np.exp(-0.5 * (dth / sig) ** 2)
         up = np.clip(z / max(h, 1e-6), 0.0, 1.0)
-        down = np.clip((-z - dp) / max(r, 1e-6), 0.0, 1.0)
+        down = np.clip((-z - max(dp, hold)) / max(r, 1e-6), 0.0, 1.0)
         along = np.where(z >= 0.0, 1.0 - up * up * (3.0 - 2.0 * up), 1.0 - down * down * (3.0 - 2.0 * down))
         out += r * across * along
     return out
@@ -477,12 +513,33 @@ def build_mesh(tree, select: np.ndarray, radius: np.ndarray, geometry, settings:
                 smp_s.append(np.interp(zq, zt, s_pt[pts]))
                 smp_h.append(np.full(zq.size, step))
 
+    # --- the stem, as fine as its surface asks for -------------------------
+    if s.stem_edge_by_height and trunk_ax.size:
+        j = int(trunk_ax[0])
+        pts = np.arange(pt_off[j], pt_off[j] + pt_count[j])
+        zt = np.maximum.accumulate(pt_pos[pts, 2])
+        table = np.asarray(s.stem_edge_by_height, float)
+        zq, hq = [], []
+        z_at = float(zt[0])
+        while z_at < float(zt[-1]):
+            edge = float(np.interp(z_at, table[:, 0], table[:, 1]))
+            step = edge * s.stem_along_factor
+            if edge < s.stem_rings_under:
+                zq.append(z_at)
+                hq.append(step)
+            z_at += max(step, 1e-3)
+        if zq:
+            smp_axis.append(np.full(len(zq), j))
+            smp_s.append(np.interp(np.asarray(zq), zt, s_pt[pts]))
+            smp_h.append(np.asarray(hq))
+
     # --- junction refinement windows --------------------------------------
     axis_of_id = {int(a): i for i, a in enumerate(T.axis[first_nodes])}
     # point index of each node within its own axis
     node_pt = np.full(n, -1)
     node_pt[pt_node[~is_base]] = np.nonzero(~is_base)[0]
     junctions = []
+    fixed_windows = []          # (axis, from, to): rings the fillets will move
     # laterals whose parent axis is meshed in another chunk still get their
     # branch collar; the parent tangent comes from the skeleton
     ext_tan = {}
@@ -518,6 +575,7 @@ def build_mesh(tree, select: np.ndarray, radius: np.ndarray, geometry, settings:
             continue
         h = max(0.6 * k, 0.0015)
         lo, hi = max(0.0, s_exit - 2.0 * rc - 2.0 * k), min(axis_len[j], s_exit + 2.0 * k + rc)
+        fixed_windows.append((j, lo, hi))
         cnt = int(min(40, max(0, math.ceil((hi - lo) / h))))
         if cnt > 0:
             smp_axis.append(np.full(cnt, j))
@@ -527,6 +585,7 @@ def build_mesh(tree, select: np.ndarray, radius: np.ndarray, geometry, settings:
             w = rc / max(sin_t, 0.25) + 2.0 * k
             hp = max(0.6 * k, 0.003)
             lo, hi = max(0.0, s_pt[bp] - w), min(axis_len[pj], s_pt[bp] + w)
+            fixed_windows.append((pj, lo, hi))
             cnt = int(min(40, max(0, math.ceil((hi - lo) / hp))))
             if cnt > 0:
                 smp_axis.append(np.full(cnt, pj))
@@ -599,6 +658,32 @@ def build_mesh(tree, select: np.ndarray, radius: np.ndarray, geometry, settings:
         if on.any():
             x = np.clip((ss[on] - jexit[sa[on]]) / (float(geometry.collar_length) * jrc[sa[on]]), 0.0, 1.0)
             R[on] *= 1.0 + collar * jsize[sa[on]] * (1.0 - x * x * (3.0 - 2.0 * x))  # C1 smoothstep falloff
+    # --- rings that add nothing ------------------------------------------
+    if s.drop_hidden_rings or s.ring_tolerance > 0.0 or s.ring_tolerance_m > 0.0:
+        ring_keep = np.ones(len(X), bool)
+        first = np.nonzero(np.r_[True, sa[1:] != sa[:-1]])[0]
+        last = np.r_[first[1:], len(sa)]
+        where = {int(sa[a]): (int(a), int(b)) for a, b in zip(first, last)}
+        if s.drop_hidden_rings:
+            # a branch starts on its parent's centre line, and its surface comes out no sooner than
+            # the fillet's window starts; of the rings before that only the last is needed
+            for (j, pj, bp, rc, rp, k, s_exit, sin_t) in junctions:
+                a, b = where[int(j)]
+                hidden = int(np.searchsorted(ss[a:b], 0.85 * s_exit - 2.0 * rc - 2.0 * k, side="right")) - 1
+                if 0 < hidden <= b - a - 2:
+                    ring_keep[a:a + hidden] = False
+        if s.ring_tolerance > 0.0 or s.ring_tolerance_m > 0.0:
+            fixed = np.zeros(len(X), bool)
+            for (j, lo, hi) in fixed_windows:
+                a, b = where[int(j)]
+                fixed[a:b] |= (ss[a:b] >= lo) & (ss[a:b] <= hi)
+            # the stem keeps all its rings: they carry the buttress ridges and the bark's relief
+            fixed |= trunk
+            for a, b in zip(first.tolist(), last.tolist()):
+                live = np.nonzero(ring_keep[a:b])[0] + a
+                if len(live) > 2:
+                    ring_keep[live] = _thin_rings(ss[live], X[live], R[live], s.ring_tolerance, s.ring_tolerance_m, fixed[live], s.ring_longest_span)
+        X, Tn, R, si, sa, ss, trunk = X[ring_keep], Tn[ring_keep], R[ring_keep], si[ring_keep], sa[ring_keep], ss[ring_keep], trunk[ring_keep]
     ring_node = seg_node[si]
     NR = len(X)
 
@@ -659,6 +744,12 @@ def build_mesh(tree, select: np.ndarray, radius: np.ndarray, geometry, settings:
         peak = int(np.argmax(R[tr]))
         sides[tr[: peak + 1]] = np.maximum.accumulate(raw_sides[tr[: peak + 1]])
         sides[tr[peak:]] = np.minimum.accumulate(raw_sides[tr[peak:]])
+    if s.stem_edge_by_height and trunk.any():
+        table = np.asarray(s.stem_edge_by_height, float)
+        tr = np.nonzero(trunk)[0]
+        fine = np.asarray(sorted(set(s.sides_allowed) | {64, 96, 128, 192, 256, 384, 512, 768, 1024}))
+        asked = fine[np.clip(np.searchsorted(fine, 2.0 * np.pi * R[tr] / np.interp(X[tr, 2], table[:, 0], table[:, 1])), 0, len(fine) - 1)]
+        sides[tr] = np.maximum(sides[tr], asked)
     voff = np.r_[0, np.cumsum(sides)[:-1]]
     NV_ring = int(sides.sum())
     vr = np.repeat(np.arange(NR), sides)
@@ -668,10 +759,10 @@ def build_mesh(tree, select: np.ndarray, radius: np.ndarray, geometry, settings:
     V = X[vr] + R[vr, None] * radial
     if bt is not None:
         # the stem surface rises in ridges over the main roots
-        zone = trunk[vr] & (X[vr, 2] < bt[4]) & (X[vr, 2] > -float(np.max(bt[2] + bt[1])))
+        zone = trunk[vr] & (X[vr, 2] < bt[4]) & (X[vr, 2] > -float(np.max(np.maximum(bt[2], s.buttress_hold_m) + bt[1])))
         if zone.any():
             vz = np.nonzero(zone)[0]
-            off = _buttress_offset(np.arctan2(radial[vz, 1], radial[vz, 0]), X[vr[vz], 2], R[vr[vz]], bt)
+            off = _buttress_offset(np.arctan2(radial[vz, 1], radial[vz, 0]), X[vr[vz], 2], R[vr[vz]], bt, s.buttress_hold_m)
             V[vz] += off[:, None] * radial[vz]
 
     # --- faces between consecutive rings ---------------------------------

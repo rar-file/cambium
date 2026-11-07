@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from . import kernels
+from . import fast, kernels
 
 
 def _normalize(v: np.ndarray) -> np.ndarray:
@@ -49,6 +49,37 @@ class Levels(list):
             parts = [a for _, mains, lats in reversed(self[1:]) for a in (mains, lats)]
             u = self._up = np.concatenate(parts) if parts else np.zeros(0, np.intp)
         return u
+
+
+class LazyLevels(Levels):
+    """Levels from fast.level_order: up and down are ready, and the per-level lists are only made if something walks them."""
+
+    def __init__(self, idx, bounds, is_lateral, down, up):
+        super().__init__()
+        self._idx, self._bounds, self._lat = idx, bounds, is_lateral
+        self._down, self._up = down, up
+        self._made = False
+
+    def _make(self):
+        if not self._made:
+            self._made = True
+            idx, b = self._idx, self._bounds
+            sl = self._lat[idx]
+            for k in range(len(b) - 1):
+                seg, lat = idx[b[k]:b[k + 1]], sl[b[k]:b[k + 1]]
+                list.append(self, (seg, seg[~lat], seg[lat]))
+
+    def __iter__(self):
+        self._make()
+        return list.__iter__(self)
+
+    def __getitem__(self, i):
+        self._make()
+        return list.__getitem__(self, i)
+
+    def __len__(self):
+        self._make()
+        return list.__len__(self)
 
 
 class Tree:
@@ -115,6 +146,9 @@ class Tree:
 
     # -- tree passes, vectorised level by level --------------------------
     def levels(self, mask: np.ndarray) -> Levels:
+        if getattr(self, "quick_levels", False):
+            idx, bounds, down, up = fast.level_order(mask, self.depth, self.is_lateral)
+            return LazyLevels(idx, bounds, self.is_lateral, down, up)
         idx = np.nonzero(mask)[0]
         d = self.depth[idx]
         order = np.argsort(d, kind="stable")
@@ -144,7 +178,17 @@ class Tree:
         first replacement to grow is not always the one that wins; following
         it measured DBH on a suppressed side stem (3.7 cm against 20 cm, phase
         26).  Ordinary limbs never take over: without ``leaders`` only the
-        relay shoot can."""
+        relay shoot can.  With the height limit on, the stem is what leads to
+        the shoot the limit paid for (stem_tip; growth.py sets it)."""
+        tip = getattr(self, "stem_tip", None)
+        if tip is not None:
+            node = int(tip)
+            while self.death[node] >= 0 and self.parent[node] >= 0:
+                node = int(self.parent[node])
+            path = [node]
+            while self.parent[path[-1]] >= 0:
+                path.append(int(self.parent[path[-1]]))
+            return np.array(path[::-1])
         chain = [0]
         mc, lc = self.main_child, self.lat_child
         relay = getattr(self, "relay", {})

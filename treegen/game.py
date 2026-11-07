@@ -175,7 +175,7 @@ def bake_wood(wood: WoodParts, crown, shoot, pos: np.ndarray, radius_history) ->
     stem_md = {"node": nd, "s": s, "around": np.nan_to_num(crown.attributes["ring_around"][is_stem], nan=0.0), "pos": crown.vertices[is_stem],
                "z_profile": np.maximum.accumulate(z_p), "s_profile": uniq}
     marks = _axis_marks(wood, stem_md, shoot, pos, wood.age, radius_history)
-    wood.stem_bake = tx.bake_stem(look, wood.tiles, prof, wood.state, marks)
+    wood.stem_bake = tx.bake_stem(look, wood.tiles, prof, wood.state, marks, y_offset=getattr(wood, "stem_y_offset", 0.0))
     wood.marks = marks
     wood.profile = prof
     # branch classes: the mean state of the parts in each, by surface area
@@ -247,7 +247,7 @@ def wood_arrays(wood: WoodParts, md, relief: bool = False) -> dict:
         if relief:
             V = V + N * _relief(wood, u, v)[:, None]
         T = _tangents(V, N, UV, nf)
-        out["stem"] = {"V": V, "N": N, "F": nf, "UV": UV, "T": T, "node": node[old], "radius": md.attributes["radius"][old]}
+        out["stem"] = {"V": V, "N": N, "F": nf, "UV": UV, "T": T, "node": node[old], "radius": md.attributes["radius"][old], "around": u, "along": s}
     if (~stem_f).any():
         f = F[~stem_f]
         classes = np.asarray(bark["branch_circumference_m"], float)
@@ -265,7 +265,8 @@ def wood_arrays(wood: WoodParts, md, relief: bool = False) -> dict:
         have = np.array([ap.state_colour(wood.stage_means, np.asarray((wood.class_state[k] or {"weights": st["weights"][:, 0]})["weights"])[:, None])[0]
                          for k in range(len(classes))])
         tint = want / np.maximum(have[col], 1e-4)
-        out["branch"] = {"V": V, "N": N, "F": nf, "UV": UV, "T": T, "node": node[old], "radius": md.attributes["radius"][old], "tint": tint, "col": col}
+        out["branch"] = {"V": V, "N": N, "F": nf, "UV": UV, "T": T, "node": node[old], "radius": md.attributes["radius"][old], "tint": tint, "col": col,
+                         "around": u, "along": along[old]}
     return out
 
 
@@ -410,7 +411,7 @@ def blades_arrays(look: dict, leaves: ap.LeafInstances, ll: dict) -> dict:
             "node": np.repeat(leaves.node, 4), "sun": np.repeat(leaves.sun, 4), "turn": np.repeat(leaves.delay, 4)}
 
 
-def leaf_cards(look: dict, leaves: ap.LeafInstances, ll: dict, target: int, coverage: list, grid: int, centre: np.ndarray) -> dict:
+def leaf_cards(look: dict, leaves: ap.LeafInstances, ll: dict, target: int, coverage: list, grid: int, centre: np.ndarray, return_groups: bool = False) -> dict:
     """Leaves gathered into alpha-masked cards by a grid over the crown, with the grid's cell size
     searched so the count meets ``target``.  Each card is sized so its opaque area is the leaf area
     it stands for, which keeps the crown's shade."""
@@ -463,7 +464,10 @@ def leaf_cards(look: dict, leaves: ap.LeafInstances, ll: dict, target: int, cove
     T = T - (T * N).sum(1, keepdims=True) * N / np.maximum((N * N).sum(1, keepdims=True), 1e-9)
     wt = np.sign((np.cross(N, T) * np.repeat(w, 4, axis=0)).sum(1))
     colour = np.c_[np.repeat(tint, 4, axis=0), np.ones(4 * m)]
-    return {"V": V, "N": N, "F": F, "UV": uv, "T": np.c_[T, np.where(wt == 0, 1.0, wt)], "colour": colour, "represented_area": float((side * side * cov).sum())}
+    out = {"V": V, "N": N, "F": F, "UV": uv, "T": np.c_[T, np.where(wt == 0, 1.0, wt)], "colour": colour, "represented_area": float((side * side * cov).sum())}
+    if return_groups:
+        out.update(groups=inv, count=m)
+    return out
 
 
 # -- bark strips ----------------------------------------------------------------------------------
@@ -487,7 +491,7 @@ def _dilate(rgb, cover, it=10):
     return out
 
 
-def far_cards(look: dict, near_path, cfg: dict, glb: GameGLB, jpeg: int) -> None:
+def far_sheets(near_path, cfg: dict) -> dict:
     """Crossed cards with the tree baked on, from the near level's file: colour, normal and coverage,
     with no lighting in them.  Each card is two one-sided sheets back to back, each with its own view,
     so the lighting holds from either side, where a two-sided card would turn its normals over.  The
@@ -505,7 +509,7 @@ def far_cards(look: dict, near_path, cfg: dict, glb: GameGLB, jpeg: int) -> None
     frame_h = half_w * px / cell_w
     alb_sheet = np.zeros((px, cell_w * views, 3), np.float32)
     nrm_sheet = np.zeros((px, cell_w * views, 3), np.float32)
-    a_sheet = np.zeros((px, cell_w * views), np.float32)
+    cov_sheet = np.zeros((px, cell_w * views), np.float32)
     verts, norms, faces, uvs, tans = [], [], [], [], []
     shade = Lights(prims, (0.0, 0.0, 1.0), res=16, sky_res=512, sky_dirs=6)
     for k in range(views):
@@ -514,7 +518,6 @@ def far_cards(look: dict, near_path, cfg: dict, glb: GameGLB, jpeg: int) -> None
         view = View(centre + d * 100.0, centre, cell_w, px, ortho_half_h=frame_h)
         b = bake_views(prims, view, lights=shade)
         cov = b["coverage"]
-        alpha = np.clip(cov ** 0.6 * 1.25, 0.0, 1.0)
         col = _dilate(b["albedo"], cov)
         # normals into the card's own frame: +x right, +y up, +z towards the viewer
         n = b["normal"]
@@ -524,7 +527,7 @@ def far_cards(look: dict, near_path, cfg: dict, glb: GameGLB, jpeg: int) -> None
         x0 = k * cell_w
         alb_sheet[:, x0:x0 + cell_w] = col
         nrm_sheet[:, x0:x0 + cell_w] = nrm
-        a_sheet[:, x0:x0 + cell_w] = alpha
+        cov_sheet[:, x0:x0 + cell_w] = cov
         r, u_ = view.right, view.up
         verts.append(np.stack([centre - r * half_w - u_ * half_h, centre + r * half_w - u_ * half_h, centre + r * half_w + u_ * half_h, centre - r * half_w + u_ * half_h]))
         norms.append(np.tile(-view.fwd, (4, 1)))
@@ -535,11 +538,19 @@ def far_cards(look: dict, near_path, cfg: dict, glb: GameGLB, jpeg: int) -> None
         tans.append(np.tile(np.r_[r, 1.0], (4, 1)))
         i = 4 * k
         faces.append(np.array([[i, i + 1, i + 2], [i, i + 2, i + 3]]))
-    tb = glb.add_texture(*encode_image(ap.linear_to_srgb(alb_sheet), a_sheet), 33071, 33071, "far_base")
-    tn = glb.add_texture(*encode_image(nrm_sheet * 0.5 + 0.5, kind="jpeg_full", quality=jpeg + 4), 33071, 33071, "far_normal")
+    return {"albedo": alb_sheet, "normal": nrm_sheet, "coverage": cov_sheet, "V": np.concatenate(verts), "N": np.concatenate(norms), "F": np.concatenate(faces),
+            "UV": np.concatenate(uvs), "T": np.concatenate(tans)}
+
+
+def far_cards(look: dict, near_path, cfg: dict, glb: GameGLB, jpeg: int) -> None:
+    """The far level, written into ``glb``."""
+    f = far_sheets(near_path, cfg)
+    alpha = np.clip(f["coverage"] ** 0.6 * 1.25, 0.0, 1.0)
+    tb = glb.add_texture(*encode_image(ap.linear_to_srgb(f["albedo"]), alpha), 33071, 33071, "far_base")
+    tn = glb.add_texture(*encode_image(f["normal"] * 0.5 + 0.5, kind="jpeg_full", quality=jpeg + 4), 33071, 33071, "far_normal")
     m = glb.add_material({"name": "far_card", "alphaMode": "MASK", "alphaCutoff": 0.5,
                           "pbrMetallicRoughness": {"baseColorTexture": {"index": tb}, "metallicFactor": 0.0, "roughnessFactor": 0.8}, "normalTexture": {"index": tn}})
-    glb.add_mesh("far_cards", m, np.concatenate(verts), np.concatenate(norms), np.concatenate(faces), np.concatenate(uvs), np.concatenate(tans))
+    glb.add_mesh("far_cards", m, f["V"], f["N"], f["F"], f["UV"], f["T"])
 
 
 def reduced_selection(skel, rad_ob, thr: float) -> np.ndarray:
