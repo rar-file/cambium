@@ -145,3 +145,95 @@ def test_limbs_keep_their_distance_on_the_stem():
     gaps = np.diff(z)
     # the floor, less its scatter, along the stem; a little under for a leaning stem
     assert float(np.median(gaps)) >= 0.9 * float(cf.gap_min_m) * (1.0 - float(cf.gap_scatter))
+
+
+# -- crown_frame.earned: limbs and twigs go by what they earn -------------------------------------------------------------
+EARNED = ON + ["crown_frame.earned=true", "mechanics.pendulous_radius=0.012", "mechanics.pendulous_radius_limb=0.0025", "crown_frame.reach_scatter=0.2", "crown_frame.limb_shoot_floor_m=0.15",
+               "crown_frame.twig_shoot_max_m=0.5", "crown_frame.spacing_overlap=1.0", "bud_fate.long_shoot_threshold=5", "bud_fate.density_control.enabled=true", "bud_fate.density_control.after_growth=true"]
+
+
+def test_earned_off_by_default():
+    sp, _ = load_species("betula_pendula")
+    assert sp.crown_frame.earned is False
+    model = grow(6, ON)
+    assert not model._frame_earns()
+
+
+def test_earned_only_a_shoots_end_bud_starts_a_long_shoot():
+    """Off the stem, a new axis leaves the last node its parent axis had when it started: no combs."""
+    model = grow(20, EARNED, stand=False)
+    T = model.tree
+    n = T.n
+    on = np.isin(T.axis[:n], np.fromiter(model.leader_axes, np.int64))
+    side = np.nonzero(T.is_lateral[:n] & ~on & ~on[np.maximum(T.parent[:n], 0)] & (T.death[:n] < 0))[0]
+    assert side.size > 20
+    fork_buds = set(model._frame_fork_of)
+    checked = 0
+    for f in side.tolist():
+        if int(T.axis[f]) in fork_buds:
+            continue
+        p = int(T.parent[f])
+        same = (T.axis[:n] == T.axis[p]) & (T.birth[:n] < T.birth[f])
+        assert T.phyllo[p] == T.phyllo[:n][same].max()
+        checked += 1
+    assert checked > 10
+
+
+def test_earned_no_limb_goes_past_the_published_crown():
+    model = grow(22, EARNED, stand=False)
+    T = model.tree
+    alive = T.death[: T.n] < 0
+    assert all(s <= 1.0 for s in model._frame_axis_reach.values())
+    longest = 0.0
+    for start in limbs_of(model).tolist():
+        tip = T.pos[: T.n][alive & (T.axis[: T.n] == T.axis[start])][-1]
+        longest = max(longest, float(np.hypot(*(tip[:2] - T.pos[T.parent[start], :2]))))
+    assert longest <= 1.25 * model._frame_reach_max()     # the crown it was aiming at a few years ago was smaller, but a limb bends as it loads
+
+
+def test_earned_limbs_fork_by_leaf_area_and_the_forks_are_limbs():
+    model = grow(25, EARNED + ["crown_frame.fork_leaf_area_m2=0.4"], stand=False)
+    T = model.tree
+    assert len(model._frame_fork_of) > 3
+    first = np.fromiter(model._frame_fork_of.values(), np.int64)
+    # each is on the limb it's filed under, and stiff as that limb is, at its own set-point
+    limbs = model._limb_nodes(T.n)
+    for ax, limb in model._frame_fork_of.items():
+        nodes = np.nonzero(T.axis[: T.n] == ax)[0]
+        assert nodes.size and int(T.scaffold[nodes[0]]) == limb
+        assert limbs[nodes].all()
+        assert np.isfinite(model._frame_setpoints()[ax])
+    # no forks at all if the limit is out of reach
+    assert not grow(16, EARNED + ["crown_frame.fork_leaf_area_m2=1000"], stand=False)._frame_fork_of
+
+
+def test_earned_a_limb_behind_its_neighbours_has_less_supply():
+    model = grow(18, EARNED, stand=False)
+    la, vig = model._frame_la, model._frame_vig
+    limbs = np.nonzero(la > 0.0)[0]
+    assert vig[limbs].max() <= 2.0
+    k = int(model.sp.crown_frame.limb_rivals)
+    by_z = limbs[np.argsort(model.tree.pos[model.tree.parent[limbs], 2])]
+    for i in range(k, len(by_z) - k, 5):
+        med = float(np.median(la[by_z[i - k: i + k + 1]]))
+        assert (vig[by_z[i]] >= 1.0) == (la[by_z[i]] >= med)
+
+
+def test_earned_a_full_crown_sheds_its_oldest_short_shoots():
+    cap = ["crown_frame.crown_lai_max=2.0", "crown_frame.full_crown_spur_years=3"]
+    model = grow(20, EARNED + cap, stand=False)
+    T = model.tree
+    assert model._frame_crown_full
+    spurs = np.nonzero((T.lat[: T.n] == 2) & (T.death[: T.n] < 0))[0]     # LAT_SPUR
+    assert spurs.size == 0 or (model.year - T.spur_birth[spurs]).max() <= 4
+
+
+def test_earned_on_a_tree_that_forks_one_limb_goes_up_as_a_second_top():
+    model = grow(40, EARNED, seed=8, stand=False)      # seed 8 draws a fork
+    assert model._frame_forks and model.loss_of_dominance_year is not None
+    tops = model._frame_tops()
+    assert tops.size == 1
+    T = model.tree
+    nodes = np.nonzero((T.axis[: T.n] == tops[0]) & (T.death[: T.n] < 0))[0]
+    assert np.degrees(model._frame_setpoints()[tops[0]]) == float(model.sp.resource.reiteration.setpoint_angle_deg)
+    assert float(T.pos[nodes, 2].max()) > float(T.pos[T.parent[nodes[0]], 2]) + 1.0
