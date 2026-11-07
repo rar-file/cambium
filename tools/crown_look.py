@@ -30,7 +30,7 @@ def one(seed: int, sets: list, ages: list, stand: bool, out: Path, res: int) -> 
 
     folder = out / f"tmp_s{seed}"
     a = argparse.Namespace(species="betula_pendula", environment="sweden_open_field", seed=seed, ages=",".join(str(x) for x in ages), seasons="summer", out=str(folder),
-                           stand=stand, set=list(sets), budget=[], target="generic", look=[], state=None, levels="lod0")
+                           stand=stand, set=list(sets), budget=[], target="generic", look=["bark.uneven_top.strength=1"], state=None, levels="lod0")
     ge.main_export(a)
     doc = json.loads((folder / "game_manifest.json").read_text(encoding="utf-8"))
     (out / f"manifest_s{seed}.json").write_text(json.dumps(doc), encoding="utf-8")
