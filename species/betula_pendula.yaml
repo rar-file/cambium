@@ -1371,6 +1371,9 @@ crown_frame:
   # New limbs stand closer than the crown's mean, as the lower ones thin out: the crown's mean density over its density at
   # the top.  Lintunen 2013 Fig. 5 (a LIGNUM model's output, not a measurement): 6.0 to 13.0 per m, mean about 9.5, so 0.73.
   birth_share: 0.73
+  # TUNED, against open-grown trees, where nothing thins them: the closest two limbs stand (m), since a young tree's short crown would
+  # otherwise pack them.  Lintunen 2013 Fig. 5's top is 13 per m (0.077 m), model output.  0: no floor.
+  gap_min_m: 0.0
   # TUNED, against nothing yet: scatter on the gap between limbs, as a share of it, so they don't stand in rows.
   gap_scatter: 0.3
   # Limb angle at the stem, as drawn for each limb.  Zeltins et al. 2018, Forests 9:52, Table 1: 43.2, SD 10.4, range 15-80,

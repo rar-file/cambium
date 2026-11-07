@@ -1901,7 +1901,7 @@ class GrowthModel:
         if not stem.size:
             return
         _, _, crown = self._frame_crown()
-        gap = float(cf.birth_share) * crown / (10.0 * float(cf.limbs_per_10pct_crown))
+        gap = max(float(cf.birth_share) * crown / (10.0 * float(cf.limbs_per_10pct_crown)), float(cf.gap_min_m))
         rng = self._frame_rng
         sd, lo, hi = float(cf.angle_sd_deg), float(cf.angle_min_deg), float(cf.angle_max_deg)
         for node in stem[np.argsort(T.pos[stem, 2])].tolist():
