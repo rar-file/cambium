@@ -97,7 +97,7 @@ def blade_points(leaves, which: np.ndarray, per_side: int) -> tuple:
     return P.reshape(-1, 3), np.repeat(np.arange(len(which)), len(tt))
 
 
-def twig_overlap(leaves, axis_of_leaf: np.ndarray, twigs: list, rng, cell: float = 0.002, sample: int = 150) -> dict:
+def twig_overlap(leaves, axis_of_leaf: np.ndarray, twigs: list, rng, cell: float = 0.003, sample: int = 150) -> dict:
     """Side on, on sample twigs: how much of the blades' area another blade of the same twig hides, how far the leaves reach out from the twig, and how wide the twig's leaves look per metre."""
     pick = [a for a in twigs if (axis_of_leaf == a).sum() >= 8]
     if not pick:
@@ -110,17 +110,13 @@ def twig_overlap(leaves, axis_of_leaf: np.ndarray, twigs: list, rng, cell: float
         centre = leaves.pos_node[which]
         reach.append(float(np.percentile(np.linalg.norm(leaves.base[which] + leaves.along[which] * leaves.length[which, None] * 0.5 - centre, axis=1), 80)))
         for turn in rng.uniform(0.0, np.pi, 3):
-            view = np.array([np.cos(turn), np.sin(turn), 0.0])
             right = np.array([-np.sin(turn), np.cos(turn), 0.0])
-            grid = np.stack([np.floor(P @ right / cell), np.floor(P[:, 2] / cell)], 1).astype(np.int64)
-            seen = len(np.unique(grid, axis=0))
-            ideal_points = P.shape[0] / len(which)
-            per_blade = np.array_split(grid, len(which))
-            each = sum(len(np.unique(g, axis=0)) for g in per_blade)
+            across, up = np.floor(P @ right / cell).astype(np.int64), np.floor(P[:, 2] / cell).astype(np.int64)
+            cells = across * 1000003 + up
+            seen = len(np.unique(cells))
+            each = sum(len(np.unique(g)) for g in np.array_split(cells, len(which)))
             overlap.append(1.0 - seen / max(each, 1))
-            rows = np.unique(grid[:, 1])
-            widths.append(seen * cell * cell / max(len(rows) * cell, 1e-6))
-            del view, ideal_points
+            widths.append(seen * cell / max(len(np.unique(up)), 1))
     return {"twigs": len(pick), "overlap_share": round(float(np.mean(overlap)), 3), "reach_m": round(float(np.mean(reach)), 3), "seen_width_m": round(float(np.mean(widths)), 3)}
 
 
@@ -152,7 +148,7 @@ def measure(model, sp, raw, snap, age: int, seed: int) -> dict:
     pos, r_wood = ge.shoot_arrays(model, age)
     alive = (T.birth[: T.n] <= age) & ((T.death[: T.n] < 0) | (T.death[: T.n] > age))
     look = gu.unreal_look(ap.load_look(raw))
-    stub = ap.stem_stub_share({**look, "bark": {**look["bark"], "uneven_top": {**look["bark"]["uneven_top"], "strength": 1.0}}})
+    stub = ap.stem_stub_share(look)
     height = float(model.stats[age]["height_m"])
     out = {"seed": seed, "age": age, "height_m": round(height, 2)}
     res = {}
