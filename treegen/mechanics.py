@@ -83,13 +83,14 @@ def _apply(tree, levels, alive, qtot: np.ndarray, zmin: float):
 
 
 def bend_and_correct(tree, levels, alive, mp, leaves_now, leaves_prev, r_prev, setpoint, zmin, target_dir=None,
-                     stem=None):
+                     stem=None, limbs=None):
     """One year of mechanics on the living structure.
 
     leaves_now/leaves_prev: leaves carried at each node this and last season.
     r_prev: radius of each node last year (0 for new internodes).
     setpoint: gravitropic set-point angle (rad from vertical) of each node.
     stem: nodes of the stem's axes (with replacement leaders); default order 0.
+    limbs: nodes of limbs, soft only below mp.pendulous_radius_limb; default none, one radius for all.
     """
     T = tree
     n = T.n
@@ -99,6 +100,8 @@ def bend_and_correct(tree, levels, alive, mp, leaves_now, leaves_prev, r_prev, s
     r = T.radius[:n]
     L = T.length[:n]
     s = pendulous_factor(r, float(mp.pendulous_radius), float(mp.pendulous_sharpness))
+    if limbs is not None:
+        s = np.where(limbs, pendulous_factor(r, float(mp.pendulous_radius_limb), float(mp.pendulous_sharpness)), s)
     # the stem is strictly orthotropic: the pendulous trait is a twig trait
     s = np.where((T.order[:n] == 0) if stem is None else stem, 1.0, s)
     E_wood, E_shoot = float(mp.youngs_modulus_wood), float(mp.youngs_modulus_shoot)

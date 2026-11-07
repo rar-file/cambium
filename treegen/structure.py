@@ -144,7 +144,17 @@ class Tree:
         first replacement to grow is not always the one that wins; following
         it measured DBH on a suppressed side stem (3.7 cm against 20 cm, phase
         26).  Ordinary limbs never take over: without ``leaders`` only the
-        relay shoot can."""
+        relay shoot can.  With the height limit on, the stem is what leads to
+        the shoot the limit paid for (stem_tip; growth.py sets it)."""
+        tip = getattr(self, "stem_tip", None)
+        if tip is not None:
+            node = int(tip)
+            while self.death[node] >= 0 and self.parent[node] >= 0:
+                node = int(self.parent[node])
+            path = [node]
+            while self.parent[path[-1]] >= 0:
+                path.append(int(self.parent[path[-1]]))
+            return np.array(path[::-1])
         chain = [0]
         mc, lc = self.main_child, self.lat_child
         relay = getattr(self, "relay", {})
