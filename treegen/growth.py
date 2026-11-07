@@ -973,6 +973,14 @@ class GrowthModel:
                 # on anything finer, one bud in so many can start a long shoot, the rest stay short shoots.  Odd, so
                 # they take turns on the two sides of a two-ranked shoot
                 Glat[lat_nodes[~on_stem & (T.phyllo[lat_nodes] % int(every) != 0)]] = 0.0
+            distal = getattr(sp.crown_frame, "twig_buds_distal", None)
+            if distal:
+                # acrotony: on anything finer, only the buds nearest the end of last year's shoot can start a long shoot; the rest stay short shoots.
+                # The same count each year on a shoot of any length, so an axis ends in a fork, not a comb.  A bud counts from its own axis's tip
+                last = int(T.axis[:n0].max()) + 1
+                tip_ph = np.zeros(last, np.int64)
+                np.maximum.at(tip_ph, T.axis[:n0][alive], T.phyllo[:n0][alive].astype(np.int64))
+                Glat[lat_nodes[~on_stem & (tip_ph[T.axis[lat_nodes]] - T.phyllo[lat_nodes].astype(np.int64) >= int(distal))]] = 0.0
         self._hd = self._height_limit_plan(t, term_nodes, lat_nodes, Qterm, Qlat, 1.0 - stress) if self._height_limit_on() else None
         if self._hd is not None:
             self._leader_phi = float((phi_t if self._hd["is_tip"] else phi_l)[self._hd["bud"]])

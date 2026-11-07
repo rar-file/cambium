@@ -1654,6 +1654,8 @@ crown_frame:
   # 13 gave crown ratio 0.48, 0.45 at 50, 60; 7 gave 0.60, 0.59 with stem wood 10-14 % under Repola; 10 gives 0.56, 0.52, 3-8 % under.  Lintunen 2013
   # Fig. 6C (model output) has 2-4 long shoots per second-order branch.  Even values make all of them fall on one side of a two-ranked shoot.  null: all.
   twig_bud_every: 10
+  # TUNED, against the look: on limbs and finer, only this many buds nearest the axis's tip can start a long shoot; the rest stay short shoots (acrotony).  null: off.
+  twig_buds_distal: null
   # TUNED: with a value, a limb's reach and its side shoots' length go with its carbon this year over the best limb's on the tree, to this power,
   # in place of the table by place in the crown (top_share, peak_depth, base_share, profile_power) and limb ageing.  null: off.
   earned_power: null
