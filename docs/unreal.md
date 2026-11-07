@@ -176,7 +176,7 @@ The roots are the model's own (`treegen/roots.py`). No generic flare is added.
 
 The roots themselves change in growth (`treegen/roots.py`, `update_radii_paid`): more of them at the collar, thicker, tapering as excavated birch does. The export then does these, only when that setting is on, and all in `appearance.game.unreal.roots` as `paid_*`:
 
-- "Thick" goes by the stem foot's radius, not the root collar's, since the collar is now the real stump: 25 % of it, so about 10 roots at age 60.
+- "Thick" goes by the stem foot's radius, not the root collar's, since the collar is now the real stump: 25 % of it, so 12-15 roots show at age 60 on the three seeds exported.
 - The stump's mass stays in the model, but what's drawn is the stem's foot. Otherwise a 40 cm stump makes a bulb under a 30 cm stem.
 - A root's radius already holds its bark, as its density does, so no wall is added.
 - Only roots at least half the thickest's radius raise a ridge on the stem, and ridges don't pile up. Added up, 30 roots made the foot a bell.

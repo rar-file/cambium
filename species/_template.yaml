@@ -681,7 +681,9 @@ roots:
     stump_d_per_dbh: 1.25
     # roots' squared base diameters over the stump's; 0.1 to 5
     rel_sum_d2: 1.16
-    # the stump below ground: its cross-section x (1 - (depth / taproot_max_depth) ^ this); 0.5 to 50
+    # the taproot stops at this length, per taproot_max_depth; 1 to 10
+    taproot_length_per_depth: 1.25
+    # the stump below ground: its cross-section x (1 - (length along the taproot / taproot_max_depth) ^ this); 0.5 to 50
     stump_fill_power: 8.0
     # beyond the rapid taper: diameter (cm) = this x (root length beyond, m) ^ exponent
     far_d_cm_per_m: 0.35
