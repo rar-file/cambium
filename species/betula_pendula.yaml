@@ -1351,6 +1351,50 @@ height_driver:
   # TUNED, against nothing yet: the share of each year's pool that waits for next year (a small carbon store).  null = none.
   store_fraction: null
 
+# The crown's frame: published data set the main limbs, as the height curve sets the leader; light and carbon decide what
+# they and everything finer actually do.  Needs height_driver on.  Off by default.
+crown_frame:
+  enabled: false
+  # Limbs (first-order branches) per 10 % of crown length.  Lintunen 2013, Diss. For. 165, Table 3 p. 23: 5.2 (95 % CI 0.3),
+  # birch next to birch, 73 trees, ages 4-32.  Applied here beyond his sizes: a guess.
+  limbs_per_10pct_crown: 5.2
+  # New limbs stand closer than the crown's mean, as the lower ones thin out: the crown's mean density over its density at
+  # the top.  Lintunen 2013 Fig. 5 (a LIGNUM model's output, not a measurement): 6.0 to 13.0 per m, mean about 9.5, so 0.73.
+  birth_share: 0.73
+  # TUNED, against nothing yet: scatter on the gap between limbs, as a share of it, so they don't stand in rows.
+  gap_scatter: 0.3
+  # Limb angle from vertical at the stem, as drawn for each limb.  43.2, SD 10.4, range 15-80: Forests 9:52, 2018, as this
+  # file already quotes it (clonal plantation, Latvia; I couldn't open the paper: the publisher refused the request).
+  angle_mean_deg: 43.2
+  angle_sd_deg: 10.4
+  angle_min_deg: 15.0
+  angle_max_deg: 80.0
+  # TUNED, against the look: each limb turned from the last by this, around the stem.
+  azimuth_step_deg: 137.5
+  azimuth_sd_deg: 25.0
+  # Crown diameter of an open-grown birch from its stem, m and cm over bark: Hemery et al. 2005 Table 1, as the target file
+  # gives it (paper not opened).  Evo and Tallo stay out of this, so they remain checks.
+  crown_a: 0.932
+  crown_b: 0.177
+  # Stem over bark per stem in wood, near enough to tools/bark.py at 10-40 cm (1.09-1.10).
+  over_bark_ratio: 1.1
+  # A young tree's crown from its height: Klepacki 2017 Forest Res. Papers 78:171, 4-year-old planted birch (0.082 + 0.567 h,
+  # first site, my reading of the table's variables, n = 30).  Applied to all sizes, where it is wider than Hemery's and so doesn't bite.
+  young_a: 0.082
+  young_b: 0.567
+  # A limb's reach at the top of the crown as a share of its reach at the crown base: Lintunen 2013 Fig. 5 (model output,
+  # as above), chord 0.254 m at the top and 1.54 m at the base, near a straight line between.
+  top_share: 0.165
+  # TUNED, against nothing yet: each year a limb goes for this share of what's left to its reach.
+  chase: 0.5
+  # TUNED, against nothing yet: the longest shoot a limb makes in a year (m).
+  limb_shoot_max_m: 0.5
+  # TUNED, against nothing yet: light at a limb's tip from which light no longer limits its shoot.
+  light_full: 0.6
+  light_exponent: 1.0
+  # TUNED, against nothing yet: the longest shoot of anything finer in a year (m).
+  twig_shoot_max_m: 0.4
+
 # Field-layer competition on clearcuts (Option A, Nilsson & Örlander 1999).
 # Sourced clear-cut field-layer sward growth and light extinction.
 # Off by default.

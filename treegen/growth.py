@@ -952,6 +952,11 @@ class GrowthModel:
             # only one bud in so many on the stem can start a limb; the rest stay short shoots
             on_stem = np.isin(T.axis[lat_nodes], np.fromiter(self.leader_axes, np.int64))
             Glat[lat_nodes[on_stem & (T.phyllo[lat_nodes] % int(every) != 0)]] = 0.0
+        if self._frame_on():
+            # the frame: only the buds it named on the stem can start a limb; the rest stay short shoots
+            on_stem = np.isin(T.axis[lat_nodes], np.fromiter(self.leader_axes, np.int64))
+            named = np.isin(lat_nodes, np.fromiter(self._frame_buds().keys(), np.int64))
+            Glat[lat_nodes[on_stem & ~named]] = 0.0
         self._hd = self._height_limit_plan(t, term_nodes, lat_nodes, Qterm, Qlat, 1.0 - stress) if self._height_limit_on() else None
         if self._hd is not None:
             self._leader_phi = float((phi_t if self._hd["is_tip"] else phi_l)[self._hd["bud"]])
@@ -1145,6 +1150,8 @@ class GrowthModel:
         self._density_after_growth(src, src_w, _n_before)
         if self._hd is not None:
             self._height_limit_log(_n_before)
+        if self._frame_on():
+            self._frame_name_buds(t, _n_before)
         # descending shoot apices that reach the ground layer stop growing
         tips = np.nonzero((T.term[:T.n] == 1) & (T.death[:T.n] < 0))[0]
         down = (T.pos[tips, 2] < float(sp.shoot.ground_contact_height)) & (
@@ -1235,6 +1242,9 @@ class GrowthModel:
             # stiff and posture-corrected as the stem (no pendulous trait)
             stem = np.isin(T.axis[:n], np.fromiter(self.leader_axes, np.int64))
             setpoint = np.where(stem, gsa_o[0], setpoint)
+            if self._frame_on():
+                own = self._frame_setpoints()[T.axis[:n]]
+                setpoint = np.where(np.isfinite(own) & ~stem, own, setpoint)
             mechanics.bend_and_correct(T, levels, alive, mp, leaves_now, T.leaves[:n].astype(float),
                                        r_prev, setpoint, float(self.sp.shoot.min_height_above_ground),
                                        self._stem_posture_target(n), stem, self._limb_nodes(n))
@@ -1655,6 +1665,11 @@ class GrowthModel:
                 ring_cap = float(cfg.ring_share_max) * pool
             self._unspent = 0.0
             caps = self._height_limit_caps(starts, len(term_nodes), full, hd, lead_at, nmax)
+            hd["lead_at"] = lead_at
+            hd["frame_at"], hd["frame_v"] = self._frame_plan(starts, len(term_nodes), full, hd, q_bud, nmax) if self._frame_on() else (None, None)
+            if hd["frame_at"] is not None:
+                caps[hd["frame_at"]] = np.minimum(self._frame_room(starts, hd, full, nmax)[hd["frame_at"]], hd["frame_v"])
+                hd["frame_v"] = caps[hd["frame_at"]].copy()
             hd["caps"], hd["thr"], hd["lead_at"] = caps, thr, lead_at
 
         def shoots(lam):
@@ -1662,6 +1677,10 @@ class GrowthModel:
             grow = (v >= thr) & (share > 0.0)
             if lead_at is not None:
                 grow = grow & (caps >= thr)
+                if hd["frame_at"] is not None:
+                    # the frame's limbs: paid first, like the leader, by what the frame and their own light allow
+                    v[hd["frame_at"]] = hd["frame_v"]
+                    grow[hd["frame_at"]] = hd["frame_v"] >= thr[hd["frame_at"]]
                 v[lead_at] = hd["v"]
                 grow[lead_at] = hd["v"] > 0.0
             return v, grow
@@ -1721,6 +1740,8 @@ class GrowthModel:
             self._ring_need = c0 - lead_units
             if c0 >= pool:
                 # after the leader, the foliage's sapwood takes what's left: no side shoots
+                if hd["frame_at"] is not None:
+                    hd["frame_v"] = np.zeros_like(hd["frame_v"])
                 return 0.0, r0 * ((pool - lead_units) / max(c0 - lead_units, 1e-12))
         if c0 >= pool:
             # the foliage's sapwood alone takes the whole pool: no new shoots,
@@ -1795,6 +1816,119 @@ class GrowthModel:
                     self.carbon["cue"] = npp / self.carbon["fixed"]
                 lam, ring = solve_for(pool + late_shoot_net)
         return lam, ring
+
+    # -- the crown's frame (crown_frame in the species file) -------------
+    def _frame_on(self) -> bool:
+        cf = getattr(self.sp, "crown_frame", None)
+        return cf is not None and bool(cf.enabled) and self._height_limit_on()
+
+    def _frame_buds(self) -> dict:
+        """Buds on the stem named to start a limb: node -> that limb's set-point (rad from vertical)."""
+        d = self.__dict__.get("_frame_named")
+        if d is None:
+            d = self._frame_named = {}
+            self._frame_gsa = {}       # limb's axis -> its own set-point
+            self._frame_since = 0.0    # stem grown since the last named bud (m)
+            self._frame_azimuth = 0.0
+            self._frame_rng = np.random.default_rng([self.seed, 7741])
+        return d
+
+    def _frame_setpoints(self) -> np.ndarray:
+        """By axis: the limb's own set-point, NaN for anything else."""
+        self._frame_buds()
+        out = np.full(len(self.axis_phase), np.nan)
+        if self._frame_gsa:
+            out[np.fromiter(self._frame_gsa.keys(), np.int64)] = np.fromiter(self._frame_gsa.values(), float)
+        return out
+
+    def _frame_crown(self):
+        """Tree height, crown base and crown length (m), as last measured."""
+        s = self.stats[-1]
+        h = float(s["height_m"])
+        base = float(s.get("crown_base_height_m") or 0.0)
+        return h, base, max(h - base, 0.05)
+
+    def _frame_name_buds(self, t: int, n_before: int) -> None:
+        """Along the stem grown this year, name a bud for a limb every so many metres, from the published number per
+        length of crown: Lintunen 2013's limbs per 10 % of crown length.  New limbs stand closer than that, since the
+        lower ones thin out in the shade: birth_share is the mean over the top of the crown, his Fig. 5."""
+        T, cf = self.tree, self.sp.crown_frame
+        named = self._frame_buds()
+        # those that became something else, or whose node died
+        for node in [k for k in named if T.lat[k] != LAT_DORMANT or T.death[k] >= 0]:
+            named.pop(node)
+        new = np.arange(n_before, T.n)
+        stem = new[np.isin(T.axis[new], np.fromiter(self.leader_axes, np.int64)) & (T.birth[new] == t)]
+        if not stem.size:
+            return
+        _, _, crown = self._frame_crown()
+        gap = float(cf.birth_share) * crown / (10.0 * float(cf.limbs_per_10pct_crown))
+        rng = self._frame_rng
+        sd, lo, hi = float(cf.angle_sd_deg), float(cf.angle_min_deg), float(cf.angle_max_deg)
+        for node in stem[np.argsort(T.pos[stem, 2])].tolist():
+            self._frame_since += float(T.length[node])
+            if self._frame_since < gap * float(rng.uniform(1.0 - float(cf.gap_scatter), 1.0 + float(cf.gap_scatter))):
+                continue
+            self._frame_since = 0.0
+            theta = math.radians(float(np.clip(rng.normal(float(cf.angle_mean_deg), sd), lo, hi)))
+            self._frame_azimuth += math.radians(float(cf.azimuth_step_deg) + float(rng.normal(0.0, float(cf.azimuth_sd_deg))))
+            d = T.dir[node] / max(float(np.linalg.norm(T.dir[node])), 1e-12)
+            a = np.array([math.cos(self._frame_azimuth), math.sin(self._frame_azimuth), 0.0])
+            u = a - float(a @ d) * d
+            u /= max(float(np.linalg.norm(u)), 1e-12)
+            T.lat_dir[node] = math.cos(theta) * d + math.sin(theta) * u
+            T.lat[node] = LAT_DORMANT
+            T.no_axil[node] = False
+            named[node] = theta
+
+    def _frame_room(self, starts, hd, full, nmax) -> np.ndarray:
+        """The most each bud may make without ending above the leader's top, in metamers."""
+        T = self.tree
+        lead_len = float(full[hd["lead_at"]]) * float(min(hd["v"], nmax)) if "lead_at" in hd else 0.0
+        n_term = hd.get("n_term", 0)
+        dz = np.concatenate([T.term_dir[starts[:n_term], 2], T.lat_dir[starts[n_term:], 2]])
+        top = max(hd["z"] + lead_len * hd["dz"], float(hd["ref"]))
+        room = np.maximum(top - T.pos[starts, 2], 0.0)
+        return np.where(dz > 0.02, room / (np.maximum(dz, 0.02) * full), float(nmax))
+
+    def _frame_plan(self, starts, n_term, full, hd, q_bud, nmax):
+        """This year's shoot, in metamers, for each limb's tip and each named bud.  The frame gives how far the limb may
+        reach; its own light and the tree's water decide how much of that it grows this year; it's paid first, from the
+        pool, and it's real nodes.  Nothing is placed: a limb in the shade falls short, and the same rules as ever kill it.
+
+        Reach: crown diameter from the stem (Hemery 2005 for an open-grown birch; a stand's crowns fall short of it in
+        each other's shade), and no wider than a young tree's height allows (Klepacki 2017).  By place in the crown: from
+        top_share of it at the very top to all of it at the crown base (Lintunen 2013's Fig. 5)."""
+        T, cf = self.tree, self.sp.crown_frame
+        hd["n_term"] = n_term
+        n = T.n
+        on = np.isin(T.axis[:n], np.fromiter(self.leader_axes, np.int64))
+        par = np.maximum(T.parent[:n], 0)
+        firsts = np.nonzero((T.death[:n] < 0) & T.is_lateral[:n] & ~on & on[par])[0]
+        first_of = np.full(len(self.axis_phase), -1, np.int64)
+        first_of[T.axis[firsts]] = firsts
+        is_tip = np.arange(len(starts)) < n_term
+        limb_tip = is_tip & (first_of[T.axis[starts]] >= 0) & ~on[starts]
+        named = self._frame_buds()
+        is_named = ~is_tip & np.isin(starts, np.fromiter(named.keys(), np.int64))
+        at = np.nonzero(limb_tip | is_named)[0]
+        if not at.size:
+            return None, None
+        h, _, crown = self._frame_crown()
+        d_wood = self.dbh_m()
+        d_ob = 100.0 * float(cf.over_bark_ratio) * d_wood if d_wood is not None else 0.0
+        reach_max = 0.5 * min(float(cf.crown_a) + float(cf.crown_b) * d_ob, float(cf.young_a) + float(cf.young_b) * h)
+        node = starts[at]
+        base = np.where(limb_tip[at], T.parent[first_of[T.axis[node]]], node)
+        depth = np.clip((h - T.pos[base, 2]) / crown, 0.0, 1.0)
+        top = float(cf.top_share)
+        goal = reach_max * (top + (1.0 - top) * depth)
+        reach = np.hypot(T.pos[node, 0] - T.pos[base, 0], T.pos[node, 1] - T.pos[base, 1])
+        out = np.where(limb_tip[at], np.hypot(T.term_dir[node, 0], T.term_dir[node, 1]), np.hypot(T.lat_dir[node, 0], T.lat_dir[node, 1]))
+        grow = np.minimum(float(cf.chase) * np.maximum(goal - reach, 0.0) / np.maximum(out, 0.5), float(cf.limb_shoot_max_m))
+        light = np.minimum(1.0, q_bud[at] / float(cf.light_full)) ** float(cf.light_exponent)
+        grow = grow * light * float(hd["water"])
+        return at, np.minimum(grow / full[at], float(nmax))
 
     # -- the height limit (height_driver in the species file) -----------
     def _limb_nodes(self, n: int):
@@ -1887,6 +2021,9 @@ class GrowthModel:
         T = self.tree
         lead_len = float(full[lead_at]) * float(min(hd["v"], nmax))
         caps = np.full(len(starts), float(nmax))
+        if self._frame_on():
+            # with the frame, side shoots aren't tied to the leader's: a twig's yearly shoot has its own limit in metres
+            caps = np.minimum(caps, float(self.sp.crown_frame.twig_shoot_max_m) / full)
         ratio = getattr(self.sp.height_driver, "lateral_cap_ratio", None)
         twig_ratio = getattr(self.sp.height_driver, "twig_cap_ratio", None)
         if twig_ratio is not None:
@@ -1913,6 +2050,8 @@ class GrowthModel:
         nt = len(v_term)
         v = np.concatenate([v_term, v_lat])
         v = np.where(hd["caps"] >= hd["thr"], np.minimum(v, hd["caps"]), 0.0)
+        if hd.get("frame_at") is not None:
+            v[hd["frame_at"]] = np.where(hd["frame_v"] >= hd["thr"][hd["frame_at"]], hd["frame_v"], 0.0)
         v[hd["lead_at"]] = hd["v"]
         return v[:nt], v[nt:]
 
@@ -1997,6 +2136,13 @@ class GrowthModel:
         xi = xi_o[np.minimum(order, len(xi_o) - 1)]
         eta = eta_o[np.minimum(order, len(eta_o) - 1)]
         gsa = gsa_o[np.minimum(order, len(gsa_o) - 1)]
+        if self._frame_on():
+            for i in np.nonzero(is_lat & on_lead)[0]:
+                drawn = self._frame_buds().pop(int(starts[i]), None)
+                if drawn is not None:
+                    self._frame_gsa[int(axis[i])] = drawn
+            own = self._frame_setpoints()[axis]
+            gsa = np.where(np.isfinite(own), own, gsa)
         if self.reit_axes:
             # the main axis of a reiterated complex grows orthotropic
             rp = self.sp.resource.reiteration
