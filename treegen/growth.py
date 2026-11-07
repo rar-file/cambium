@@ -52,6 +52,7 @@ import numpy as np
 
 from . import hydraulics, mechanics
 from .light import SUBCANOPY_LIGHT_HEIGHTS_M, ShadowPropagation
+from .reference import eriksson_1997_height
 from .roots import RootSystem
 from .structure import Tree, _normalize, _perpendicular
 
@@ -778,7 +779,7 @@ class GrowthModel:
         stem = np.isin(T.axis[:n0], np.fromiter(self.leader_axes, np.int64))
         cand = np.nonzero(alive & T.is_lateral[:n0] & ~stem & (T.birth[:n0] <= t - sh.min_branch_age))[0]
         ratio = QWtot[cand] / np.maximum(Wtot[cand], 1e-12)
-        shed = cand[(Wtot[cand] <= 0.0) | (ratio < sh.light_per_leaf_threshold)]
+        shed = cand[(Wtot[cand] <= 0.0) | self._falls(ratio, sh.light_per_leaf_threshold)]
         # branch autonomy: limbs that could not pay their own upkeep last year
         starving = self._starving[(self._starving < n0)]
         starving = starving[alive[starving] & ~stem[starving] & (T.birth[starving] <= t - sh.min_branch_age)]
@@ -918,6 +919,12 @@ class GrowthModel:
                               mechanics.pendulous_factor(axis_base_r[term_nodes], mp.pendulous_radius, mp.pendulous_sharpness))
         g_lat = g * np.where(T.order[lat_nodes] == 0, 1.0,
                              mechanics.pendulous_factor(axis_base_r[lat_nodes], mp.pendulous_radius, mp.pendulous_sharpness))
+        limbs = self._limb_nodes(n0)
+        if limbs is not None:
+            g_term = g * np.where(T.order[term_nodes] == 0, 1.0,
+                                  np.where(limbs[term_nodes],
+                                           mechanics.pendulous_factor(axis_base_r[term_nodes], mp.pendulous_radius_limb, mp.pendulous_sharpness),
+                                           mechanics.pendulous_factor(axis_base_r[term_nodes], mp.pendulous_radius, mp.pendulous_sharpness)))
         Gterm = np.zeros(n0)
         Glat = np.zeros(n0)
         # a bud's pull also scales with its stomatal opening: water-starved
@@ -940,6 +947,9 @@ class GrowthModel:
         # a node grown by less than one metamer has its leaf but no axillary
         # bud (bud_fate.axillary_buds_below_one_metamer): no sink
         Glat[lat_nodes[T.no_axil[lat_nodes]]] = 0.0
+        self._hd = self._height_limit_plan(t, term_nodes, lat_nodes, Qterm, Qlat, 1.0 - stress) if self._height_limit_on() else None
+        if self._hd is not None:
+            self._leader_phi = float((phi_t if self._hd["is_tip"] else phi_l)[self._hd["bud"]])
         Gtot = T.basipetal(levels, Gterm + Glat)
         mc = T.main_child[:n0]
         lc = T.lat_child[:n0]
@@ -1030,7 +1040,7 @@ class GrowthModel:
             np.add.at(leaf_c, *self._bud_leaf_cost)
             upkeep_c = mu * T.basipetal(levels, ones_c) + T.basipetal(levels, leaf_c)
             br = np.nonzero(alive & T.is_lateral[:n0] & (T.birth[:n0] <= t - sh.min_branch_age))[0]
-            self._starving = np.union1d(self._starving, br[own_c[br] < upkeep_c[br]])
+            self._starving = np.union1d(self._starving, br[self._falls(own_c[br], upkeep_c[br])])
         def flow(fm):
             vin = np.zeros(n0)
             vm = np.zeros(n0)
@@ -1058,9 +1068,17 @@ class GrowthModel:
             pool = max(stem_budget - shoot_costs, 0.0)
             share_t = vm[term_nodes] / pool if pool > 0.0 else np.zeros(len(term_nodes))
             share_l = vl[lat_nodes] / pool if pool > 0.0 else np.zeros(len(lat_nodes))
-            lam, self._ring = self._growth_factor(pool, g_resp, levels, alive, term_nodes, share_t, lat_nodes, share_l,
+            carried = float(getattr(self.sp.height_driver, "store_fraction", None) or 0.0) if self._hd is not None else 0.0
+            this_year = pool if not carried else (1.0 - carried) * pool + float(getattr(self, "_carbon_store", 0.0))
+            lam, self._ring = self._growth_factor(this_year, g_resp, levels, alive, term_nodes, share_t, lat_nodes, share_l,
                                                   bud_q, bud_nodes, bud_leaf)
+            if carried:
+                # a small store: this share of the year's pool waits for next year, with what the crown
+                # couldn't use, up to twice that share; beyond it, unused carbon is lost
+                self._carbon_store = min(carried * pool + float(getattr(self, "_unspent", 0.0)), 2.0 * carried * pool)
             v_term, v_lat = lam * share_t, lam * share_l
+            if self._hd is not None:
+                v_term, v_lat = self._height_limit_apply(v_term, v_lat)
             if bool(getattr(sp.pipe_model, "sapwood_replacement_is_upkeep", False)):
                 # the rings that keep this season's foliage supplied (sapwood
                 # that stopped conducting, foliage added) are part of what the
@@ -1120,6 +1138,8 @@ class GrowthModel:
                           lat_nodes[g_lat_mask], v_lat[g_lat_mask],
                           np.concatenate([Qterm[term_nodes[g_term_mask]], Qlat[lat_nodes[g_lat_mask]]]))
         self._density_after_growth(src, src_w, _n_before)
+        if self._hd is not None:
+            self._height_limit_log(_n_before)
         # descending shoot apices that reach the ground layer stop growing
         tips = np.nonzero((T.term[:T.n] == 1) & (T.death[:T.n] < 0))[0]
         down = (T.pos[tips, 2] < float(sp.shoot.ground_contact_height)) & (
@@ -1132,7 +1152,7 @@ class GrowthModel:
         q_ss = float(bf.short_shoot_light)
         q_die = float(bf.short_shoot_survival_light)
         it = term_nodes[~g_term_mask]
-        T.term[it[Qterm[it] < q_die]] = 0
+        T.term[it[self._falls(Qterm[it], q_die)]] = 0
 
         dm = ~g_lat_mask & ~is_spur
         dn = lat_nodes[dm]
@@ -1159,7 +1179,7 @@ class GrowthModel:
         sm = ~g_lat_mask & is_spur
         sn = lat_nodes[sm]
         old = (t - T.spur_birth[sn] >= bf.spur_lifespan) if bf.spur_lifespan is not None else np.zeros(sn.size, bool)
-        sdie = sn[(Qlat[sn] < q_die) | old]
+        sdie = sn[self._falls(Qlat[sn], q_die) | old]
         T.lat[sdie] = LAT_DEAD
         for nd in sdie.tolist():
             self._end_spur(nd, t + 1)  # leaves flushed this year, gone next year
@@ -1212,7 +1232,7 @@ class GrowthModel:
             setpoint = np.where(stem, gsa_o[0], setpoint)
             mechanics.bend_and_correct(T, levels, alive, mp, leaves_now, T.leaves[:n].astype(float),
                                        r_prev, setpoint, float(self.sp.shoot.min_height_above_ground),
-                                       self._stem_posture_target(n), stem)
+                                       self._stem_posture_target(n), stem, self._limb_nodes(n))
         T.leaves[:n] = leaves_now
         if not self.lean and self.keyframe_step > 0 and t % self.keyframe_step == 0:
             self.keyframes[t] = T.pos[:n].astype(np.float32).copy()
@@ -1373,6 +1393,20 @@ class GrowthModel:
             lai *= 1.0 - 0.5 ** (max(self.year + 1 - exposed, 0) / hl)
         above = lai * np.clip(1.0 - np.asarray(z, float) / h, 0.0, 1.0)
         return np.exp(-float(s.herb_extinction) * above)
+
+    def _falls(self, value, line) -> np.ndarray:
+        """Which parts die this year, from their own light or carbon against their line.  With shedding.shade_softness
+        unset, all of those under it (as it has been).  With it set, the chance rises from 0 at the line to 1 at
+        (1 - softness) of it, so the crown thins in step with how far under it each part is, never by its age."""
+        soft = getattr(self.sp.shedding, "shade_softness", None)
+        if soft is None:
+            return value < line
+        rng = self.__dict__.get("_fall_rng")
+        if rng is None:
+            rng = self._fall_rng = np.random.default_rng([self.seed, 5501])
+        under = np.maximum(line - value, 0.0)
+        chance = np.divide(under, float(soft) * line, out=np.zeros_like(under, dtype=float), where=(line * np.ones_like(under)) > 0.0)
+        return rng.random(len(under)) < chance
 
     def _shed(self, t: int, roots: np.ndarray, levels: list):
         T = self.tree
@@ -1559,12 +1593,17 @@ class GrowthModel:
                             hv = hv.copy()
                             hv[below] = hv[cb_node]
                         a_su = (hv[cb_node] if isinstance(hv, np.ndarray) else hv) * la_now[cb_node]
+                        if bool(getattr(pm, "heartwood_by_own_foliage", False)):
+                            # each internode keeps the sapwood its own foliage beyond needs.  With the crown base's
+                            # figure, a forked stem's other fork loses it every year and must rebuild it, at
+                            # 28 cm2 a year (seed 3 at 45), whatever its crown does
+                            a_su = hv * la_now
                         excess = below & (T.sap_area[:n0] > a_su)
                         if excess.any():
                             T.sap_area[:n0] = np.where(excess, a_su, T.sap_area[:n0])
         if bool(getattr(pm, "sapwood", True)):
             # sapwood only, after a share of last year's turned to heartwood
-            keep = np.where(alive, (1.0 - float(pm.sapwood_senescence_per_year)) * T.sap_area[:n0], 0.0)
+            keep = np.where(alive, (1.0 - self._sapwood_loss(n0)) * T.sap_area[:n0], 0.0)
         else:
             # no distinct heartwood (birch): the requirement is on the whole
             # wood cross-section, so no wood is counted twice
@@ -1598,10 +1637,33 @@ class GrowthModel:
         ahead = bool(getattr(pm, "sapwood_for_next_season", False))
         extra_per_node = (float(getattr(fw, "early_leaves", 0.0) or 0.0) - float(fw.new_leaf)) * size if ahead else 0.0
 
-        def parts(lam):
+        hd = getattr(self, "_hd", None)
+        lead_at = None
+        caps = nmax
+        ring_cap = None
+        if hd is not None:
+            # the leader's shoot, limited by the curve, is built first and paid first.  No side shoot may end
+            # above the leader's.  Rings can't take more than ring_share_max of the pool (shoots flush first).
+            lead_at = hd["bud"] if hd["is_tip"] else len(term_nodes) + hd["bud"]
+            cfg = sp.height_driver
+            if getattr(cfg, "ring_share_max", None) is not None:
+                ring_cap = float(cfg.ring_share_max) * pool
+            self._unspent = 0.0
+            caps = self._height_limit_caps(starts, len(term_nodes), full, hd, lead_at, nmax)
+            hd["caps"], hd["thr"], hd["lead_at"] = caps, thr, lead_at
+
+        def shoots(lam):
             v = lam * share
             grow = (v >= thr) & (share > 0.0)
-            vc = np.minimum(v, nmax)
+            if lead_at is not None:
+                grow = grow & (caps >= thr)
+                v[lead_at] = hd["v"]
+                grow[lead_at] = hd["v"] > 0.0
+            return v, grow
+
+        def parts(lam):
+            v, grow = shoots(lam)
+            vc = np.minimum(v, caps)
             shoot_vol = tip_area * float((full * vc)[grow].sum())
             # the new shoots' leaves (late, one per node, and early) are built
             # with them; next season they are not built again (_leaf_costs)
@@ -1616,13 +1678,45 @@ class GrowthModel:
                 dlaz = np.zeros(n0)
                 np.add.at(dlaz, starts, piped * z_node[starts])
                 laz_tot = laz_now + T.basipetal(levels, dlaz)
-                m_wind = f_wind * np.maximum(laz_tot - z_base * la_tot, 0.0)
+                # the base moment comes from the canopy (_wind_load_scale), not from this year's new leaves.  With the
+                # limit on it stays that moment; without, each new leaf raises it and so the whole stem's ring
+                f_year = f_wind if lead_at is None else f_wind * float(laz_now[0]) / max(float(laz_tot[0]), 1e-12)
+                m_wind = f_year * np.maximum(laz_tot - z_base * la_tot, 0.0)
                 a_wind = a_wind_coef * np.cbrt(m_wind) ** 2
-                ring = np.maximum(ring, a_wind - wood_keep)
+                if lead_at is not None:
+                    # sapwood for the leaves comes first; the wind's thickening is what can wait
+                    extra = np.maximum(a_wind - wood_keep - ring, 0.0)
+                    hd["sap_units"] = float((ring * L).sum()) / unit
+                    extra_units = float((extra * L).sum()) / unit
+                    hd["wind_units"] = extra_units
+                    if ring_cap is not None:
+                        room = max(ring_cap - hd["sap_units"], 0.0)
+                        if extra_units > room:
+                            extra = extra * (room / extra_units)
+                    ring = ring + extra
+                else:
+                    ring = np.maximum(ring, a_wind - wood_keep)
             return (shoot_vol + float((ring * L).sum())) / unit + leaf_units, ring
 
         c0, r0 = parts(0.0)
         self._ring_need = c0
+        if lead_at is not None:
+            hd["sap_units0"], hd["wind_units0"] = hd.get("sap_units", 0.0), hd.get("wind_units", 0.0)
+            # the leader's own shoot and leaves come first; if the pool can't pay them, it builds less
+            vl = float(min(hd["v"], nmax))
+            lead_units = tip_area * float(full[lead_at]) * vl / unit
+            if g_per_unit > 0.0:
+                lead_units += float((max(math.floor(vl), 1.0) * per_met[lead_at] + early[lead_at]) * lma[lead_at]) / g_per_unit * g_resp
+            hd["cost_units"], hd["pool"] = lead_units, pool
+            if lead_units >= pool:
+                hd["carbon_scale"] = pool / lead_units if lead_units > 0.0 else 0.0
+                hd["v"] *= hd["carbon_scale"]
+                hd["cost_units"] = pool
+                return 0.0, np.zeros(n0)
+            self._ring_need = c0 - lead_units
+            if c0 >= pool:
+                # after the leader, the foliage's sapwood takes what's left: no side shoots
+                return 0.0, r0 * ((pool - lead_units) / max(c0 - lead_units, 1e-12))
         if c0 >= pool:
             # the foliage's sapwood alone takes the whole pool: no new shoots,
             # and only that share of the rings
@@ -1638,14 +1732,35 @@ class GrowthModel:
                     lo = mid
                 else:
                     hi = mid
+            if lead_at is not None and getattr(sp.height_driver, "leaf_growth_max", None) is not None:
+                # the crown can't add more leaf area in a year than this many times what it has (sink
+                # limit, standing in for nutrients and competition); what's left goes to the store or is lost
+                limit = float(sp.height_driver.leaf_growth_max) * float(la_now[0])
+
+                def side_area(x):
+                    v, grow = shoots(x)
+                    vc = np.minimum(v, caps)
+                    grow[lead_at] = False
+                    return float((np.floor(vc[grow]) * next_leaves * size[grow]).sum())
+
+                if side_area(lo) > limit:
+                    a, b = 0.0, lo
+                    for _ in range(40):
+                        mid = 0.5 * (a + b)
+                        if side_area(mid) < limit:
+                            a = mid
+                        else:
+                            b = mid
+                    lo = a
+                    self._unspent = max(target - parts(lo)[0], 0.0)
             return lo, parts(lo)[1]
 
+        next_leaves = max(float(getattr(fw, "early_leaves", 0.0) or 0.0), float(fw.spur))
         lam, ring = solve_for(pool)
         f_late = float(getattr(fw, "late_leaf_season_fraction", 0.0) or 0.0)
         if f_late > 0.0:
-            v = lam * share
-            grow = (v >= thr) & (share > 0.0)
-            vc = np.minimum(v, nmax)
+            v, grow = shoots(lam)
+            vc = np.minimum(v, caps)
             late_area = np.where(grow, np.floor(vc) * per_met, 0.0)
             if float(late_area.sum()) > 0.0:
                 alpha = float(sp.resource.alpha)
@@ -1675,6 +1790,158 @@ class GrowthModel:
                     self.carbon["cue"] = npp / self.carbon["fixed"]
                 lam, ring = solve_for(pool + late_shoot_net)
         return lam, ring
+
+    # -- the height limit (height_driver in the species file) -----------
+    def _limb_nodes(self, n: int):
+        """With mechanics.pendulous_radius_limb set: which of the first n nodes belong to a limb, a side axis on the stem.  The
+        pendulous trait is then a twig trait: limbs go soft only where they're thinner than that radius, near their tips.  None if unset."""
+        if getattr(self.sp.mechanics, "pendulous_radius_limb", None) is None:
+            return None
+        T = self.tree
+        on = np.isin(T.axis[:n], np.fromiter(self.leader_axes, np.int64))
+        first = T.is_lateral[:n] & ~on & on[np.maximum(T.parent[:n], 0)]
+        return np.isin(T.axis[:n], T.axis[:n][first])
+
+    def _sapwood_loss(self, n: int):
+        """The share of last year's sapwood that stops conducting this year, on the first n nodes.  With
+        pipe_model.branch_sapwood_senescence set, side axes have their own rate; otherwise one figure for the whole tree."""
+        pm = self.sp.pipe_model
+        branch = getattr(pm, "branch_sapwood_senescence", None)
+        if branch is None:
+            return float(pm.sapwood_senescence_per_year)
+        on_stem = np.isin(self.tree.axis[:n], np.fromiter(self.leader_axes, np.int64))
+        return np.where(on_stem, float(pm.sapwood_senescence_per_year), float(branch))
+
+    def _height_limit_on(self) -> bool:
+        hd = getattr(self.sp, "height_driver", None)
+        return hd is not None and bool(hd.enabled)
+
+    def _curve_height(self, age: float) -> float:
+        """The approved curve at this total age (Eriksson et al. 1997 as in Elfving 2010, T13 = 150 / SIS),
+        for height_driver.site_index.  Below breast height the curve says nothing, so a power law from
+        the seed that meets it with the same slope: no source for its shape."""
+        c = getattr(self, "_hd_curve", None)
+        if c is None:
+            hd, ref = self.sp.height_driver, self.sp.reference.height
+            si, t_ref = float(hd.site_index), float(hd.reference_age_years)
+
+            def above(bh):
+                return eriksson_1997_height(si, bh, float(ref.asi), float(ref.beta), float(ref.b2), t_ref)
+
+            t13 = float(hd.t13_numerator) / si
+            for _ in range(200):
+                t13 = float(hd.t13_numerator) / above(float(hd.sis_total_age_years) - t13)
+            c = self._hd_curve = (t13, (above(1.0) - 1.3) * t13 / 1.3)
+        t13, p = c
+        if age <= 0.0:
+            return 0.0
+        if age <= t13:
+            return 1.3 * (age / t13) ** p
+        ref = self.sp.reference.height
+        hd = self.sp.height_driver
+        return eriksson_1997_height(float(hd.site_index), age - t13, float(ref.asi), float(ref.beta), float(ref.b2), float(hd.reference_age_years))
+
+    def _height_limit_plan(self, t, term_nodes, lat_nodes, Qterm, Qlat, opening):
+        """This year's limit on the leader.  The curve gives the most it may grow; less light or less water
+        lowers that; the shoot is then built of real nodes, paid for first from the pool (_growth_factor).
+        Nothing here sets a height or moves a node.  None if the tree has no leader to limit this year."""
+        T, hd = self.tree, self.sp.height_driver
+        leaders = np.fromiter(self.leader_axes, np.int64)
+        tips = np.nonzero(np.isin(T.axis[term_nodes], leaders))[0]
+        if self.loss_of_dominance_year is not None and bool(getattr(hd, "leader_lost_in_crown", False)) and len(term_nodes):
+            # once the leader has lost its dominance (resource.reiteration), whichever tip stands highest carries the height
+            tips = np.arange(len(term_nodes))
+        if tips.size:
+            bud = int(tips[np.argmax(T.pos[term_nodes[tips], 2])])
+            node, is_tip, q, dz = int(term_nodes[bud]), True, float(Qterm[term_nodes[bud]]), float(T.term_dir[term_nodes[bud], 2])
+        else:
+            # the leader is lost: the highest bud named to replace it takes over the limit
+            relay = np.nonzero(np.isin(lat_nodes, np.fromiter(self._relay_buds.keys(), np.int64)))[0] if self._relay_buds else np.zeros(0, np.int64)
+            if not relay.size:
+                return None
+            bud = int(relay[np.argmax(T.pos[lat_nodes[relay], 2])])
+            node, is_tip, q, dz = int(lat_nodes[bud]), False, float(Qlat[lat_nodes[bud]]), float(T.lat_dir[lat_nodes[bud], 2])
+        z = float(T.pos[node, 2])
+        # the curve's years to breast height already hold the field layer, so its shade doesn't count twice
+        herb = float(self._herb_factor(np.array([z]))[0])
+        q_canopy = q / max(herb, 1e-9)
+        f_light = min(1.0, q_canopy / float(hd.light_full)) ** float(hd.light_exponent)
+        f_water = min(1.0, max(opening, 0.0) / float(hd.water_full))
+        ref_alpha = getattr(hd, "reference_alpha", None)
+        vigour = float(self.sp.resource.alpha) / float(ref_alpha) if ref_alpha else 1.0
+        inc = self._curve_height(t) - self._curve_height(t - 1)
+        self._hd_ref = getattr(self, "_hd_ref", 0.0) + inc * f_light * f_water * vigour
+        allowed = float(np.clip(self._hd_ref - z, 0.0, float(hd.catch_up) * inc))
+        v = allowed / max(dz, 0.5) / self.l0
+        return {"node": node, "bud": bud, "is_tip": is_tip, "v": v, "z": z, "dz": max(dz, 0.5), "inc": inc, "allowed": allowed, "light": f_light, "water": f_water,
+                "vigour": vigour, "ref": self._hd_ref, "q": q_canopy, "carbon_scale": 1.0, "cost_units": 0.0, "pool": 0.0}
+
+    def _height_limit_caps(self, starts, n_term, full, hd, lead_at, nmax) -> np.ndarray:
+        """The most each bud may make, in metamers: none ending above where the leader's shoot will end, and,
+        with lateral_cap_ratio set, none longer than that share of the leader's shoot (apical control)."""
+        T = self.tree
+        lead_len = float(full[lead_at]) * float(min(hd["v"], nmax))
+        caps = np.full(len(starts), float(nmax))
+        ratio = getattr(self.sp.height_driver, "lateral_cap_ratio", None)
+        twig_ratio = getattr(self.sp.height_driver, "twig_cap_ratio", None)
+        if twig_ratio is not None:
+            # twigs (shoots of order 2 and up) have a cap of their own, so the limbs that carry them keep the lead
+            is_twig = (T.order[starts].astype(np.int64) + (np.arange(len(starts)) >= n_term)) >= 2
+            caps = np.where(is_twig, np.minimum(caps, float(twig_ratio) * lead_len / full), caps)
+        if ratio is not None:
+            caps = np.minimum(caps, float(ratio) * lead_len / full)
+            if self.reit_axes and bool(getattr(self.sp.height_driver, "leader_lost_in_crown", False)):
+                # a reiterated limb is a small tree on the tree: only the top of the crown holds it back
+                caps = np.where(np.isin(T.axis[starts], np.fromiter(self.reit_axes, np.int64)) & (np.arange(len(starts)) < n_term), float(nmax), caps)
+        dz = np.concatenate([T.term_dir[starts[:n_term], 2], T.lat_dir[starts[n_term:], 2]])
+        top = max(hd["z"] + lead_len * hd["dz"], float(hd["ref"]))
+        room = np.maximum(top - T.pos[starts, 2], 0.0)
+        caps = np.where(dz > 0.02, np.minimum(caps, room / (np.maximum(dz, 0.02) * full)), caps)
+        caps[lead_at] = float(nmax)
+        return caps
+
+    def _height_limit_apply(self, v_term, v_lat):
+        """Each bud's metamers after its cap; the leader's after the carbon check."""
+        hd = self._hd
+        nt = len(v_term)
+        v = np.concatenate([v_term, v_lat])
+        v = np.where(hd["caps"] >= hd["thr"], np.minimum(v, hd["caps"]), 0.0)
+        v[hd["lead_at"]] = hd["v"]
+        return v[:nt], v[nt:]
+
+    def _height_limit_settle_stem(self, hd):
+        """The stem is what leads to the shoot the limit paid for.  A second replacement leader stops being stem: it
+        goes on as a limb, thick and upright for a while, instead of a second stem the limit knows nothing of."""
+        T = self.tree
+        node = hd["node"] if hd["is_tip"] else int(T.lat_child[hd["node"]])
+        if node < 0:
+            return
+        while T.main_child[node] >= 0:
+            node = int(T.main_child[node])
+        T.stem_tip = node
+        path = T.trunk_chain()
+        self.leader_axes = set(int(a) for a in np.unique(T.axis[path]))
+        if not hd["is_tip"] or self._relay_buds:
+            self._relay_buds = {}
+        T.relay = {int(T.parent[f]): int(f) for f in path[T.is_lateral[path]]}
+
+    def _height_limit_log(self, n_before):
+        """What the leader got this year and what held it back; only read, for the reports."""
+        T, hd = self.tree, self._hd
+        new = np.arange(n_before, T.n)
+        chain = new[np.isin(T.axis[new], np.fromiter(self.leader_axes, np.int64))]
+        tip_z = float(T.pos[chain, 2].max()) if chain.size else hd["z"]
+        self._height_limit_settle_stem(hd)
+        limits = {"carbon": hd["carbon_scale"], "light": hd["light"], "water": hd["water"]}
+        held = min(limits, key=limits.get)
+        self._driver_log = {"increment_m": round(hd["inc"], 4), "reference_m": round(hd["ref"], 4), "allowed_m": round(hd["allowed"], 4),
+                            "got_m": round(max(tip_z - hd["z"], 0.0), 4), "nodes": int(chain.size), "light": round(hd["light"], 4), "light_q": round(hd["q"], 4),
+                            "water": round(hd["water"], 4), "carbon": round(hd["carbon_scale"], 4), "cost_units": round(hd["cost_units"], 4),
+                            "cost_share": round(hd["cost_units"] / hd["pool"], 5) if hd["pool"] > 0.0 else 1.0,
+                            "held_by": held if limits[held] < 0.999 else "curve", "unspent": round(float(getattr(self, "_unspent", 0.0)), 3),
+                            "sap_units": round(float(hd.get("sap_units0", 0.0)), 1), "wind_units": round(float(hd.get("wind_units0", 0.0)), 1),
+                            "wood_free_m3": round(float(getattr(self, "_stress_extra", 0.0)), 6)}
+        self._unspent = 0.0
 
     def _grow_shoots(self, t, field, g_term, v_term, g_lat, v_lat, q_start=None):
         sp, T, rng = self.sp, self.tree, self.rng
@@ -1748,6 +2015,14 @@ class GrowthModel:
         mp = sp.mechanics
         r_ref = np.where(is_lat, T.radius[starts], self._axis_base_radius()[starts])
         weak = mechanics.pendulous_factor(r_ref, float(mp.pendulous_radius), float(mp.pendulous_sharpness))
+        limbs = self._limb_nodes(T.n)
+        if limbs is not None:
+            # a limb's own shoots, new or continuing, have its radius for softness, not the twigs'
+            limb_start = np.where(is_lat, on_lead, limbs[starts])
+            weak = np.where(limb_start, mechanics.pendulous_factor(r_ref, float(mp.pendulous_radius_limb), float(mp.pendulous_sharpness)), weak)
+        if bool(getattr(tr, "twigs_keep_gravitropism", False)):
+            # twigs turn towards their own set-point however thin they are; with a set-point below level, they grow down
+            weak = np.where(order >= 2, 1.0, weak)
         eta = np.where((order >= 1) & ~lead_ax, eta * weak, eta)
         noise = float(sp.architecture.direction_noise_per_sqrt_m)
         corr = getattr(sp.architecture, "direction_noise_correlation_m", None)
@@ -1909,8 +2184,8 @@ class GrowthModel:
             T.sap_area[:n] = np.where(new, tip, T.sap_area[:n])
             ring = getattr(self, "_ring", None)
             # no heartwood (sapwood: false): sap_area stays the whole wood
-            ss = float(pm.sapwood_senescence_per_year) if bool(getattr(pm, "sapwood", True)) else 0.0
             m = min(len(ring), n) if ring is not None else 0
+            ss = self._sapwood_loss(m) if bool(getattr(pm, "sapwood", True)) else 0.0
             old = alive[:m] & ~new[:m]
             if m:
                 T.sap_area[:m] = np.where(old, (1.0 - ss) * T.sap_area[:m] + ring[:m], T.sap_area[:m])
@@ -2169,7 +2444,13 @@ class GrowthModel:
         # of the foliage (isolated near-dead twigs do not count)
         leaves = np.where(alive, T.leaves[:n], 0.0).astype(float)
         total_leaves = float(leaves.sum())
-        limbs = np.nonzero(alive & T.is_lateral[:n] & (T.order[:n] == 1))[0]
+        if bool(getattr(self.sp.stats, "limbs_on_leader", False)):
+            # a limb is a side axis on the stem or on a leader that replaced it; a replacement leader is stem, not a
+            # limb (with order == 1 it counts as one, attached low, and the stem's own limbs don't count at all)
+            on_lead = np.isin(T.axis[:n], np.fromiter(self.leader_axes, np.int64))
+            limbs = np.nonzero(alive & T.is_lateral[:n] & ~on_lead & on_lead[np.maximum(T.parent[:n], 0)])[0]
+        else:
+            limbs = np.nonzero(alive & T.is_lateral[:n] & (T.order[:n] == 1))[0]
         crown_base = lowest_branch = None
         if limbs.size:
             lowest_branch = float(T.pos[T.parent[limbs], 2].min())
@@ -2227,4 +2508,5 @@ class GrowthModel:
             "apical_control": round(self.apical_control(max(self.year, 1)), 4),
             "reiterated_limbs": len(self.reit),
             "loss_of_dominance_year": self.loss_of_dominance_year,
+            **({"height_limit": getattr(self, "_driver_log", None)} if self._height_limit_on() else {}),
         }

@@ -458,6 +458,10 @@ shedding:
   light_per_leaf_threshold: 0.21
   # Branches younger than this are never shed. VERIFY
   min_branch_age: 2
+  # How a branch, a short shoot or a resting tip falls under its light or carbon line.  null (as it has been): all
+  # of them, the first year.  Set: a chance a year, from 0 at the line to 1 at (1 - this) of it.  Without it a crown
+  # whose neighbours are copies of it all crosses the line at once: leaf area 94 m2, then 11 m2 the next year (seed 4 at 50-51).
+  shade_softness: null
   # A branch also dies when the carbon its own leaves fix (alpha x light x
   # stomatal opening, after the root share) no longer pays the upkeep of its
   # wood (maintenance_per_internode per internode; Sprugel, Hinckley &
@@ -534,6 +538,9 @@ tropism:
   # width and kept limbs almost parallel to the stem (poplar-like).  Higher
   # orders VERIFY.
   setpoint_angle_deg: [0, 43, 45, 65]
+  # true: twigs (order 2 and up) keep their gravitropism however thin they are, so a set-point below level above makes
+  # them grow down, in curtains.  false (as it has been): thin shoots lose it.  TUNED, against nothing yet.
+  twigs_keep_gravitropism: false
 
 mechanics:
   # Bending under load and posture control ([J00], [AF09]; mechanics.py).
@@ -571,6 +578,9 @@ mechanics:
   # and correction are scaled by s(r) = (r/r_p)^p / (1 + (r/r_p)^p). VERIFY
   pendulous_radius: 0.006
   pendulous_sharpness: 4.0
+  # Set: limbs (side axes on the stem) have this radius instead, so limbs ascend and only their thin ends arch over,
+  # and the hanging is the twigs'.  null (as it has been): one radius for all.  TUNED, against nothing yet.
+  pendulous_radius_limb: null
   # The year's load increment is applied in sub-steps on the updated shape;
   # no internode turns more than this per sub-step (rad). Model guard.
   substeps: 4
@@ -615,6 +625,8 @@ pipe_model:
   # Tree Physiol. 28:1821, Table 1), so 0.014 (0.011-0.025).  No birch
   # count found: VERIFY (birch).  LIGNUM's Scots pine value is 0.07.
   sapwood_senescence_per_year: 0.014
+  # TUNED, against nothing yet: the same for side axes alone.  null (as it has been): one figure for the whole tree.
+  branch_sapwood_senescence: null
   # true: the requirement is on the conducting wood, with
   # sapwood_senescence_per_year; false: on the whole wood, no turnover.
   sapwood: true
@@ -624,6 +636,10 @@ pipe_model:
   # converted to heartwood, eliminating the need to lay down replacement
   # rings for retired crown layers.
   crown_rise_heartwood: false
+  # true: below the crown base each internode keeps the sapwood its own foliage beyond needs.  false (as it has
+  # been): all of them keep the crown base's figure, on one side of a fork, so on a forked stem the other side
+  # loses sapwood every year and rebuilds it.
+  heartwood_by_own_foliage: false
   # Count the rings that keep this season's foliage supplied (replacing
   # sapwood that stopped conducting, plus the foliage added) as upkeep in
   # the natural-mode death test, like rebuilding the leaves.  In the pipe
@@ -967,6 +983,30 @@ plot:
   germination_years: [0, 1, 2, 3]
   germination_weights: [0.4, 0.3, 0.2, 0.1]
   vigour_sd: 0.06
+  # Output only, off by default: basal area over bark, top height, gap fraction
+  # and new trees in the plot's yearly stats (tools/stand_table.py).  A gap: no
+  # leaf above gap_above_m over a ground cell of gap_cell_m (Brokaw's hole in the
+  # canopy down to 2 m; the cell is my choice, about a crown's half-width).
+  stand_measures: false
+  gap_cell_m: 2.0
+  gap_above_m: 2.0
+  # A natural start (tools/forest.py), off by default: this density from the
+  # first years, not the 1800/ha of the thinning programme.  Aosaar et al. 2016
+  # Table 3: 11,633 stems/ha at age 8 on an unmanaged stand on abandoned farmland.
+  # TUNED (stems_per_ha): against that 11,633 at age 8, with the mortality block on
+  # and alpha 3.0 standing in for slower young growth (one 400 m2 plot: 10,150 at 8,
+  # 8,575 at 10 against 10,200).  At today's alpha 4.8 young trees outrun it: about
+  # 3,800 at 8, whatever the start.  Real starts go far denser (Dahlgren Lidman et
+  # al. 2024 Table 2: 9-18 seedlings per m2 at year 3 on scarified mesic soil).
+  # side_x_m, side_y_m: a rectangle of ground instead of area_m2 (a strip of
+  # forest edge); patch_x_m: only the first metres of x hold trees at the start.
+  natural_start:
+    enabled: false
+    stems_per_ha: 16000
+    area_m2: 1000
+    side_x_m: null
+    side_y_m: null
+    patch_x_m: null
 
 regeneration:
   # Natural regeneration in a plot (treegen/regeneration.py; tools/plot.py
@@ -1009,6 +1049,123 @@ regeneration:
   mineral_initial: 0.3
   mineral_new_per_year: 0.005
   mineral_half_life_years: 5.0
+  # A forest that spreads over open ground (treegen/regeneration.py,
+  # SpreadRegeneration), off by default.
+  spread:
+    enabled: false
+    # Liu & Evans 2021, Forests 12:929 (publisher's PDF), best model, Table 1 and
+    # Eqs 2, 5, 6: a lognormal kernel, mean distance exp(u0 + ut T) and shape
+    # exp(p0 + pt T), T the trees of DBH over 15 cm in the source's 10 m cell; 65 m
+    # in the open, 38 m at 3 trees a cell; both birches, Wytham Woods, one year
+    # (2015).  Their Eq. 2 prints "- p^2/2" after ln u, which would make the mean
+    # 1.19 u; their text calls u the mean, and that is what's used. VERIFY (sign)
+    ln_mean_m: 4.18
+    ln_mean_per_tree: -0.18
+    ln_shape: -0.86
+    ln_shape_per_tree: -0.04
+    density_cell_m: 10.0
+    tree_dbh_cm: 15.0
+    # Their Figure 2 stops at 5 trees a cell (0.05 trees/m2); no further here.
+    max_trees_counted: 5
+    # Seed past the two ends of x is lost, and the sides repeat; true: x repeats too,
+    # for a plot in the middle of a forest.
+    repeat_ends: false
+    # How far the kernel's table runs; 6 mean distances at the open-ground mean.
+    kernel_reach_m: 400.0
+    # TUNED: the share of germinants living through the first season rises from 0
+    # at the first light to 1 at the second (relative, at 0.1 m, canopy only: the
+    # organic layer's rate already holds its field layer's shade).  The first is set
+    # above the 25-29 % where no recruit lived past six years (KNOWN_ISSUES phase 27)
+    # and 234 recruits here, none alive at 10 years; the second so that gaps and open
+    # ground take in full.  Silver birch is a light-demanding pioneer; I found no
+    # opened figure for its first-year light need.
+    establishment_light: [0.30, 0.60]
+    # TUNED: and none takes where more than this share of the ground within about
+    # this radius (a Gaussian's SD, a crown's width) has a leaf above 2 m over it.
+    # Tuned against one plot's windthrow: the light field's contrast is too low to
+    # tell a gap from a canopy (10th-90th percentile 0.42-0.52), and real closed
+    # canopies, at 6.4-19.8 % light, stop seedlings through light alone.
+    canopy_cover_max: 0.5
+    canopy_radius_m: 3.0
+    # Share of a windthrow gap's ground bared by uprooting (Plot.open_gap).  Pit-mound
+    # microrelief covers 7-12 % of the ground in all-aged boreal forests [Samonil et
+    # al. 2010, as above]; the top of that, for a fresh gap. VERIFY
+    windthrow_mineral: 0.12
+    # TUNED (memory, not biology): at most one recruit per cell a year, so this
+    # sets the densest a young stand can be: 2 m is 2500 stems/ha.  The plain class
+    # has 1 m.  Set lower where the machine allows.
+    cell_m: 2.0
+    # A limit on memory, not a model value: null is no limit.
+    max_recruits_per_year: null
+
+mortality:
+  # Mortality that answers to crowding and to a tree's vigour, in natural plots
+  # (treegen/thinning.py), off by default.  On top of the carbon rule, which
+  # leaves a suppressed tree alive for decades on a metre of leaf.
+  enabled: false
+  # --- Self-thinning: RD = SDI / sdi_max, SDI = sum of (DBH over bark / 25 cm) ^
+  # slope a hectare (Reineke's stand density index, summed tree by tree).
+  # TUNED (slope): Reineke's -1.605 as cited; Hynynen 1993's birch line is
+  # paywalled and not opened, and the project catalogue's -1.6 for it is unverified.
+  self_thinning_slope: 1.6
+  # TUNED (sdi_max): the highest SDI in Aosaar et al. 2016 Table 3 (age 14, 6567
+  # stems/ha, 21.3 m2/ha).  It's one fertile 0.03 ha plot.  Checks, not fits:
+  # Hagemeier & Leuschner's two stands sit at RD 0.82 and 0.57 under it; on it,
+  # basal area is 33.5 m2/ha at Dg 20 cm and 36.7 at 25, near Repola 2008's top of
+  # 32.3 and Soderberg 1986's limit for broadleaves of 33 at age 60 (Elfving 2010,
+  # Appendix 11, at SI 26, N 600-1000).
+  sdi_max: 747.0
+  # TUNED (onset, rate_at_max, shape): stems lost per stem and year = rate_at_max *
+  # ((RD - onset) / (1 - onset)) ^ shape.  Picked from a grid of least-squares fits
+  # to Aosaar Table 3's nine yearly losses at its own RD; the data don't pin the
+  # onset (rmse 0.094-0.098 a year for 0.55-0.70).  Given Table 3's RD this takes
+  # 11,633 stems/ha at 8 to 2,731 at 17 (Table 3: 2,733).  Long's 1985 rule of thumb,
+  # not opened, puts the onset of competition mortality near 0.6 too.  The fit is to
+  # a stand at 3-10 cm DBH; no source tests it for old stands.
+  onset: 0.60
+  rate_at_max: 0.278
+  shape: 1.5
+  # TUNED: the most a neighbourhood loses in a year, at RD far over 1.  Aosaar's
+  # worst year lost 35.5 % of stems, hazard 0.44.
+  rate_cap: 0.5
+  # TUNED: crowding is read over a Gaussian neighbourhood of this SD, a crown or
+  # two away.  Small enough for a gap and a thicket to differ.
+  neighbourhood_sigma_m: 5.0
+  grid_m: 1.0
+  # Over-bark DBH from the model's wood DBH, as tools/bark.py: Hansen et al. 2023
+  # double bark thickness (mm) = b0 + b1 DBH + b2 d, as coded in taperNOR 0.2.1.
+  bark_double_mm: [-0.48552367, 0.04957885, 0.84676248]
+  # Who goes: Fridman & Stahl 2001, birch, 5-year probability against DBH over
+  # bark, digitised from Elfving 2010 p. 65 (the knowledge base, 05-F), used as
+  # Heureka does, to share out a stand's mortality.  Below 10 cm it's extrapolated
+  # (no trees under 10 cm in their data); beyond the table, a line in ln p.
+  size_weight:
+    dbh_cm: [5, 10, 15, 20, 25, 30]
+    p5: [0.33, 0.21, 0.14, 0.09, 0.06, 0.04]
+  vigour:
+    # Vigour: mean ring width over these years (wood DBH); low-growth mortality is
+    # the common form (e.g. Pacala et al. 1996, Bigler & Bugmann 2003; neither
+    # opened and neither birch).  Weight = floor + (1 - floor) exp(-ring / scale).
+    # TUNED (all four): against the base plots' trees that stand still for decades.
+    window_years: 5
+    ring_scale_mm: 0.5
+    floor: 0.02
+    # A tree laying no wood dies at this hazard a year wherever it stands.
+    suppressed_hazard: 0.10
+  # Bengtsson 1978's deciduous function for southern Sweden, % of volume a year, as
+  # printed in Elfving 2010 p. 64; D 7-30 cm, age 30-120, the closest limit beyond;
+  # "reduced with ... 25 % in southern Sweden".  Applied to stems (no volume here).
+  background:
+    intercept: 0.46
+    per_d: -0.02
+    per_age: 0.0046
+    reduced_to: 0.75
+    d_range_cm: [7.0, 30.0]
+    age_range_years: [30.0, 120.0]
+  # Elfving 2010 pp. 67-68: p = 1 / (1 + exp(10 - 12 A / Amax)), a year; ln Amax =
+  # 4.6246 - 0.02192 SIS + 0.1742 ln n at n = 10,000, birch, SIS 26: 287 years.
+  old_age:
+    max_age_years: 287.0
 
 stand:
   # --stand: neighbour trees as shadow volumes.  The light grid is one
@@ -1055,6 +1212,9 @@ stats:
   # A first-order limb counts towards the crown base only if its subtree
   # carries at least this share of the tree's leaves.
   crown_base_min_leaf_share: 0.005
+  # true: a limb is a side axis on the stem or on a leader that replaced it.  false (as it has been): order == 1,
+  # which counts a replacement leader as a limb attached low, and doesn't count the limbs on it.
+  limbs_on_leader: false
   # Hanging runs shorter than this (m) are not counted as hanging twigs.
   hanging_twig_min_length: 0.2
 
@@ -1287,6 +1447,45 @@ anchorage:
   depth_factor_max: 1.2
   root_tension_share: 0.5
 
+
+# The height limit, off by default: the approved site-index curve limits how much the leader may grow in a
+# year, instead of height emerging from the carbon split.  It's a limit, not a script: the leader still makes
+# real nodes that cost carbon, paid first from the year's pool, and it falls short of the curve when its light,
+# the crown's water or the pool run short (growth.py, _height_limit_plan).  No height is set and no node is moved.
+# Curve: Eriksson et al. 1997 as in Elfving 2010, Appendix 9, with reference.height's asi, beta and b2.
+height_driver:
+  enabled: false
+  # Site index, H at breast-height age 50 (m).  20-26 spans the target's Swedish range; 23 is its middle.
+  site_index: 23.0
+  reference_age_years: 50.0
+  # T13 = 150 / SIS, SIS the curve's own height at total age 100 (Elfving 2010, Appendix 7, p. 56).
+  t13_numerator: 150.0
+  sis_total_age_years: 100.0
+  # TUNED, against nothing yet: canopy light at the leader (relative) from which light no longer limits it.
+  light_full: 0.6
+  light_exponent: 1.0
+  # TUNED, against nothing yet: crown's stomatal opening from which water no longer limits the leader.
+  water_full: 0.8
+  # TUNED, against nothing yet: after a loss (browsing), the leader may grow this many times the curve's
+  # increment until it's back.  Lost height doesn't come back this way in a real tree: a departure, in the report.
+  catch_up: 1.25
+  # Heritable growth factor: a plot tree's alpha over this scales its limit.  4.8 is alpha's default.
+  reference_alpha: 4.8
+  # TUNED, against nothing yet: the most leaf area the side shoots may add in a year, as a multiple of what the
+  # crown has now.  A sink limit standing in for nutrients and competition, without which a small tree held to the
+  # curve spends its carbon on thousands of shoots and starves on their upkeep.  null = no limit.
+  leaf_growth_max: 1.5
+  # TUNED, against nothing yet: no side shoot longer than this share of the leader's shoot this year.  null = no limit.
+  lateral_cap_ratio: null
+  # TUNED, against nothing yet: no twig (order 2 and up) longer than this share of the leader's shoot.  null = no limit of its own.
+  twig_cap_ratio: null
+  # Once the leader has lost dominance (resource.reiteration), whichever tip stands highest carries the height, and
+  # reiterated limbs aren't held to the side shoot cap, so the leader can be lost in the crown.  false: the stem's own tip, always.
+  leader_lost_in_crown: false
+  # TUNED, against nothing yet: the most of the pool the year's rings may take; the rest of their need waits.  null = no limit.
+  ring_share_max: null
+  # TUNED, against nothing yet: the share of each year's pool that waits for next year (a small carbon store).  null = none.
+  store_fraction: null
 
 # Field-layer competition on clearcuts (Option A, Nilsson & Örlander 1999).
 # Sourced clear-cut field-layer sward growth and light extinction.
