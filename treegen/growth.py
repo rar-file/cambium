@@ -1847,6 +1847,14 @@ class GrowthModel:
             out[np.fromiter(self.reit_axes, np.int64)] = math.radians(float(self.sp.resource.reiteration.setpoint_angle_deg))
         return out
 
+    def _frame_shares(self) -> np.ndarray:
+        """By axis: the limb's own share of the frame's reach, 1 for anything else."""
+        self._frame_buds()
+        out = np.ones(len(self.axis_phase))
+        if self._frame_axis_reach:
+            out[np.fromiter(self._frame_axis_reach.keys(), np.int64)] = np.fromiter(self._frame_axis_reach.values(), float)
+        return out
+
     def _frame_crown(self):
         """Tree height, crown base and crown length (m), as last measured."""
         s = self.stats[-1]
@@ -1918,8 +1926,7 @@ class GrowthModel:
         off = T.pos[node, :2] - T.pos[base, :2]
         r = np.maximum(np.hypot(off[:, 0], off[:, 1]), 1e-6)
         outward = (d * off).sum(1) / r
-        share = np.array([self._frame_axis_reach.get(int(a), 1.0) for a in T.axis[first].tolist()])
-        goal = self._frame_goal(base) * share * float(cf.twig_overshoot)
+        goal = self._frame_goal(base) * self._frame_shares()[T.axis[first]] * float(cf.twig_overshoot)
         room = np.maximum(goal - r, 0.0) / np.maximum(outward, 0.05)
         lim[i] = np.where(outward > 0.05, np.minimum(lim[i], room / full[i]), lim[i])
         return lim
@@ -1959,15 +1966,21 @@ class GrowthModel:
             return None, None
         node = starts[at]
         base = np.where(limb_tip[at], T.parent[first_of[T.axis[node]]], node)
-        share = np.ones(len(at))
-        for i, k in enumerate(node.tolist()):
-            share[i] = self._frame_axis_reach.get(int(T.axis[k]), 1.0) if limb_tip[at[i]] else self._frame_reach.get(k, 1.0)
+        share = self._frame_shares()[T.axis[node]]
+        for i in np.nonzero(~limb_tip[at])[0].tolist():
+            share[i] = self._frame_reach.get(int(node[i]), 1.0)
         goal = self._frame_goal(base) * share
         # how long the limb's own axis has grown (a steep limb gains no reach, and mustn't climb the stem to find it)
         alive = T.death[:n] < 0
         length = np.bincount(T.axis[:n][alive], weights=T.length[:n][alive], minlength=len(self.axis_phase))
         grown = np.where(limb_tip[at], length[T.axis[node]], 0.0)
-        grow = np.minimum(float(cf.chase) * np.maximum(goal * float(cf.length_per_reach) - grown, 0.0), float(cf.limb_shoot_max_m))
+        # to the same reach, a steep limb is longer than a level one; length_per_reach is for a limb at the mean angle
+        own = self._frame_setpoints()[T.axis[node]]
+        for i in np.nonzero(~limb_tip[at])[0].tolist():
+            own[i] = named.get(int(node[i]), np.nan)
+        mean = math.radians(float(cf.angle_mean_deg))
+        steep = math.sin(mean) / np.maximum(np.sin(np.where(np.isfinite(own), own, mean)), float(cf.steep_limit))
+        grow = np.minimum(float(cf.chase) * np.maximum(goal * float(cf.length_per_reach) * steep - grown, 0.0), float(cf.limb_shoot_max_m))
         if self.reit_axes and bool(cf.forks_climb):
             # a reiterated limb goes up as a second top: only the room under the tree's top holds it (_frame_room)
             grow = np.where(limb_tip[at] & np.isin(T.axis[node], np.fromiter(self.reit_axes, np.int64)), float(cf.limb_shoot_max_m), grow)

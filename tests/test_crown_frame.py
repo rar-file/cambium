@@ -89,11 +89,17 @@ def test_a_shaded_limb_falls_short():
 
 
 def test_limbs_cost_carbon():
-    """The pool pays them: with the frame on, the year's spending still equals the pool."""
-    model = grow(14, ON)
-    log = model.stats[-1]["height_limit"]
-    assert log["cost_share"] >= 0.0 and model._frame_on()
-    assert model.carbon["fixed"] > 0.0
+    """They're paid from the pool: a starved tree makes less limb, because it has less to pay with, whatever the frame allows."""
+    fed = grow(16, ON + ["height_driver.reference_alpha=null"])
+    starved = grow(16, ON + ["height_driver.reference_alpha=null", "resource.alpha=0.6"])
+
+    def limb_metres(model):
+        T = model.tree
+        n = T.n
+        alive = T.death[:n] < 0
+        return float(T.length[:n][alive & np.isin(T.axis[:n], T.axis[limbs_of(model)])].sum())
+
+    assert limb_metres(starved) < 0.5 * limb_metres(fed)
 
 
 def test_steep_limb_does_not_climb_the_stem():

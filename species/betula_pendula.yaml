@@ -1400,6 +1400,8 @@ crown_frame:
   # A limb's length over its reach at the crown base: Lintunen 2013 Fig. 5's chord of 1.54 m (model output) over half of
   # Hemery's crown at his tree's 10 cm stem (1.44 m), so 1.07.
   length_per_reach: 1.07
+  # TUNED, against nothing yet: sine of the steepest angle that still lengthens a limb to reach as far as the others.  0.5 is 30 deg.
+  steep_limit: 0.5
   # A reiterated limb (resource.reiteration) climbs as a second top instead of stopping at a limb's length.  Against: double
   # tops in 34.9 % of trees (Zeltins et al. 2018 Table 1; 6.0-75.1 by clone).
   forks_climb: true
