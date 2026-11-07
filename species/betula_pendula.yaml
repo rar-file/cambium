@@ -1674,6 +1674,8 @@ crown_frame:
   limb_ageing_years: 50
   # TUNED, against lone low limbs: a limb dies when the light on its leaves is under this share of the crown's mean: it's in the crown's own shade, however bright the sky.  null: off.
   limb_relative_light: 0.5
+  # TUNED, against the look: a limb's shoot falls with the stem's age when it was born (resource.stem_aging_years), so an old tree's top rounds off.
+  limbs_born_old: false
 
 # Field-layer competition on clearcuts (Option A, Nilsson & Örlander 1999).
 # Sourced clear-cut field-layer sward growth and light extinction.
