@@ -1405,9 +1405,10 @@ crown_frame:
   length_per_reach: 1.07
   # TUNED, against nothing yet: sine of the steepest angle that still lengthens a limb to reach as far as the others.  0.5 is 30 deg.
   steep_limit: 0.5
-  # A reiterated limb (resource.reiteration) climbs as a second top instead of stopping at a limb's length.  Against: double
-  # tops in 34.9 % of trees (Zeltins et al. 2018 Table 1; 6.0-75.1 by clone).
-  forks_climb: true
+  # A reiterated limb (resource.reiteration) climbs as a second top instead of stopping at a limb's length, its shoot this share
+  # of a limb's longest.  0: it doesn't.  TUNED, against double tops in 34.9 % of trees (Zeltins et al. 2018 Table 1; 6.0-75.1 by
+  # clone).  A number, not true or false, so that this block adds nothing to the golden hash while it's off.
+  fork_shoot_share: 1.0
   # TUNED, against the look: reach down the crown goes as depth^this.  1 is that straight line; under 1 is a rounder crown.
   profile_power: 1.0
   # TUNED, against Evo's spread of crown diameter at one stem diameter (about +-20 %): each limb's own reach, log-normal SD.

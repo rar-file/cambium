@@ -1995,9 +1995,9 @@ class GrowthModel:
         lead_len = float(full[hd["lead_at"]]) * float(min(hd["v"], nmax)) if "lead_at" in hd else float(cf.limb_shoot_max_m)
         longest = min(float(cf.limb_shoot_max_m), max(lead_len, float(cf.limb_shoot_floor_m)))
         grow = np.minimum(float(cf.chase) * np.maximum(room, 0.0), longest)
-        if self.reit_axes and bool(cf.forks_climb):
+        if self.reit_axes and float(cf.fork_shoot_share) > 0.0:
             # a reiterated limb goes up as a second top: only the room under the tree's top holds it (_frame_room)
-            grow = np.where(limb_tip[at] & np.isin(T.axis[node], np.fromiter(self.reit_axes, np.int64)), longest, grow)
+            grow = np.where(limb_tip[at] & np.isin(T.axis[node], np.fromiter(self.reit_axes, np.int64)), float(cf.fork_shoot_share) * longest, grow)
         light = np.minimum(1.0, q_bud[at] / float(cf.light_full)) ** float(cf.light_exponent)
         grow = grow * light * float(hd["water"])
         return at, np.minimum(grow / full[at], float(nmax))

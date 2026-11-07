@@ -104,7 +104,7 @@ def test_limbs_cost_carbon():
 
 def test_steep_limb_does_not_climb_the_stem():
     """A limb's length has a limit whatever its direction: a steep one gains no reach, and can't run up beside the stem."""
-    model = grow(25, ON + ["crown_frame.angle_mean_deg=15", "crown_frame.angle_sd_deg=0.1", "crown_frame.reach_scatter=0.01"])
+    model = grow(25, ON + ["crown_frame.angle_mean_deg=25", "crown_frame.angle_sd_deg=0.1", "crown_frame.reach_scatter=0.01"])
     T = model.tree
     limb = limbs_of(model)
     alive = T.death[: T.n] < 0
