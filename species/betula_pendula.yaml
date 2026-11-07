@@ -458,6 +458,10 @@ shedding:
   light_per_leaf_threshold: 0.21
   # Branches younger than this are never shed. VERIFY
   min_branch_age: 2
+  # How a branch, a short shoot or a resting tip falls under its light or carbon line.  null (as it has been): all
+  # of them, the first year.  Set: a chance a year, from 0 at the line to 1 at (1 - this) of it.  Without it a crown
+  # whose neighbours are copies of it all crosses the line at once: leaf area 94 m2, then 11 m2 the next year (seed 4 at 50-51).
+  shade_softness: null
   # A branch also dies when the carbon its own leaves fix (alpha x light x
   # stomatal opening, after the root share) no longer pays the upkeep of its
   # wood (maintenance_per_internode per internode; Sprugel, Hinckley &
@@ -571,6 +575,9 @@ mechanics:
   # and correction are scaled by s(r) = (r/r_p)^p / (1 + (r/r_p)^p). VERIFY
   pendulous_radius: 0.006
   pendulous_sharpness: 4.0
+  # Set: limbs (side axes on the stem) have this radius instead, so limbs ascend and only their thin ends arch over,
+  # and the hanging is the twigs'.  null (as it has been): one radius for all.  TUNED, against nothing yet.
+  pendulous_radius_limb: null
   # The year's load increment is applied in sub-steps on the updated shape;
   # no internode turns more than this per sub-step (rad). Model guard.
   substeps: 4
@@ -615,6 +622,8 @@ pipe_model:
   # Tree Physiol. 28:1821, Table 1), so 0.014 (0.011-0.025).  No birch
   # count found: VERIFY (birch).  LIGNUM's Scots pine value is 0.07.
   sapwood_senescence_per_year: 0.014
+  # TUNED, against nothing yet: the same for side axes alone.  null (as it has been): one figure for the whole tree.
+  branch_sapwood_senescence: null
   # true: the requirement is on the conducting wood, with
   # sapwood_senescence_per_year; false: on the whole wood, no turnover.
   sapwood: true
@@ -624,6 +633,10 @@ pipe_model:
   # converted to heartwood, eliminating the need to lay down replacement
   # rings for retired crown layers.
   crown_rise_heartwood: false
+  # true: below the crown base each internode keeps the sapwood its own foliage beyond needs.  false (as it has
+  # been): all of them keep the crown base's figure, on one side of a fork, so on a forked stem the other side
+  # loses sapwood every year and rebuilds it.
+  heartwood_by_own_foliage: false
   # Count the rings that keep this season's foliage supplied (replacing
   # sapwood that stopped conducting, plus the foliage added) as upkeep in
   # the natural-mode death test, like rebuilding the leaves.  In the pipe
@@ -1196,6 +1209,9 @@ stats:
   # A first-order limb counts towards the crown base only if its subtree
   # carries at least this share of the tree's leaves.
   crown_base_min_leaf_share: 0.005
+  # true: a limb is a side axis on the stem or on a leader that replaced it.  false (as it has been): order == 1,
+  # which counts a replacement leader as a limb attached low, and doesn't count the limbs on it.
+  limbs_on_leader: false
   # Hanging runs shorter than this (m) are not counted as hanging twigs.
   hanging_twig_min_length: 0.2
 
@@ -1428,6 +1444,43 @@ anchorage:
   depth_factor_max: 1.2
   root_tension_share: 0.5
 
+
+# The height limit, off by default: the approved site-index curve limits how much the leader may grow in a
+# year, instead of height emerging from the carbon split.  It's a limit, not a script: the leader still makes
+# real nodes that cost carbon, paid first from the year's pool, and it falls short of the curve when its light,
+# the crown's water or the pool run short (growth.py, _height_limit_plan).  No height is set and no node is moved.
+# Curve: Eriksson et al. 1997 as in Elfving 2010, Appendix 9, with reference.height's asi, beta and b2.
+height_driver:
+  enabled: false
+  # Site index, H at breast-height age 50 (m).  20-26 spans the target's Swedish range; 23 is its middle.
+  site_index: 23.0
+  reference_age_years: 50.0
+  # T13 = 150 / SIS, SIS the curve's own height at total age 100 (Elfving 2010, Appendix 7, p. 56).
+  t13_numerator: 150.0
+  sis_total_age_years: 100.0
+  # TUNED, against nothing yet: canopy light at the leader (relative) from which light no longer limits it.
+  light_full: 0.6
+  light_exponent: 1.0
+  # TUNED, against nothing yet: crown's stomatal opening from which water no longer limits the leader.
+  water_full: 0.8
+  # TUNED, against nothing yet: after a loss (browsing), the leader may grow this many times the curve's
+  # increment until it's back.  Lost height doesn't come back this way in a real tree: a departure, in the report.
+  catch_up: 1.25
+  # Heritable growth factor: a plot tree's alpha over this scales its limit.  4.8 is alpha's default.
+  reference_alpha: 4.8
+  # TUNED, against nothing yet: the most leaf area the side shoots may add in a year, as a multiple of what the
+  # crown has now.  A sink limit standing in for nutrients and competition, without which a small tree held to the
+  # curve spends its carbon on thousands of shoots and starves on their upkeep.  null = no limit.
+  leaf_growth_max: 1.5
+  # TUNED, against nothing yet: no side shoot longer than this share of the leader's shoot this year.  null = no limit.
+  lateral_cap_ratio: null
+  # Once the leader has lost dominance (resource.reiteration), whichever tip stands highest carries the height, and
+  # reiterated limbs aren't held to the side shoot cap, so the leader can be lost in the crown.  false: the stem's own tip, always.
+  leader_lost_in_crown: false
+  # TUNED, against nothing yet: the most of the pool the year's rings may take; the rest of their need waits.  null = no limit.
+  ring_share_max: null
+  # TUNED, against nothing yet: the share of each year's pool that waits for next year (a small carbon store).  null = none.
+  store_fraction: null
 
 # Field-layer competition on clearcuts (Option A, Nilsson & Örlander 1999).
 # Sourced clear-cut field-layer sward growth and light extinction.
