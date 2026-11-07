@@ -1363,7 +1363,8 @@ height_driver:
 
 # The crown's frame: published data set the main limbs, as the height curve sets the leader; light and carbon decide what
 # they and everything finer do.  Needs height_driver on, and shares its code path.  Off by default.  Limbs are real nodes,
-# paid first from the pool, that grow a shoot a year, and can fall short or die by the usual rules.
+# paid first from the pool, that grow a shoot a year, and can fall short or die by the usual rules.  Not compatible yet with
+# speed.compiled_carbon: treegen/fast.py's copy of the carbon sum doesn't know these limbs.
 crown_frame:
   enabled: false
   # -- how many, and at what angle ---------------------------------------------------------------------------------------
@@ -1400,17 +1401,17 @@ crown_frame:
   stem_cm_per_height_m: 1.9
   # Stem over bark per stem in wood, near enough to tools/bark.py at 10-40 cm (1.09-1.10).
   over_bark_ratio: 1.1
-  # TUNED, against Evo's crown width at the same stem: in a stand a limb's reach stops at this share of half the spacing, where it meets the
-  # next crown.  Set by the stand's density, so an open-grown tree has no such limit.  null: no limit.
-  spacing_overlap: null
+  # TUNED, against Evo's crown width at the same stem (0.9 gave 6.3 m at 60, 0.85 gives 6.2, 0.8 gave 5.6): in a stand a limb's reach stops at this
+  # share of half the spacing, where it meets the next crown.  Set by the stand's mean density, not by the real neighbour.  No limit in the open.  null: none.
+  spacing_overlap: 0.85
   # A limb's reach at the top of the crown as a share of the widest: Lintunen 2013 Fig. 5 (model output, as above), chord 0.254 m
   # at the top and 1.54 m at the base.
   top_share: 0.165
-  # TUNED, against Hagemeier & Leuschner 2019a (closed stands, most leaf area and widest at about 0.80 of height, which alone would be
-  # 0.4) and the look of open-grown photos (widest lower down): how far down the crown it's widest, as a share of crown length.
-  peak_depth: 0.7
-  # TUNED, against the look of photos, so a crown isn't a cone: a limb's reach at the crown base, as a share of the widest.
-  base_share: 0.5
+  # TUNED, against crown ratio and the look: how far down the crown the frame is widest, as a share of crown length.  Hagemeier & Leuschner
+  # 2019a (closed stands, widest at about 0.80 of height, crown in the upper half) alone would say 0.4; 0.5 and 0.7 made the crown shorter.
+  peak_depth: 0.9
+  # TUNED, against crown ratio and the look, so a crown isn't a cone: a limb's reach at the crown base, as a share of the widest.
+  base_share: 0.8
   # TUNED, against the look: reach above the widest point goes as depth^this.  Under 1 is a rounder top.
   profile_power: 0.6
   # A limb's length over its reach: Lintunen 2013 Fig. 5's chord of 1.54 m (model output) over half of Hemery's crown at his tree's
@@ -1430,16 +1431,16 @@ crown_frame:
   limb_shoot_floor_m: 0.3
   # TUNED, against nothing: the longest shoot of anything finer in a year (m).
   twig_shoot_max_m: 0.4
-  # TUNED, against Repola 2008 Eq. 12's foliage at a 45 cm stem (15 kg, about 200 m2 at SLA 13.6) over Hemery's crown there (62 m2):
-  # the most leaf area the crown carries, per m2 of the frame's crown.  A sink limit standing in for what really stops a tree with light to
-  # spare.  Eq. 12 is valid for DBH 11-26 cm, so 45 cm is outside its range.
-  crown_lai_max: 4.0
+  # TUNED, against open-grown stem size and the carbon left unused: the most leaf area the crown carries, per m2 of the frame's crown.  A sink limit
+  # standing in for what really stops a tree with light to spare; what it refuses is lost, bar surplus_to_stem.  4 left about 15 % of fixed carbon unused
+  # at 11-50 in stand trees; 7 leaves 18 and 12 % at 11-20, 21-30, then none.  Repola 2008 Eq. 12 at a 45 cm stem over Hemery's crown would be 3.2, outside Eq. 12's range.
+  crown_lai_max: 7.0
   # TUNED, against the open-grown band in reference.dbh: the share of what a full crown can't use that goes on the stem; the rest is lost.
-  surplus_to_stem: 0.25
-  # TUNED, against leaf area and stem of open-grown trees, and fill: one bud in this many, on limbs and finer, can start a long shoot;
-  # the rest stay short shoots.  Lintunen 2013 Fig. 6C (model output) has 2-4 long shoots per second-order branch.  Odd: buds take turns on
-  # the two sides of a two-ranked shoot.  null: all.
-  twig_bud_every: 13
+  surplus_to_stem: 0.1
+  # TUNED, against crown ratio and stem wood: one bud in this many, on limbs and finer, can start a long shoot; the rest stay short shoots.
+  # 13 gave crown ratio 0.48, 0.45 at 50, 60; 7 gave 0.60, 0.59 with stem wood 10-14 % under Repola; 10 gives 0.56, 0.52, 3-8 % under.  Lintunen 2013
+  # Fig. 6C (model output) has 2-4 long shoots per second-order branch.  Even values make all of them fall on one side of a two-ranked shoot.  null: all.
+  twig_bud_every: 10
 
 # Field-layer competition on clearcuts (Option A, Nilsson & Örlander 1999).
 # Sourced clear-cut field-layer sward growth and light extinction.
