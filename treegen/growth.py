@@ -2310,6 +2310,9 @@ class GrowthModel:
             room = np.minimum(goal * float(cf.length_per_reach) * steep - grown, (goal - reach) / np.maximum(out, 0.5))
         # apical control: no limb's shoot longer than the leader's this year, down to a floor for an old leader's short shoots
         lead_len = float(full[hd["lead_at"]]) * float(min(hd["v"], nmax)) if "lead_at" in hd else 0.0
+        alone = getattr(self.sp.height_driver, "open_grown_share", None)
+        if alone and not self.stand and getattr(self, "_plot_view", None) is None:
+            lead_len = lead_len / float(alone)     # a tree with no neighbours isn't drawn up, but its limbs grow as ever
         longest = max(lead_len, float(cf.limb_shoot_floor_m))
         grow = np.minimum(float(cf.chase) * np.maximum(room, 0.0), longest)
         second_top = np.zeros(len(at), bool)

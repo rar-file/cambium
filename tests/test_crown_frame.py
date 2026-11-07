@@ -262,3 +262,36 @@ def test_thick_limbs_sapwood_turns_over_more_slowly():
     assert thin.any() and thick.any()
     assert np.allclose(loss[thin], 0.3) and (loss[thick] < 0.3).all()
     assert np.allclose(loss[on], float(model.sp.pipe_model.sapwood_senescence_per_year))
+
+
+def test_open_grown_share_leaves_a_stand_tree_bit_identical():
+    """It's for trees with no neighbours: a stand tree grown with it is the same tree, node for node."""
+    off = grow(14, EARNED)
+    on = grow(14, EARNED + ["height_driver.open_grown_share=0.8"])
+    assert off.tree.n == on.tree.n
+    assert (off.tree.pos[: off.tree.n] == on.tree.pos[: on.tree.n]).all()
+    assert (off.tree.radius[: off.tree.n] == on.tree.radius[: on.tree.n]).all()
+    # and an open tree comes out shorter, by about that share of the curve's height
+    open_off = float(grow(20, EARNED, stand=False).stats[-1]["height_m"])
+    open_on = float(grow(20, EARNED + ["height_driver.open_grown_share=0.8"], stand=False).stats[-1]["height_m"])
+    assert 0.75 * open_off < open_on < 0.9 * open_off
+
+
+def test_earned_surplus_goes_on_the_stem_only_with_no_neighbours():
+    a = grow(18, EARNED + ["crown_frame.surplus_to_stem=0.0", "crown_frame.crown_lai_max=2.0"])
+    b = grow(18, EARNED + ["crown_frame.surplus_to_stem=0.5", "crown_frame.crown_lai_max=2.0"])
+    assert (a.tree.radius[: a.tree.n] == b.tree.radius[: b.tree.n]).all()
+    c = grow(18, EARNED + ["crown_frame.surplus_to_stem=0.0", "crown_frame.crown_lai_max=2.0"], stand=False)
+    d = grow(18, EARNED + ["crown_frame.surplus_to_stem=0.5", "crown_frame.crown_lai_max=2.0"], stand=False)
+    assert float(d.stats[-1]["dbh_cm"]) > 1.05 * float(c.stats[-1]["dbh_cm"])
+
+
+def test_earned_no_limb_tip_near_the_leader_and_new_limbs_still_start():
+    model = grow(24, EARNED)
+    T = model.tree
+    alive = T.death[: T.n] < 0
+    on = np.isin(T.axis[: T.n], np.fromiter(model.leader_axes, np.int64))
+    H = float(T.pos[: T.n][alive & on, 2].max())
+    assert float(T.pos[: T.n][alive & ~on, 2].max()) < H
+    assert limbs_of(model).size > 20
+    assert float(T.pos[T.parent[limbs_of(model)], 2].max()) > 0.85 * H
