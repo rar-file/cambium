@@ -199,10 +199,20 @@ def architecture(model) -> dict:
 
 
 # -- reading -------------------------------------------------------------------------------------------------------------------
+_SAID = set()
+
+
 def _load(label: str) -> dict:
+    """The seeds of a set that grew.  One with no height at its last age never made a tree, and every comparison here needs one:
+    it's left out, and said."""
     from tree_table import load
 
-    return load(label)
+    runs = load(label)
+    dead = sorted(s for s, r in runs.items() if float(r["per_year"][max(r["per_year"])].get("height_m") or 0.0) <= 0.0)
+    if dead and label not in _SAID:
+        print(f"`{label}`: left out, no height at their last age: seed {', '.join(str(s) for s in dead)}.  {len(runs) - len(dead)} of {len(runs)} seeds used.")
+        _SAID.add(label)
+    return {s: r for s, r in runs.items() if s not in dead}
 
 
 def _mean(xs):
@@ -282,6 +292,8 @@ def mass(labels: list) -> None:
                 py = r["per_year"][age]
                 dbh = (py.get("dbh_cm") or 0.0) * OVER_BARK
                 h = py["height_m"]
+                if dbh <= 0.0 or h <= 0.0:
+                    continue    # not yet at breast height: the equations want a diameter
                 rep = repola_below(dbh, h)
                 prox = a["proximal"]
                 rows.append({"all": a["total_kg"], "ge5": a["mass_kg"]["5_10"] + a["mass_kg"]["10_50"] + a["mass_kg"]["ge50"], "ge10": a["mass_kg"]["10_50"] + a["mass_kg"]["ge50"],
@@ -312,7 +324,7 @@ def form(labels: list) -> None:
     for label in labels:
         runs = _load(label)
         for age in (20, 30, 50, 60):
-            rows = [r["snap"][age]["root_arch"] for r in runs.values() if age in r["snap"] and "root_arch" in r["snap"][age]]
+            rows = [r["snap"][age]["root_arch"] for r in runs.values() if age in r["snap"] and r["snap"][age].get("root_arch", {}).get("proximal")]
             if not rows:
                 continue
             top = [_mean(x["proximal"][i]["d_cm"] if len(x["proximal"]) > i else 0.0 for x in rows) for i in range(6)]

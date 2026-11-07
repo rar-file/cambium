@@ -147,3 +147,25 @@ def test_measuring_the_roots_changes_nothing():
             root_measure.ledger_year(read, year, wood)
             root_measure.architecture(read)
         assert json.dumps(plain.stats, sort_keys=True) == json.dumps(read.stats, sort_keys=True)
+
+
+def test_a_radicle_over_a_stone_at_the_surface_goes_round_it():
+    """Seed 12 has a stone at the surface under the stand tree's origin.  The collar's short steps once went straight down
+    onto it, so the tree never rooted and stood at height 0 for its whole run: 8 of 500 seeds, against none with the setting off."""
+    env, _ = load_environment("sweden_open_field")
+    assert make_soil(env).is_stone(np.array([[0.0, 0.0, -0.01]]), 12)[0]
+    model = _model(True, seed=12)
+    assert model.roots.tree.n > 1
+    for _ in range(3):
+        model.step()
+    assert model.stats[-1]["height_m"] > 0.0
+
+
+def test_the_tables_leave_out_a_seed_that_never_grew_and_say_so(monkeypatch, capsys):
+    import tree_table
+
+    runs = {1: {"per_year": {60: {"height_m": 23.0}}}, 2: {"per_year": {60: {"height_m": 0.0}}}}
+    monkeypatch.setattr(tree_table, "load", lambda label: runs)
+    root_measure._SAID.discard("x")
+    assert list(root_measure._load("x")) == [1]
+    assert "seed 2" in capsys.readouterr().out

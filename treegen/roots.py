@@ -567,7 +567,12 @@ class RootSystem:
                             break
                         phi = phase + j * np.pi / 4.0
                         alt = math.cos(ang) * Db + math.sin(ang) * (np.cos(phi)[:, None] * e1 + np.sin(phi)[:, None] * e2)
-                        alt = _clamp_z(alt, (zbot[bi] - P[bi, 2]) / L[bi], (ztop - P[bi, 2]) / L[bi])
+                        top_slope = (ztop - P[bi, 2]) / L[bi]
+                        if paid:
+                            # a collar node's short step, still above min_depth, would be forced straight down onto the
+                            # stone: it may turn as far as a full segment could, so the radicle goes round it
+                            top_slope = np.maximum(top_slope, -float(p.min_depth) / l0)
+                        alt = _clamp_z(alt, (zbot[bi] - P[bi, 2]) / L[bi], top_slope)
                         ok = still & ~self._stone_at(P[bi] + L[bi, None] * alt)
                         Dn[bi[ok]] = alt[ok]
                         blocked[bi[ok]] = False
