@@ -6,6 +6,9 @@
     # budgets are settings; override them here or in the species file (appearance.game)
     python tools/game_export.py export --seed 5 --ages 30 --budget lod1=8000 --out out/game/test
 
+    # for the game in Unreal 5.8: its folders, wind data and materials (docs/unreal.md)
+    python tools/game_export.py export --target unreal --seed 5 --ages 15,60 --seasons summer --out out/game/unreal
+
     # sheets for looking at it, drawn from the exported files
     python tools/game_export.py render out/game/seed5 --prefix reports/renders/look_
 
@@ -166,12 +169,12 @@ def export_stage(model, sp, look: dict, tiles: list, age: int, snap: ap.LeafSnap
 
 
 def check_files(folder: Path, log=print) -> list:
-    """Every .glb read through the validator here and loaded by trimesh; the triangle counts must
-    agree.  Raises on the first problem."""
+    """Every .glb and .gltf read through the validator here and loaded by trimesh; the triangle counts
+    must agree.  Raises on the first problem."""
     import trimesh
 
     results = []
-    for path in sorted(folder.glob("*.glb")):
+    for path in sorted(folder.glob("*.glb")) + sorted(folder.rglob("*.gltf")):
         info = validate_glb(path)
         scene = trimesh.load(path, process=False)
         geoms = scene.geometry.values() if hasattr(scene, "geometry") else [scene]
@@ -179,7 +182,7 @@ def check_files(folder: Path, log=print) -> list:
         if tris != info["triangles"]:
             raise ValueError(f"{path.name}: {info['triangles']} triangles here, {tris} in trimesh")
         results.append({"file": path.name, **info})
-    log(f"{len(results)} .glb files checked: all read through the validator and loaded by trimesh, with the same triangle counts")
+    log(f"{len(results)} files checked: all read through the validator and loaded by trimesh, with the same triangle counts")
     return results
 
 
@@ -241,6 +244,8 @@ def main_export(a) -> int:
         if parts[-1] not in d:
             raise KeyError(f"no such look value: {key}")
         d[parts[-1]] = json.loads(val)
+    if getattr(a, "target", "generic") == "unreal":
+        return export_unreal(a, model, sp, look, snaps, ages, seasons, out)
     slug = Path(a.species).stem
     meta = {"species": sp.species.scientific_name, "species_file": a.species, "environment": a.environment, "seed": a.seed, "mode": "stand" if a.stand else "open",
             "generator": "treegen tools/game_export.py"}
@@ -265,6 +270,41 @@ def main_export(a) -> int:
         "checks": checks,
         "needs": ENGINE_NOTES,
     }
+    (out / "game_manifest.json").write_text(json.dumps(doc, indent=1), encoding="utf-8")
+    print(f"done in {time.time() - t0:.0f} s -> {out}")
+    return 0
+
+
+def export_unreal(a, model, sp, look: dict, snaps: dict, ages: list, seasons: list, out: Path) -> int:
+    """For the game: its folders, names, wind data and material setup (treegen/game_unreal.py)."""
+    from treegen import game_unreal as gu
+
+    look = gu.unreal_look(look)
+    asset = look["game"]["unreal"]["asset"]
+    meta = {"species": sp.species.scientific_name, "species_file": a.species, "environment": a.environment, "seed": a.seed, "mode": "stand" if a.stand else "open",
+            "generator": "treegen tools/game_export.py --target unreal"}
+    t0 = time.time()
+    tiles = tx.make_tiles(look)
+    gains = gu.scale_tiles_to_albedo(look, tiles)
+    print(f"bark tiles made in {time.time() - t0:.1f} s; scaled to measured brightness: {gains}", flush=True)
+
+    def skeleton(m, age):
+        skel, rad, is_root, orig = cli.skeleton(m, age)
+        pos, r_wood = shoot_arrays(m, age)
+        return skel, rad, is_root, orig, pos, r_wood
+
+    ctx = {"look": look, "model": model, "sp": sp, "out": out, "asset": asset, "meta": meta, "tiles": tiles, "snaps": snaps, "seed": a.seed, "skeleton": skeleton}
+    stages = []
+    for age in ages:
+        if age > model.year:
+            print(f"age {age}: the tree stopped at {model.year}", flush=True)
+            continue
+        stages.append(gu.export_stage(ctx, age, seasons, log=lambda s: print(s, flush=True)))
+    checks = check_files(out)
+    fragments = gu.write_fragments(out, asset, stages, float(look["game"]["unreal"]["roots"]["surface_depth_m"]))
+    doc = {"format": "treegen.game.unreal/1", **meta, "target": "unreal", "asset": asset, "bark_gains": gains, "color0": gu.COLOR0, "uv_layout": gu.UV_LAYOUT,
+           "units": {"length": "m in the file; Unreal's import makes cm", "up_axis": "Y (glTF), (x, z, -y) of the model's frame, as the game's plants"},
+           "levels": look["game"]["lods"], "stages": stages, "checks": checks, "fragments": fragments}
     (out / "game_manifest.json").write_text(json.dumps(doc, indent=1), encoding="utf-8")
     print(f"done in {time.time() - t0:.0f} s -> {out}")
     return 0
@@ -397,10 +437,54 @@ def _busy_leaves(prims: list, H: float) -> np.ndarray:
     return np.median(near, axis=0)
 
 
+def render_unreal(folder: Path, doc: dict, prefix: str, res: int, sel: list) -> int:
+    """The Unreal target's files in this project's own renderer: each stage whole, its foot on the
+    ground, and all its roots with the ground taken away."""
+    whole, feet, under = [], [], []
+    for s in doc["stages"]:
+        if s["age"] not in sel:
+            continue
+        age, H = s["age"], s["height_m"]
+        season = "summer" if "summer" in s["seasons"] else next(iter(s["seasons"]))
+        near = s["seasons"][season]["lod0"]
+        prims = lr.load_glb_primitives(folder / near["file"])
+        rt = s["roots"]
+        whole.append(_whole_tree(prims, H, res, f"age {age}: {H:.1f} m, {near['triangles']:,} triangles"))
+        wood = wood_only(prims)
+        # the foot, seen from where a person stands
+        line = float(rt["ground_line_m"])
+        ground = lr.make_ground(max(8.0, H))
+        ground.V[:, 2] += line
+        scene = wood + [ground]
+        lights = lr.Lights(scene, sun_for_camera(), res=4096, sky_res=640, sky_dirs=8, focus=(np.array([0.0, 0.0, 0.2]), 6.0))
+        r = near["trunk"]["trunk_r_cm"] / 100.0
+        tgt = np.array([0.0, 0.0, 0.1 + r])
+        eye = tgt + CAM * (1.1 + 5.0 * r) + np.array([0.0, 0.0, 0.7])
+        feet.append(_label(lr.render(scene, lr.View(eye, tgt, res, int(res * 0.72), fov_deg=38.0), lights, ss=2),
+                           f"age {age}: the foot, ground {-line * 100:.0f} cm under the model's zero; {near['parts'].get('surface_roots', 0):,} triangles of root with the tree", 20))
+        # the roots, with no ground
+        below = lr.load_glb_primitives(folder / rt["files"]["lod0"]["file"]) if "lod0" in rt["files"] else []
+        all_wood = wood + below
+        lights2 = lr.Lights(all_wood, sun_for_camera(), res=4096, sky_res=512, sky_dirs=6)
+        spread = float(rt["spread_m"])
+        tgt = np.array([0.0, 0.0, 0.1])
+        eye = tgt + CAM * (2.2 * spread + 1.0) + np.array([0.0, 0.0, 0.12 * spread])
+        fov = 2.0 * np.degrees(np.arctan((0.62 * spread + 0.3) / np.linalg.norm(eye - tgt)))
+        under.append(_label(lr.render(all_wood, lr.View(eye, tgt, res, int(res * 0.5), fov_deg=fov), lights2, ss=2),
+                            f"age {age}: every root, no ground. {rt['length_m']:.0f} m long, {rt['deepest_m']:.2f} m deep, {spread:.1f} m out; {rt['files'].get('lod0', {}).get('triangles', 0):,} triangles below ground", 18))
+        del prims, below
+    _save(_row(whole), Path(prefix + "unreal_ages_whole.png"))
+    _save(np.concatenate(feet, axis=0), Path(prefix + "roots_foot.png"))
+    _save(np.concatenate(under, axis=0), Path(prefix + "roots_all.png"))
+    return 0
+
+
 def main_render(a) -> int:
     folder = Path(a.folder)
     doc = json.loads((folder / "game_manifest.json").read_text(encoding="utf-8"))
     prefix = str(a.prefix)
+    if doc.get("target") == "unreal":
+        return render_unreal(folder, doc, prefix, int(a.res), [int(x) for x in a.ages.split(",")] if a.ages else [t["age"] for t in doc["stages"]])
     res = int(a.res)
     slug = Path(doc["species_file"]).stem
     sel = [int(x) for x in a.ages.split(",")] if a.ages else [s["age"] for s in doc["stages"]]
@@ -498,6 +582,7 @@ def main() -> int:
     e.add_argument("--open", dest="stand", action="store_false", help="grow in the open, not in a stand")
     e.add_argument("--set", action="append", default=[], metavar="KEY=JSON", help="growth values, from the start of the run")
     e.add_argument("--budget", action="append", default=[], metavar="LEVEL=TRIANGLES", help="e.g. lod1=8000; 'none' for no limit")
+    e.add_argument("--target", choices=("generic", "unreal"), default="generic", help="unreal: what the game reads (docs/unreal.md); generic: a self-contained .glb for any engine")
     e.add_argument("--look", action="append", default=[], metavar="KEY=JSON", help="change a value in the appearance block for this export, e.g. bark.stem_texture_px=[512,2048]")
     e.add_argument("--state", default=None, help="keep the grown tree in this file, and reuse it if it's there")
     e.add_argument("--levels", default="", help="only these levels, e.g. lod0; all if left out")
