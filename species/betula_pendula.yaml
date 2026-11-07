@@ -1830,6 +1830,12 @@ appearance:
     leaves.interveinal_lead: "TUNED: by eye. Chlorophyll goes first between the veins: a search abstract only (fp24012, Funct. Plant Biol.), not read in full."
     leaves.shape: "TUNED: by eye for a birch's triangular, double-toothed blade; the aspect of 1.4 as tools/render_stand.py had it."
     leaves.inclination_deg: "TUNED: from tools/render_stand.py; steep leaves, as K_PAR 0.37 in Hagemeier & Leuschner 2019 implies."
+    leaves.on_shoots.strength: "TUNED: a setting, not a value: 0 keeps the plain export's bytes."
+    leaves.on_shoots.spur_m_per_year: "DERIVED: Caesar 1983, thesis, Lakehead University (birch-data/M1_downloads/caesar1983.pdf), Betula papyrifera, a related species: short shoots 'fail to elongate more than a few millimetres, rarely exceed 4 cm in length after 10 years'. 3 mm a year stays just under that. Nothing found for B. pendula."
+    leaves.on_shoots.spur_max_m: "SOURCE: Caesar 1983 as spur_m_per_year, B. papyrifera."
+    leaves.on_shoots.divergence_deg: "SOURCE: Caesar 1983: 2/5 phyllotaxy in the buds of both shoot types, B. papyrifera, so 144 degrees from leaf to leaf round a short shoot."
+    leaves.on_shoots.splay_deg: "TUNED: by eye on birch-data/summer_reference/Birkenblaetter_Betula_pendula.jpg (Roletschek): a cluster's stalks leave well out from the shoot's axis. Not measured."
+    game.unreal.leaf.on_shoots: "TUNED: a setting, not a value: this target has each leaf where its shoot has it."
     leaves.petiole_m: "TUNED: from the 1-2 cm petiole in this file's light.leaf_spread comment, which gives no paper."
     leaves.fold_deg: "TUNED: by eye."
     leaves.texture_size_px: "TUNED: game setting."
@@ -2030,6 +2036,16 @@ appearance:
       vein_lightness: 0.18
     inclination_deg: [30.0, 70.0]
     petiole_m: 0.018
+    # Where a leaf leaves its shoot.  strength 0 is the plain export's: all of a node's leaves from one point, on
+    # any side, petiole_m off the bark.  Over 0: on the side the node's bud faces, a short shoot's at the end of
+    # its own axis (spur_m_per_year, up to spur_max_m), a cluster's leaves divergence_deg apart round that axis
+    # and splay_deg out from it.  Only their places change: the same leaves, the same sizes.
+    on_shoots:
+      strength: 0.0
+      spur_m_per_year: 0.003
+      spur_max_m: 0.04
+      divergence_deg: 144.0
+      splay_deg: 60.0
     fold_deg: 24.0
     texture_size_px: 256
   game:
@@ -2133,6 +2149,8 @@ appearance:
         angle_by_height: [[0.0, 30.0], [0.3, 30.0], [0.5, 42.0], [0.8, 51.0], [1.0, 55.0]]
         angle_spread_deg: 14.0
         roll_rad: 0.6
+        # leaves.on_shoots.strength, in this target
+        on_shoots: 1.0
         # where the mesh has its points along the blade; the side points past these are the main teeth
         midrib_at: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
         base_points_at: [0.03, 0.06]

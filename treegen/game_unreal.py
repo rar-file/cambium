@@ -66,6 +66,8 @@ def unreal_look(look: dict) -> dict:
     # the rough base's top, uneven
     if out["bark"].get("uneven_top"):
         out["bark"]["uneven_top"] = {**out["bark"]["uneven_top"], "strength": float(u["stem_relief"]["uneven_top"])}
+    # each leaf where its shoot has it
+    out["leaves"]["on_shoots"] = {**out["leaves"]["on_shoots"], "strength": float(u["leaf"]["on_shoots"])}
     return out
 
 

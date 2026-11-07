@@ -174,6 +174,8 @@ class LeafSnapshot:
     lma: np.ndarray          # g m-2
     is_spur: np.ndarray      # a short shoot, not a long-shoot node
     reference_area: float    # m2
+    lat_dir: np.ndarray | None = None   # which way each node's bud and leaf face, as the wood has carried them
+    birth: np.ndarray | None = None     # the year each node was made
 
 
 def leaf_snapshot(model, age: int | None = None) -> LeafSnapshot:
@@ -183,7 +185,8 @@ def leaf_snapshot(model, age: int | None = None) -> LeafSnapshot:
     n = T.n
     return LeafSnapshot(age=int(model.year if age is None else age), leaves=np.asarray(T.leaves[:n], np.float64).copy(),
                         size=np.asarray(T.leaf_size[:n], np.float64).copy(), lma=np.asarray(T.lma[:n], np.float64).copy(),
-                        is_spur=np.asarray(T.lat[:n] == LAT_SPUR).copy(), reference_area=float(model.light.leaf_area))
+                        is_spur=np.asarray(T.lat[:n] == LAT_SPUR).copy(), reference_area=float(model.light.leaf_area),
+                        lat_dir=np.asarray(T.lat_dir[:n], np.float64).copy(), birth=np.asarray(T.birth[:n], np.float64).copy())
 
 
 def chlorophyll_at(look: dict, day: float, sun: np.ndarray, delay: np.ndarray) -> np.ndarray:
@@ -236,11 +239,31 @@ class LeafInstances:
     delay: np.ndarray        # days later than the tree's average to turn
 
 
+def _on_shoot(cfg: dict, snap: LeafSnapshot, pos: np.ndarray, r: np.ndarray, node: np.ndarray, k: np.ndarray, in_node: np.ndarray, tree_age: int) -> tuple:
+    """Where each leaf leaves its shoot, which way its stalk goes, and which way it hangs.  A node's leaves
+    leave on the side its bud faces.  On a short shoot that's at the end of the shoot's own short axis, a few
+    millimetres a year long, and a cluster's leaves go the shoot's divergence apart, so they fan out."""
+    turn = 2.0 * np.pi * hash01(node, 5)
+    away = np.stack([np.cos(turn), np.sin(turn), np.zeros(len(turn))], 1)
+    d = np.asarray(snap.lat_dir, float)[node]
+    ln = np.linalg.norm(d, axis=1, keepdims=True)
+    d = np.where(ln > 0.5, d / np.maximum(ln, 1e-9), away)
+    years = np.where(snap.is_spur[node], np.maximum(float(tree_age) - np.asarray(snap.birth, float)[node], 0.0), 0.0)
+    axis_m = np.minimum(float(cfg["spur_m_per_year"]) * years, float(cfg["spur_max_m"]))
+    tip = pos[node] + d * (r + axis_m)[:, None]
+    level = np.hypot(d[:, 0], d[:, 1])
+    az = np.where(level > 0.05, np.arctan2(d[:, 1], d[:, 0]), turn) + k * np.radians(float(cfg["divergence_deg"]))
+    splay = np.where(in_node > 1, np.radians(float(cfg["splay_deg"])), 0.0)
+    stalk = d * np.cos(splay)[:, None] + np.stack([np.cos(az), np.sin(az), np.zeros(len(az))], 1) * np.sin(splay)[:, None]
+    return tip, stalk / np.maximum(np.linalg.norm(stalk, axis=1, keepdims=True), 1e-9), az
+
+
 def leaf_instances(look: dict, sp, snap: LeafSnapshot, pos: np.ndarray, radius: np.ndarray, tree_age: int, fill: float = 1.0) -> LeafInstances:
     """One blade for each leaf the model has: its count (a node's leaves over its size share) and its
     size, placed by a hash of the node, so a leaf keeps its place from age to age.  ``fill`` is the
     share of a blade's diamond its outline fills; the diamond is enlarged so the visible area is the
-    model's."""
+    model's.  With ``leaves.on_shoots`` asked for, each leaf leaves its shoot as a birch's does; the
+    leaves and their sizes are the same."""
     lv = look["leaves"]
     a_ref = snap.reference_area
     size = np.where(snap.size > 0, snap.size, a_ref)
@@ -254,6 +277,11 @@ def leaf_instances(look: dict, sp, snap: LeafSnapshot, pos: np.ndarray, radius: 
     az = 2.0 * np.pi * hash01(key, 1)
     lo, hi = np.radians(lv["inclination_deg"])
     inc = lo + (hi - lo) * hash01(key, 2)
+    place = lv.get("on_shoots")
+    on_shoots = place is not None and float(place["strength"]) > 0.0 and snap.lat_dir is not None
+    r = radius[np.minimum(node, len(radius) - 1)]
+    if on_shoots:
+        tip, stalk, az = _on_shoot(place, snap, pos, r, node, k, n_leaf[node], tree_age)
     outward = np.stack([np.cos(az), np.sin(az), np.zeros(len(az))], 1)
     along = outward * np.cos(inc)[:, None] + np.array([0.0, 0.0, -1.0]) * np.sin(inc)[:, None]
     across = np.stack([-np.sin(az), np.cos(az), np.zeros(len(az))], 1)
@@ -266,8 +294,7 @@ def leaf_instances(look: dict, sp, snap: LeafSnapshot, pos: np.ndarray, radius: 
     diamond = area / max(fill, 1e-3)
     L = np.sqrt(2.0 * diamond * aspect)
     # the petiole leaves the bark, not the centre of the wood
-    r = radius[np.minimum(node, len(radius) - 1)]
-    base = pos[node] + outward * (r + float(lv["petiole_m"]))[:, None]
+    base = tip + stalk * float(lv["petiole_m"]) if on_shoots else pos[node] + outward * (r + float(lv["petiole_m"]))[:, None]
     sun = leaf_sun(look, sp, snap.lma[node])
     spread = (hash01(key, 4) - 0.5) * 2.0 * float(lv["turn_spread_days"])
     late = np.where(snap.is_spur[node], 0.0, float(lv["long_shoot_delay_days"]))

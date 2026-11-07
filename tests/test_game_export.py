@@ -878,6 +878,53 @@ def test_a_tree_low_on_black_is_not_black_up_to_the_stages_own_top(uneven):
     assert edge.gone_over(u, z, z)[(z > 2.0 * edge.black) & (z < edge.top)].mean() < 0.25
 
 
+def _shoot_leaves(look, strength, age=12):
+    """A tiny twig going out level: nodes 0 to 3, the second a short shoot born in year 1, the last a new long-shoot node."""
+    n = 4
+    pos = np.array([[0.1 * i, 0.0, 5.0] for i in range(n)])
+    lat_dir = np.array([[0.7, 0.7, 0.0], [0.7, -0.7, 0.0], [0.0, 0.0, 0.0], [0.7, -0.7, 0.0]])
+    leaves = np.array([0.0, 3.0, 0.0, 1.0])
+    lk = copy.deepcopy(look)
+    lk["leaves"]["on_shoots"]["strength"] = strength
+    snap = ap.LeafSnapshot(age, leaves, np.full(n, 0.0015), np.full(n, 60.0), np.array([False, True, False, False]), 0.0015, lat_dir=lat_dir, birth=np.array([0.0, 1.0, 1.0, float(age)]))
+    return ap.leaf_instances(lk, None, snap, pos, np.full(n, 0.002), age), pos
+
+
+def test_placing_leaves_on_their_shoots_changes_only_where_they_are(look):
+    off, _ = _shoot_leaves(look, 0.0)
+    on, _ = _shoot_leaves(look, 1.0)
+    for name in ("node", "length", "width", "area", "sun", "delay"):
+        assert np.array_equal(getattr(off, name), getattr(on, name))
+    assert not np.allclose(off.base, on.base)
+
+
+def test_a_short_shoots_leaves_stand_at_the_end_of_its_own_axis_and_fan_out(look):
+    cfg = look["leaves"]["on_shoots"]
+    young, pos = _shoot_leaves(look, 1.0, age=3)
+    old, _ = _shoot_leaves(look, 1.0, age=40)
+    away = lambda leaves, nd: np.linalg.norm(leaves.base[leaves.node == nd] - pos[nd], axis=1)  # noqa: E731
+    petiole = look["leaves"]["petiole_m"]
+    # a few millimetres a year, up to its limit
+    assert away(young, 1).mean() < 0.002 + 2 * cfg["spur_m_per_year"] + petiole + 1e-6
+    assert away(old, 1).max() <= 0.002 + cfg["spur_max_m"] + petiole + 1e-6
+    assert away(old, 1).mean() > away(young, 1).mean() + 0.02
+    # a long-shoot node's lone leaf: the petiole, on the side its bud faces
+    lone = old.base[old.node == 3][0] - pos[3]
+    assert abs(np.linalg.norm(lone) - (0.002 + petiole)) < 1e-6
+    assert lone @ np.array([0.7, -0.7, 0.0]) > 0.0
+    # a cluster's leaves don't lie on each other: each its own way round the axis
+    d = old.along[old.node == 1][:, :2]
+    d = d / np.linalg.norm(d, axis=1, keepdims=True)
+    assert (d @ d.T)[np.triu_indices(len(d), 1)].max() < np.cos(np.radians(30.0))
+
+
+def test_the_unreal_target_places_leaves_on_their_shoots(look):
+    import treegen.game_unreal as gu
+
+    assert float(look["leaves"]["on_shoots"]["strength"]) == 0.0
+    assert float(gu.unreal_look(look)["leaves"]["on_shoots"]["strength"]) > 0.0
+
+
 def test_thin_limbs_are_dark_only_with_the_look_on(look, uneven):
     d = np.array([0.02, 0.03, 0.05, 0.08])
     n = len(d)
