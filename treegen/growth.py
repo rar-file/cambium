@@ -1769,13 +1769,6 @@ class GrowthModel:
             # and with the age of its limb (Barthelemy & Caraglio 2007, _scaffold_vigour): an old low limb's buds lose out to a young one's, so in a crown with no room it stops
             # renewing its foliage, falls behind the limbs above it, and goes
             light_share *= self._scaffold_vigour(self.year + 1, starts)
-            if getattr(sp.crown_frame, "twigs_age", False):
-                # and a twig's buds lose out as the twig itself ages, over the same years as a limb's: the young twigs out along a limb take the new growth, and the old ones in by the stem stop renewing
-                # their foliage and go, of their own carbon
-                axis_born = np.full(int(T.axis[:n0].max()) + 1, np.iinfo(np.int64).max, np.int64)
-                np.minimum.at(axis_born, T.axis[:n0], T.birth[:n0].astype(np.int64))
-                twig = (sc_ > 0) & (T.axis[starts] != T.axis[np.minimum(sc_, n0 - 1)])
-                light_share = np.where(twig, light_share * np.exp(-np.maximum(self.year + 1 - axis_born[T.axis[starts]], 0.0) / float(sp.resource.branch_aging_years)), light_share)
             # gravimorphism (Wareing & Nasr 1961, resource.gravimorphism): a bud on a shoot that hangs doesn't start a long shoot, so curtains are single strands, not brooms
             light_share[len(term_nodes):] *= np.maximum(float(getattr(sp.crown_frame, "hanging_bud_share", 0.05)), 1.0 + float(sp.resource.gravimorphism) * T.dir[lat_nodes, 2])
             share = light_share / max(float(light_share.sum()), 1e-12)
