@@ -1662,6 +1662,8 @@ crown_frame:
   twigs_by_light: null
   # TUNED, against the look: when the crown has all the leaf area it can hold (crown_lai_max), short shoots this old die, so new shoots have room.  null: none die of age.
   full_crown_spur_years: null
+  # TUNED, against lone low limbs: a limb dies when the light on its leaves is under this share of the crown's mean, at the same time as the other death lines.  null: off.
+  limb_relative_light: null
   # TUNED: with a value, a limb's reach goes with the light on its leaves this year, to this power, and its side shoots' length with that light,
   # in place of the table by place in the crown (top_share, peak_depth, base_share, profile_power) and limb ageing.  null: off.
   earned_power: null

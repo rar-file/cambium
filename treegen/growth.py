@@ -791,6 +791,11 @@ class GrowthModel:
         cand = np.nonzero(alive & T.is_lateral[:n0] & ~stem & (T.birth[:n0] <= t - sh.min_branch_age))[0]
         ratio = QWtot[cand] / np.maximum(Wtot[cand], 1e-12)
         shed = cand[(Wtot[cand] <= 0.0) | self._falls(ratio, sh.light_per_leaf_threshold)]
+        relative = getattr(sp.crown_frame, "limb_relative_light", None) if self._frame_on() else None
+        if relative and Wtot[0] > 0.0:
+            # a limb whose leaves get much less light than the crown's leaves do is in the crown's own shade, and goes, however bright the sky is
+            is_limb = stem[np.maximum(T.parent[cand], 0)]
+            shed = np.union1d(shed, cand[is_limb & (ratio < float(relative) * float(QWtot[0] / Wtot[0]))])
         # branch autonomy: limbs that could not pay their own upkeep last year
         starving = self._starving[(self._starving < n0)]
         starving = starving[alive[starving] & ~stem[starving] & (T.birth[starving] <= t - sh.min_branch_age)]
