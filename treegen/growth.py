@@ -416,6 +416,15 @@ class GrowthModel:
             if (T.lat[j] in (LAT_DORMANT, LAT_SPUR) and not T.no_axil[j]) or (T.lat_child[j] >= 0 and T.death[T.lat_child[j]] < 0):
                 cand.append(j)
             j = int(T.parent[j])
+        if self._frame_earns():
+            # buds near the wound take over before a limb already leaning away does, wherever the wound leaves any
+            buds = [c for c in cand if T.lat_child[c] < 0]
+            j = int(T.parent[cand[-1]]) if cand else 0
+            while len(buds) < int(ld.replacement_leaders) and j > 0 and T.pos[base, 2] - T.pos[j, 2] < float(ld.replacement_zone_m):
+                if T.lat[j] in (LAT_DORMANT, LAT_SPUR) and not T.no_axil[j] and T.lat_child[j] < 0:
+                    buds.append(j)
+                j = int(T.parent[j])
+            cand = buds or cand
         for c in cand:
             lc = int(T.lat_child[c])
             if lc >= 0 and T.death[lc] < 0:
@@ -428,6 +437,14 @@ class GrowthModel:
                 T.lat[c] = LAT_DORMANT
                 T.lat_age[c] = 0
                 self._relay_buds[c] = base
+                if self._frame_earns():
+                    # it leaves the wound nearly in line, as any renewal shoot does (architecture.sympodial_deviation_deg), and not at a limb's angle: a 44 degree
+                    # crook stays in the wood for good, and at 18 cm thick it reads as a notch in the stem
+                    d = T.dir[c] / max(float(np.linalg.norm(T.dir[c])), 1e-12)
+                    u = T.lat_dir[c] - float(T.lat_dir[c] @ d) * d
+                    u /= max(float(np.linalg.norm(u)), 1e-12)
+                    a = math.radians(float(self.sp.architecture.sympodial_deviation_deg))
+                    T.lat_dir[c] = math.cos(a) * d + math.sin(a) * u
         self.leader_losses.append((t, round(h, 2), cause))
 
     def _crown_light_asymmetry(self, term_nodes, lat_nodes, Qterm, Qlat, w_term, w_lat) -> np.ndarray:
@@ -1076,6 +1093,14 @@ class GrowthModel:
             leaf_c = np.zeros(n0)
             np.add.at(leaf_c, *self._bud_leaf_cost)
             upkeep_c = mu * T.basipetal(levels, ones_c) + T.basipetal(levels, leaf_c)
+            if self._frame_earns():
+                # and the sapwood its leaves ask for each year, over its whole length: a long limb with a tuft at its end doesn't pay
+                la_c = np.zeros(n0)
+                np.add.at(la_c, bud_nodes, bud_leaf)
+                la_c = T.basipetal(levels, la_c)
+                unit_c = float(sp.pipe_model.wood_volume_per_carbon) / g_resp
+                need = self._sapwood_loss(n0) * float(sp.hydraulics.huber_value) * la_c * np.where(alive, T.length[:n0], 0.0) / unit_c
+                upkeep_c = upkeep_c + T.basipetal(levels, need)
             br = np.nonzero(alive & T.is_lateral[:n0] & (T.birth[:n0] <= t - sh.min_branch_age))[0]
             self._starving = np.union1d(self._starving, br[self._falls(own_c[br], upkeep_c[br])])
         def flow(fm):
@@ -1939,7 +1964,9 @@ class GrowthModel:
             is_limb = np.zeros(len(starts), bool)
             if hd["frame_at"] is not None:
                 is_limb[hd["frame_at"]] = True
-            hd["use"] = {"pool": float(pool), "lead": float(cost[lead_at]), "limbs": float(cost[is_limb].sum()),
+            stem_nodes = T.trunk_chain(self.leader_axes)
+            stem_nodes = stem_nodes[stem_nodes < n0]
+            hd["use"] = {"pool": float(pool), "lead": float(cost[lead_at]), "limbs": float(cost[is_limb].sum()), "stem_rings": float((ring[stem_nodes] * L[stem_nodes]).sum()) / unit,
                          "twigs": float(cost.sum() - cost[lead_at] - cost[is_limb].sum()), "rings": float((ring * L).sum()) / unit,
                          "twig_shoots": int((grow & ~is_limb).sum()), "at_cap": int((grow & ~is_limb & (v >= caps)).sum())}
             if self._frame_earns():
