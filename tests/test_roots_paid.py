@@ -119,3 +119,17 @@ def test_anchorage_and_the_root_plate_still_read_the_roots():
     plate = damage.root_plate(state, 90.0, model.sp)
     assert plate["plate_radius_m"] == round(a["plate_radius_m"], 3)
     assert plate["plate_depth_m"] == round(a["plate_depth_m"], 3)
+
+
+def test_trees_in_a_plot_pay_for_their_roots_too():
+    import cli
+    from treegen.plot import Plot
+
+    sp, _ = load_species("betula_pendula")
+    checkpoint.set_values(sp, ["roots.paid.enabled=true"])
+    env_p, _ = cli.load_environment("sweden_open_field")
+    plot = Plot(sp, cli.make_environment(env_p), lambda: cli.make_soil(env_p), 1, 3, "natural", lean=True)
+    for _ in range(5):
+        plot.step()
+    logs = [plot.trees[k].roots.carbon_log for k in plot.alive]
+    assert logs and all("rings" in log for log in logs)

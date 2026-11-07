@@ -203,6 +203,11 @@ def _mean(xs):
 WINDOWS = ((1, 5), (6, 10), (11, 14), (15, 29), (30, 44), (45, 50), (51, 60))
 
 
+def _stems(height_m: float) -> float:
+    """Stand trees' stems a hectare at this height, as the species file's stand.thinning has them."""
+    return 1800.0 if height_m < 11.0 else 1000.0 if height_m < 16.0 else 450.0
+
+
 def _unspent_kg(r: dict, y: int) -> float:
     """What the shoot side threw away that year (treegen.growth._unspent), kg of dry matter."""
     led = r["new"][y].get("root_ledger") or {}
@@ -234,8 +239,8 @@ def ledger(labels: list) -> None:
         if not any("paid" in (y.get("root_ledger") or {}) for r in runs.values() for y in r["new"].values()):
             continue
         print(f"\nWhat `{label}` paid for, kg a year, and where the carbon use efficiency goes when the unresolved rest isn't counted as growth.  Varik Table 6: soil autotrophic respiration 3.2-5.5 t C/ha/yr, understorey included.")
-        print("| Ages | Seeds | Root share | Fine-root upkeep | Fine roots built | New root wood | Rings | Wood's growth respiration | Unresolved rest | Rest, % of fixed | Rings wanted, share got | Model's CUE | Without the rest |")
-        print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+        print("| Ages | Seeds | Root share | Fine-root upkeep | Fine roots built | New root wood | Rings | Wood's growth respiration | Unresolved rest | Rest, % of fixed | Rings wanted, share got | Model's CUE | Without the rest | Respired or unresolved below ground, t C/ha/yr at the stand's stems |")
+        print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
         for lo, hi in WINDOWS:
             rows = [(r["new"][y]["root_ledger"], r["per_year"][y]) for r in runs.values() for y in range(lo, hi + 1) if y in r["new"] and r["new"][y].get("root_ledger", {}).get("paid")]
             if not rows:
@@ -243,7 +248,10 @@ def ledger(labels: list) -> None:
             p = lambda k: _mean(x[0]["paid"].get(k, 0.0) for x in rows)
             fixed = _mean(x[0]["fixed_kg"] for x in rows)
             cue = _mean(float((x[1].get("carbon") or {}).get("cue", 0.0)) * x[0]["fixed_kg"] for x in rows) / max(fixed, 1e-9)
-            print(f"| {lo}-{hi} | {len(runs)} | {_mean(x[0]['root_share_kg'] for x in rows):.2f} | " + " | ".join(f"{p(k):.2f}" for k in keys) + f" | {100.0 * p('rest') / max(fixed, 1e-9):.1f} | {p('rings') / max(p('rings_wanted'), 1e-9):.2f} | {cue:.3f} | {cue - p('rest') / 1.25 / max(fixed, 1e-9):.3f} |")
+            # 0.48 g C per g (species file, leaf_costs.carbon_fraction); fine roots' growth respiration is 0.25 / 1.25 of what they cost
+            stems = _mean(_stems(x[1]["height_m"]) for x in rows)
+            flux = (p("fine_upkeep") + 0.2 * p("fine_build") + p("wood_respiration") + p("rest")) * 0.48 * stems / 1000.0
+            print(f"| {lo}-{hi} | {len(runs)} | {_mean(x[0]['root_share_kg'] for x in rows):.2f} | " + " | ".join(f"{p(k):.2f}" for k in keys) + f" | {100.0 * p('rest') / max(fixed, 1e-9):.1f} | {p('rings') / max(p('rings_wanted'), 1e-9):.2f} | {cue:.3f} | {cue - p('rest') / 1.25 / max(fixed, 1e-9):.3f} | {flux:.2f} |")
 
 
 def mass(labels: list) -> None:
