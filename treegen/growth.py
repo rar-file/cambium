@@ -1899,7 +1899,21 @@ class GrowthModel:
                 if hasattr(self, "_npp_base") and self.carbon["fixed"] > 0:
                     npp = self._npp_base + (late_shoot_net + late_root_net) / g_resp
                     self.carbon["cue"] = npp / self.carbon["fixed"]
-                lam, ring = solve_for(pool + late_shoot_net)
+                pool = pool + late_shoot_net
+                lam, ring = solve_for(pool)
+        if hd is not None and self._frame_on():
+            # only read, for the reports: where the year's pool went.  What's left of it is lost
+            v, grow = shoots(lam)
+            vc = np.minimum(v, caps)
+            wood = tip_area * full * vc / unit
+            leaf = np.where(grow, np.maximum(np.floor(vc), 1.0) * per_met + early, 0.0) * lma / g_per_unit * g_resp if g_per_unit > 0.0 else np.zeros(len(starts))
+            cost = np.where(grow, wood + leaf, 0.0)
+            is_limb = np.zeros(len(starts), bool)
+            if hd["frame_at"] is not None:
+                is_limb[hd["frame_at"]] = True
+            hd["use"] = {"pool": float(pool), "lead": float(cost[lead_at]), "limbs": float(cost[is_limb].sum()),
+                         "twigs": float(cost.sum() - cost[lead_at] - cost[is_limb].sum()), "rings": float((ring * L).sum()) / unit,
+                         "twig_shoots": int((grow & ~is_limb).sum()), "at_cap": int((grow & ~is_limb & (v >= caps)).sum())}
         return lam, ring
 
     # -- the crown's frame (crown_frame in the species file) -------------
@@ -2259,7 +2273,8 @@ class GrowthModel:
                             "cost_share": round(hd["cost_units"] / hd["pool"], 5) if hd["pool"] > 0.0 else 1.0,
                             "held_by": held if limits[held] < 0.999 else "curve", "unspent": round(float(getattr(self, "_unspent", 0.0)), 3),
                             "sap_units": round(float(hd.get("sap_units0", 0.0)), 1), "wind_units": round(float(hd.get("wind_units0", 0.0)), 1),
-                            "wood_free_m3": round(float(getattr(self, "_stress_extra", 0.0)), 6)}
+                            "wood_free_m3": round(float(getattr(self, "_stress_extra", 0.0)), 6),
+                            **({"use": {k: round(v, 1) for k, v in hd["use"].items()}} if "use" in hd else {})}
         self._unspent = 0.0
 
     def _grow_shoots(self, t, field, g_term, v_term, g_lat, v_lat, q_start=None):
