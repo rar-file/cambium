@@ -450,6 +450,10 @@ def run_mesh(a) -> None:
     grow_s = time.perf_counter() - t0
     print(f"grown in {grow_s:.1f} s, {status_mb()}", flush=True)
     look = gu.unreal_look(ap.load_look(raw))
+    if a.lod1_budget:
+        for lod in look["game"]["lods"]:
+            if lod["name"] == "lod1":
+                lod["budget"] = int(a.lod1_budget)
     t0 = time.perf_counter()
     tiles = tx.make_tiles(look)
     gu.scale_tiles_to_albedo(look, tiles)
@@ -505,11 +509,14 @@ def run_mesh(a) -> None:
         files = stage["seasons"]["summer"]
         sizes = {p.name: p.stat().st_size for p in work.rglob("*") if p.is_file()}
         rows[age] = {"wall": wall, **status_mb(), **year_row(now, last), "disk_mb": sum(sizes.values()) / 2 ** 20,
-                     "levels": {k: {"triangles": v["triangles"], "parts": v.get("parts")} for k, v in files.items()}, "leaves": stage["exported_leaves"],
+                     "levels": {k: {"triangles": v["triangles"], "vertices": v.get("vertices"), "file_mb": v.get("file_mb"), "parts": v.get("parts")} for k, v in files.items()},
+                     "leaves": stage["exported_leaves"],
                      "gltf_mb": sum(v for k, v in sizes.items() if k.endswith((".gltf", ".bin"))) / 2 ** 20, "png_mb": sum(v for k, v in sizes.items() if k.endswith(".png")) / 2 ** 20,
                      "nodes": int(model.tree.n), "alive_at_end": int((model.tree.death[: model.tree.n] < 0).sum())}
         print(f"age {age}: {wall:.1f} s, {rows[age]['levels']}, disk {rows[age]['disk_mb']:.0f} MB, peak {rows[age]['peak_mb']:.0f} MB", flush=True)
-        (out / f"mesh_s{a.seed}.json").write_text(json.dumps({"what": "mesh", "seed": a.seed, "grow_s": grow_s, "tiles_s": tiles_s, "rows": {str(k): v for k, v in rows.items()}}), encoding="utf-8")
+        name = f"mesh_s{a.seed}" + (f"_lod1_{a.lod1_budget}" if a.lod1_budget else "")
+        (out / f"{name}.json").write_text(json.dumps({"what": "mesh", "seed": a.seed, "lod1_budget": a.lod1_budget or 16000, "grow_s": grow_s, "tiles_s": tiles_s,
+                                                     "rows": {str(k): v for k, v in rows.items()}}), encoding="utf-8")
     shutil.rmtree(work, ignore_errors=True)
 
 
@@ -693,12 +700,15 @@ def table_mesh(doc: dict) -> str:
     rows = doc["rows"]
     ages = [a for a in map(str, PLAN_AGES) if a in rows]
     stages = sorted({s for a in ages for s in rows[a]["by"]}, key=lambda s: -rows[ages[-1]]["by"].get(s, 0.0))
-    lines = [f"### Export of one stand tree, every level, seed {doc['seed']}: seconds for that age (grown once in {doc['grow_s']:.0f} s, bark tiles {doc['tiles_s']:.0f} s)", "", "| Part | " + " | ".join(f"Age {a}" for a in ages) + " |", "|---|" + "---|" * len(ages)]
+    lines = [f"### Export of one stand tree, every level, seed {doc['seed']}, lod1 budget {doc.get('lod1_budget', 16000):,}: seconds for that age (grown once in {doc['grow_s']:.0f} s, bark tiles {doc['tiles_s']:.0f} s)", "", "| Part | " + " | ".join(f"Age {a}" for a in ages) + " |", "|---|" + "---|" * len(ages)]
     for s in stages:
         lines.append(f"| {s} | " + " | ".join(f"{rows[a]['by'].get(s, 0.0):.2f}" for a in ages) + " |")
     lines.append("| **All** | " + " | ".join(f"**{rows[a]['wall']:.1f}**" for a in ages) + " |")
     for lv in ("lod0", "lod1", "lod2"):
         lines.append(f"| Triangles, {lv} | " + " | ".join(f"{rows[a]['levels'].get(lv, {}).get('triangles', 0):,}" for a in ages) + " |")
+        if any(rows[a]["levels"].get(lv, {}).get("vertices") for a in ages):
+            lines.append(f"| Vertices, {lv} | " + " | ".join(f"{rows[a]['levels'].get(lv, {}).get('vertices') or 0:,}" for a in ages) + " |")
+            lines.append(f"| File, {lv}, MB | " + " | ".join(f"{rows[a]['levels'].get(lv, {}).get('file_mb') or 0:,.2f}" for a in ages) + " |")
     for key, name in (("gltf_mb", "Mesh files, MB"), ("png_mb", "Texture files, MB"), ("peak_mb", "Process peak so far, MB")):
         lines.append(f"| {name} | " + " | ".join(f"{rows[a][key]:,.0f}" for a in ages) + " |")
     return "\n".join(lines) + "\n"
@@ -733,10 +743,15 @@ def run_table(a) -> None:
     chaos = []
     saves = []
     singles = defaultdict(list)
+    far_trees, far_plots = [], []
     for folder in a.folders:
         for p in sorted(Path(folder).expanduser().glob("*.json")):
             d = json.loads(p.read_text(encoding="utf-8"))
-            if p.name.startswith("single_"):
+            if p.name.startswith("far_tree_"):
+                far_trees.append(d)
+            elif p.name.startswith("far_plot_"):
+                far_plots.append(d)
+            elif p.name.startswith("single_"):
                 singles[d["arm"]] += d["trees"]
             elif p.name.startswith("chaos_"):
                 chaos.append(d)
@@ -767,6 +782,8 @@ def run_table(a) -> None:
         out.append(table_saves(saves))
     if singles:
         out.append(table_single(singles))
+    if far_trees or far_plots:
+        out.append(table_far(far_trees, far_plots))
     for k, docs in sorted(trees.items()):
         out.append(table_tree(docs, f"Stand tree, {k}"))
     for k, docs in sorted(plots.items()):
@@ -894,6 +911,213 @@ def table_saves(docs: list) -> str:
     return "\n".join(lines) + "\n"
 
 
+SKELETON_RADII = (0.005, 0.01, 0.02)       # m: a limb skeleton keeps living wood at least this thick
+
+
+def _z(b: bytes) -> int:
+    import zlib
+    return len(zlib.compress(b, 6))
+
+
+def far_forms(m, history=None) -> dict:
+    """What a tree far from the player could hold to stay itself, in bytes, raw and compressed (zlib 6).  Sums over the arrays as they
+    are, written as a C++ port might: these are sizes, not a working far form.
+
+    full: every living node and every dead stub still on living wood (knots), all node arrays, 8-byte numbers as 4, crown and roots.
+    skeleton r: the crown's and roots' living wood at least r thick, and the stubs on it, 32 bytes a node (parent, position, radius, sapwood
+      area, birth, death, axis), or 19 quantised (position from the parent in mm, radius in 0.02 mm, years as bytes), plus at each point
+      where finer wood was left off, the leaf area and bud count beyond it (6 bytes).
+    rings: the ring widths of that skeleton, every year of its life, 0.01 mm in 2 bytes (only with the yearly radii, a non-lean tree).
+    rest: everything else in the model, pickled with gzip: carbon pools, random streams, the frame's plan, records."""
+    import gzip
+    import pickle
+
+    from treegen.growth import LAT_DORMANT, LAT_SPUR
+
+    out = {}
+    full_parts, counts = [], {}
+    keeps = {r: {"plain": [], "quant": [], "summary": 0, "nodes": 0} for r in SKELETON_RADII}
+    ring_parts = {r: [] for r in SKELETON_RADII}
+    ring_years = {r: 0 for r in SKELETON_RADII}
+    for part, T in (("crown", m.tree), ("root", m.roots.tree)):
+        n = T.n
+        par = T.parent[:n].astype(np.int64)
+        alive = T.death[:n] < 0
+        scar = ~alive & (par >= 0) & alive[np.maximum(par, 0)]
+        held = alive | scar
+        counts[part] = {"nodes": int(n), "alive": int(alive.sum()), "stubs": int(scar.sum())}
+        for name in list(T.VEC) + list(T.SCALAR):
+            x = getattr(T, name)[:n][held]
+            full_parts.append((x.astype(np.float32) if x.dtype == np.float64 else x).tobytes())
+        r = T.radius[:n]
+        # leaf area and buds beyond each node, for the summary where finer wood is left off
+        leaves = np.where(alive, T.leaves[:n].astype(np.float64), 0.0) if part == "crown" else np.zeros(n)
+        buds = np.where(alive & ((T.term[:n] == 1) | np.isin(T.lat[:n], (LAT_DORMANT, LAT_SPUR))), 1.0, 0.0) if part == "crown" else np.zeros(n)
+        acc = np.stack([leaves, buds], 1)
+        lv = T.levels(alive)
+        acc = T.basipetal(lv, acc) if len(lv) > 1 else acc
+        for rk in SKELETON_RADII:
+            keep = (alive & (r >= rk)) | (scar & (r[np.maximum(par, 0)] >= rk))
+            keep[0] = True
+            idx = np.nonzero(keep)[0]
+            remap = np.full(n, -1, np.int64)
+            remap[idx] = np.arange(len(idx))
+            p = np.where(par[idx] >= 0, remap[np.maximum(par[idx], 0)], -1)
+            pos = T.pos[:n][idx]
+            rel = pos - T.pos[:n][np.maximum(par[idx], 0)]
+            birth, death = T.birth[:n][idx], T.death[:n][idx]
+            plain = [p.astype(np.int32).tobytes(), pos.astype(np.float32).tobytes(), r[idx].astype(np.float32).tobytes(), T.sap_area[:n][idx].astype(np.float32).tobytes(),
+                     birth.astype(np.int16).tobytes(), death.astype(np.int16).tobytes(), T.axis[:n][idx].astype(np.int32).tobytes()]
+            quant = [p.astype(np.int32).tobytes(), np.clip(np.round(rel * 1000.0), -32767, 32767).astype(np.int16).tobytes(),
+                     np.clip(np.round(r[idx] / 2e-5), 0, 65535).astype(np.uint16).tobytes(),
+                     np.clip(np.round(255.0 * T.sap_area[:n][idx] / np.maximum(T.wood_area[:n][idx], 1e-12)), 0, 255).astype(np.uint8).tobytes(),
+                     np.clip(birth, 0, 255).astype(np.uint8).tobytes(), np.clip(death, 0, 255).astype(np.uint8).tobytes(), T.axis[:n][idx].astype(np.int32).tobytes()]
+            # where living wood was left off: what it carried
+            child_off = alive & ~keep & (par >= 0) & keep[np.maximum(par, 0)]
+            ends = np.unique(par[child_off])
+            summary = 6 * len(ends)
+            k = keeps[rk]
+            k["plain"] += plain
+            k["quant"] += quant
+            k["summary"] += summary
+            k["nodes"] += len(idx)
+            if history is not None and part == "crown":
+                years = len(history)
+                live_idx = idx[alive[idx]]
+                H = np.zeros((years, len(live_idx)), np.float32)
+                for y, hr in enumerate(history):
+                    ok = live_idx < len(hr)
+                    H[y, ok] = hr[live_idx[ok]]
+                rings = np.diff(np.vstack([np.zeros((1, len(live_idx)), np.float32), H]), axis=0)
+                born = (H > 0)
+                vals = np.clip(np.round(rings[born] / 1e-5), 0, 65535).astype(np.uint16)
+                ring_parts[rk].append(vals.tobytes())
+                ring_years[rk] += int(born.sum())
+    raw = b"".join(full_parts)
+    out["full"] = {"raw": len(raw), "z": _z(raw)}
+    for rk in SKELETON_RADII:
+        k = keeps[rk]
+        pl, qu = b"".join(k["plain"]), b"".join(k["quant"])
+        out[f"skeleton_{rk}"] = {"nodes": k["nodes"], "raw": len(pl) + k["summary"], "z": _z(pl) + k["summary"], "quant_raw": len(qu) + k["summary"], "quant_z": _z(qu) + k["summary"]}
+        if history is not None:
+            rb = b"".join(ring_parts[rk])
+            out[f"rings_{rk}"] = {"node_years": ring_years[rk], "raw": len(rb), "z": _z(rb)}
+    # everything else, with the node stores, grids and records left out
+    hide = {"tree": None, "light": None, "_field": None, "_plot_view": None, "soil": None, "sp": None, "radius_history": [], "keyframes": {}, "stats": [], "diag": None,
+            "_bud_q": None, "_leaf_density": None, "_psi": None, "_r_last": None, "_r_pipe": None, "_ring": None, "_stand_map": None, "_clone_angle": {}}
+    keep_m = {k: m.__dict__.get(k) for k in hide if k in m.__dict__}
+    rk_ = {k: m.roots.__dict__.get(k) for k in ("tree", "field", "_kept_soil", "radius_history", "soil") if k in m.roots.__dict__}
+    try:
+        for k in keep_m:
+            m.__dict__[k] = hide[k]
+        for k in rk_:
+            m.roots.__dict__[k] = [] if k == "radius_history" else None
+        blob = pickle.dumps(m, protocol=pickle.HIGHEST_PROTOCOL)
+    finally:
+        m.__dict__.update(keep_m)
+        m.roots.__dict__.update(rk_)
+    out["rest"] = {"raw": len(blob), "z": len(gzip.compress(blob, 6))}
+    out["counts"] = counts
+    # bringing the whole state back, Python: decompress the arrays, and load a whole pickled tree
+    import zlib
+    zb = zlib.compress(raw, 6)
+    t0 = time.perf_counter()
+    zlib.decompress(zb)
+    out["decompress_s"] = time.perf_counter() - t0
+    saved = m.__dict__.get("_field"), m.__dict__.get("_plot_view"), m.light
+    m._field = m._plot_view = None
+    m.light = None
+    try:
+        whole = pickle.dumps(m, protocol=pickle.HIGHEST_PROTOCOL)
+    finally:
+        m._field, m._plot_view, m.light = saved
+    t0 = time.perf_counter()
+    pickle.loads(whole)
+    out["unpickle_s"] = time.perf_counter() - t0
+    out["pickle_mb"] = len(whole) / 2 ** 20
+    return out
+
+
+def run_far(a) -> None:
+    """Far forms of stand trees (non-lean, so their yearly radii give the rings), or of every tree in a plot (lean)."""
+    out = BASE / a.label
+    out.mkdir(parents=True, exist_ok=True)
+    cli, checkpoint, sp, _ = load(a)
+    env_p, _ = cli.load_environment("sweden_open_field")
+    if not a.in_plot:
+        from treegen.growth import GrowthModel
+
+        checkpoint.set_values(sp, settings(a))
+        m = GrowthModel(sp, cli.make_environment(env_p), a.seed, stand=True, soil=cli.make_soil(env_p))
+        rows = {}
+        for _ in range(a.years):
+            m.step()
+            if m.year in AGES:
+                rows[str(m.year)] = far_forms(m, m.radius_history)
+                print(m.year, json.dumps({k: v for k, v in rows[str(m.year)].items() if k != "counts"})[:400], flush=True)
+        (out / f"far_tree_s{a.seed}.json").write_text(json.dumps({"seed": a.seed, "rows": rows}), encoding="utf-8")
+        return
+    from treegen.plot import Plot
+
+    items = settings(a) + PLOT
+    checkpoint.set_values(sp, items)
+    plot = Plot(sp, cli.make_environment(env_p), lambda: cli.make_soil(env_p), seed=a.seed, mode="natural", lean=True)
+    plot.enable_regeneration()
+    rows = {}
+    while plot.year < a.years and plot.alive:
+        plot.step()
+        if plot.year in AGES:
+            per = [far_forms(plot.trees[k]) for k in plot.alive]
+            rows[str(plot.year)] = per
+            print(plot.year, len(per), flush=True)
+            (out / f"far_plot_s{a.seed}.json").write_text(json.dumps({"seed": a.seed, "rows": rows}), encoding="utf-8")
+
+
+def table_far(trees: list, plots: list) -> str:
+    mb = 2.0 ** 20
+    lines = []
+
+    def block(title, rows_by_age):
+        ls = [f"### {title}", "", "| Form | " + " | ".join(f"Age {a}" for a in PLAN_AGES) + " |", "|---|" + "---|" * len(PLAN_AGES)]
+        keys = [("full", "raw", "Full: living nodes and stubs, all arrays, single precision"), ("full", "z", "Full, compressed")]
+        for rk in SKELETON_RADII:
+            keys += [(f"skeleton_{rk}", "nodes", f"Skeleton >= {rk * 100:g} cm: nodes"), (f"skeleton_{rk}", "raw", f"Skeleton >= {rk * 100:g} cm, 32 bytes a node"),
+                     (f"skeleton_{rk}", "quant_z", f"Skeleton >= {rk * 100:g} cm, quantised, compressed")]
+            keys += [(f"rings_{rk}", "z", f"Its rings, every year, compressed")]
+        keys += [("rest", "z", "Everything else in the model, gzip"), ("pickle_mb", None, "Whole state pickled, MB"), ("unpickle_s", None, "Loading that pickle, s"), ("decompress_s", None, "Decompressing the full arrays, s")]
+        for k, sub, name in keys:
+            vals = []
+            for a_ in PLAN_AGES:
+                rs = rows_by_age.get(str(a_), [])
+                xs = [(r[k][sub] if sub else r[k]) for r in rs if k in r and (sub is None or sub in r[k])]
+                vals.append(_mean(xs))
+            if all(v is None for v in vals):
+                continue
+            if sub in ("raw", "z", "quant_z"):
+                ls.append(f"| {name}, MB | " + " | ".join("" if v is None else f"{v / mb:.3f}" for v in vals) + " |")
+            elif sub == "nodes":
+                ls.append(f"| {name} | " + " | ".join("" if v is None else f"{v:,.0f}" for v in vals) + " |")
+            else:
+                ls.append(f"| {name} | " + " | ".join("" if v is None else f"{v:.3f}" for v in vals) + " |")
+        return ls + [""]
+
+    if trees:
+        by = {str(a_): [d["rows"][str(a_)] for d in trees if str(a_) in d["rows"]] for a_ in PLAN_AGES}
+        lines += block(f"Far forms of a stand tree, mean of {len(trees)} seeds, per tree", by)
+        c = trees[0]["rows"].get("60", {}).get("counts")
+        if c:
+            lines.append(f"Seed {trees[0]['seed']} at 60: crown {c['crown']['alive']:,} living nodes and {c['crown']['stubs']:,} dead stubs on living wood, of {c['crown']['nodes']:,}; roots {c['root']['alive']:,} living.\n")
+    for d in plots:
+        lines += block(f"Far forms of the trees in plot {d['seed']}, mean per living tree", d["rows"])
+        big = ["| Age | Trees | Largest tree, full, compressed, MB | Largest, skeleton >= 1 cm, quantised, compressed, MB | All trees, full, compressed, MB |", "|---|---|---|---|---|"]
+        for a_ in PLAN_AGES:
+            rs = d["rows"].get(str(a_))
+            if rs:
+                big.append(f"| {a_} | {len(rs)} | {max(r['full']['z'] for r in rs) / mb:.2f} | {max(r['skeleton_0.01']['quant_z'] for r in rs) / mb:.3f} | {sum(r['full']['z'] for r in rs) / mb:.1f} |")
+        lines += big + [""]
+    return "\n".join(lines) + "\n"
+
+
 SINGLE_KEYS = ("height_m", "dbh_cm", "leaf_area_m2", "crown_width_m", "crown_ratio", "lai", "subcanopy_diffuse_light_pct")
 
 
@@ -971,9 +1195,11 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="what", required=True)
-    for name in ("tree", "plot", "mesh", "hot", "lines", "chaos", "saves", "single"):
+    for name in ("tree", "plot", "mesh", "hot", "lines", "chaos", "saves", "single", "far"):
         p = sub.add_parser(name)
         p.add_argument("--single", action="store_true", help="single: this arm in single precision")
+        p.add_argument("--in-plot", action="store_true", help="far: every tree of a plot, not a stand tree")
+        p.add_argument("--lod1-budget", type=int, default=None, help="mesh: triangles for lod1")
         p.add_argument("--label", required=True)
         p.add_argument("--seed", type=int, default=1)
         p.add_argument("--seeds", type=int, default=3, help="chaos: how many seeds from --seed")
@@ -991,7 +1217,7 @@ def main():
     b = sub.add_parser("batch", help="several of these one after another, each its own process: one core, no overlap")
     b.add_argument("commands", nargs="+")
     a = ap.parse_args()
-    {"tree": run_tree, "plot": run_plot, "mesh": run_mesh, "hot": run_hot, "lines": run_lines, "chaos": run_chaos, "saves": run_saves, "single": run_single, "table": run_table, "batch": run_batch}[a.what](a)
+    {"tree": run_tree, "plot": run_plot, "mesh": run_mesh, "hot": run_hot, "lines": run_lines, "chaos": run_chaos, "saves": run_saves, "single": run_single, "far": run_far, "table": run_table, "batch": run_batch}[a.what](a)
 
 
 if __name__ == "__main__":
