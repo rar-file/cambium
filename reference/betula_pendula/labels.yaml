@@ -318,7 +318,7 @@ damage.wind.site_effect: {status: sourced, value: 0.0, source: 'Kitenberga et al
 damage.wind.prior_damage: {status: sourced, value: 1.46, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 1', checked: page}
 damage.wind.period_years: {status: sourced, value: 5, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 p. 3: five-year remeasurement', checked: page}
 damage.wind.population_offset: {status: TUNED, value: 1.23, against: '2.9-3.4 % of all birches damaged per 5-year period (Kitenberga 2021 p. 6); her fixed effects alone give 0.9 % on the mean tree and soil mix. On plots from 16,000 stems/ha: see reports of node_dmg_* runs'}
-damage.wind.storm_return_years: {status: TUNED, value: 10, against: 'no target: a storm year in ten, so that trees go in groups; the damage per year doesn''t change with it'}
+damage.wind.storm_return_years: {status: TUNED, value: 15, against: 'no target: a storm year in fifteen, so that trees go in groups; the damage per year doesn''t change with it'}
 damage.wind.gap_radius_m: {status: TUNED, value: 6.0, against: 'no target: visible gaps in a 1000 m2 plot; the damage doesn''t change with it'}
 damage.wind.gap_area_share: {status: TUNED, value: 0.1, against: 'no target: visible gaps in a 1000 m2 plot; the damage doesn''t change with it'}
 damage.wind.gap_damage_share: {status: TUNED, value: 0.8, against: 'no target: visible gaps in a 1000 m2 plot; the damage doesn''t change with it'}
@@ -359,7 +359,7 @@ damage.wind.slenderness.range:
   source: Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 2
   checked: page
 damage.failure.mor_green_mpa: {status: sourced, value: 44.0, source: 'Nykanen et al. 1997 p. 198, from Peltola et al. 1997: 70 % of clear-wood MOR, birch', checked: page}
-damage.failure.even_odds_log_ratio: {status: TUNED, value: -0.46, against: '31-35 % of damaged birches uprooted (Kitenberga 2021 p. 6), on the wind-damaged trees of the logged plots with paid roots'}
+damage.failure.even_odds_log_ratio: {status: TUNED, value: -0.24, against: '31-35 % of damaged birches uprooted (Kitenberga 2021 p. 6), on the 42 trees wind took on plots with paid roots (node_dmg_fix2, median ratio 1.12)'}
 damage.failure.spread: {status: TUNED, value: 0.5, against: 'the same; a width chosen, not fitted, since no share by tree size is published for birch'}
 damage.snap.intercept: {status: sourced, value: 0.532, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 3', checked: page}
 damage.snap.slenderness: {status: sourced, value: -0.097, source: 'Kitenberga et al. 2021, Silva Fennica 55(2):10483 Table 3', checked: page}
@@ -372,7 +372,7 @@ damage.snow.load_range_kg_m2:
   value: [20.0, 60.0]
   source: 'Zubizarreta-Gerendiain et al. 2012 p. 192: 20-40 kg/m2; Solantie 1994 in Nykanen et al. 1997 Fig. 1: over 60 mm is severe'
   checked: page
-damage.snow.crown_catch_fraction: {status: TUNED, value: 0.06, against: 'about 31 % of a young stand damaged in a severe event (Donis et al. 2024, Forests 15:275, as in KNOWN_ISSUES.md; the publisher''s page returned 403, so not reopened), on real stems of logged plots; and snow staying under wind at 50 and 60'}
+damage.snow.crown_catch_fraction: {status: TUNED, value: 0.1, against: 'about 31 % of a young stand damaged in a severe event (Donis et al. 2024, Forests 15:275, as in KNOWN_ISSUES.md; the publisher''s page returned 403, so not reopened), on real stems of logged plots: 27 % overloaded at ages 8-15'}
 damage.snow.lever_fraction: {status: TUNED, value: 0.02, against: 'the same as crown_catch_fraction; barely matters, since most overloads are buckling'}
 damage.snow.spread: {status: TUNED, value: 0.25, against: 'the same as crown_catch_fraction; narrow, so a big stem well inside its strength isn''t overloaded'}
 damage.snow.break_share: {status: VERIFY, value: 0.063, note: '93.7 % of damaged trees were bent: Donis et al. 2024, Forests 15:275, as in KNOWN_ISSUES.md; the publisher''s page returned 403, so not reopened'}

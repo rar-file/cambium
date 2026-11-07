@@ -134,9 +134,12 @@ def test_weather_doesnt_depend_on_which_parts_are_on(sp):
 
 
 # -- how a tree fails ----------------------------------------------------------
-def test_the_mean_tree_uproots_about_a_third_of_the_time(sp):
-    """Kitenberga p. 6: 31 % and 35 % uprooted."""
-    assert 0.31 <= damage.uproot_probability(mean_tree(sp), 0.0, sp) <= 0.35
+def test_the_trees_wind_takes_uproot_about_a_third_of_the_time(sp):
+    """Kitenberga p. 6: 31 % and 35 % uprooted.  The trees wind took on plots with paid roots: root moment 1.12 x the stem's."""
+    tree = mean_tree(sp)
+    stem = damage.stem_breaking_moment_knm(tree.dbh_cm, sp.damage.failure.mor_green_mpa)
+    tree.anchorage = {"critical_turning_moment": {"by_wind_dir_knm": {"0": 1.12 * stem}}}
+    assert 0.31 <= damage.uproot_probability(tree, 0.0, sp) <= 0.35
 
 
 def test_slender_trees_snap_and_stout_or_shallow_rooted_ones_uproot(sp):

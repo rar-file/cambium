@@ -907,9 +907,9 @@ damage:
     # fixed effects give about 0.9 % on the mean tree and soil mix, because the
     # plot's and tree's random effects carry the rest.  logit(3.15 %) - logit(0.94 %).
     population_offset: 1.23
-    # TUNED, no target: a storm year in ten, all the period's damage in it, so
+    # TUNED, no target: a storm year in fifteen, all the period's damage in it, so
     # trees go in groups in the same direction instead of one by one.
-    storm_return_years: 10
+    storm_return_years: 15
     # TUNED, no target: most of a storm's damage falls in round patches, so it opens
     # gaps: patches of this radius (m), on this share of the ground, taking this share
     # of the damage.  What a stand loses doesn't change with these.
@@ -951,10 +951,10 @@ damage:
     mor_green_mpa: 44.0
     # TUNED against 31-35 % of damaged birches uprooted (Kitenberga p. 6): the
     # log of (critical turning moment / stem breaking moment) at which a failing
-    # tree is as likely to uproot as to snap, and the width of that choice.  Her
-    # mean tree (17.6 m, 17.6 cm over bark, so 16 cm of wood) has a ratio of 0.90,
-    # and this gives it 33 %.
-    even_odds_log_ratio: -0.46
+    # tree is as likely to uproot as to snap, and the width of that choice.  The trees
+    # wind took on plots with paid roots (node_dmg_fix2, 42 trees) have a median
+    # ratio of 1.12, and this gives that 33 %.
+    even_odds_log_ratio: -0.24
     spread: 0.5
   snap:
     # Relative height of the break = intercept + slenderness x H/D + prior
@@ -979,10 +979,10 @@ damage:
     load_range_kg_m2: [20.0, 60.0]
     # TUNED against about 31 % of a young stand damaged in a severe event (Donis et
     # al. 2024, in KNOWN_ISSUES.md; publisher 403, not reopened), on real stems of
-    # logged plots, and against snow staying under wind's rate at 50 and 60: share of
-    # the crown's projected area that holds the load, the stem's lean under it as a
-    # share of height, and the width of the line between overloaded and not.
-    crown_catch_fraction: 0.06
+    # logged plots (27 % overloaded at 8-15, at the loads drawn): share of the crown's
+    # projected area that holds the load, the stem's lean under it as a share of
+    # height, and the width of the line between overloaded and not.
+    crown_catch_fraction: 0.10
     lever_fraction: 0.02
     spread: 0.25
     # Share of overloaded stems that break or uproot; the rest bend: 93.7 % of damaged
