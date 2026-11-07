@@ -210,6 +210,11 @@ def crown_shape(model) -> dict:
         above = np.where(mains >= 0, T.radius[np.maximum(mains, 0)], T.radius[T.parent[under_top]])
         forks = int(((T.radius[under_top] >= 0.7 * np.maximum(above, 1e-9)) & (tip_z[T.axis[under_top]] >= H - 0.5)).sum())
     out["double_tops"] = forks
+    # the same, reading it loosely, for comparison: at least 0.5 as thick, its axis ending within 1 m of the top
+    loose = 0
+    if under_top.size:
+        loose = int(((T.radius[under_top] >= 0.5 * np.maximum(above, 1e-9)) & (tip_z[T.axis[under_top]] >= H - 1.0)).sum())
+    out["double_tops_loose"] = loose
     tips_all = np.nonzero(alive & (T.term[:n] == 1))[0]
     stem_axes = np.isin(T.axis[tips_all], np.fromiter(model.leader_axes, np.int64))
     out["tops"] = int(((pos[tips_all, 2] >= H - 0.5) & ~stem_axes).sum())

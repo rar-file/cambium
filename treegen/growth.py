@@ -2257,6 +2257,8 @@ class GrowthModel:
         if self._frame_earns():
             # apical control: no limb's tip ends above where the leader was three years ago, near enough, so the leader stands clear; a new limb can start, just under last year's top
             top = np.where(np.arange(len(starts)) < n_term, float(hd["z"]) - 3.0 * lead_len * hd["dz"], float(hd["z"]))
+            if self.reit_axes and self._frame_forks:
+                top = np.where(np.isin(T.axis[starts], self._frame_tops()), float(hd["z"]), top)    # the tree's one second top may come up beside it
         else:
             top = max(hd["z"] + lead_len * hd["dz"], float(hd["ref"]))
         room = np.maximum(top - T.pos[starts, 2], 0.0)
