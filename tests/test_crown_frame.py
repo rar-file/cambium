@@ -295,3 +295,35 @@ def test_earned_no_limb_tip_near_the_leader_and_new_limbs_still_start():
     assert float(T.pos[: T.n][alive & ~on, 2].max()) < H
     assert limbs_of(model).size > 20
     assert float(T.pos[T.parent[limbs_of(model)], 2].max()) > 0.85 * H
+
+
+def test_open_lai_max_leaves_a_stand_tree_bit_identical():
+    """A leaf limit only for a tree on its own: a stand tree grown with it is the same tree, and a lone tree carries less."""
+    off = grow(14, EARNED)
+    on = grow(14, EARNED + ["crown_frame.open_lai_max=2.0"])
+    assert off.tree.n == on.tree.n
+    assert (off.tree.pos[: off.tree.n] == on.tree.pos[: on.tree.n]).all()
+    la_off = float(grow(20, EARNED, stand=False).stats[-1]["leaf_area_m2"])
+    la_on = float(grow(20, EARNED + ["crown_frame.open_lai_max=2.0"], stand=False).stats[-1]["leaf_area_m2"])
+    assert la_on < 0.9 * la_off
+
+
+def test_earned_limb_sag_makes_a_limb_low_at_the_stem_and_rising_at_its_end():
+    """A limb's posture target rises in young wood and falls with the wood's age, so a limb's old wood stands lower than its young wood, more so than without the sag."""
+    def lean_of_old_and_young(model):
+        T = model.tree
+        n = T.n
+        alive = T.death[:n] < 0
+        out_old, out_young = [], []
+        for first in limbs_of(model):
+            nodes = np.nonzero((T.axis[:n] == T.axis[first]) & alive)[0]
+            if nodes.size < 8:
+                continue
+            lean = np.degrees(np.arccos(np.clip(T.dir[nodes, 2], -1.0, 1.0)))
+            out_old.append(lean[: nodes.size // 4].mean())
+            out_young.append(lean[nodes.size // 2: 3 * nodes.size // 4].mean())
+        return float(np.mean(out_old)), float(np.mean(out_young))
+
+    straight_old, straight_young = lean_of_old_and_young(grow(30, EARNED))
+    sag_old, sag_young = lean_of_old_and_young(grow(30, EARNED + ["crown_frame.limb_sag_deg=45"]))
+    assert sag_old - sag_young > straight_old - straight_young
