@@ -1717,6 +1717,10 @@ class GrowthModel:
         if by_light:
             # what a bud gets goes with the light on it, not with where it stands on the tree: a bud in the sun on a young limb grows, one in the shade on an old limb doesn't
             light_share = np.where(share > 0.0, np.power(np.minimum(q_bud, 1.0), float(by_light)), 0.0)
+            self._frame_earned(starts, q_bud, bud_leaf)
+            if self._frame_vig is not None:
+                sc_ = T.scaffold[starts].astype(np.int64)
+                light_share = light_share * np.where(sc_ > 0, self._frame_vig[np.minimum(sc_, len(self._frame_vig) - 1)], 1.0)
             share = light_share / max(float(light_share.sum()), 1e-12)
             self._frame_share = share
         thr = np.concatenate([np.full(len(term_nodes), float(getattr(bf, "min_tip_extension", 1.0))),
@@ -2018,6 +2022,8 @@ class GrowthModel:
             self._frame_since = 0.0
             theta = math.radians(float(np.clip(rng.normal(float(cf.angle_mean_deg), sd), lo, hi)))
             self._frame_reach[node] = float(np.exp(rng.normal(0.0, float(cf.reach_scatter))))
+            if bool(getattr(cf, "reach_capped", False)):
+                self._frame_reach[node] = min(self._frame_reach[node], 1.0)     # the published crown is the widest a limb goes, not its mean
             A = self.sp.architecture
             self._frame_azimuth += math.radians(float(A.phyllotaxis_orthotropic_deg) + float(rng.normal(0.0, float(A.distichous_jitter_deg))))
             d = T.dir[node] / max(float(np.linalg.norm(T.dir[node])), 1e-12)
@@ -2095,8 +2101,8 @@ class GrowthModel:
         compares with the largest limb's.  A limb's reach and its side shoots go with this, so that one that wins light grows on and thickens, and one that loses it
         stops short."""
         cf = self.sp.crown_frame
-        self._frame_rel = self._frame_q = self._frame_la = None
-        if getattr(cf, "earned_power", None) is None and not getattr(cf, "fork_leaf_area_m2", None):
+        self._frame_rel = self._frame_q = self._frame_la = self._frame_vig = None
+        if getattr(cf, "earned_power", None) is None and not getattr(cf, "fork_leaf_area_m2", None) and not getattr(cf, "limb_rivalry", None):
             return
         T = self.tree
         sc = T.scaffold[starts].astype(np.int64)
@@ -2107,6 +2113,20 @@ class GrowthModel:
         np.add.at(la, sc[on], bud_leaf[on])
         q = np.divide(e, la, out=np.ones(T.n), where=la > 0.0)
         self._frame_la = la
+        rivalry = getattr(cf, "limb_rivalry", None)
+        if rivalry:
+            # a limb's supply goes with how its leaf area compares with its neighbours' on the stem: the larger of two limbs side by side has the better wood to feed it,
+            # so it pulls ahead and the other falls behind.  Neighbours, not the whole tree, so a young limb isn't held back by old ones far below it
+            firsts = np.nonzero(la > 0.0)[0]
+            if firsts.size >= 3:
+                z = T.pos[T.parent[firsts], 2]
+                by_z = firsts[np.argsort(z)]
+                vals = la[by_z]
+                k = int(cf.limb_rivals)
+                med = np.array([float(np.median(vals[max(i - k, 0): i + k + 1])) for i in range(len(vals))])
+                vig = np.ones(T.n)
+                vig[by_z] = np.power(vals / np.maximum(med, 1e-9), float(rivalry))
+                self._frame_vig = vig
         if getattr(cf, "earned_power", None) is None:
             return
         self._frame_q = np.minimum(q, 1.0)
@@ -2207,6 +2227,10 @@ class GrowthModel:
         for i in np.nonzero(~limb_tip[at])[0].tolist():
             share[i] = self._frame_reach.get(int(node[i]), 1.0)
         goal = self._frame_goal(base, np.where(limb_tip[at], first_of[T.axis[node]], -1)) * share
+        vig = getattr(self, "_frame_vig", None)
+        if vig is not None:
+            limb_of = first_of[T.axis[node]]
+            goal = goal * np.where(limb_tip[at] & (limb_of >= 0), np.minimum(vig[np.minimum(np.maximum(limb_of, 0), len(vig) - 1)], 1.0), 1.0)
         # how long the limb's own axis has grown (a steep limb gains no reach, and mustn't climb the stem to find it)
         alive = T.death[:n] < 0
         length = np.bincount(T.axis[:n][alive], weights=T.length[:n][alive], minlength=len(self.axis_phase))
@@ -2251,6 +2275,8 @@ class GrowthModel:
             ids = np.nonzero(side)[0]
             if ids.size:
                 twig = float(cf.twig_shoot_max_m) * np.minimum(q_bud[ids], 1.0) * float(hd["water"])
+                if vig is not None:
+                    twig = twig * np.minimum(vig[np.minimum(np.maximum(first_of[ax[ids]], 0), len(vig) - 1)], 1.0)
                 at = np.concatenate([at, ids])
                 plan = np.concatenate([plan, np.minimum(twig / full[ids], float(nmax))])
         return at, plan

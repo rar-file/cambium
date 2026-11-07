@@ -1664,6 +1664,12 @@ crown_frame:
   full_crown_spur_years: null
   # TUNED, against lone low limbs: a limb dies when the light on its leaves is under this share of the crown's mean, at the same time as the other death lines.  null: off.
   limb_relative_light: null
+  # TUNED, against the look: a limb's supply goes with its leaf area over the median of its neighbours' on the stem, to this power.  null: off.
+  limb_rivalry: null
+  # TUNED, against nothing: how many limbs on each side count as neighbours.
+  limb_rivals: 5
+  # TUNED, against the width of open-grown trees: no limb's reach over the published crown.
+  reach_capped: false
   # TUNED: with a value, a limb's reach goes with the light on its leaves this year, to this power, and its side shoots' length with that light,
   # in place of the table by place in the crown (top_share, peak_depth, base_share, profile_power) and limb ageing.  null: off.
   earned_power: null
