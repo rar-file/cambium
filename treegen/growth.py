@@ -1670,6 +1670,7 @@ class GrowthModel:
             if hd["frame_at"] is not None:
                 caps[hd["frame_at"]] = np.minimum(self._frame_room(starts, hd, full, nmax)[hd["frame_at"]], hd["frame_v"])
                 hd["frame_v"] = caps[hd["frame_at"]].copy()
+                caps = self._frame_twig_caps(starts, len(term_nodes), full, caps, hd)
             hd["caps"], hd["thr"], hd["lead_at"] = caps, thr, lead_at
 
         def shoots(lam):
@@ -1828,6 +1829,8 @@ class GrowthModel:
         if d is None:
             d = self._frame_named = {}
             self._frame_gsa = {}       # limb's axis -> its own set-point
+            self._frame_reach = {}     # named bud -> its limb's own share of the frame's reach
+            self._frame_axis_reach = {}  # limb's axis -> the same
             self._frame_since = 0.0    # stem grown since the last named bud (m)
             self._frame_azimuth = 0.0
             self._frame_rng = np.random.default_rng([self.seed, 7741])
@@ -1871,6 +1874,7 @@ class GrowthModel:
                 continue
             self._frame_since = 0.0
             theta = math.radians(float(np.clip(rng.normal(float(cf.angle_mean_deg), sd), lo, hi)))
+            self._frame_reach[node] = float(np.exp(rng.normal(0.0, float(cf.reach_scatter))))
             self._frame_azimuth += math.radians(float(cf.azimuth_step_deg) + float(rng.normal(0.0, float(cf.azimuth_sd_deg))))
             d = T.dir[node] / max(float(np.linalg.norm(T.dir[node])), 1e-12)
             a = np.array([math.cos(self._frame_azimuth), math.sin(self._frame_azimuth), 0.0])
@@ -1880,6 +1884,42 @@ class GrowthModel:
             T.lat[node] = LAT_DORMANT
             T.no_axil[node] = False
             named[node] = theta
+
+    def _frame_goal(self, base) -> np.ndarray:
+        """How far a limb starting at these stem nodes may reach (m), before its own share."""
+        T, cf = self.tree, self.sp.crown_frame
+        h, _, crown = self._frame_crown()
+        d_wood = self.dbh_m()
+        d_ob = 100.0 * float(cf.over_bark_ratio) * d_wood if d_wood is not None else 0.0
+        reach_max = 0.5 * min(float(cf.crown_a) + float(cf.crown_b) * d_ob, float(cf.young_a) + float(cf.young_b) * h)
+        depth = np.clip((h - T.pos[base, 2]) / crown, 0.0, 1.0)
+        top = float(cf.top_share)
+        return reach_max * (top + (1.0 - top) * np.power(depth, float(cf.profile_power)))
+
+    def _frame_twig_caps(self, starts, n_term, full, caps, hd) -> np.ndarray:
+        """Twigs stay inside the reach of the limb they stand on: free to grow down, along or inward, as light and carbon
+        allow, but going outward they run out of room a little past the limb's own reach."""
+        T, cf = self.tree, self.sp.crown_frame
+        lim = caps.copy()
+        keep = np.ones(len(starts), bool)
+        if hd["frame_at"] is not None:
+            keep[hd["frame_at"]] = False
+        keep[hd["lead_at"]] = False
+        sc = T.scaffold[starts].astype(np.int64)
+        i = np.nonzero(keep & (sc > 0) & (T.order[starts] >= 1))[0]
+        if not i.size:
+            return lim
+        node, first = starts[i], sc[i]
+        base = T.parent[first]
+        d = np.where((i < n_term)[:, None], T.term_dir[node], T.lat_dir[node])[:, :2]
+        off = T.pos[node, :2] - T.pos[base, :2]
+        r = np.maximum(np.hypot(off[:, 0], off[:, 1]), 1e-6)
+        outward = (d * off).sum(1) / r
+        share = np.array([self._frame_axis_reach.get(int(a), 1.0) for a in T.axis[first].tolist()])
+        goal = self._frame_goal(base) * share * float(cf.twig_overshoot)
+        room = np.maximum(goal - r, 0.0) / np.maximum(outward, 0.05)
+        lim[i] = np.where(outward > 0.05, np.minimum(lim[i], room / full[i]), lim[i])
+        return lim
 
     def _frame_room(self, starts, hd, full, nmax) -> np.ndarray:
         """The most each bud may make without ending above the leader's top, in metamers."""
@@ -1914,18 +1954,17 @@ class GrowthModel:
         at = np.nonzero(limb_tip | is_named)[0]
         if not at.size:
             return None, None
-        h, _, crown = self._frame_crown()
-        d_wood = self.dbh_m()
-        d_ob = 100.0 * float(cf.over_bark_ratio) * d_wood if d_wood is not None else 0.0
-        reach_max = 0.5 * min(float(cf.crown_a) + float(cf.crown_b) * d_ob, float(cf.young_a) + float(cf.young_b) * h)
         node = starts[at]
         base = np.where(limb_tip[at], T.parent[first_of[T.axis[node]]], node)
-        depth = np.clip((h - T.pos[base, 2]) / crown, 0.0, 1.0)
-        top = float(cf.top_share)
-        goal = reach_max * (top + (1.0 - top) * depth)
-        reach = np.hypot(T.pos[node, 0] - T.pos[base, 0], T.pos[node, 1] - T.pos[base, 1])
-        out = np.where(limb_tip[at], np.hypot(T.term_dir[node, 0], T.term_dir[node, 1]), np.hypot(T.lat_dir[node, 0], T.lat_dir[node, 1]))
-        grow = np.minimum(float(cf.chase) * np.maximum(goal - reach, 0.0) / np.maximum(out, 0.5), float(cf.limb_shoot_max_m))
+        share = np.ones(len(at))
+        for i, k in enumerate(node.tolist()):
+            share[i] = self._frame_axis_reach.get(int(T.axis[k]), 1.0) if limb_tip[at[i]] else self._frame_reach.get(k, 1.0)
+        goal = self._frame_goal(base) * share
+        # how long the limb's own axis has grown (a steep limb gains no reach, and mustn't climb the stem to find it)
+        alive = T.death[:n] < 0
+        length = np.bincount(T.axis[:n][alive], weights=T.length[:n][alive], minlength=len(self.axis_phase))
+        grown = np.where(limb_tip[at], length[T.axis[node]], 0.0)
+        grow = np.minimum(float(cf.chase) * np.maximum(goal * float(cf.length_per_reach) - grown, 0.0), float(cf.limb_shoot_max_m))
         light = np.minimum(1.0, q_bud[at] / float(cf.light_full)) ** float(cf.light_exponent)
         grow = grow * light * float(hd["water"])
         return at, np.minimum(grow / full[at], float(nmax))
@@ -2141,6 +2180,7 @@ class GrowthModel:
                 drawn = self._frame_buds().pop(int(starts[i]), None)
                 if drawn is not None:
                     self._frame_gsa[int(axis[i])] = drawn
+                    self._frame_axis_reach[int(axis[i])] = self._frame_reach.pop(int(starts[i]), 1.0)
             own = self._frame_setpoints()[axis]
             gsa = np.where(np.isfinite(own), own, gsa)
         if self.reit_axes:

@@ -1395,6 +1395,15 @@ crown_frame:
   # A limb's reach at the top of the crown as a share of its reach at the crown base: Lintunen 2013 Fig. 5 (model output,
   # as above), chord 0.254 m at the top and 1.54 m at the base, near a straight line between.
   top_share: 0.165
+  # A limb's length over its reach at the crown base: Lintunen 2013 Fig. 5's chord of 1.54 m (model output) over half of
+  # Hemery's crown at his tree's 10 cm stem (1.44 m), so 1.07.
+  length_per_reach: 1.07
+  # TUNED, against the look: reach down the crown goes as depth^this.  1 is that straight line; under 1 is a rounder crown.
+  profile_power: 1.0
+  # TUNED, against Evo's spread of crown diameter at one stem diameter (about +-20 %): each limb's own reach, log-normal SD.
+  reach_scatter: 0.2
+  # TUNED, against nothing yet: twigs on a limb may go this many times its own reach, outward; down and in as they please.
+  twig_overshoot: 1.1
   # TUNED, against nothing yet: each year a limb goes for this share of what's left to its reach.
   chase: 0.5
   # TUNED, against nothing yet: the longest shoot a limb makes in a year (m).
