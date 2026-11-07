@@ -1409,6 +1409,11 @@ crown_frame:
   # of a limb's longest.  0: it doesn't.  TUNED, against double tops in 34.9 % of trees (Zeltins et al. 2018 Table 1; 6.0-75.1 by
   # clone).  A number, not true or false, so that this block adds nothing to the golden hash while it's off.
   fork_shoot_share: 1.0
+  # How far down the crown a limb may reach all the way, as a share of crown length.  Hagemeier & Leuschner 2019a, closed stands: all leaf area
+  # in the upper half, most at about 0.80 of height, crown radius the same, so (1 - 0.8) / (1 - 0.5) = 0.4.  1: only at the crown base (Lintunen's young trees).
+  peak_depth: 1.0
+  # TUNED, against the look of open-grown photos (not a cone): a limb's reach at the crown base, as a share of the widest.  1: no fall.
+  base_share: 1.0
   # TUNED, against the look: reach down the crown goes as depth^this.  1 is that straight line; under 1 is a rounder crown.
   profile_power: 1.0
   # TUNED, against Evo's spread of crown diameter at one stem diameter (about +-20 %): each limb's own reach, log-normal SD.
@@ -1419,6 +1424,12 @@ crown_frame:
   chase: 0.5
   # TUNED, against nothing yet: the longest shoot a limb makes in a year (m).
   limb_shoot_max_m: 0.5
+  # TUNED, against the open-grown band in reference.dbh: the most leaf area the crown can carry, per m2 of the frame's crown.  A sink
+  # limit standing in for what really stops a tree with light to spare (nutrients, water, the shell of a real crown), with the carbon
+  # it can't use lost.  Stands reach 3.6-5.4 per m2 of ground (Hagemeier & Leuschner 2019a), so a stand tree shouldn't meet it.
+  crown_lai_max: 6.0
+  # TUNED, against the open-grown band in reference.dbh: the share of what a full crown can't use that goes on the stem.  0: it's lost.
+  surplus_to_stem: 0.0
   # TUNED, against the look: thin whips at the top go when a limb's shoot can't outrun the leader's.  This is the floor on that, m.
   limb_shoot_floor_m: 0.15
   # TUNED, against leaf area and stem of open-grown trees: one bud in this many, on limbs and finer, can start a long shoot; the

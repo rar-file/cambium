@@ -1768,6 +1768,13 @@ class GrowthModel:
                 # the crown can't add more leaf area in a year than this many times what it has (sink
                 # limit, standing in for nutrients and competition); what's left goes to the store or is lost
                 limit = float(sp.height_driver.leaf_growth_max) * float(la_now[0])
+                full_crown = False
+                if self._frame_on() and getattr(sp.crown_frame, "crown_lai_max", None):
+                    # nor more than the frame's crown can hold, a sink limit: without it a tree with light to spare
+                    # spends everything on more leaves, and they pay for more still
+                    room_la = max(float(sp.crown_frame.crown_lai_max) * math.pi * self._frame_reach_max() ** 2 - float(la_now[0]), 0.0)
+                    full_crown = room_la < limit
+                    limit = min(limit, room_la)
 
                 def side_area(x):
                     v, grow = shoots(x)
@@ -1785,6 +1792,19 @@ class GrowthModel:
                             b = mid
                     lo = a
                     self._unspent = max(target - parts(lo)[0], 0.0)
+                    share_stem = float(getattr(getattr(sp, "crown_frame", None), "surplus_to_stem", 0.0) or 0.0)
+                    if full_crown and share_stem > 0.0 and self._unspent > 0.0:
+                        # what a full crown can't use goes on the stem, as a tree in the open has it: rings by the leaf area above
+                        stem = T.trunk_chain(self.leader_axes)
+                        stem = stem[stem < n0]
+                        w = la_now[stem] / max(float(la_now[0]), 1e-12)
+                        spread = float((w * L[stem]).sum())
+                        if spread > 0.0:
+                            used = share_stem * self._unspent
+                            ring_out = parts(lo)[1].copy()
+                            ring_out[stem] += w * used * unit / spread
+                            self._unspent -= used
+                            return lo, ring_out
             return lo, parts(lo)[1]
 
         next_leaves = max(float(getattr(fw, "early_leaves", 0.0) or 0.0), float(fw.spur))
@@ -1901,19 +1921,29 @@ class GrowthModel:
             T.no_axil[node] = False
             named[node] = theta
 
-    def _frame_goal(self, base) -> np.ndarray:
-        """How far a limb starting at these stem nodes may reach (m), before its own share."""
-        T, cf = self.tree, self.sp.crown_frame
-        h, _, crown = self._frame_crown()
+    def _frame_reach_max(self) -> float:
+        """The crown's radius, from the stem and the height (m)."""
+        cf = self.sp.crown_frame
+        h, _, _ = self._frame_crown()
         d_wood = self.dbh_m()
         d_ob = 100.0 * float(cf.over_bark_ratio) * d_wood if d_wood is not None else 0.0
         # the crown follows the stem, and the stem follows the crown's leaves: with nothing to hold it, a tree in the open runs away.
         # So no more stem counts here than a birch of this height has at the most
         d_ob = min(d_ob, float(cf.stem_cm_per_height_m) * h)
-        reach_max = 0.5 * min(float(cf.crown_a) + float(cf.crown_b) * d_ob, float(cf.young_a) + float(cf.young_b) * h)
+        return 0.5 * min(float(cf.crown_a) + float(cf.crown_b) * d_ob, float(cf.young_a) + float(cf.young_b) * h)
+
+    def _frame_goal(self, base) -> np.ndarray:
+        """How far a limb starting at these stem nodes may reach (m), before its own share."""
+        T, cf = self.tree, self.sp.crown_frame
+        h, _, crown = self._frame_crown()
+        reach_max = self._frame_reach_max()
         depth = np.clip((h - T.pos[base, 2]) / crown, 0.0, 1.0)
+        peak = float(cf.peak_depth)
         top = float(cf.top_share)
-        return reach_max * (top + (1.0 - top) * np.power(depth, float(cf.profile_power)))
+        above = top + (1.0 - top) * np.power(np.minimum(depth / peak, 1.0), float(cf.profile_power))
+        # below the widest point the frame falls again, to base_share at the crown base: a crown is not a cone
+        below = 1.0 - (1.0 - float(cf.base_share)) * np.maximum(depth - peak, 0.0) / max(1.0 - peak, 1e-6)
+        return reach_max * above * below
 
     def _frame_twig_caps(self, starts, n_term, full, caps, hd) -> np.ndarray:
         """Twigs stay inside the reach of the limb they stand on: free to grow down, along or inward, as light and carbon
@@ -1999,7 +2029,10 @@ class GrowthModel:
             # a reiterated limb goes up as a second top: only the room under the tree's top holds it (_frame_room)
             grow = np.where(limb_tip[at] & np.isin(T.axis[node], np.fromiter(self.reit_axes, np.int64)), float(cf.fork_shoot_share) * longest, grow)
         light = np.minimum(1.0, q_bud[at] / float(cf.light_full)) ** float(cf.light_exponent)
-        grow = grow * light * float(hd["water"])
+        # a limb loses vigour as it ages (resource.branch_aging_years, Barthelemy & Caraglio 2007), so the crown's old lower limbs fall
+        # behind the younger ones above them, as a crown in the open needs, or it's a cone
+        age = np.where(limb_tip[at], np.maximum(self.year + 1.0 - T.scaffold_birth[node], 0.0), 0.0)
+        grow = grow * light * float(hd["water"]) * np.exp(-age / float(self.sp.resource.branch_aging_years))
         return at, np.minimum(grow / full[at], float(nmax))
 
     # -- the height limit (height_driver in the species file) -----------
