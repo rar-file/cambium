@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from speed_compare import TEST_A  # noqa: E402
 
-LOSSLESS = ["speed.compiled_carbon=true", "speed.compiled_mechanics=true", "speed.light_layers=true", "speed.keep_soil_grids=true", "speed.quick_solve=true"]
+LOSSLESS = ["speed.compiled_carbon=true", "speed.compiled_mechanics=true", "speed.light_layers=true", "speed.keep_soil_grids=true", "speed.quick_solve=true", "speed.quick_levels=true"]
 ROWS = ["speed.light_rows=true"]
 DROP = ["speed.drop_dead=true"]
 K26 = ["speed.sky_elevations_deg=[15,45,75]", "speed.sky_azimuth_count=8", "speed.sun_hour_step=2.0"]     # 16 sky, 8 sun at this site
@@ -45,9 +45,12 @@ def speedy(name: str) -> list:
     return LOSSLESS if name in ("A_base", "D_base") else LOSSLESS + DROP
 
 
+PREFIX = "pc_speed" if sys.platform == "win32" else "node_speed"      # PC and server results are never compared
+
+
 def trees(name: str) -> int:
     sets, first = SETS[name]
-    label = f"node_speed_t_{name}"
+    label = f"{PREFIX}_t_{name}"
     cmd = [sys.executable, str(ROOT / "tools" / "tree_table.py"), "run", "--label", label, "--seeds", "20", "--first-seed", str(first), "--years", "60"]
     for s in speedy(name) + sets:
         cmd += ["--set", s]
@@ -56,7 +59,7 @@ def trees(name: str) -> int:
 
 def plots(name: str) -> int:
     sets, first = SETS[name]
-    label = f"node_speed_p_{name}"
+    label = f"{PREFIX}_p_{name}"
     cmd = [sys.executable, str(ROOT / "tools" / "ensemble.py"), "plots", "--label", label, "--seeds", "5", "--first-seed", str(1 if first == 1 else 6), "--years", "60",
            "--mode", "natural", "--trees", "25", "--no-saves"]
     for s in speedy(name) + sets:

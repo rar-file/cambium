@@ -533,6 +533,47 @@ def parts_function(hd, lead_at, ahead, share, thr, caps, full, per_met, early, l
     return parts
 
 
+@njit(cache=True)
+def level_order(mask, depth, is_lateral):
+    """Tree.levels' node order, by counting: nodes by depth, in index order within a depth (what a stable sort gives).  Returns
+    the nodes so sorted, each depth's start, the nodes below the base level by level (Levels.down), and the same deepest level
+    first, each level's main children before its laterals (Levels.up)."""
+    n = mask.shape[0]
+    dmax = 0
+    count = 0
+    for i in range(n):
+        if mask[i]:
+            count += 1
+            if depth[i] > dmax:
+                dmax = depth[i]
+    bounds = np.zeros(dmax + 2, np.int64)
+    for i in range(n):
+        if mask[i]:
+            bounds[depth[i] + 1] += 1
+    for k in range(dmax + 1):
+        bounds[k + 1] += bounds[k]
+    fill = bounds[:-1].copy()
+    idx = np.empty(count, np.int64)
+    for i in range(n):
+        if mask[i]:
+            d = depth[i]
+            idx[fill[d]] = i
+            fill[d] += 1
+    down = idx[bounds[1]:]
+    up = np.empty(count - bounds[1], np.int64)
+    w = 0
+    for k in range(dmax, 0, -1):
+        for j in range(bounds[k], bounds[k + 1]):
+            if not is_lateral[idx[j]]:
+                up[w] = idx[j]
+                w += 1
+        for j in range(bounds[k], bounds[k + 1]):
+            if is_lateral[idx[j]]:
+                up[w] = idx[j]
+                w += 1
+    return idx, bounds, down, up
+
+
 def quick_bisect(parts, target: float, guess: float, iterations: int = 40) -> tuple:
     """The (lo, hi) of _growth_factor's solve_for: lo, hi = 0, 1, doubling hi until parts(hi) reaches the target (or hi reaches
     1e7), then that many halvings; with far fewer evaluations.  parts rises with lambda, so a value's side of the target

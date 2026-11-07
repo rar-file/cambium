@@ -248,10 +248,9 @@ def one(seed: int, sets: list, out: Path, years: int, stand: bool = True) -> int
     model = GrowthModel(sp, make_environment(env_p), seed, stand=stand, soil=make_soil(env_p), lean=True)
     yearly, snaps = [], []
     for year in range(1, years + 1):
-        n_before = model.tree.n
         model.step()
         T = model.tree
-        new = np.arange(n_before, T.n)
+        new = np.nonzero(T.birth[:T.n] == year)[0]     # by birth, not by count: speed.drop_dead renumbers nodes
         lead = np.isin(T.axis[new], np.fromiter(model.leader_axes, np.int64))
         lengths = T.length[new]
         c = model.stats[-1].get("carbon", {})

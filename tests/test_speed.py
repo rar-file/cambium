@@ -18,7 +18,7 @@ from treegen import checkpoint, fast  # noqa: E402
 from treegen.growth import GrowthModel  # noqa: E402
 from treegen.plot import Plot  # noqa: E402
 
-LOSSLESS = ["speed.compiled_carbon=true", "speed.compiled_mechanics=true", "speed.light_layers=true", "speed.keep_soil_grids=true", "speed.quick_solve=true"]
+LOSSLESS = ["speed.compiled_carbon=true", "speed.compiled_mechanics=true", "speed.light_layers=true", "speed.keep_soil_grids=true", "speed.quick_solve=true", "speed.quick_levels=true"]
 
 
 def test_sum_is_numpys_sum():

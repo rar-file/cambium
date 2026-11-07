@@ -127,6 +127,9 @@ class GrowthModel:
         if self.roots is not None:
             self.roots.lean = self.lean
             self.roots.keep_soil_grids = fast.on(species, "keep_soil_grids")
+        self.tree.quick_levels = fast.on(species, "quick_levels")
+        if self.roots is not None:
+            self.roots.tree.quick_levels = self.tree.quick_levels
         self.light.fast_rows = fast.on(species, "light_rows")
         self.light.fast_layers = fast.on(species, "light_layers") or self.light.fast_rows
         if self.stand:
@@ -756,7 +759,7 @@ class GrowthModel:
         # size and LMA from their light (sun and shade leaves)
         for nodes, q in ((term_nodes, Qterm[term_nodes]), (lat_nodes, Qlat[lat_nodes])):
             T.leaf_size[nodes], T.lma[nodes] = self.leaf_traits(q)
-        self._bud_q = (Qterm, Qlat)
+        self._bud_q = None if fast.on(sp, "drop_dead") else (Qterm, Qlat)     # nothing in the model reads it
         self._crown_light = self._crown_light_asymmetry(term_nodes, lat_nodes, Qterm, Qlat, w_term, w_lat)
 
         # 2. shedding ------------------------------------------------------

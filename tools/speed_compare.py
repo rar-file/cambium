@@ -72,6 +72,11 @@ def one(seed: int, years: int, sets: list, plot_trees: int = 0) -> dict:
 
 
 def child(seed, years, sets, plot_trees) -> dict:
+    from batch import FLOOR_GB, free_gb
+
+    need = FLOOR_GB + (0.8 if plot_trees else 0.6)     # the PC's memory floor (PROTOCOL.md section 6): wait for room
+    while free_gb() < need:
+        time.sleep(20)
     cmd = [sys.executable, str(Path(__file__).resolve()), "one", "--seed", str(seed), "--years", str(years), "--plot-trees", str(plot_trees)]
     for s in sets:
         cmd += ["--set", s]
@@ -101,7 +106,7 @@ def main():
         return
     if a.what == "times":
         # each set in turn, round after round, so the PC's other work falls on all of them; the quickest of each is the table
-        from speed_queue import LOSSLESS, SETS
+        from speed_queue import SETS, speedy
 
         names = a.sets.split(",")
         seeds = [int(x) for x in a.seeds.split(",")]
@@ -113,7 +118,7 @@ def main():
                     if n.startswith("OFF_"):
                         sets = SETS[n[4:]][0]        # settings of that name with no speed settings at all
                     else:
-                        sets = LOSSLESS + SETS[n][0]
+                        sets = speedy(n) + SETS[n][0]
                     r = child(seed, a.years, sets, a.plot_trees)
                     best[n][seed] = min(best[n].get(seed, 1e9), r["seconds"])
                     peak[n] = max(peak[n], r.get("peak_mb") or 0.0)
