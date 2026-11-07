@@ -732,10 +732,13 @@ def run_table(a) -> None:
     plain = []
     chaos = []
     saves = []
+    singles = defaultdict(list)
     for folder in a.folders:
         for p in sorted(Path(folder).expanduser().glob("*.json")):
             d = json.loads(p.read_text(encoding="utf-8"))
-            if p.name.startswith("chaos_"):
+            if p.name.startswith("single_"):
+                singles[d["arm"]] += d["trees"]
+            elif p.name.startswith("chaos_"):
                 chaos.append(d)
             elif p.name.startswith("saves_"):
                 saves.append(d)
@@ -762,6 +765,8 @@ def run_table(a) -> None:
         out.append(table_chaos(d))
     if saves:
         out.append(table_saves(saves))
+    if singles:
+        out.append(table_single(singles))
     for k, docs in sorted(trees.items()):
         out.append(table_tree(docs, f"Stand tree, {k}"))
     for k, docs in sorted(plots.items()):
@@ -889,6 +894,69 @@ def table_saves(docs: list) -> str:
     return "\n".join(lines) + "\n"
 
 
+SINGLE_KEYS = ("height_m", "dbh_cm", "leaf_area_m2", "crown_width_m", "crown_ratio", "lai", "subcanopy_diffuse_light_pct")
+
+
+def run_single(a) -> None:
+    """Does single precision change the tree?  Stand trees with every 8-byte number in the node arrays as 4, from outside: the model's code is the same, and numpy then
+    works in single precision on those arrays.  With no speed settings, since the compiled copies assume doubles.  --set single=1 is this arm; without it, the plain baseline."""
+    from treegen.structure import Tree
+
+    single = a.single
+    if single:
+        for k, dt in list(Tree.SCALAR.items()):
+            if dt is np.float64:
+                Tree.SCALAR[k] = np.float32
+        init = Tree.__init__
+
+        def init32(self, capacity=4096):
+            init(self, capacity)
+            for k in Tree.VEC:
+                setattr(self, k, getattr(self, k).astype(np.float32))
+        Tree.__init__ = init32
+    out = BASE / a.label
+    out.mkdir(parents=True, exist_ok=True)
+    cli, checkpoint, _, _ = load(a)
+    from treegen.growth import GrowthModel
+
+    env_p, _ = cli.load_environment("sweden_open_field")
+    doc = []
+    arm = "single" if single else "double"
+    for seed in range(a.seed, a.seed + a.seeds):
+        sp, _ = cli.load_species("betula_pendula")
+        checkpoint.set_values(sp, settings(a))
+        t0 = time.perf_counter()
+        m = GrowthModel(sp, cli.make_environment(env_p), seed, stand=True, soil=cli.make_soil(env_p), lean=True)
+        rows, mem = {}, {}
+        for _ in range(a.years):
+            m.step()
+            if m.year in AGES:
+                rows[str(m.year)] = {k: m.stats[-1].get(k) for k in SINGLE_KEYS}
+                mem[str(m.year)] = tree_memory(m)["state_mb"]
+        doc.append({"seed": seed, "seconds": time.perf_counter() - t0, "rows": rows, "state_mb": mem, "dtype": str(m.tree.pos.dtype)})
+        print(f"{arm} seed {seed}: {doc[-1]['seconds']:.0f} s, {doc[-1]['dtype']}, height at the end {rows[str(a.years)]['height_m'] if str(a.years) in rows else None}, state {mem.get(str(a.years))} MB", flush=True)
+        (out / f"single_{arm}_s{a.seed}.json").write_text(json.dumps({"arm": arm, "trees": doc}), encoding="utf-8")
+
+
+def table_single(docs: dict) -> str:
+    d, s = docs.get("double"), docs.get("single")
+    if not d or not s:
+        return ""
+    lines = [f"### Single precision against double, stand trees, no speed settings, {len(d)} and {len(s)} seeds (unpaired: a seed makes a different tree after any change)", "",
+             "| Age | Measure | Double, mean | Single, mean | Change, % | z |", "|---|---|---|---|---|---|"]
+    for age in map(str, PLAN_AGES):
+        for k in SINGLE_KEYS:
+            x = [t["rows"][age][k] for t in d if age in t["rows"] and t["rows"][age].get(k) is not None]
+            y = [t["rows"][age][k] for t in s if age in t["rows"] and t["rows"][age].get(k) is not None]
+            if len(x) > 1 and len(y) > 1:
+                mx, my = float(np.mean(x)), float(np.mean(y))
+                se = float(np.sqrt(np.var(x, ddof=1) / len(x) + np.var(y, ddof=1) / len(y)))
+                lines.append(f"| {age} | {k} | {mx:.3f} | {my:.3f} | {100 * (my / mx - 1) if mx else 0:+.1f} | {(my - mx) / se if se else 0:+.1f} |")
+    for name, t in (("double", d), ("single", s)):
+        lines.append(f"\n{name}: {_mean([x['seconds'] for x in t]):.0f} s a tree; model state at 50, 60: {_mean([x['state_mb'].get('50') for x in t]):.1f}, {_mean([x['state_mb'].get('60') for x in t]):.1f} MB.")
+    return "\n".join(lines) + "\n"
+
+
 def run_batch(a) -> None:
     import subprocess
 
@@ -903,8 +971,9 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="what", required=True)
-    for name in ("tree", "plot", "mesh", "hot", "lines", "chaos", "saves"):
+    for name in ("tree", "plot", "mesh", "hot", "lines", "chaos", "saves", "single"):
         p = sub.add_parser(name)
+        p.add_argument("--single", action="store_true", help="single: this arm in single precision")
         p.add_argument("--label", required=True)
         p.add_argument("--seed", type=int, default=1)
         p.add_argument("--seeds", type=int, default=3, help="chaos: how many seeds from --seed")
@@ -922,7 +991,7 @@ def main():
     b = sub.add_parser("batch", help="several of these one after another, each its own process: one core, no overlap")
     b.add_argument("commands", nargs="+")
     a = ap.parse_args()
-    {"tree": run_tree, "plot": run_plot, "mesh": run_mesh, "hot": run_hot, "lines": run_lines, "chaos": run_chaos, "saves": run_saves, "table": run_table, "batch": run_batch}[a.what](a)
+    {"tree": run_tree, "plot": run_plot, "mesh": run_mesh, "hot": run_hot, "lines": run_lines, "chaos": run_chaos, "saves": run_saves, "single": run_single, "table": run_table, "batch": run_batch}[a.what](a)
 
 
 if __name__ == "__main__":
