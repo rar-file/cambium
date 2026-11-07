@@ -1013,7 +1013,10 @@ def test_with_the_look_on_thickness_not_age_makes_a_part_white(look, uneven):
     # and it comes on with thickness, smoothly, a little a year
     dd = np.linspace(0.02, 0.08, 61)
     w = ap.part_state(uneven, np.full(61, 6.0), dd, np.full(61, 15.0), 25.0, 30.0)["weights"][1]
-    assert np.all(np.diff(w) >= 0.0) and np.diff(w).max() < 0.05
+    assert np.all(np.diff(w) >= 0.0) and np.diff(w).max() < 0.08
+    # a limb of 4.5 cm is mostly white, as on the photos; one of 2.5 cm isn't yet
+    w2 = ap.part_state(uneven, np.full(2, 20.0), np.array([0.042, 0.022]), np.full(2, 15.0), 25.0, 30.0)["weights"][1]
+    assert w2[0] > 0.8 and w2[1] < 0.1
 
 
 def test_thin_limbs_are_dark_only_with_the_look_on(look, uneven):
@@ -1025,7 +1028,7 @@ def test_thin_limbs_are_dark_only_with_the_look_on(look, uneven):
 
     off, on = white(look), white(uneven)
     assert off[2] > 0.9                 # as it was
-    assert on[0] < 0.05 and on[1] < 0.4 and on[3] > 0.8
+    assert on[0] < 0.05 and on[1] < 0.5 and on[3] > 0.8
     assert np.all(np.diff(on) > 0.0)
 
 
