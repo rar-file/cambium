@@ -1942,6 +1942,13 @@ class GrowthModel:
             hd["use"] = {"pool": float(pool), "lead": float(cost[lead_at]), "limbs": float(cost[is_limb].sum()),
                          "twigs": float(cost.sum() - cost[lead_at] - cost[is_limb].sum()), "rings": float((ring * L).sum()) / unit,
                          "twig_shoots": int((grow & ~is_limb).sum()), "at_cap": int((grow & ~is_limb & (v >= caps)).sum())}
+            if self._frame_earns():
+                # what no sink could take was never fixed: leaves whose sugars have nowhere to go slow down.  Growth is as it was; the books say so, in place of carbon lost
+                spent = hd["use"]["lead"] + hd["use"]["limbs"] + hd["use"]["twigs"] + hd["use"]["rings"]
+                idle = max(float(pool) - spent, 0.0)
+                self.carbon["sink_limited"] = idle
+                self.carbon["fixed"] -= idle
+                self.carbon["shoot"] -= idle
         return lam, ring
 
     # -- the crown's frame (crown_frame in the species file) -------------

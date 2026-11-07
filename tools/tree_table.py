@@ -591,7 +591,8 @@ def limbsheet(labels: list) -> None:
                         continue
                     spent = u["lead"] + u["limbs"] + u["twigs"] + u["rings"]
                     lost.append(max(u["pool"] - spent, 0.0) / max(u["pool"], 1e-9))
-                    fix = float(r["per_year"][y].get("carbon", {}).get("fixed", 0.0))
+                    c = r["per_year"][y].get("carbon", {})
+                    fix = float(c.get("fixed", 0.0)) + float(c.get("sink_limited", 0.0))
                     fixed.append(max(u["pool"] - spent, 0.0) / max(fix, 1e-9))
                     cap.append(u["at_cap"] / max(u["twig_shoots"], 1))
             rep = [repola(d, r["per_year"][age]["height_m"]) for d, r in zip(ob, rows)]
