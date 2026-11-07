@@ -474,7 +474,11 @@ class GrowthModel:
             return
         if self.loss_of_dominance_year is None:
             self.loss_of_dominance_year = t
-        tips = np.nonzero((T.order[term_nodes] == 1) & ~lead)[0]
+        if self._frame_earns():
+            # a limb on a replaced leader is order 2 and still a limb
+            tips = np.nonzero((T.scaffold[term_nodes] > 0) & ~lead)[0]
+        else:
+            tips = np.nonzero((T.order[term_nodes] == 1) & ~lead)[0]
         if not tips.size:
             return
         nodes = term_nodes[tips]
