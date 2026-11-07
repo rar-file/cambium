@@ -224,7 +224,7 @@ def test_seed_runs_out_along_x_and_stops_at_the_ends():
 
 
 def test_the_mixed_kernel_is_highest_at_the_tree_and_has_a_tail():
-    r = _spread(lx=1600.0, ly=10.0)
+    r = _spread(lx=1600.0, ly=10.0, far_share=0.005)
     r.count_trees(np.zeros((0, 2)))
     x0 = np.array([[-795.0, 0.0]])
     rain = r.seed_rain(x0, np.array([1.0]))
@@ -284,9 +284,12 @@ def test_seedlings_take_in_the_open_and_not_under_a_closed_canopy():
     seeds = np.array([1e7])
     free = np.zeros(r.cx.shape, bool)
     closed = np.full(r.cx.shape, 0.22)     # this model's closed canopy, at the ground
+    # under a closed canopy's leaf area nothing takes, whatever the light reads
+    r.read_canopy(np.stack([r.cx.ravel(), r.cy.ravel(), np.full(r.cx.size, 15.0)], 1), np.full(r.cx.size, 4.0 * r.csx * r.csy))
     assert r.step(xy, seeds, closed, 0.38, free) == []
+    r.overhead = None
     assert len(r.step(xy, seeds, np.ones(r.cx.shape), 0.38, free)) > 100
-    half = np.where(r.cx < 0.0, 0.22, 1.0)                # half the ground is a gap
+    half = np.where(r.cx < 0.0, 0.10, 1.0)                # half the ground is a gap
     placed = np.array(r.step(xy, seeds, half, 0.38, free))
     assert len(placed) and (placed[:, 0] > -0.1 * r.csx).mean() > 0.99
 
@@ -296,12 +299,12 @@ def test_no_seedling_takes_under_cover_however_bright_the_light_reads():
     r.count_trees(np.zeros((0, 2)))
     xs, ys = np.meshgrid(np.arange(-20.0, 0.0, 0.5), np.arange(-20.0, 20.0, 0.5), indexing="ij")
     canopy = np.stack([xs.ravel(), ys.ravel(), np.full(xs.size, 15.0)], 1)    # crowns over the half with x < 0
-    r.read_canopy(canopy)
-    assert r.overhead[(r.cx > -15.0) & (r.cx < -5.0)].min() > 0.9 and r.overhead[(r.cx > 5.0) & (r.cx < 15.0)].max() < 0.1
+    r.read_canopy(canopy, np.full(xs.size, 4.0 * 0.25))                       # 4 m2 of leaf per m2 of ground
+    assert r.overhead[(r.cx > -15.0) & (r.cx < -5.0)].min() > 3.5 and r.overhead[(r.cx > 5.0) & (r.cx < 15.0)].max() < 0.4
     placed = np.array(r.step(np.array([[0.0, 0.0]]), np.array([1e7]), np.ones(r.cx.shape), 0.38, np.zeros(r.cx.shape, bool)))
     assert len(placed) > 50 and (placed[:, 0] < -6.0).sum() <= 0.1 * len(placed)    # what's left is at the far edge, across the repeat
     low = np.stack([xs.ravel(), ys.ravel(), np.full(xs.size, 1.0)], 1)        # young growth under 2 m is no canopy
-    r.read_canopy(low)
+    r.read_canopy(low, np.full(xs.size, 1.0))
     assert r.overhead.max() == 0.0
 
 
@@ -426,3 +429,22 @@ def test_settings_lists_every_change():
     assert "mortality.enabled=true" in items and "plot.natural_start.area_m2=500.0" in items and "x=1" in items
     sp = species(*items[:-1])
     assert sp.mortality.enabled is True and sp.plot.natural_start.stems_per_ha == 9000.0
+
+
+def test_shade_trial_field_scales_light():
+    import shade_trial
+
+    class Open:
+        p = type("P", (), {"C": 1.0})
+        S, lo, periodic = np.zeros((2, 2, 2)), np.zeros(3), True
+
+        def exposure(self, pos, self_weight, own_shade=None):
+            return np.full(len(pos), 0.8)
+
+        def sample(self, pts):
+            return np.zeros(len(pts))
+
+    f = shade_trial.ShadedField(Open(), 0.25)
+    assert f.exposure(np.zeros((3, 3)), np.zeros(3))[0] == pytest.approx(0.2)
+    assert np.exp(-f.sample(np.zeros((1, 3)))[0]) == pytest.approx(0.25)
+    assert f.relative_light_at_heights([2.0]) is None and f.diffuse_light_at_heights([2.0]) is None

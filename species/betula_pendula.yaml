@@ -1083,9 +1083,12 @@ regeneration:
     # fields whose far edge, 391-776 m from a birch seed stand, holds 256-740 stems/ha at
     # 21-24 years, only 0-4 years younger than near it, with under 5 % cover at 200-600 m
     # at 8-9 years.  Point estimate from a grown edge (tools/spread_estimate.py --patch-age):
-    # 0.002 gives 190-280 stems/ha at 700 m at year 22, this 375-610, 0.01 680-810, and
-    # 0.01 already holds 540-1,210 at 200-600 m by year 9.
-    far_share: 0.005
+    # 0.002 gives 190-280 stems/ha at 700 m at year 22, 0.005 375-610, 0.01 680-810, and
+    # 0.01 already holds 540-1,210 at 200-600 m by year 9.  Then on whole trees, 600 m
+    # strips on the server, 18 years after the first seed (two strips each): 0.005 holds
+    # 1,050-1,130 at 400-500 m and 830-880 at 500-600 m, over the band; this 650-1,050 and
+    # 330-500 (node_f3_strip, node_f3_strip2).
+    far_share: 0.003
     # Tiebel et al. 2020 mapped as seed trees those of DBH at least 12 cm over bark (after
     # Popadyuk et al. 1995, Roloff & Pietzarka 2010, not opened): 11 cm of wood here.
     seed_min_dbh_wood_cm: 11.0
@@ -1117,18 +1120,24 @@ regeneration:
     kernel_reach_m: 1500.0
     # TUNED: the share of germinants living through the first season rises from 0
     # at the first light to 1 at the second (relative, at 0.1 m, canopy only: the
-    # organic layer's rate already holds its field layer's shade).  The first is set
-    # above the 25-29 % where no recruit lived past six years (KNOWN_ISSUES phase 27)
-    # and 234 recruits here, none alive at 10 years; the second so that gaps and open
-    # ground take in full.  Silver birch is a light-demanding pioneer; I found no
-    # opened figure for its first-year light need.
-    establishment_light: [0.30, 0.60]
-    # TUNED: and none takes where more than this share of the ground within about
-    # this radius (a Gaussian's SD, a crown's width) has a leaf above 2 m over it.
-    # Tuned against one plot's windthrow: the light field's contrast is too low to
-    # tell a gap from a canopy (10th-90th percentile 0.42-0.52), and real closed
-    # canopies, at 6.4-19.8 % light, stop seedlings through light alone.
-    canopy_cover_max: 0.5
+    # organic layer's rate already holds its field layer's shade).  Set so that a storm
+    # gap takes: a 14 m gap under a 24 m canopy sees about 25 % of the sky (my arithmetic),
+    # and birch does come up in openings of 78-314 m2 (Hokka et al. 2012, Silva Fennica
+    # 46(5) id 920: about 3,400 birch/ha after 6 seasons, 15,500 new seedlings/ha at 22 %
+    # birch, a spruce mire, mainly downy birch).  At the older 0.30-0.60 no seedling came
+    # up in 4 plots to age 60, with damage on and the ground at 19-21 % light.
+    # This is taking, not living: in steady shade a seedling on mineral soil needs 25 %
+    # to live 12 years under the field layer, 20 % with none (tools/shade_trial.py,
+    # node_f3_shade), so most that take in a small storm patch die at about 5 years.
+    # Huth & Wagner 2006 (For. Ecol. Manage. 229:314; abstract only) found most birch
+    # seedlings in spruce gaps 2-4 years old.
+    establishment_light: [0.15, 0.40]
+    # TUNED: and none takes where the leaf area above 2 m, read over a Gaussian of
+    # canopy_radius_m (a crown's width), is over this many m2 per m2 of ground: against
+    # the closed canopy's 3.6-5.4 (Hagemeier & Leuschner 2019b) and the storm patches of
+    # node_f2_regen, whose leaf area this keeps.  A rule on leaf area, because a rule on
+    # any leaf overhead read 2 m cells as closed with a few crowns left.
+    canopy_lai_max: 2.0
     canopy_radius_m: 3.0
     # Share of a windthrow gap's ground bared by uprooting (Plot.open_gap).  Pit-mound
     # microrelief covers 7-12 % of the ground in all-aged boreal forests [Samonil et
