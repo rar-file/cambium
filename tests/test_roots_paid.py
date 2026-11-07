@@ -149,6 +149,17 @@ def test_measuring_the_roots_changes_nothing():
         assert json.dumps(plain.stats, sort_keys=True) == json.dumps(read.stats, sort_keys=True)
 
 
+def test_the_taproot_stops_at_its_length_whichever_way_stones_turn_it():
+    """Seed 16's taproot never got below taproot_max_depth, and ran on sideways as a thick log, 1.5 m long and 88 kg at 60."""
+    model = _model(True, seed=16)
+    for _ in range(25):
+        model.step()
+    limit = float(model.sp.roots.paid.taproot_length_per_depth) * float(model.sp.roots.taproot_max_depth)
+    R = model.roots.tree
+    on = (model.roots.kind[R.axis[: R.n]] == 0) & (R.death[: R.n] < 0)
+    assert float(R.length[: R.n][on].sum()) <= limit + 1e-6
+
+
 def test_a_radicle_over_a_stone_at_the_surface_goes_round_it():
     """Seed 12 has a stone at the surface under the stand tree's origin.  The collar's short steps once went straight down
     onto it, so the tree never rooted and stood at height 0 for its whole run: 8 of 500 seeds, against none with the setting off."""

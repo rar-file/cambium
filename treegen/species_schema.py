@@ -398,6 +398,7 @@ _n("roots.paid.stump_d_intercept_cm", "cm", 0.0, 50.0, "stump diameter at no ste
 _n("roots.paid.stump_d_per_dbh", "cm/cm", 0.5, 3.0, "stump diameter per stem diameter")
 _n("roots.paid.rel_sum_d2", "-", 0.1, 5.0, "roots' squared base diameters over the stump's")
 _n("roots.paid.fade_per_stump_d", "m/m", 0.01, 50.0, "a root's near-collar widening fades over this, per stump diameter")
+_n("roots.paid.taproot_length_per_depth", "-", 1.0, 10.0, "the taproot stops at this length, per taproot_max_depth")
 _n("roots.paid.stump_fill_power", "-", 0.5, 50.0, "how full the stump is down to where the taproot stops")
 _n("roots.paid.far_d_cm_per_m", "cm", 0.01, 10.0, "diameter beyond the rapid taper, at 1 m of root beyond it")
 _n("roots.paid.far_d_exponent", "-", 0.1, 2.0, "and how it goes with the length")

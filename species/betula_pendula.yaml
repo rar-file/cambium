@@ -1422,7 +1422,10 @@ roots:
     # Sum of the roots' squared base diameters over the stump's.  SOURCE: Kalliokoski, Nygren & Sievanen 2008,
     # Silva Fennica 42:189, Table 3, B. pendula, mean of the five stands: 0.86, 1.02, 0.88 (MT), 1.75 (OMT), 1.29 (VT).
     rel_sum_d2: 1.16
-    # The stump below ground: the stump's cross-section x (1 - (depth / taproot_max_depth) ^ this).  High is nearly a
+    # The taproot stops at this length, per taproot_max_depth, however stones have turned it.  TUNED: long enough to go round
+    # a stone, short enough that a deflected taproot doesn't run on as a thick sideways log (seen on 8 of 20 server seeds).
+    taproot_length_per_depth: 1.25
+    # The stump below ground: the stump's cross-section x (1 - (length along the taproot / taproot_max_depth) ^ this).  High is nearly a
     # cylinder.  TUNED against Repola 2008 Eq. 13, stump 26 kg at 30 cm DBH, 16 cm of it above ground and in the stem here.
     stump_fill_power: 8.0
     # Beyond the widening a root's diameter (cm) = far_d_cm_per_m x (root length beyond it, m) ^ far_d_exponent.

@@ -362,6 +362,8 @@ class RootSystem:
         T.term[it[q_tip[it] < float(p.tip_survival_availability)]] = 0
         tap = np.nonzero((T.term[:T.n] == 1) & (T.death[:T.n] < 0) & (self.kind[T.axis[:T.n]] == 0))[0]
         T.term[tap[-T.pos[tap, 2] > float(p.taproot_max_depth)]] = 0
+        if self._paid() and tap.size and self._taproot_room() < 2.0 * float(p.paid.collar_node_m):
+            T.term[tap] = 0     # (a node can be up to twice collar_node_m long)
         stay = prim[~breaks]
         T.lat_age[stay] += 1
         # the root collar keeps forming main laterals for years; primordia
@@ -489,6 +491,10 @@ class RootSystem:
             finer = max(int(round(l0 / float(p.paid.collar_node_m))), 1)
             nmet = np.where(tap, nmet * finer, nmet)
             seg_len = np.where(tap, seg_len / finer, seg_len)
+            if tap.any():
+                # ... and no more of them than the taproot's length allows, whichever way stones have turned it
+                room = self._taproot_room() / seg_len
+                nmet = np.where(tap, np.minimum(nmet, np.maximum(np.floor(room), 0.0).astype(np.int64)), nmet)
         D = _normalize(np.where(is_lat[:, None], T.lat_dir[starts], T.term_dir[starts]))
         axis = T.axis[starts].astype(np.int64)
         order = T.order[starts].astype(np.int64) + is_lat
@@ -670,6 +676,16 @@ class RootSystem:
     def _paid(self) -> bool:
         return bool(getattr(getattr(self.p, "paid", None), "enabled", False))
 
+    def _taproot_room(self) -> float:
+        """roots.paid: how much longer the taproot may grow (m).  Its length is limited, not only its depth: a tip that stones
+        keep turning aside never gets below taproot_max_depth, and ran on sideways as a stump 1.5 m long and 88 kg [seed 16]."""
+        T = self.tree
+        length, node = 0.0, 0
+        while T.main_child[node] >= 0 and T.death[T.main_child[node]] < 0:
+            node = int(T.main_child[node])
+            length += float(T.length[node])
+        return float(self.p.paid.taproot_length_per_depth) * float(self.p.taproot_max_depth) - length
+
     def _collar_split(self, Qm: np.ndarray, Ql: np.ndarray, power: float) -> tuple:
         """roots.paid: at the collar a root's pull grows slower than its size (its pull to the power ``power``),
         so that no one root runs away with the budget and the rest stay thin [Laitakari 1934: 7-12 dominant roots]."""
@@ -727,11 +743,14 @@ class RootSystem:
         a_tip = math.pi * float(p.tip_radius) ** 2
         area_stump = float(cfg.rel_sum_d2) * math.pi / 4.0 * stump_d_m * stump_d_m
         fade = max(float(cfg.fade_per_stump_d) * stump_d_m, 1e-3)
-        # distance along each root from where it leaves the collar: the taproot's own chain counts as 0
+        # distance along each root from where it leaves the collar: the taproot's own chain counts as 0;
+        # and along the taproot itself
         on_collar = self.kind[T.axis[:n]] == 0
         d = np.where(alive & ~on_collar, T.length[:n], 0.0)
+        along_stump = np.where(alive & on_collar, T.length[:n], 0.0)
         for seg, _, _ in levels[1:]:
             d[seg] += d[T.parent[seg]]
+            along_stump[seg] += along_stump[T.parent[seg]]
         self.path_dist = d
         self.zrt_length = fade
         beyond = T.basipetal(levels, np.where(alive, T.length[:n], 0.0))
@@ -747,7 +766,7 @@ class RootSystem:
         here = np.where(tips & on_collar, a_tip, here)
         carried = T.basipetal(levels, here)
         # ... and is a stump between their bases, however early they leave it, down to where the taproot stops
-        below = np.clip(-T.pos[:n, 2] / max(float(p.taproot_max_depth), 1e-6), 0.0, 1.0)
+        below = np.clip(along_stump / max(float(p.taproot_max_depth), 1e-6), 0.0, 1.0)
         block = math.pi / 4.0 * stump_d_m * stump_d_m * (1.0 - below ** float(cfg.stump_fill_power))
         want = np.where(on_collar, np.maximum(carried, block), want)
         old = np.where(alive, T.radius[:n], 0.0)
