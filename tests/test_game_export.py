@@ -954,6 +954,16 @@ def test_a_limbs_bark_goes_white_a_little_at_a_time_and_only_adds(uneven):
     assert between < 0.5
 
 
+def test_the_limb_columns_fit_the_atlas_however_many_there_are(uneven):
+    limbs = uneven["bark"]["uneven_top"]["limbs"]
+    W, H = limbs["atlas_px"]
+    many = [0.015, 0.03, 0.06] + [0.12] * 9 + [0.24] * 9 + [0.48]
+    layout = tx.atlas_layout(uneven, (W, H), many, limbs["span_m"])
+    assert layout[-1][1] < W
+    assert all(b > a for a, b, _ in layout)
+    assert all(layout[i + 1][0] >= layout[i][1] for i in range(len(layout) - 1))
+
+
 def test_the_same_patches_at_every_level_and_circumference(uneven):
     field = tx.limb_field(uneven["bark"]["uneven_top"]["limbs"], 5, 512, 1.0)
     # evenly spread, so a share of the field is that share of the bark

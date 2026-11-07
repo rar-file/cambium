@@ -649,8 +649,8 @@ def atlas_layout(look: dict, px=None, circumferences=None, span_m: float | None 
     out = []
     x = pad
     columns = bark["branch_circumference_m"] if circumferences is None else circumferences
-    total = sum(c / tile_px for c in columns) + 2 * pad * len(columns)
-    shrink = min(1.0, (W - 1.0) / total)
+    # the padding doesn't shrink, so what's left for the columns is what has to fit
+    shrink = min(1.0, (W - 1.0 - 2 * pad * (len(columns) + 1)) / sum(c / tile_px for c in columns))
     for c in columns:
         w = max(int(c / tile_px * shrink), 8)
         out.append((x, x + w, float(c)))
