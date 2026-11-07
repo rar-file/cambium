@@ -30,6 +30,7 @@ OPTIONAL_BLOCKS = {
     "plot": "tools/plot.py can't run",
     "regeneration": "no natural regeneration in plots",
     "soil_water_balance": "no soil water balance option",
+    "speed": "no speed settings: everything runs the plain way",
 }
 
 
@@ -234,6 +235,7 @@ _n("pipe_model.stem_theory.canopy_wind_attenuation", "-", 0.0, 20.0, "wind's fal
 _c("geometry.root_flare_mode", ("buttress", "bell"), "shape of the stem base")
 _l("geometry.root_collar_height_coef", "cm per cm, cm per m", 0.0, 10.0, "root collar height from DBH and height", length=(2, 2))
 _n("geometry.root_flare_extra", "-", 0.0, 10.0, "radius gain at the ground, bell shape")
+_n("geometry.root_flare_min_share", "-", 0.0, 1.0, "only roots this share of the thickest raise a ridge, and ridges don't pile up; 0 = all, added up")
 _n("geometry.root_flare_height", "m", 0.01, 20.0, "its decay height")
 _n("geometry.junction_blend", "-", 0.0, 10.0, "junction fillet, per child radius")
 _n("geometry.collar_extra", "-", 0.0, 10.0, "branch collar's extra radius")
@@ -391,6 +393,22 @@ _n("roots.avoid_zone_radius_m", "m", 0.0, 50.0, "within this of the stem")
 _n("roots.avoid_weight", "-", 0.0, 100.0, "strength of that push")
 _n("roots.max_turn_deg_per_segment", "deg", 0.0, 180.0, "most a root turns per segment; null = no limit", nullable=True)
 _b("roots.trim_taproot", "the taproot decays below the deepest main lateral")
+_b("roots.paid.enabled", "root wood and fine roots cost carbon")
+_n("roots.paid.stump_d_intercept_cm", "cm", 0.0, 50.0, "stump diameter at no stem diameter")
+_n("roots.paid.stump_d_per_dbh", "cm/cm", 0.5, 3.0, "stump diameter per stem diameter")
+_n("roots.paid.rel_sum_d2", "-", 0.1, 5.0, "roots' squared base diameters over the stump's")
+_n("roots.paid.fade_per_stump_d", "m/m", 0.01, 50.0, "a root's near-collar widening fades over this, per stump diameter")
+_n("roots.paid.stump_fill_power", "-", 0.5, 50.0, "how full the stump is down to where the taproot stops")
+_n("roots.paid.far_d_cm_per_m", "cm", 0.01, 10.0, "diameter beyond the rapid taper, at 1 m of root beyond it")
+_n("roots.paid.far_d_exponent", "-", 0.1, 2.0, "and how it goes with the length")
+_n("roots.paid.collar_evenness", "-", 0.0, 1.0, "a collar root's pull goes as its size to this power")
+_n("roots.paid.wood_density_kg_m3", "kg/m3", 100.0, 1200.0, "root density with bark")
+_n("roots.paid.fine_root_turnover_per_year", "1/year", 0.0, 10.0, "fine roots made per fine root standing")
+_n("roots.paid.collar_node_m", "m", 0.002, 1.0, "spacing of the collar's nodes")
+_n("roots.paid.collar_spacing_m", "m", 0.001, 1.0, "stump girth per root at the collar")
+_i("roots.paid.collar_primordium_lifespan", "years", 0, 5000, "a collar primordium lasts this long unused")
+_n("roots.paid.collar_angle_top_deg", "deg", 0.0, 180.0, "a collar root's angle from the taproot, at the top")
+_n("roots.paid.collar_angle_bottom_deg", "deg", 0.0, 180.0, "the same at the bottom")
 # -------------------------------------------------------------------- anchorage
 _n("anchorage.plate_root_diameter", "m", 1e-3, 1.0, "a main root counts up to where it thins below this")
 _n("anchorage.plate_structural_share", "-", 0.0, 1.0, "share of main-root area the plate is measured from")
@@ -432,6 +450,19 @@ _l("soil_water_balance.precipitation_mm", "mm", 0.0, 3000.0, "May-September rain
 _l("soil_water_balance.pet_mm", "mm", 0.0, 3000.0, "May-September PET", length=(5, 5))
 _l("soil_water_balance.dry_year_precipitation_mm", "mm", 0.0, 3000.0, "the drought year's rain", length=(5, 5))
 _b("soil_water_balance.drought_scenario", "use the drought year's rain")
+# ---------------------------------------------------------------- speed (ways of running; reports/speed_research.md)
+_b("speed.compiled_carbon", "carbon solve compiled; same bits")
+_b("speed.quick_solve", "carbon solve in fewer evaluations; same bits on the runs tested")
+_b("speed.compiled_mechanics", "bending compiled; same bits")
+_b("speed.quick_levels", "the order of passes from a compiled count; same bits")
+_b("speed.light_layers", "light grids held layer first; same bits")
+_b("speed.keep_soil_grids", "soil grids kept between years; same bits")
+_b("speed.light_rows", "light by frequency rows, scipy's ffts; new rounding")
+_b("speed.drop_dead", "lean runs drop dead nodes; same yearly stats on the runs tested")
+_i("speed.light_every", "years", 1, 10, "years one light field lasts; lossy")
+_l("speed.sky_elevations_deg", "deg", 0.0, 90.0, "fewer sky directions; lossy", nullable=True)
+_i("speed.sky_azimuth_count", "-", 1, 64, "fewer sky directions; lossy", nullable=True)
+_n("speed.sun_hour_step", "h", 0.25, 6.0, "fewer sun directions; lossy", nullable=True)
 
 BY_PATH = {f.path: f for f in FIELDS}
 SWITCH_KINDS = ("switch", "choice", "text")

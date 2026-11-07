@@ -170,6 +170,18 @@ The roots are the model's own (`treegen/roots.py`). No generic flare is added.
 
 **What the model would have to change.** Roots stop showing a short way out, because the model's own main roots are few and taper fast. At age 60 the largest is 9.0 cm radius at its base, 2.8 cm at 0.5 m and 1.3 cm at 1 m; the next are 4.4, 3.1, 2.4, 2.3 and 2.2 cm at their bases; and they go down quickly. A real old birch has more roots at its surface that stay thick further out and sink along their length. That's a growth change in `treegen/roots.py`, not the export.
 
+### With roots that cost carbon (`roots.paid`, off by default)
+
+`--set roots.paid.enabled=true --set geometry.root_flare_min_share=0.5 --set roots.lateral_setpoint_deg=92 --set roots.lateral_gravitropism_per_m=3.0`
+
+The roots themselves change in growth (`treegen/roots.py`, `update_radii_paid`): more of them at the collar, thicker, tapering as excavated birch does. The export then does these, only when that setting is on, and all in `appearance.game.unreal.roots` as `paid_*`:
+
+- "Thick" goes by the stem foot's radius, not the root collar's, since the collar is now the real stump: 25 % of it, so about 10 roots at age 60.
+- The stump's mass stays in the model, but what's drawn is the stem's foot. Otherwise a 40 cm stump makes a bulb under a 30 cm stem.
+- A root's radius already holds its bark, as its density does, so no wall is added.
+- Only roots at least half the thickest's radius raise a ridge on the stem, and ridges don't pile up. Added up, 30 roots made the foot a bell.
+- A root that shows goes under gradually along its length, never rising once it's going down, and stays under. Otherwise the model's up-and-down path made loose sausages on the ground.
+
 ### The file's origin is below the tree, on purpose
 
 Unlike the game's own trees, these files have their origin 32 cm below the tree's lowest point. Here's why.
