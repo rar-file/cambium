@@ -29,7 +29,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 from cpp_cost import FULL, LOSSLESS  # noqa: E402
 
 BASE = ROOT / "out" / "bench" / "ensemble"
-AGES = (10, 30, 50, 60)
+AGES = (3, 10, 30, 50, 60)      # age 3 is about the size of most trees in a young plot
 BUILDS = {"strict": ["-O2", "-ffp-contract=off"], "o3": ["-O3", "-ffp-contract=off"], "fused": ["-O3", "-mcpu=native"]}
 
 
