@@ -51,6 +51,7 @@ class MeshSettings:
     stem_along_factor: float = 1.4      # rings this many edges apart: bark's furrows run up the stem
     stem_rings_under: float = 0.025     # only add rings where the edge asked for is under this
     buttress_hold_m: float = 0.0        # the stem's root ridges keep their full size down to at least this far below z = 0
+    no_stem_ridges: bool = False        # no ridges, bell or fillets from roots on the stem: whoever asks shapes the foot itself
 
 
 
@@ -387,6 +388,20 @@ def _buttresses(T, radius: np.ndarray, sel_all: np.ndarray, geometry):
     return az, r, depth, h_collar * r / r.max(), h_collar
 
 
+def _spaced_samples(gs: np.ndarray, sh: np.ndarray, sa: np.ndarray) -> np.ndarray:
+    """Which ring samples to keep, each measured against the last one kept.  Where many windows overlap,
+    as where a stump's roots leave it, measuring against its neighbour a dense run drops itself whole, and
+    leaves a hole in the stem's rings."""
+    keep = np.ones(len(gs), bool)
+    at, h_at, axis_at = float(gs[0]), float(sh[0]), int(sa[0])
+    for i in range(1, len(gs)):
+        if int(sa[i]) == axis_at and float(gs[i]) - at < 0.3 * min(float(sh[i]), h_at):
+            keep[i] = False
+        else:
+            at, h_at, axis_at = float(gs[i]), float(sh[i]), int(sa[i])
+    return keep
+
+
 def _buttress_offset(theta: np.ndarray, z: np.ndarray, r_stem: np.ndarray, bt, hold: float = 0.0, no_stack: bool = False) -> np.ndarray:
     """Radial offset of stem-surface points at azimuth ``theta`` and height
     ``z`` (ring radius ``r_stem``) from the root ridges ``bt`` (_buttresses).
@@ -510,7 +525,7 @@ def build_mesh(tree, select: np.ndarray, radius: np.ndarray, geometry, settings:
     # --- root buttresses: rings close enough to carry the ridges ------------
     bt = None
     trunk_ax = np.nonzero(T.axis[first_nodes] == 0)[0]
-    if getattr(geometry, "root_flare_mode", "bell") == "buttress" and trunk_ax.size:
+    if getattr(geometry, "root_flare_mode", "bell") == "buttress" and trunk_ax.size and not s.no_stem_ridges:
         bt = _buttresses(T, radius, full_select if full_select is not None else select, geometry)
     if bt is not None:
         j = int(trunk_ax[0])
@@ -612,6 +627,8 @@ def build_mesh(tree, select: np.ndarray, radius: np.ndarray, geometry, settings:
     sa, ss, sh, gs = sa[order], ss[order], sh[order], gs[order]
     gap = np.diff(gs)
     keep = np.r_[True, ~((gap < 0.3 * np.minimum(sh[1:], sh[:-1])) & (sa[1:] == sa[:-1]))]
+    if s.stem_edge_by_height:
+        keep = _spaced_samples(gs, sh, sa)
     # never drop the first sample of an axis or the axis end
     keep |= np.r_[True, sa[1:] != sa[:-1]]
     keep |= np.r_[sa[:-1] != sa[1:], True]
@@ -647,7 +664,7 @@ def build_mesh(tree, select: np.ndarray, radius: np.ndarray, geometry, settings:
          + (-2 * uu**3 + 3 * uu**2) * r1 + (uu**3 - uu**2) * Ls * ms1)
     R = np.clip(R, np.minimum(r0, r1), np.maximum(r0, r1))
     trunk = T.axis[first_nodes[sa]] == 0
-    if np.any(trunk) and bt is None:
+    if np.any(trunk) and bt is None and not s.no_stem_ridges:
         # root flare without roots to follow: a smooth (Gaussian) swelling
         # centred on the ground line, so the stem runs into the root collar
         # without a crease
@@ -874,6 +891,9 @@ def build_mesh(tree, select: np.ndarray, radius: np.ndarray, geometry, settings:
         x = V[v0:v1]
         nrm = _normalize(x - X[vring[v0:v1]])
         V[v0:v1] = _blend_vertices(x, nrm, p_c, p_r, k)
+        if s.no_stem_ridges and T.axis[first_nodes[pj]] == 0 and float(X[p_lo + np.searchsorted(p_s, sj) - 1, 2]) < 0.0:
+            # a root off the stem's foot: the stem's surface stays as it is here
+            continue
         # parent vertices near the child surface
         r0, r1 = p_lo + pr[0], p_lo + pr[-1] + 1
         v0, v1 = voff[r0], voff[r1 - 1] + sides[r1 - 1]

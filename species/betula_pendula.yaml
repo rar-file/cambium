@@ -1765,8 +1765,24 @@ appearance:
     game.unreal.roots.paid_ground_line_radii: "TUNED: by eye, with roots.paid only. As ground_line_radii. The thick roots leave the stump 10-25 cm down in the model, so this decides how many of them break the ground."
     game.unreal.roots.centre_above_ground_radii: "TUNED: a thick root mostly buried, a low ridge along the ground: its centre this many of its radii above the ground line, so below it. Compared by eye with birch-data/summer_reference/Arnhem-Delhuyzen and Intertwined_roots photos. The model has no ground level at the collar to read this from."
     game.unreal.roots.moss_side_power: "TUNED: moss on one side of a stem, narrower with this power; seen on birch-data/summer_reference/Hange-Birke (Stamm alter Baum 9992) and reference/gullmarsskogen_stand_5.jpg."
-    game.unreal.roots.moss_elsewhere: "TUNED: as above, the share of its reach that moss gets on the other side."
-    game.unreal.roots.moss_patchiness: "TUNED: as above, how much the moss's top edge wanders, in shares of its reach."
+    game.unreal.roots.moss_elsewhere: "TUNED: as above, its share of the bark on the other side, against the side it favours."
+    game.unreal.roots.moss_cover: "TUNED: by eye against the Brastad and Arnhem foot photos in birch-data/summer_reference: tufts and clumps, not a coat. No measurement found."
+    game.unreal.roots.moss_opacity: "TUNED: as moss_cover."
+    game.unreal.roots.flow_out_radii: "TUNED: by eye against the same photos, where roots run out of swells on the stem. Moves the export's stem surface only; no measurement found."
+    game.unreal.roots.flow_width_radii: "TUNED: as flow_out_radii."
+    game.unreal.roots.flow_up_radii: "TUNED: as flow_out_radii."
+    game.unreal.roots.flow_max_share: "TUNED: as flow_out_radii."
+    game.unreal.roots.flow_min_share: "TUNED: as flow_out_radii."
+    game.unreal.roots.root_rough: "TUNED: by eye against the Brastad and Arnhem foot photos: a root's bark near the stem is the foot's bark, not a separate dark one. No measurement found."
+    game.unreal.roots.root_colour: "TUNED: as root_rough."
+    game.unreal.roots.root_contrast: "TUNED: as root_rough."
+    game.unreal.roots.stain_ground_share: "TUNED: as root_rough."
+    game.unreal.roots.stain_ground_m: "TUNED: as root_rough."
+    game.unreal.roots.stain_opacity: "TUNED: as root_rough."
+    game.unreal.roots.visible_radii: "TUNED: by eye against the same photos. Heights only, in the export: a root keeps the model's path and radius."
+    game.unreal.roots.under_share: "TUNED: as visible_radii."
+    game.unreal.roots.sink_power: "TUNED: as visible_radii. A root goes under while it's still thick, so it cuts the ground in a long rounded tongue, not a spike."
+    game.unreal.stem_relief.relief_on_swell: "TUNED: by eye. A swell's face is slanted, so the map is stretched over it, and full relief folds the surface; the normal map keeps the look."
     game.unreal.stem_relief.plates: "TUNED: plates of old bark 3-8 cm across and 10-30 cm long, with few breaks across them, read by eye off birch-data/summer_reference/Hange-Birke (Stamm alter Baum 9992) and the Arnhem-Delhuyzen photo. The plain export's rhytidome stays as it was."
     game.unreal.roots.origin_below_lowest_m: "DERIVED: M_Surface's moss at a model's base reads height above the origin and takes up to GroundBlendCm 20 + 6 cm of noise (the game's Tools/Editor/build_materials.py), so an origin this far below the tree keeps that moss, which smears up an upright stem, off."
     game.unreal.roots.moss_reach_m: "TUNED: by eye on reference/gullmarsskogen_stand_5.jpg: moss to about 30-40 cm on old stems, less on young."
@@ -1774,7 +1790,6 @@ appearance:
     game.unreal.stem_relief: "TUNED: how fine the stem's mesh is where its cracks are deep. Depth itself is not set here: it is the bake's height, from the bark thickness and fissure rules."
     game.unreal.roots.foot_fade_m: "TUNED: below the ground line, how far the stem's thickness fades into the taproot's."
     game.unreal.roots.ground_line_radii: "TUNED: the model's own thick roots lie just under its z = 0, so the game's ground meets the tree this many collar radii lower, and at most ground_line_max_m. A setting, not a growth change; 0 puts the ground at the model's z = 0, where almost no root shows."
-    game.unreal.roots.soil_tint: "TUNED: by eye; no measured colour of soil-stained birch root found. The game's own flare takes 0.75 of the bark's gain and 0.7 desaturated."
     game.unreal.leaf.angle_by_height: "SOURCE: Hagemeier & Leuschner 2019a, Forests 10:265, read in the maintainer's browser (reports/extracts/crown_and_light_papers_2026-11-07.md): crown mean 49 degrees to the horizontal, about 55 at the top, about 30 in the lowest shade crown, 30 or more below 0.5 of tree height. Most hang downward. The paper gives the ends and the mean: the points at 0.5 and 0.8 are DERIVED to bring the crown mean to about 49 at the paper's tree size (22-26 m, here ages 50 and 60)."
     game.unreal.leaf.angle_spread_deg: "TUNED: by eye; the paper gives means."
     game.unreal.leaf.shape.half_width_by_length: "DERIVED: traced by eye from the blades in Commons 'Birkenblaetter Betula pendula.jpg' (Roletschek; birch-data/summer_reference, not in the repo). Length over width about 1.25-1.45 there. Agrees in kind with the Burren flora's 'triangular, the end drawn out to a slender tip' and Atkinson & Codling 1986, Watsonia 16:75, which separates B. pendula by its acuminate apex and narrow tip."
@@ -1962,7 +1977,6 @@ appearance:
         # ... and the ground line, in the stem foot's radii: low enough for the thick roots' tops, 10-25 cm down in the model.
         paid_ground_line_radii: 1.75
         foot_fade_m: 0.15
-        soil_tint: [0.72, 0.66, 0.58]
         sink_length_radii: 2.0
         centre_above_ground_radii: -0.25
         origin_below_lowest_m: 0.32
@@ -1970,10 +1984,33 @@ appearance:
         moss_reach_per_year_m: 0.004
         moss_reach_max_m: 0.36
         moss_on_white: 0.3
-        moss_colour: [0.042, 0.056, 0.02]
-        moss_side_power: 1.5
-        moss_elsewhere: 0.12
-        moss_patchiness: 0.55
+        moss_colour: [0.03, 0.04, 0.016]
+        moss_side_power: 3.0
+        moss_elsewhere: 0.04
+        # its share of the bark at the ground, on the side it favours, and how solid a tuft is
+        moss_cover: 0.5
+        moss_opacity: 0.8
+        # a thick root's swell on the stem, in the root's radii: how far out at the ground, how wide, how far
+        # up, at most this share of the foot's radius out, and none for a root under this share of the thickest
+        flow_out_radii: 3.0
+        flow_width_radii: 1.0
+        flow_up_radii: 3.2
+        flow_max_share: 0.85
+        flow_min_share: 0.45
+        # the roots' bark, how far their rough stage has gone, 0 to 1, its colour (linear) and contrast about it;
+        # and the stem's foot staining to it: at the ground all round, as a share of full, and in how many
+        # metres that goes; and how solid it gets
+        root_rough: 0.7
+        root_colour: [0.095, 0.08, 0.062]
+        root_contrast: 0.4
+        stain_ground_share: 0.6
+        stain_ground_m: 0.09
+        stain_opacity: 0.85
+        # a root that shows goes under by this many of its radii along, or at this share of the thickness
+        # that shows; it sinks all the way, faster as it goes by this power
+        visible_radii: 5.0
+        under_share: 0.85
+        sink_power: 1.8
       # the stem's relief in the mesh; edge_fine_m 0 leaves the stem as a smooth tube with its old low relief
       stem_relief:
         edge_fine_m: 0.005
@@ -1983,6 +2020,7 @@ appearance:
         rings_under_m: 0.025
         mesh_blur_px: 2
         normal_keeps_deep_share: 0.5
+        relief_on_swell: 0.35
         # bark.uneven_top.strength, in this target
         uneven_top: 1.0
         # of the species' geometry.root_flare_extra, as a swell of the stem into the ground
