@@ -769,6 +769,14 @@ def run_table(a) -> None:
         rows = "\n".join(f"| {k} | {v['lines']:,} | {v['code_lines']:,} | {v['reached']:,} |" for k, v in lines_doc["modules"].items())
         rest = {k: v for k, v in lines_doc.items() if k != "modules"}
         out.append(f"### Lines reached\n\n| Module | Lines | Lines of code | Reached |\n|---|---|---|---|\n{rows}\n\n{json.dumps(rest)}\n")
+    from treegen import species_schema as schema
+    import yaml
+
+    raw = yaml.safe_load((ROOT / "species" / "betula_pendula.yaml").read_text(encoding="utf-8"))
+    flat = schema.flatten(raw)
+    out.append(f"### The species file\n\nValues and settings: {len(flat)}; of them in species_schema.py: {sum(1 for k in flat if k in schema.BY_PATH)}; lines in the file: "
+               f"{len((ROOT / 'species' / 'betula_pendula.yaml').read_text(encoding='utf-8').splitlines())}. By block: "
+               + ", ".join(f"{b} {sum(1 for k in flat if k.split('.')[0] == b)}" for b in raw) + "\n")
     text = "\n".join(out)
     print(text)
     if a.out:
