@@ -1719,6 +1719,7 @@ class GrowthModel:
             if getattr(cfg, "ring_share_max", None) is not None:
                 ring_cap = float(cfg.ring_share_max) * pool
             self._unspent = 0.0
+            self._frame_earned(starts, q_bud, bud_leaf)
             caps = self._height_limit_caps(starts, len(term_nodes), full, hd, lead_at, nmax)
             hd["lead_at"] = lead_at
             hd["frame_at"], hd["frame_v"] = self._frame_plan(starts, len(term_nodes), full, hd, q_bud, nmax) if self._frame_on() else (None, None)
@@ -2008,8 +2009,23 @@ class GrowthModel:
         d_ob = min(d_ob, float(cf.stem_cm_per_height_m) * h)
         return 0.5 * (float(cf.crown_a) + float(cf.crown_b) * d_ob)
 
-    def _frame_goal(self, base) -> np.ndarray:
-        """How far a limb starting at these stem nodes may reach (m), before its own share."""
+    def _frame_earned(self, starts, q_bud, bud_leaf) -> None:
+        """With crown_frame.earned_power set: each limb's carbon this year, its leaves' area times their light, over the best limb's on the tree.
+        A limb's reach and its side shoots go with this, so that one that wins light grows on and thickens, and one that loses it stops short."""
+        cf = self.sp.crown_frame
+        self._frame_rel = None
+        if getattr(cf, "earned_power", None) is None:
+            return
+        T = self.tree
+        sc = T.scaffold[starts].astype(np.int64)
+        on = sc > 0
+        e = np.zeros(T.n)
+        np.add.at(e, sc[on], (q_bud * bud_leaf)[on])
+        top = float(e.max())
+        self._frame_rel = np.power(e / top, float(cf.earned_power)) if top > 0.0 else np.ones(T.n)
+
+    def _frame_goal(self, base, first=None) -> np.ndarray:
+        """How far a limb starting at these stem nodes may reach (m), before its own share.  first: the limb's first nodes, where earned_power is set."""
         T, cf = self.tree, self.sp.crown_frame
         h, _, crown = self._frame_crown()
         reach_max = self._frame_reach_max()
@@ -2019,6 +2035,10 @@ class GrowthModel:
             spacing = float(getattr(self, "_plot_spacing", 0.0) or (self.stand_spacing(h) if self.stand else 0.0))
             if spacing > 0.0:
                 reach_max = min(reach_max, 0.5 * float(overlap) * spacing)
+        rel = getattr(self, "_frame_rel", None)
+        if rel is not None:
+            # what the limb has earned sets how far it goes: no table by place in the crown
+            return reach_max * np.where(first >= 0, rel[np.minimum(np.maximum(first, 0), len(rel) - 1)], 1.0)
         depth = np.clip((h - T.pos[base, 2]) / crown, 0.0, 1.0)
         peak = float(cf.peak_depth)
         top = float(cf.top_share)
@@ -2046,7 +2066,7 @@ class GrowthModel:
         off = T.pos[node, :2] - T.pos[base, :2]
         r = np.maximum(np.hypot(off[:, 0], off[:, 1]), 1e-6)
         outward = (d * off).sum(1) / r
-        goal = self._frame_goal(base) * self._frame_shares()[T.axis[first]] * float(cf.twig_overshoot)
+        goal = self._frame_goal(base, first) * self._frame_shares()[T.axis[first]] * float(cf.twig_overshoot)
         room = np.maximum(goal - r, 0.0) / np.maximum(outward, 0.05)
         lim[i] = np.where(outward > 0.05, np.minimum(lim[i], room / full[i]), lim[i])
         return lim
@@ -2089,7 +2109,7 @@ class GrowthModel:
         share = self._frame_shares()[T.axis[node]]
         for i in np.nonzero(~limb_tip[at])[0].tolist():
             share[i] = self._frame_reach.get(int(node[i]), 1.0)
-        goal = self._frame_goal(base) * share
+        goal = self._frame_goal(base, np.where(limb_tip[at], first_of[T.axis[node]], -1)) * share
         # how long the limb's own axis has grown (a steep limb gains no reach, and mustn't climb the stem to find it)
         alive = T.death[:n] < 0
         length = np.bincount(T.axis[:n][alive], weights=T.length[:n][alive], minlength=len(self.axis_phase))
@@ -2107,6 +2127,9 @@ class GrowthModel:
         lead_len = float(full[hd["lead_at"]]) * float(min(hd["v"], nmax)) if "lead_at" in hd else 0.0
         longest = max(lead_len, float(cf.limb_shoot_floor_m))
         grow = np.minimum(float(cf.chase) * np.maximum(room, 0.0), longest)
+        if getattr(self, "_frame_rel", None) is not None:
+            # a new limb starts at the floor's length, by its light; its reach then follows what it earns
+            grow = np.where(limb_tip[at], grow, float(cf.limb_shoot_floor_m))
         if self.reit_axes and self._frame_forks:
             # a reiterated limb goes up as a second top: only the room under the tree's top holds it (_frame_room)
             grow = np.where(limb_tip[at] & np.isin(T.axis[node], np.fromiter(self.reit_axes, np.int64)), longest, grow)
@@ -2114,6 +2137,8 @@ class GrowthModel:
         # a limb loses vigour as it ages (resource.branch_aging_years, Barthelemy & Caraglio 2007), so the crown's old lower limbs fall
         # behind the younger ones above them, as a crown in the open needs, or it's a cone
         age = np.where(limb_tip[at], np.maximum(self.year + 1.0 - T.scaffold_birth[node], 0.0), 0.0)
+        if getattr(self, "_frame_rel", None) is not None:
+            age = 0.0 * age     # a limb grows on for as long as it earns
         grow = grow * light * float(hd["water"]) * np.exp(-age / float(self.sp.resource.branch_aging_years))
         return at, np.minimum(grow / full[at], float(nmax))
 
@@ -2210,7 +2235,13 @@ class GrowthModel:
         caps = np.full(len(starts), float(nmax))
         if self._frame_on():
             # with the frame, side shoots aren't tied to the leader's: a twig's yearly shoot has its own limit in metres
-            caps = np.minimum(caps, float(self.sp.crown_frame.twig_shoot_max_m) / full)
+            twig_m = float(self.sp.crown_frame.twig_shoot_max_m)
+            rel = getattr(self, "_frame_rel", None)
+            if rel is not None:
+                # a poor limb's side shoots are short: it can't fork or fill
+                sc = T.scaffold[starts].astype(np.int64)
+                twig_m = twig_m * np.where(sc > 0, rel[np.minimum(sc, len(rel) - 1)], 1.0)
+            caps = np.minimum(caps, twig_m / full)
         ratio = getattr(self.sp.height_driver, "lateral_cap_ratio", None)
         twig_ratio = getattr(self.sp.height_driver, "twig_cap_ratio", None)
         if twig_ratio is not None:

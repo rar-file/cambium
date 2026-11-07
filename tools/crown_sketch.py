@@ -62,7 +62,7 @@ def draw(model, ppm: float, leaves: bool, label: str, width_m: float, height_m: 
     par = T.parent[idx]
     if leaves:
         leafy = np.nonzero(alive & (T.leaves[:n] > 0))[0]
-        rr = 0.055 * ppm * ss
+        rr = 0.04 * ppm * ss
         for i in leafy.tolist():
             d.ellipse((u[i] - rr, v[i] - rr, u[i] + rr, v[i] + rr), fill=LEAF)
     for i, p in zip(idx.tolist(), par.tolist()):
@@ -97,8 +97,8 @@ def one(seed: int, sets: list, ages: list, stand: bool, out: Path) -> str:
             d = s["dbh_cm"] or 0.0
             tag = f"seed {seed} age {year}: {s['height_m']:.1f} m, dbh {d:.1f} wood, width {s['crown_width_m']:.1f}, LA {s['leaf_area_m2']:.0f}, CR {s.get('crown_ratio') or 0.0:.2f}"
             ppm = 28.0
-            panels.append(draw(model, ppm, False, tag, 17.0, 27.0))
-            panels.append(draw(model, ppm, True, "", 17.0, 27.0))
+            panels.append(draw(model, ppm, False, tag, 16.0, 26.0))
+            panels.append(draw(model, ppm, True, "", 16.0, 26.0))
             tables.append(limb_table(model))
     W = sum(p.size[0] for p in panels)
     H = max(p.size[1] for p in panels)
