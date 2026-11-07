@@ -399,5 +399,6 @@ def test_in_a_plot_the_dead_go_through_finish_and_what_happened_is_saved(sp):
 
 def test_a_tree_in_a_plot_is_left_to_the_plot(sp):
     m = _grown(sp, 4)
+    m.__dict__.pop("damage_log", None)   # growing it alone, as _grown does, runs the tree's own yearly call
     m._plot_spacing = 5.0
     assert damage.tree_year(m, m.year + 1) is None and not hasattr(m, "damage_log")
