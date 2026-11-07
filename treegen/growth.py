@@ -2184,6 +2184,12 @@ class GrowthModel:
         off = T.pos[own, :2] - T.pos[T.parent[whole[own]], :2]
         self._frame_limb_reach = np.zeros(n)
         np.maximum.at(self._frame_limb_reach, whole[own], np.hypot(off[:, 0], off[:, 1]))
+        bare = getattr(self.sp.crown_frame, "limb_bare_leaf_per_m", None)
+        if bare:
+            # a long limb with next to no leaves for its length is a bare limb with a tuft at its end: it's shed before next season's flush, as a starving one is
+            metres = np.zeros(n)
+            np.add.at(metres, whole[own], T.length[own])
+            self._starving = np.union1d(self._starving, np.nonzero((metres > 1.0) & (la[:n] < float(bare) * metres))[0])
         vig = np.ones(T.n)
         firsts = np.nonzero(la > 0.0)[0]
         if firsts.size >= 3:
@@ -2193,12 +2199,6 @@ class GrowthModel:
             med = np.array([float(np.median(vals[max(i - k, 0): i + k + 1])) for i in range(len(vals))])
             x = vals / np.maximum(med, 1e-9)
             vig[by_z] = 2.0 * x * x / (1.0 + x * x)
-            behind = getattr(self.sp.crown_frame, "limb_left_behind", None)
-            if behind:
-                # a limb with next to nothing against the younger limbs above it is on its way out: a long bare limb with a tuft at its end doesn't stay.  Shed before next season's
-                # flush, as a starving one is.  Against those above only, so a young limb at the top isn't measured against the old ones under it
-                above = np.array([float(np.median(vals[i + 1: i + 1 + k])) if i + 1 < len(vals) else 0.0 for i in range(len(vals))])
-                self._starving = np.union1d(self._starving, by_z[vals < float(behind) * above])
         self._frame_vig = vig
 
     def _frame_goal(self, base) -> np.ndarray:
