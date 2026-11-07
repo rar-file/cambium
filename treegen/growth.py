@@ -2219,7 +2219,22 @@ class GrowthModel:
             age = 0.0 * age     # a limb grows on for as long as it earns
         limb_years = getattr(cf, "limb_ageing_years", None)
         grow = grow * light * float(hd["water"]) * np.exp(-age / float(limb_years if limb_years else self.sp.resource.branch_aging_years))
-        return at, np.minimum(grow / full[at], float(nmax))
+        plan = np.minimum(grow / full[at], float(nmax))
+        distal = getattr(cf, "twig_buds_distal", None)
+        if distal and bool(getattr(cf, "limb_buds_paid", False)):
+            # each year a limb's and a fork's newest buds break by their own light, however little the rest of the crown leaves them: a limb in the sun is never a bare whip
+            last = int(T.axis[:n].max()) + 1
+            tip_ph = np.zeros(last, np.int64)
+            np.maximum.at(tip_ph, T.axis[:n][alive], T.phyllo[:n][alive].astype(np.int64))
+            ax = T.axis[starts]
+            near = (tip_ph[ax] - T.phyllo[starts].astype(np.int64)) < int(distal)
+            side = ~is_tip & (first_of[ax] >= 0) & near & (T.lat[starts] == LAT_DORMANT) & ~T.no_axil[starts] & ~is_named & (T.birth[starts] <= self.year)
+            ids = np.nonzero(side)[0]
+            if ids.size:
+                twig = float(cf.twig_shoot_max_m) * np.minimum(q_bud[ids], 1.0) * float(hd["water"])
+                at = np.concatenate([at, ids])
+                plan = np.concatenate([plan, np.minimum(twig / full[ids], float(nmax))])
+        return at, plan
 
     # -- the height limit (height_driver in the species file) -----------
     def _limb_nodes(self, n: int):
