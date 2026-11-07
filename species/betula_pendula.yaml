@@ -1127,6 +1127,11 @@ regeneration:
     # 46(5) id 920: about 3,400 birch/ha after 6 seasons, 15,500 new seedlings/ha at 22 %
     # birch, a spruce mire, mainly downy birch).  At the older 0.30-0.60 no seedling came
     # up in 4 plots to age 60, with damage on and the ground at 19-21 % light.
+    # This is taking, not living: in steady shade a seedling on mineral soil needs 25 %
+    # to live 12 years under the field layer, 20 % with none (tools/shade_trial.py,
+    # node_f3_shade), so most that take in a small storm patch die at about 5 years.
+    # Huth & Wagner 2006 (For. Ecol. Manage. 229:314; abstract only) found most birch
+    # seedlings in spruce gaps 2-4 years old.
     establishment_light: [0.15, 0.40]
     # TUNED: and none takes where the leaf area above 2 m, read over a Gaussian of
     # canopy_radius_m (a crown's width), is over this many m2 per m2 of ground: against

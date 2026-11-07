@@ -429,3 +429,22 @@ def test_settings_lists_every_change():
     assert "mortality.enabled=true" in items and "plot.natural_start.area_m2=500.0" in items and "x=1" in items
     sp = species(*items[:-1])
     assert sp.mortality.enabled is True and sp.plot.natural_start.stems_per_ha == 9000.0
+
+
+def test_shade_trial_field_scales_light():
+    import shade_trial
+
+    class Open:
+        p = type("P", (), {"C": 1.0})
+        S, lo, periodic = np.zeros((2, 2, 2)), np.zeros(3), True
+
+        def exposure(self, pos, self_weight, own_shade=None):
+            return np.full(len(pos), 0.8)
+
+        def sample(self, pts):
+            return np.zeros(len(pts))
+
+    f = shade_trial.ShadedField(Open(), 0.25)
+    assert f.exposure(np.zeros((3, 3)), np.zeros(3))[0] == pytest.approx(0.2)
+    assert np.exp(-f.sample(np.zeros((1, 3)))[0]) == pytest.approx(0.25)
+    assert f.relative_light_at_heights([2.0]) is None and f.diffuse_light_at_heights([2.0]) is None
