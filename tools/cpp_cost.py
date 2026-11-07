@@ -698,12 +698,43 @@ def table_mesh(doc: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def table_kernels(rows: list) -> str:
+    """Milliseconds, best of a few runs on the same input, and whether the strict C++ gave the same bits."""
+    out = []
+    for kernel in dict.fromkeys(r["kernel"] for r in rows):
+        rs = [r for r in rows if r["kernel"] == kernel]
+        keys = list(dict.fromkeys(k for r in rs for k in r["times"]))
+        out += [f"### {kernel}: milliseconds", "", "| Age | Size | " + " | ".join(keys) + " | C++ strict against the original, bits |", "|---|---|" + "---|" * (len(keys) + 1)]
+        for r in rs:
+            b = r["bits"].get("strict", {})
+
+            def word(x):
+                if isinstance(x, bool):
+                    return "same" if x else "differ"
+                if x.get("same_bits"):
+                    return "same"
+                return f"{x['differ']:,} of {x['of']:,} differ, at most {x['max_rel']:.1e} relative"
+            same = word(b) if "same_bits" in b else "; ".join(f"{k} {word(v)}" for k, v in b.items())
+            out.append(f"| {r['age']} | " + ", ".join(f"{k} {v}" for k, v in r["size"].items()) + " | " + " | ".join(f"{1000 * r['times'][k]:,.1f}" if k in r["times"] else "" for k in keys) + f" | {same} |")
+        out.append("")
+    return "\n".join(out) + "\n"
+
+
 def run_table(a) -> None:
     trees, plots, meshes, hots, lines_doc = defaultdict(list), defaultdict(list), [], [], None
+    kernel_rows = []
+    plain = []
+    chaos = []
     for folder in a.folders:
         for p in sorted(Path(folder).expanduser().glob("*.json")):
             d = json.loads(p.read_text(encoding="utf-8"))
-            if p.name.startswith("tree_") and not d.get("plain"):
+            if p.name.startswith("chaos_"):
+                chaos.append(d)
+            elif p.name.startswith("kernels_"):
+                kernel_rows += d
+            elif p.name.startswith("tree_") and d.get("plain"):
+                plain.append(d)
+            elif p.name.startswith("tree_") and not d.get("plain"):
                 trees[f"{d['settings']}, speed {d['speed']}"].append(d)
             elif p.name.startswith("plot_"):
                 plots[f"{d['settings']}, speed {d['speed']}"].append(d)
@@ -714,6 +745,12 @@ def run_table(a) -> None:
             elif p.name == "lines.json":
                 lines_doc = d
     out = []
+    for d in plain:
+        out.append(f"Plain run, no timers: {d['settings']}, speed {d['speed']}, seed {d['seed']}: {d['seconds']:.1f} s, digest {d['digest'][:12]}.\n")
+    if kernel_rows:
+        out.append(table_kernels(kernel_rows))
+    for d in chaos:
+        out.append(table_chaos(d))
     for k, docs in sorted(trees.items()):
         out.append(table_tree(docs, f"Stand tree, {k}"))
     for k, docs in sorted(plots.items()):
@@ -734,6 +771,58 @@ def run_table(a) -> None:
         Path(a.out).write_text(text, encoding="utf-8")
 
 
+def run_chaos(a) -> None:
+    """How fast a difference too small to matter spreads: the same seed with resource.alpha changed by a tiny share, year by year.  This is what a port's
+    rounding would do, and it sets how long a run of Python and C++ can stay comparable tree for tree."""
+    out = BASE / a.label
+    out.mkdir(parents=True, exist_ok=True)
+    cli, checkpoint, _, _ = load(a)
+    from treegen.growth import GrowthModel
+
+    env_p, _ = cli.load_environment("sweden_open_field")
+    keys = ("height_m", "dbh_cm", "leaf_area_m2", "crown_width_m", "lai")
+    doc = {}
+
+    def grow(seed, factor):
+        sp, _ = cli.load_species("betula_pendula")
+        checkpoint.set_values(sp, settings(a))
+        sp.resource.alpha = float(sp.resource.alpha) * factor
+        m = GrowthModel(sp, cli.make_environment(env_p), seed, stand=True, soil=cli.make_soil(env_p), lean=True)
+        rows = []
+        for _ in range(a.years):
+            m.step()
+            T = m.tree
+            s = m.stats[-1]
+            rows.append({**{k: s.get(k) for k in keys}, "nodes": int(T.n), "alive": int((T.death[: T.n] < 0).sum()), "digest": hash(T.pos[: T.n].tobytes())})
+        return rows
+
+    for seed in range(a.seed, a.seed + a.seeds):
+        base = grow(seed, 1.0)
+        doc[str(seed)] = {"base": base}
+        for factor in (1.0 + 1e-15, 1.0 + 1e-12, 1.0 + 1e-6):
+            doc[str(seed)][repr(factor)] = grow(seed, factor)
+            print(f"seed {seed} x {factor!r} done", flush=True)
+        (out / f"chaos_s{a.seed}.json").write_text(json.dumps(doc), encoding="utf-8")
+
+
+def table_chaos(doc: dict) -> str:
+    lines = ["### How fast a tiny change spreads: stand trees, resource.alpha changed by the share shown", "", "| Seed | Change | First year any node's position differs | First year a whole-tree figure differs (as rounded in the stats) | "
+             + " | ".join(f"Height, stem, leaf area at {y}, % off" for y in PLAN_AGES) + " |", "|---|---|---|---|" + "---|" * len(PLAN_AGES)]
+    for seed, runs in doc.items():
+        base = runs["base"]
+        for name, rows in runs.items():
+            if name == "base":
+                continue
+            exact = next((i + 1 for i, (r, b) in enumerate(zip(rows, base)) if r["digest"] != b["digest"]), None)
+            shown = next((i + 1 for i, (r, b) in enumerate(zip(rows, base)) if any(r[k] != b[k] for k in ("height_m", "dbh_cm", "leaf_area_m2", "crown_width_m"))), None)
+
+            def off(y):
+                r, b = rows[y - 1], base[y - 1]
+                return ", ".join(f"{100.0 * (r[k] / b[k] - 1.0):+.2f}" if r.get(k) and b.get(k) else "-" for k in ("height_m", "dbh_cm", "leaf_area_m2"))
+            lines.append(f"| {seed} | {float(name) - 1.0:.0e} | {exact} | {shown} | " + " | ".join(off(y) for y in PLAN_AGES) + " |")
+    return "\n".join(lines) + "\n"
+
+
 def run_batch(a) -> None:
     import subprocess
 
@@ -748,10 +837,11 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="what", required=True)
-    for name in ("tree", "plot", "mesh", "hot", "lines"):
+    for name in ("tree", "plot", "mesh", "hot", "lines", "chaos"):
         p = sub.add_parser(name)
         p.add_argument("--label", required=True)
         p.add_argument("--seed", type=int, default=1)
+        p.add_argument("--seeds", type=int, default=3, help="chaos: how many seeds from --seed")
         p.add_argument("--years", type=int, default=60)
         p.add_argument("--settings", choices=["full", "default"], default="full")
         p.add_argument("--speed", choices=["off", "lossless", "rows_drop"], default="lossless")
@@ -766,7 +856,7 @@ def main():
     b = sub.add_parser("batch", help="several of these one after another, each its own process: one core, no overlap")
     b.add_argument("commands", nargs="+")
     a = ap.parse_args()
-    {"tree": run_tree, "plot": run_plot, "mesh": run_mesh, "hot": run_hot, "lines": run_lines, "table": run_table, "batch": run_batch}[a.what](a)
+    {"tree": run_tree, "plot": run_plot, "mesh": run_mesh, "hot": run_hot, "lines": run_lines, "chaos": run_chaos, "table": run_table, "batch": run_batch}[a.what](a)
 
 
 if __name__ == "__main__":
