@@ -395,3 +395,368 @@ def test_a_stem_passing_a_doubling_keeps_most_of_its_pattern(look):
     # circumferences of 0.98 m and 1.02 m: either side of 1 m
     a, b = bake(0.156), bake(0.162)
     assert np.corrcoef(a.ravel(), b.ravel())[0, 1] > 0.8
+
+
+# -- the Unreal target ---------------------------------------------------------------------------
+def test_the_new_mesh_settings_are_off_unless_asked():
+    s = mesh.MeshSettings()
+    assert s.drop_hidden_rings is False and s.ring_tolerance == 0.0 and s.ring_tolerance_m == 0.0
+    assert s.stem_edge_by_height == () and s.buttress_hold_m == 0.0
+
+
+def test_thinning_keeps_what_shapes_the_tube():
+    # a straight even run of rings needs only its ends, up to the longest span
+    ss = np.linspace(0.0, 1.0, 21)
+    X = np.c_[np.zeros(21), np.zeros(21), ss]
+    R = np.full(21, 0.01)
+    keep = mesh._thin_rings(ss, X, R, 0.1, 0.0, np.zeros(21, bool), 10.0)
+    assert np.nonzero(keep)[0].tolist() == [0, 20]
+    # ... and no run is longer than asked, so wind can still bend it
+    keep = mesh._thin_rings(ss, X, R, 0.1, 0.0, np.zeros(21, bool), 0.5)
+    assert np.diff(ss[keep]).max() <= 0.5 + 1e-9
+    # a bend stays, and what's drawn stays within the tolerance of every ring
+    Y = X.copy()
+    Y[10, 0] = 0.005
+    keep = mesh._thin_rings(ss, Y, R, 0.1, 0.0, np.zeros(21, bool), 10.0)
+    assert keep[10]
+    back = np.stack([np.interp(ss, ss[keep], Y[keep, k]) for k in range(3)], 1)
+    assert np.linalg.norm(back - Y, axis=1).max() <= 0.1 * 0.01 + 1e-9
+    # rings told to stay, stay
+    fixed = np.zeros(21, bool)
+    fixed[3] = True
+    assert mesh._thin_rings(ss, X, R, 0.1, 0.0, fixed, 10.0)[3]
+
+
+def _run_unreal(out, ages="6,8", seasons="summer,winter", look=()):
+    from argparse import Namespace
+
+    import game_export as ge
+
+    ge.main_export(Namespace(ages=ages, seasons=seasons, out=str(out), state=None, species="betula_pendula", seed=1, environment="sweden_open_field",
+                             stand=True, set=[], budget=[], look=SMALL + list(look), levels="", target="unreal"))
+
+
+@pytest.fixture(scope="module")
+def unreal_export(tmp_path_factory):
+    out = tmp_path_factory.mktemp("unreal")
+    _run_unreal(out)
+    return out, json.loads((out / "game_manifest.json").read_text(encoding="utf-8"))
+
+
+def _attribute(d, blob, prim, name, dtype, width):
+    acc = d["accessors"][prim["attributes"][name]]
+    view = d["bufferViews"][acc["bufferView"]]
+    return np.frombuffer(blob, dtype, acc["count"] * width, view["byteOffset"] + acc.get("byteOffset", 0)).reshape(-1, width)
+
+
+def _named(d, name):
+    return next(m["primitives"][0] for m in d["meshes"] if m["name"] == name)
+
+
+def test_unreal_files_are_where_the_games_scripts_look(unreal_export):
+    from PIL import Image
+
+    out, doc = unreal_export
+    asset = doc["asset"]
+    split = out / "SourceArt" / "PolyHaven_split" / asset
+    textures = out / "SourceArt" / "PolyHaven" / asset / "textures"
+    assert (split / f"{asset}_age008.gltf").exists() and (split / f"{asset}_age008.bin").exists()
+    assert (split / f"{asset}_age008_winter_lod1.gltf").exists() and (split / f"{asset}_age008_roots.gltf").exists()
+    names = sorted(p.name for p in textures.iterdir())
+    assert names and all(n.endswith(("_diff_2k.png", "_nor_gl_2k.png", "_rough_2k.png")) for n in names)
+    for p in textures.iterdir():
+        im = Image.open(p)
+        # the game's rule: 16-bit PNGs import blank
+        assert im.mode in ("RGB", "RGBA")
+        # its alpha rule picks the master: bark is opaque, leaves and strips have alpha in the colour map
+        if "_diff_" in p.name:
+            assert (im.mode == "RGBA") == ("_bark_diff" not in p.name and "_bark_lod1_diff" not in p.name)
+    frag = json.loads((out / "fragments" / "flora_variants.json").read_text(encoding="utf-8"))
+    assert f"{asset}_age008" in {f["id"] for f in frag}
+
+
+def test_unreal_files_hold_only_what_the_import_keeps(unreal_export):
+    out, _ = unreal_export
+    files = list(out.rglob("*.gltf"))
+    assert files
+    for path in files:
+        assert validate_glb(path)["triangles"] > 0
+        d, _ = read_glb(path)
+        assert not d.get("extensionsRequired")
+        for mesh_ in d["meshes"]:
+            for prim in mesh_["primitives"]:
+                a = prim["attributes"]
+                # Nanite keeps 4
+                assert "TEXCOORD_0" in a and sum(k.startswith("TEXCOORD_") for k in a) <= 4
+                # wind data, 8-bit: what the import stores anyway
+                c = d["accessors"][a["COLOR_0"]]
+                assert c["type"] == "VEC4" and c["componentType"] == 5121 and c["normalized"] is True
+
+
+def test_unreal_colour0_is_the_games_wind_data(unreal_export):
+    out, doc = unreal_export
+    d, blob = read_glb(out / doc["stages"][-1]["seasons"]["summer"]["lod0"]["file"])
+
+    def colours(name):
+        return _attribute(d, blob, _named(d, name), "COLOR_0", np.uint8, 4) / 255.0
+
+    leaf, stem = colours("leaves"), colours("stem")
+    d2, blob2 = read_glb(out / doc["stages"][-1]["roots"]["files"]["lod0"]["file"])
+    root = _attribute(d2, blob2, d2["meshes"][0]["primitives"][0], "COLOR_0", np.uint8, 4) / 255.0
+    assert leaf[:, 2].min() == 1.0 and stem[:, 2].max() == 0.0           # blue: leaves
+    assert stem[:, 3].min() == 1.0 and leaf[:, 3].max() < 1.0            # alpha: 255 off leaves, leaf ids to 254
+    assert stem[:, 0].min() < 0.05 and leaf[:, 0].max() > 0.5            # red: flex grows along the stems
+    assert np.ptp(leaf[:, 1]) == 0.0 and leaf[0, 1] == stem[0, 1]        # green: one phase for the tree
+    assert root[:, 0].max() == 0.0                                       # roots don't sway
+
+
+def test_unreal_leaves_are_the_models_area_with_real_outlines(unreal_export):
+    out, doc = unreal_export
+    for st in doc["stages"]:
+        assert st["exported_leaf_area_m2"] == pytest.approx(st["model_leaf_area_m2"], rel=0.03)
+        d, blob = read_glb(out / st["seasons"]["summer"]["lod0"]["file"])
+        prim = _named(d, "leaves")
+        V = _attribute(d, blob, prim, "POSITION", "<f4", 3)
+        idx = d["accessors"][prim["indices"]]
+        F = np.frombuffer(blob, "<u4", idx["count"], d["bufferViews"][idx["bufferView"]]["byteOffset"]).reshape(-1, 3)
+        area = 0.5 * np.linalg.norm(np.cross(V[F[:, 1]] - V[F[:, 0]], V[F[:, 2]] - V[F[:, 0]]), axis=1).sum()
+        # the mesh's own area, fold and all, within what its coarse teeth and curl add or take
+        assert area == pytest.approx(st["exported_leaf_area_m2"], rel=0.15)
+        # 26 in the blade, its main teeth and its fold, 4 in the stalk
+        assert len(F) == st["exported_leaves"] * 30
+        # the small teeth are cut by the colour map's alpha
+        assert next(m for m in d["materials"] if m["name"].endswith("_leaf"))["alphaMode"] == "MASK"
+        assert "leaves" not in {m["name"] for m in read_glb(out / st["seasons"]["winter"]["lod0"]["file"])[0]["meshes"]}
+
+
+def test_unreal_roots_are_the_models_and_meet_the_tree(unreal_export):
+    out, doc = unreal_export
+    for st in doc["stages"]:
+        rt = st["roots"]
+        line = rt["ground_line_m"]
+        assert line < 0.0
+        below = rt["files"]["lod0"]
+        # the model's depth, less the ground line, as the roots sink by that going out
+        assert below["triangles"] > 0 and below["min_z_m"] == pytest.approx(line - rt["deepest_m"], abs=0.1)
+        near = st["seasons"]["summer"]["lod0"]
+        # a small tree may have no root thick enough to show; what shows meets what doesn't, with no seam
+        if near["parts"].get("surface_roots"):
+            d, blob = read_glb(out / near["file"])
+            A = _attribute(d, blob, _named(d, "surface_roots"), "POSITION", "<f4", 3)
+            d2, blob2 = read_glb(out / below["file"])
+            B = _attribute(d2, blob2, d2["meshes"][0]["primitives"][0], "POSITION", "<f4", 3)
+            assert {tuple(p) for p in np.round(A, 5).tolist()} & {tuple(p) for p in np.round(B, 5).tolist()}
+
+
+def test_unreal_origin_keeps_the_games_ground_moss_off(unreal_export):
+    """M_Surface's moss at a model's base reads height above the origin, over GroundBlendCm 20 + 6 of
+    noise, and smears up an upright surface: nothing in the file may be that low.  The game seats by the
+    lowest point, so every level's lowest point is one place: the ground line less the game's sink."""
+    out, doc = unreal_export
+    for st in doc["stages"]:
+        o = st["origin"]
+        assert o["lowest_in_file_m"] * 100.0 >= 26.0
+        assert o["ground_in_file_m"] - o["lowest_in_file_m"] == pytest.approx(doc["fragments"]["sink_m"], abs=0.001)
+        for level in st["seasons"]["summer"].values():
+            d, _ = read_glb(out / level["file"])
+            # y is up in the file
+            lowest = min(d["accessors"][p["attributes"]["POSITION"]]["min"][1] for m in d["meshes"] for p in m["primitives"])
+            # not lower, or that moss comes on; about there, or the seat is off.  A coarse level's foot may stop a little short
+            assert o["lowest_in_file_m"] - 0.002 <= lowest <= o["lowest_in_file_m"] + 0.03
+
+
+def test_unreal_stem_relief_is_almost_nothing_on_young_white_bark(unreal_export):
+    _, doc = unreal_export
+    for st in doc["stages"]:
+        lo, hi = st["stem_height_range_m"]
+        assert -0.008 < lo <= 0.0 and 0.0 <= hi < 0.008
+
+
+def test_the_stem_mesh_is_finest_where_its_cracks_are_deep():
+    import treegen.game_unreal as gu
+
+    class Wood:
+        @staticmethod
+        def state(age, d, z):
+            return {"fissure_m": np.where(np.asarray(z) < 1.0, 0.02, 0.0)}
+
+    cfg = {"full_at_fissure_m": 0.006, "edge_coarse_m": 0.03, "edge_fine_m": 0.005}
+    z = np.array([0.0, 5.0])
+    t = np.asarray(gu.stem_edges(Wood(), z, np.array([30.0, 1.0]), np.array([0.3, 0.05]), -0.1, 0.1, cfg))
+    assert np.interp(0.5, t[:, 0], t[:, 1]) == pytest.approx(0.005)
+    assert np.interp(3.0, t[:, 0], t[:, 1]) == pytest.approx(0.03)
+
+
+def _root_tube(z0, z1, r0, r1, sides=8, rings=12):
+    """One root as a mesh, running out along x."""
+    s = np.linspace(0.0, 1.0, rings)
+    a = np.linspace(0.0, 2.0 * np.pi, sides, endpoint=False)
+    V, along, radius = [], [], []
+    for t in s:
+        r = r0 + (r1 - r0) * t
+        c = np.array([2.0 * t, 0.0, z0 + (z1 - z0) * t])
+        V += [c + np.array([0.0, r * np.cos(b), r * np.sin(b)]) for b in a]
+        along += [2.0 * t] * sides
+        radius += [r] * sides
+    V = np.array(V)
+    F = np.array([[0, 1, 2]])
+    attrs = {"axis_id": np.ones(len(V), np.int32), "ring_along": np.array(along, np.float32), "radius": np.array(radius, np.float32)}
+    return mesh.MeshData(V, F, np.tile([0.0, 0.0, 1.0], (len(V), 1)), attrs), sides
+
+
+def test_a_root_lies_on_the_ground_and_its_thin_end_is_under_it():
+    import treegen.game_unreal as gu
+
+    cfg = {"sink_length_radii": 2.0, "surface_min_radius_m": 0.006, "surface_min_radius_share": 0.09, "centre_above_ground_radii": 0.25}
+    line = -0.2
+    # a strut: high at the stem, as the model's roots are measured from its own zero
+    md, sides = _root_tube(0.1, 0.1, 0.09, 0.002)
+    out = gu.sink_roots(md, line, np.array([0.0, 0.0]), 0.1, 0.14, cfg)
+    centres = out.vertices.reshape(-1, sides, 3).mean(1)[:, 2]
+    r = md.attributes["radius"][::sides]
+    thick = r >= 0.09 * 0.14
+    assert np.all(centres[thick] <= line + 0.25 * r[thick] + 1e-6)
+    # the end is under the ground, whole
+    assert centres[-1] + r[-1] < line
+    # and the section stays round: every vertex of a ring moved by the same amount
+    moved = (out.vertices - md.vertices)[:, 2].reshape(-1, sides)
+    assert np.ptp(moved, axis=1).max() < 1e-6
+    # only the height moves
+    assert np.array_equal(out.vertices[:, :2], md.vertices[:, :2])
+
+
+def _rough_at(look, seed, age, z):
+    """The rough stage's weight round a stem at these heights, 256 places round."""
+    edge = tx.UnevenTop(look, age, seed)
+    u = (np.arange(256) + 0.5) / 256.0
+    n, W = len(z), len(u)
+    at = edge.heights(u, z, z)
+    return ap.part_state(look, np.full((n, W), float(age)), np.full((n, W), 0.3), at, 25.0, 30.0)["weights"][-1]
+
+
+@pytest.fixture(scope="module")
+def uneven(look):
+    out = copy.deepcopy(look)
+    out["bark"]["uneven_top"]["strength"] = 1.0
+    return out
+
+
+def test_the_rough_base_is_level_unless_asked(look):
+    assert float(look["bark"]["uneven_top"]["strength"]) == 0.0
+    assert tx.uneven_top(look, 60.0, 5) is None
+
+
+def test_the_unreal_target_asks_for_an_uneven_base(look):
+    import treegen.game_unreal as gu
+
+    assert tx.uneven_top(gu.unreal_look(look), 60.0, 5) is not None
+
+
+def test_the_rough_base_stops_at_no_one_level_and_differs_by_tree(uneven):
+    z = np.linspace(0.05, 7.0, 400)
+    tops = {}
+    for seed in range(1, 7):
+        w = _rough_at(uneven, seed, 60, z)
+        # the highest it's half way on, column by column
+        tops[seed] = z[(w > 0.5).shape[0] - 1 - np.argmax((w > 0.5)[::-1], axis=0)]
+        # round one stem, more than a metre between its lowest and its highest
+        assert np.percentile(tops[seed], 95) - np.percentile(tops[seed], 5) > 1.0
+    means = [float(t.mean()) for t in tops.values()]
+    assert max(means) - min(means) > 0.5
+
+
+def test_the_rough_base_leaves_white_plates_and_grows_with_the_tree(uneven):
+    z = np.linspace(0.05, 7.0, 400)
+    w = _rough_at(uneven, 5, 60, z)
+    # part way: the stage has taken the furrows and left the plates
+    assert ((w > 0.2) & (w < 0.8))[z < 4.0].mean() > 0.1
+    # solid black only low down, somewhere on the stem, and nothing near the top of the range
+    assert w[z < 0.3].max() > 0.9 and w[z > 6.5].max() < 0.5
+    # an older tree has more of it, in the same place: the pattern is the tree's
+    young, old = _rough_at(uneven, 5, 30, z), _rough_at(uneven, 5, 60, z)
+    assert old.sum() > 1.5 * young.sum()
+    rows = z < 3.0
+    assert np.corrcoef(young[rows].ravel(), old[rows].ravel())[0, 1] > 0.5
+
+
+def test_leaves_hang_at_the_measured_angles(look):
+    import treegen.game_unreal as gu
+
+    cfg = look["game"]["unreal"]["leaf"]
+    n = 4000
+    z = np.linspace(0.0, 1.0, n)
+    az = np.linspace(0.0, 40.0, n)
+    along = np.stack([np.cos(az), np.sin(az), 0.0 * az], 1)
+    leaves = ap.LeafInstances(node=np.zeros(n, np.int64), base=np.zeros((n, 3)), along=along, across=np.stack([-np.sin(az), np.cos(az), 0.0 * az], 1), length=np.ones(n), width=np.ones(n),
+                              area=np.ones(n), sun=np.ones(n), delay=np.zeros(n))
+    out = gu.hang_leaves(leaves, z, cfg)
+    # what was measured is a blade's slope from base to tip, which takes in the curl the mesh will give it
+    curl = cfg["curl"][0] + (cfg["curl"][1] - cfg["curl"][0]) * ap.hash01(np.arange(n), 86)
+    angle = np.degrees(np.arcsin(-out.along[:, 2]) + np.arctan(curl))
+    assert np.all(angle > 0.0)                                      # all hang
+    assert angle[z > 0.97].mean() == pytest.approx(55.0, abs=4.0)   # Hagemeier & Leuschner 2019a: at the top
+    assert angle[z < 0.3].mean() == pytest.approx(30.0, abs=4.0)    # and in the lowest shade crown
+
+
+def test_the_leaf_outline_is_a_real_one(look):
+    """Atkinson & Codling 1986 and the floras: triangular, long drawn out tip, large teeth carrying small."""
+    import treegen.game_unreal as gu
+
+    sh = gu.unreal_look(look)["leaves"]["shape"]
+    m = tx.leaf_margin(sh, 0)
+    t = np.linspace(0.0, 1.0, 501)
+    half = tx.leaf_half_at(m, t) * m["hmax"]
+    assert 0.2 < t[np.argmax(half)] < 0.45                          # widest low down
+    assert half[-1] == pytest.approx(0.0, abs=1e-6)                 # comes to a point
+    width_at = lambda a: half[np.argmin(np.abs(t - a))]  # noqa: E731
+    # against a straight line from the widest point to the tip: curved out at the shoulder, drawn in to the tip
+    straight = lambda a: half.max() * (1.0 - a) / (1.0 - t[np.argmax(half)])  # noqa: E731
+    assert width_at(0.56) > 1.1 * straight(0.56)
+    assert width_at(0.94) < 0.9 * straight(0.94)
+    assert len(m["tips"][1]) == int(sh["main_teeth"]) and int(sh["minor_per_main"]) >= 1
+
+
+def test_thinning_saves_triangles_and_leaves_the_stem_alone(unreal_export, tmp_path):
+    out, doc = unreal_export
+    _run_unreal(tmp_path, ages="8", seasons="summer", look=["game.unreal.ring_tolerance=0", "game.unreal.ring_tolerance_m=0"])
+    all_rings = json.loads((tmp_path / "game_manifest.json").read_text(encoding="utf-8"))["stages"][0]["seasons"]["summer"]["lod0"]
+    thinned = doc["stages"][-1]["seasons"]["summer"]["lod0"]
+    assert thinned["parts"]["wood"] < all_rings["parts"]["wood"]
+    assert thinned["parts"]["leaves"] == all_rings["parts"]["leaves"]
+    for got in (all_rings, thinned):
+        assert got["bounds"]["height_cm"] == pytest.approx(thinned["bounds"]["height_cm"], rel=0.002)
+
+
+def test_the_generic_export_ignores_the_unreal_block(exported):
+    out, doc = exported
+    assert doc.get("target") != "unreal"
+    assert not list(out.rglob("*.gltf"))
+    near = read_glb(out / doc["stages"][-1]["seasons"]["summer"]["lod0"]["file"])[0]
+    assert all("TEXCOORD_1" not in p["attributes"] for m in near["meshes"] for p in m["primitives"])
+    # 16-bit colour, as it was
+    prim = next(m["primitives"][0] for m in near["meshes"] if m["name"] == "leaves")
+    assert near["accessors"][prim["attributes"]["COLOR_0"]]["componentType"] == 5123
+
+
+def test_unreal_textures_are_powers_of_two_and_extras_are_plain(unreal_export):
+    from PIL import Image
+
+    out, doc = unreal_export
+    # Unreal's import refuses other sizes
+    for p in (out / "SourceArt" / "PolyHaven" / doc["asset"] / "textures").iterdir():
+        w, h = Image.open(p).size
+        assert w & (w - 1) == 0 and h & (h - 1) == 0, p.name
+    # and logs an error for nested extras
+    for path in out.rglob("*.gltf"):
+        d, _ = read_glb(path)
+        for extras in [d["asset"].get("extras", {})] + [m.get("extras", {}) for m in d["materials"]]:
+            assert all(isinstance(v, (str, int, float, bool)) for v in extras.values())
+
+
+def test_the_unreal_scripts_at_least_compile():
+    import py_compile
+
+    scripts = list((ROOT / "tools" / "unreal").glob("*.py")) + [ROOT / "tools" / "unreal_test.py"]
+    assert len(scripts) >= 5
+    for s in scripts:
+        py_compile.compile(str(s), cfile=str(ROOT / "out" / "unreal_compile_check.pyc"), doraise=True)

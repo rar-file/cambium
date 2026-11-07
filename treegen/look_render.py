@@ -10,6 +10,7 @@ like it, and its lighting is plain on purpose.
 from __future__ import annotations
 
 import io
+from pathlib import Path
 
 import numpy as np
 from numba import njit
@@ -106,9 +107,12 @@ def load_glb_primitives(path) -> list:
         if key not in cache:
             t = doc["textures"][tex_index]
             img = doc["images"][t["source"]]
-            v = doc["bufferViews"][img["bufferView"]]
-            data = blob[v.get("byteOffset", 0):v.get("byteOffset", 0) + v["byteLength"]]
-            a = np.asarray(Image.open(io.BytesIO(data)).convert("RGBA"), np.float32) / 255.0
+            if "uri" in img:
+                a = np.asarray(Image.open(Path(path).parent / img["uri"]).convert("RGBA"), np.float32) / 255.0
+            else:
+                v = doc["bufferViews"][img["bufferView"]]
+                data = blob[v.get("byteOffset", 0):v.get("byteOffset", 0) + v["byteLength"]]
+                a = np.asarray(Image.open(io.BytesIO(data)).convert("RGBA"), np.float32) / 255.0
             if srgb:
                 a = np.concatenate([srgb_decode(a[..., :3]), a[..., 3:]], axis=-1)
             s = doc["samplers"][t.get("sampler", 0)]
@@ -131,9 +135,11 @@ def load_glb_primitives(path) -> list:
                 t = glb_accessor(doc, blob, attrs["TANGENT"]).astype(np.float32)
                 T = np.c_[from_y_up(t[:, :3]), t[:, 3]]
             C = None
-            if "COLOR_0" in attrs:
-                C = glb_accessor(doc, blob, attrs["COLOR_0"]).astype(np.float32) / 65535.0
             m = doc["materials"][prim.get("material", 0)]
+            # in a file for Unreal, COLOR_0 holds the wind's data, not a colour
+            if "COLOR_0" in attrs and m.get("extras", {}).get("color0") != "wind":
+                span = 255.0 if doc["accessors"][attrs["COLOR_0"]]["componentType"] == 5121 else 65535.0
+                C = glb_accessor(doc, blob, attrs["COLOR_0"]).astype(np.float32) / span
             pbr = m.get("pbrMetallicRoughness", {})
             base = alpha = normal = orm = None
             if "baseColorTexture" in pbr:

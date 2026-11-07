@@ -373,7 +373,90 @@ def stem_s(look: dict, v, length: float):
     return np.interp(v, vv, z)
 
 
-def bake_stem(look: dict, tiles: list, profile: StemProfile, part_state_fn, marks: list, px=None, block: int = 512) -> dict:
+class UnevenTop:
+    """Where a climbing stage has got to at each place on a stem: how far above or below its level its
+    top reaches, and how far down its plates stay uncovered.  The same at every age of one tree, growing
+    with the climb itself, and different from tree to tree."""
+
+    SPAN_M, ROWS, COLUMNS = 8.0, 1024, 256
+
+    def __init__(self, look: dict, part_age, tree_seed: int = 0):
+        from .appearance import climb_top, hash01
+
+        self.cfg = cfg = look["bark"]["uneven_top"]
+        climb = next(r["climbs"] for r in look["bark"]["stage_ramps"].values() if r.get("climbs"))
+        self.band = float(climb["band_m"])
+        self.top = float(climb_top(climb, part_age))
+        key = int(look["game"]["texture_seed"]) + 7919 * (int(tree_seed) + 1)
+        self.tree = 2.0 * float(hash01(np.array([key]), 91)[0]) - 1.0
+        self.toward = float(hash01(np.array([key]), 92)[0])
+        rows_per_m = self.ROWS / self.SPAN_M
+        field = 0.0
+        for k, (turns, along_m, weight) in enumerate(cfg["tongues"]):
+            field = field + float(weight) * noise((self.ROWS, self.COLUMNS), key + 11 * k, (float(along_m) * rows_per_m, float(turns) * self.COLUMNS), 2.2)
+        p = float(cfg["tongue_power"])
+        t = rank01(field) ** p
+        self.tongue = ((t - t.mean()) / (1.0 - t.mean())).astype(np.float32)
+        patch = 0.0
+        for k, (turns, along_m, weight) in enumerate(cfg["patches"]):
+            patch = patch + float(weight) * noise((self.ROWS, self.COLUMNS), key + 97 + k, (float(along_m) * rows_per_m, float(turns) * self.COLUMNS), 2.0)
+        self.patch = patch.astype(np.float32)
+        self.scale = float(cfg["strength"]) * self.top
+        # how far up the highest tongue gets, on this tree
+        self.reach = max(self.scale * (float(cfg["tree_share"]) * self.tree + float(cfg["side_share"]) + float(cfg["tongue_share"])), 0.0)
+        # below this the stage has covered everything; a darker tree has it higher
+        low, high = cfg["solid_share"]
+        self.solid = self.top * (float(low) + (float(high) - float(low)) * (0.5 + 0.5 * self.tree))
+        low, high = cfg["leaves_covered"]
+        self.leaves = float(low) + (float(high) - float(low)) * (0.5 + 0.5 * self.tree)
+
+    def _read(self, field: np.ndarray, u: np.ndarray, s: np.ndarray) -> np.ndarray:
+        """A field at ``s`` metres up (rows) and ``u`` round (columns), bilinear, wrapping both ways."""
+        y = np.mod(np.asarray(s, float) / self.SPAN_M, 1.0) * self.ROWS
+        x = np.mod(np.asarray(u, float), 1.0) * self.COLUMNS
+        y0 = np.floor(y).astype(np.int64)
+        x0 = np.floor(x).astype(np.int64)
+        fy = (y - y0)[:, None].astype(np.float32)
+        fx = (x - x0)[None, :].astype(np.float32)
+        y0, y1 = y0 % self.ROWS, (y0 + 1) % self.ROWS
+        x0, x1 = x0 % self.COLUMNS, (x0 + 1) % self.COLUMNS
+        return (field[np.ix_(y0, x0)] * (1 - fx) + field[np.ix_(y0, x1)] * fx) * (1 - fy) + (field[np.ix_(y1, x0)] * (1 - fx) + field[np.ix_(y1, x1)] * fx) * fy
+
+    def shift(self, u: np.ndarray, s: np.ndarray) -> np.ndarray:
+        """Metres, rows x columns, for ``s`` metres up the stem (rows) and ``u`` round it (columns)."""
+        cfg = self.cfg
+        tongue = self._read(self.tongue, u, s)
+        side = np.cos(2.0 * np.pi * (np.asarray(u, float) - self.toward)).astype(np.float32)
+        total = float(cfg["tree_share"]) * self.tree + float(cfg["side_share"]) * side[None, :] + float(cfg["tongue_share"]) * tongue
+        return self.scale * np.maximum(total, -float(cfg["lowest_share"]))
+
+    def heights(self, u: np.ndarray, s: np.ndarray, z: np.ndarray) -> np.ndarray:
+        """The height, rows x columns, at which the ageing rule should read each texel of a stem with
+        heights ``z`` by row: it's moved by ``shift``, and the rule's short band from covered to bare is
+        drawn out over all the height from ``solid`` to the top, leaving covered quickly and bare slowly.
+        Part-way through a band a stage has taken the furrows and left the plates, so that's a long
+        stretch of black cracks and white plates, with patches of more of each."""
+        cfg = self.cfg
+        at = z[:, None] - self.shift(u, s)
+        low, high = self.top - self.band, self.top + self.band
+        f0 = np.clip((at - self.solid) / max(high - self.solid, 1e-6), 0.0, 1.0)
+        # patches go to nothing at both ends of the band, so nothing jumps there
+        f = f0 + float(cfg["patch_share"]) * self._read(self.patch, u, s) * smooth(0.0, 0.15, f0) * (1.0 - smooth(0.85, 1.0, f0))
+        drawn = low + np.clip(f, 0.0, 1.0) ** self.leaves * (high - low)
+        return np.where(at >= high, at, np.where(at <= self.solid, low + (at - self.solid), drawn))
+
+
+def uneven_top(look: dict, part_age, tree_seed: int = 0) -> UnevenTop | None:
+    """``None`` unless ``bark.uneven_top.strength`` asks for it: then a stem's rough base stops at no one
+    level.  It climbs in tongues, further on one side, to a different height on each tree."""
+    cfg = look["bark"].get("uneven_top")
+    climbs = any(r.get("climbs") for r in look["bark"].get("stage_ramps", {}).values())
+    if not cfg or float(cfg["strength"]) <= 0.0 or not climbs:
+        return None
+    return UnevenTop(look, part_age, tree_seed)
+
+
+def bake_stem(look: dict, tiles: list, profile: StemProfile, part_state_fn, marks: list, px=None, block: int = 512, y_offset: float = 0.0, tree_seed: int = 0) -> dict:
     """The stem's own texture, baked from the state at every row.  ``marks``: (around 0-1, s, branch
     radius) of each branch that leaves the stem, living or shed, for the dark chevrons.
 
@@ -390,7 +473,10 @@ def bake_stem(look: dict, tiles: list, profile: StemProfile, part_state_fn, mark
     s = stem_s(look, v, length)
     r = np.interp(s, profile.s, profile.radius)
     circ = 2.0 * np.pi * np.maximum(r, 1e-4)
-    state = part_state_fn(np.interp(s, profile.s, profile.part_age), np.interp(s, profile.s, profile.d_wood), np.interp(s, profile.s, profile.z))
+    age_row, d_row, z_row = np.interp(s, profile.s, profile.part_age), np.interp(s, profile.s, profile.d_wood), np.interp(s, profile.s, profile.z)
+    state = part_state_fn(age_row, d_row, z_row)
+    # the rough base's top, place by place, where that's asked for
+    edge = None if profile.part_age.size == 0 else uneven_top(look, float(np.max(profile.part_age)), tree_seed)
     dy = np.gradient(s)
     dx = circ / W
     u = (np.arange(W) + 0.5) / W
@@ -401,25 +487,26 @@ def bake_stem(look: dict, tiles: list, profile: StemProfile, part_state_fn, mark
     alb = np.zeros((H, W, 3), np.float32)
     rough = np.zeros((H, W), np.float32)
     height = np.zeros((H, W), np.float32)
-    edge = 0.3
+    hand = 0.3
     # each tile's height of stem takes the tile from its own random offset, handed over patch by patch
     # at the end of the band, so nothing repeats up the stem
     from .appearance import hash01
     seed = int(look["game"]["texture_seed"])
-    band = np.floor(s / tile_m).astype(np.int64)
-    frac = s / tile_m - band
+    # y_offset: where the pattern's own zero is, if the rows start below it
+    band = np.floor((s - y_offset) / tile_m).astype(np.int64)
+    frac = (s - y_offset) / tile_m - band
     ox, oy = hash01(band + seed, 61) * tile_m, hash01(band + seed, 62) * tile_m
     ox2, oy2 = hash01(band + 1 + seed, 61) * tile_m, hash01(band + 1 + seed, 62) * tile_m
     hand_over = 0.82
     for start in range(0, H, block):
         rows = np.arange(start, min(start + block, H))
         n = len(rows)
-        y = np.broadcast_to(s[rows, None], (n, W))
+        y = np.broadcast_to(s[rows, None] - y_offset, (n, W))
         patch = sample_tile(tiles[0], np.broadcast_to(u[None, :] * tile_m, (n, W)), y, np.maximum(tile_m / W, dy[rows]))[..., PATCH]
-        mix = smooth(patch, patch + edge, share[rows, None] * (1.0 + edge))[..., None]
+        mix = smooth(patch, patch + hand, share[rows, None] * (1.0 + hand))[..., None]
         xa = u[None, :] * ka[rows, None]
         near = np.nonzero(frac[rows] > hand_over)[0]
-        over = smooth(patch[near], patch[near] + edge, ((frac[rows][near, None] - hand_over) / (1.0 - hand_over)) * (1.0 + edge))[..., None]
+        over = smooth(patch[near], patch[near] + hand, ((frac[rows][near, None] - hand_over) / (1.0 - hand_over)) * (1.0 + hand))[..., None]
 
         def fetch(t, rr, ox_, oy_):
             sa = sample_tile(t, xa[rr] + ox_[rows][rr, None], y[rr] + oy_[rows][rr, None], np.maximum(ka[rows][rr] / W, dy[rows][rr]))
@@ -436,6 +523,11 @@ def bake_stem(look: dict, tiles: list, profile: StemProfile, part_state_fn, mark
                 sa[near] = sa[near] + (fetch(t, near, ox2, oy2) - sa[near]) * over
             samples.append(sa)
         st = {"weights": state["weights"][:, rows], "fissure_m": state["fissure_m"][rows], "peel": state["peel"][rows], "grime": state["grime"][rows]}
+        if edge is not None and z_row[rows].min() - edge.reach < edge.top + edge.band:
+            # the same rules, at the height each texel's bark behaves as if it's at
+            shape2 = (n, W)
+            at = part_state_fn(np.broadcast_to(age_row[rows, None], shape2), np.broadcast_to(d_row[rows, None], shape2), edge.heights(u, s[rows], z_row[rows]))
+            st = {"weights": at["weights"], "fissure_m": at["fissure_m"], "peel": at["peel"], "grime": st["grime"]}
         m = compose(tiles, samples, st, (n, W))
         alb[rows] = m["albedo"]
         rough[rows] = m["rough"]
@@ -558,11 +650,110 @@ def bake_branch_atlas(look: dict, tiles: list, states: list, px=None) -> dict:
 
 
 # -- leaves and strips ----------------------------------------------------------------------------
-def _leaf_outline(look: dict, n: int) -> np.ndarray:
+def leaf_half_width(look: dict, t) -> np.ndarray:
+    """The blade's half width at t (0 base, 1 tip), 1 at its widest, before its teeth: the same curve
+    as ``_leaf_outline``, for meshes that cut the leaf's real outline."""
+    w0 = float(look["leaves"]["shape"]["widest_at"])
+    t = np.asarray(t, float)
+    up = np.clip(t / w0, 0.0, 1.0)
+    down = np.clip(1.0 - (t - w0) / (1.0 - w0), 0.0, 1.0)
+    k = 0.32
+    d_ = np.clip(k - np.abs(up - down), 0.0, k) / k
+    rounded = np.minimum(up, down) - d_ * d_ * k * 0.25
+    half = rounded * (1.0 - 0.34 * smooth(0.55, 1.0, t) * (1.0 - smooth(0.9, 1.0, t)))
+    return np.where(t <= 0, 0.0, half)
+
+
+def push_pull_fill(rgb: np.ndarray, weight: np.ndarray) -> np.ndarray:
+    """Colour flooded into the texels of zero weight from their nearest weighted neighbours, coarse to
+    fine, so mips of a cut-out never average in what lies under the cut (the game's bleed_foliage.py
+    does this to its leaf textures, or distant crowns frost)."""
+    levels = []
+    colour, total = rgb * weight[..., None], weight
+    while min(colour.shape[:2]) > 1:
+        levels.append((colour, total))
+        h, w = colour.shape[0] // 2, colour.shape[1] // 2
+        colour = colour[:h * 2, :w * 2].reshape(h, 2, w, 2, 3).sum((1, 3))
+        total = total[:h * 2, :w * 2].reshape(h, 2, w, 2).sum((1, 3))
+    fill = colour / np.maximum(total, 1e-6)[..., None]
+    for colour, total in reversed(levels):
+        coarse = np.repeat(np.repeat(fill, 2, 0), 2, 1)
+        coarse = np.pad(coarse, ((0, colour.shape[0] - coarse.shape[0]), (0, colour.shape[1] - coarse.shape[1]), (0, 0)), mode="edge")
+        own = colour / np.maximum(total, 1e-6)[..., None]
+        have = np.minimum(total, 1.0)[..., None]
+        fill = own * have + coarse * (1.0 - have)
+    return fill.astype(np.float32)
+
+
+def leaf_margin(sh: dict, variant: int = 0) -> dict:
+    """A blade traced from real leaves (``half_width_by_length``), for the meshes that cut its outline.
+    Half width by position along it, smooth, in shares of its widest; and where each side's main teeth
+    end, at the tips of the side veins.  Teeth lean towards the leaf's tip, as on the real thing."""
+    table = np.asarray(sh["half_width_by_length"], float)
+    hmax = float(table[:, 1].max())
+    t = np.linspace(0.0, 1.0, 2049)
+    # each variant a little different: where the widest point sits, how long the tip is drawn out
+    warp = float(sh["variant_warp"]) * (variant % 2 * 2 - 1) if int(sh["variants"]) > 1 else 0.0
+    half = np.interp(t ** (1.0 + warp), table[:, 0], table[:, 1]) / hmax
+    half = np.convolve(np.pad(half, 40, mode="edge"), np.ones(81) / 81.0, mode="valid")
+    half[0] = half[-1] = 0.0
+    n = int(sh["main_teeth"])
+    first, last = float(sh["first_tooth_at"]), float(sh["last_tooth_at"])
+    tips = {}
+    for side, shift in ((1, 0.0), (-1, float(sh["side_offset"]))):
+        i = (np.arange(n) + shift) / max(n - 1 + shift, 1)
+        tips[side] = first + (last - first) * i ** float(sh["tooth_spacing_power"])
+    return {"t": t, "half": half, "hmax": hmax, "tips": tips}
+
+
+def leaf_half_at(margin: dict, t) -> np.ndarray:
+    return np.interp(t, margin["t"], margin["half"])
+
+
+def _tooth_depth(sh: dict, margin: dict, t: np.ndarray, side: int) -> np.ndarray:
+    """How far in from the outline's envelope the margin is: a main tooth to each side vein, smaller
+    ones between, every second to fourth tooth much the longer.  In shares of the widest half."""
+    tips = margin["tips"][side]
+    hmax = margin["hmax"]
+    main, minor = float(sh["main_tooth_depth"]) / hmax, float(sh["minor_tooth_depth"]) / hmax
+    m = int(sh["minor_per_main"])
+    knots = np.r_[tips, tips[-1] + (tips[-1] - tips[-2])]
+    phase = np.interp(t, knots, np.arange(len(knots)))
+    k = np.floor(phase)
+    f = phase - k
+    # each interval a slightly different number of small teeth
+    count = m + (np.mod(k * 7.0 + (side > 0) * 3.0, 3.0) > 1.0).astype(float)
+    g = np.mod(f * count, 1.0)
+    # past each tip the margin falls back quickly, slanting on towards the leaf's tip, then runs out to the next
+    def saw(x, fall=0.28):
+        return np.minimum(x / fall, (1.0 - x) / (1.0 - fall))
+    depth = main * saw(f, 0.2) * 0.7 + minor * saw(g)
+    # no teeth on the base's run in from the stalk, and only small ones on the drawn-out tip
+    depth = depth * smooth(tips[0] - 0.02, tips[0] + 0.005, t) * (1.0 - 0.75 * smooth(tips[-1], 1.0, t))
+    return depth
+
+
+def _leaf_outline_real(look: dict, n: int, variant: int) -> np.ndarray:
+    sh = look["leaves"]["shape"]
+    margin = leaf_margin(sh, variant)
+    Y, X = np.meshgrid((np.arange(n) + 0.5) / n, (np.arange(n) + 0.5) / n, indexing="ij")
+    t = 1.0 - Y[:, 0]
+    x = (2.0 * X - 1.0) / float(sh["uv_half"]) / 2.0
+    env = leaf_half_at(margin, t)
+    right = env - _tooth_depth(sh, margin, t, 1)
+    left = env - _tooth_depth(sh, margin, t, -1)
+    edge = np.where(x >= 0.0, right[:, None], left[:, None]) - np.abs(x)
+    aa = 2.5 / n
+    return np.clip(edge / aa + 0.5, 0.0, 1.0).astype(np.float32)
+
+
+def _leaf_outline(look: dict, n: int, variant: int = 0) -> np.ndarray:
     """A birch blade in a square, base at the bottom row, tip at the top: mask 0-1.  The outline
     is triangular with a truncate base and double teeth, and sits inside the diamond the mesh uses
     (corners at bottom middle, top middle, and at widest_at along the sides)."""
     sh = look["leaves"]["shape"]
+    if "half_width_by_length" in sh:
+        return _leaf_outline_real(look, n, variant)
     w0 = float(sh["widest_at"])
     teeth = float(sh["teeth"])
     Y, X = np.meshgrid((np.arange(n) + 0.5) / n, (np.arange(n) + 0.5) / n, indexing="ij")
@@ -586,28 +777,43 @@ def _leaf_outline(look: dict, n: int) -> np.ndarray:
     return (mask * (x <= diamond)).astype(np.float32)
 
 
-def leaf_blade(look: dict, seed: int, state_lead: float = 0.0) -> dict:
+def leaf_blade(look: dict, seed: int, state_lead: float = 0.0, variant: int = 0) -> dict:
     """The blade: a soft, near-white detail map (COLOR_0 gives each leaf its colour), with an alpha
     mask; lighter veins, a little mottling.  ``state_lead``: how yellow between the veins, 0-1;
     with it the map's own hue shifts from green at the veins to yellow between them."""
     n = int(look["leaves"]["texture_size_px"])
     sh = look["leaves"]["shape"]
-    mask = _leaf_outline(look, n)
+    mask = _leaf_outline(look, n, variant)
     Y, X = np.meshgrid((np.arange(n) + 0.5) / n, (np.arange(n) + 0.5) / n, indexing="ij")
     t = 1.0 - Y
     x = 2.0 * X - 1.0
     vein_light = float(sh["vein_lightness"])
     mid = np.exp(-(x / 0.018) ** 2)
-    nv = int(sh["secondary_veins"])
+    nv = int(sh["secondary_veins"]) if "secondary_veins" in sh else int(sh["main_teeth"])
     # secondary veins leave the midrib at a slant and run straight to the teeth
     phase = (t - 0.55 * np.abs(x)) * nv
     side = np.exp(-(((phase % 1.0) - 0.5) / 0.055) ** 2) * (t > 0.02)
+    v_near = None
+    if "half_width_by_length" in sh:
+        # ... each to the tip of a main tooth, each side its own
+        margin = leaf_margin(sh, variant)
+        h_norm = np.abs(x) / (2.0 * float(sh["uv_half"]))
+        best = np.full(t.shape, 9.0, np.float32)
+        for s_, sel in ((1, x >= 0.0), (-1, x < 0.0)):
+            tips = margin["tips"][s_]
+            starts = 0.015 + (tips - tips[0]) * float(sh["vein_start_share"])
+            ends = leaf_half_at(margin, tips)
+            d = np.stack([np.abs(t[sel] - (a_ + (b_ - a_) * h_norm[sel] / max(e_, 1e-3))) for a_, b_, e_ in zip(starts, tips, ends)], 0)
+            best[sel] = d.min(0)
+        side = np.exp(-(best / (0.055 / nv)) ** 2) * (t > 0.01)
+        v_near = np.exp(-(best / (0.22 / nv)) ** 2)
     veins = np.clip(mid + 0.6 * side, 0.0, 1.0)
     grain = noise((n, n), seed, (n / 40.0, n / 40.0), 1.8)
     cell = noise((n, n), seed + 1, (n / 170.0, n / 170.0), 1.0)
     base = 0.86 + 0.045 * grain + 0.03 * cell
     # chlorophyll goes first between the veins: yellow there, green by the veins
-    v_near = np.exp(-(((phase % 1.0) - 0.5) / 0.22) ** 2)
+    if v_near is None:
+        v_near = np.exp(-(((phase % 1.0) - 0.5) / 0.22) ** 2)
     between = np.clip(1.0 - np.maximum(v_near, np.exp(-(x / 0.09) ** 2)), 0.0, 1.0)
     lead = float(state_lead) * between * (0.6 + 0.4 * rank01(grain))
     rgb = np.stack([base + 0.20 * lead, base + 0.06 * lead, base * (1.0 - 0.45 * lead)], -1)
