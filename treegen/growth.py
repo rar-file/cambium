@@ -1093,7 +1093,7 @@ class GrowthModel:
             leaf_c = np.zeros(n0)
             np.add.at(leaf_c, *self._bud_leaf_cost)
             upkeep_c = mu * T.basipetal(levels, ones_c) + T.basipetal(levels, leaf_c)
-            if self._frame_earns():
+            if self._frame_earns() and bool(getattr(sp.crown_frame, "limb_pays_sapwood", False)):
                 # and the sapwood its leaves ask for each year, over its whole length: a long limb with a tuft at its end doesn't pay
                 la_c = np.zeros(n0)
                 np.add.at(la_c, bud_nodes, bud_leaf)
@@ -1711,6 +1711,10 @@ class GrowthModel:
                             # figure, a forked stem's other fork loses it every year and must rebuild it, at
                             # 28 cm2 a year (seed 3 at 45), whatever its crown does
                             a_su = hv * la_now
+                            last = self.__dict__.get("_frame_la_tot")
+                            if last is not None and self._frame_earns() and bool(getattr(sp.crown_frame, "sapwood_kept", False)):
+                                # sapwood isn't retired to this year's old leaves alone and built again for the new ones: what last year's whole crown asked for stays
+                                a_su = np.maximum(a_su, hv * np.concatenate([last, np.zeros(max(n0 - len(last), 0))])[:n0])
                         excess = below & (T.sap_area[:n0] > a_su)
                         if excess.any():
                             T.sap_area[:n0] = np.where(excess, a_su, T.sap_area[:n0])
@@ -1966,6 +1970,9 @@ class GrowthModel:
                 is_limb[hd["frame_at"]] = True
             stem_nodes = T.trunk_chain(self.leader_axes)
             stem_nodes = stem_nodes[stem_nodes < n0]
+            area_new = np.zeros(n0)
+            np.add.at(area_new, starts, np.where(grow, np.maximum(np.floor(vc), 1.0) * per_met + early, 0.0))
+            self._frame_la_tot = la_now + T.basipetal(levels, area_new)
             hd["use"] = {"pool": float(pool), "lead": float(cost[lead_at]), "limbs": float(cost[is_limb].sum()), "stem_rings": float((ring[stem_nodes] * L[stem_nodes]).sum()) / unit,
                          "twigs": float(cost.sum() - cost[lead_at] - cost[is_limb].sum()), "rings": float((ring * L).sum()) / unit,
                          "twig_shoots": int((grow & ~is_limb).sum()), "at_cap": int((grow & ~is_limb & (v >= caps)).sum())}
