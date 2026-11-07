@@ -87,6 +87,33 @@ def foliage_table(model) -> dict:
     lens = np.bincount(axes[twig], weights=length[twig]) if twig.any() else np.zeros(1)
     lens = lens[lens > 0.0]
     out["twig_axis_len_m"] = {"n": int(lens.size), "median": round(float(np.median(lens)), 2) if lens.size else 0.0, "p90": round(float(np.percentile(lens, 90)), 2) if lens.size else 0.0}
+    # where twigs start, and how long they live.  A twig is an axis off a limb's own axis; its place is how far out from the stem its base stands, as a share of the crown's radius
+    n_all = np.arange(n)
+    all_first = n_all[T.is_lateral[:n] & (T.order[:n] == 2)]
+    rr = r / max(rmax, 1e-6)
+    base_rr = rr[T.parent[all_first]]
+    leaf_rr_w = np.bincount(axes, weights=la * rr, minlength=int(axes.max()) + 1)
+    leaf_w = np.bincount(axes, weights=la, minlength=int(axes.max()) + 1)
+    scaffold_la = np.zeros(n)
+    np.add.at(scaffold_la, n_all, la)
+    whole = T.basipetal(T.levels(alive), scaffold_la)
+    now = int(model.year)
+    rows = {}
+    for name, lo, hi in (("inner third", 0.0, 1.0 / 3.0), ("middle third", 1.0 / 3.0, 2.0 / 3.0), ("outer third", 2.0 / 3.0, 99.0)):
+        hit = all_first[(base_rr >= lo) & (base_rr < hi)]
+        live = hit[alive[hit]]
+        dead = hit[~alive[hit]]
+        life = T.death[dead] - T.birth[dead]
+        rows[name] = {"born": int(hit.size), "alive": int(live.size), "dead": int(dead.size), "median_life_of_dead": round(float(np.median(life)), 1) if dead.size else 0.0, "median_age_of_live": round(float(np.median(now - T.birth[live])), 1) if live.size else 0.0,
+                      "la_m2": round(float(whole[live].sum()), 1), "la_per_live_twig": round(float(whole[live].mean()), 3) if live.size else 0.0}
+    out["twigs_by_place"] = rows
+    # spurs and buds: of the nodes on twigs, how many carry living short shoots, by order, and how many nodes a metre
+    nodes_per_m = {}
+    for k in range(2, 6):
+        hit = (order == k) & alive
+        m = float(length[hit].sum())
+        nodes_per_m[k] = {"nodes_per_m": round(float(hit.sum()) / max(m, 1e-9), 1), "spur_share": round(float((spur & hit).sum()) / max(float(hit.sum()), 1.0), 3), "leaves_per_node": round(float(T.leaves[:n][hit].sum()) / max(float(hit.sum()), 1.0), 2)}
+    out["nodes"] = nodes_per_m
     return out
 
 
