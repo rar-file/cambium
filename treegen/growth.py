@@ -2259,7 +2259,7 @@ class GrowthModel:
         age = np.where(limb_tip[at], np.maximum(self.year + 1.0 - T.scaffold_birth[node], 0.0), 0.0)
         limb_years = getattr(cf, "limb_ageing_years", None)
         grow = grow * light * float(hd["water"]) * np.exp(-age / float(limb_years if limb_years else self.sp.resource.branch_aging_years))
-        if earns and bool(getattr(self.sp.resource, "limbs_inherit_stem_age", False)) and bool(getattr(cf, "limbs_born_old", False)):
+        if earns and bool(getattr(self.sp.resource, "limbs_inherit_stem_age", False)):
             # a limb starts at the physiological age the stem had when it made it (Barthelemy & Caraglio 2007, as _scaffold_vigour has it), so the top of an old tree's crown rounds off
             grow = grow * np.where(limb_tip[at], np.exp(-T.scaffold_birth[node] / float(self.sp.resource.stem_aging_years)), 1.0)
         # the tree's one second top keeps up with the leader, and may catch it: only the room under the tree's top holds it (_frame_room)
