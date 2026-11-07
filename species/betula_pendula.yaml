@@ -584,7 +584,7 @@ mechanics:
   pendulous_radius: 0.006
   pendulous_sharpness: 4.0
   # Set: limbs (side axes on the stem) have this radius instead, so limbs ascend and only their thin ends arch over,
-  # and the hanging is the twigs'.  null (as it has been): one radius for all.  TUNED, by eye only; not in test A.
+  # and the hanging is the twigs'.  null (as it has been): one radius for all.  TUNED, by eye only; not in test A.  0.0025 with crown_frame.
   pendulous_radius_limb: null
   # The year's load increment is applied in sub-steps on the updated shape;
   # no internode turns more than this per sub-step (rad). Model guard.
@@ -1561,6 +1561,23 @@ height_driver:
 # they and everything finer do.  Needs height_driver on, and shares its code path.  Off by default.  Limbs are real nodes,
 # paid first from the pool, that grow a shoot a year, and can fall short or die by the usual rules.  Not compatible yet with
 # speed.compiled_carbon: treegen/fast.py's copy of the carbon sum doesn't know these limbs.
+#
+# Set at run time with it (--set); this file's own defaults for these stay as they were, so nothing moves while the frame is off:
+#   height_driver.enabled=true                 The approved curve; the curve held the leader in all 1,200 seed-years measured, so height is close to scripted.
+#   stats.limbs_on_leader=true                 A measure's definition, not a value.
+#   pipe_model.heartwood_by_own_foliage=true   A correction for forked and broken stems (Tree agent).
+#   height_driver.ring_share_max=0.5           TUNED, against crown flips (Tree agent).  Without it on an earlier candidate: stem wood 12-20 % over Repola, 10 flips of 224 (4 PC seeds).
+#   pipe_model.branch_sapwood_senescence=0.30  TUNED, against Repola's branch wood (Tree agent).
+#   resource.apical_dominance=0.75             TUNED, against crown flips (Tree agent).
+#   bud_fate.long_shoot_threshold=5            TUNED, against flips and branch count (Tree agent).
+#   shedding.shade_softness=0.5                TUNED, no source.  Without it on an earlier candidate: light 20.5, 21.4 %, out of the band (4 PC seeds).
+#   shedding.light_per_leaf_threshold=0.18, bud_fate.short_shoot_survival_light=0.18
+#                                              TUNED, against LAI and light.  Some support: Hagemeier & Leuschner 2019b Fig. 6, lowest reading about 18.7 % by eye.
+#   bud_fate.density_control.enabled=true, .after_growth=true   Tree agent's lead, against flips.
+#   bud_fate.density_control.af_zero=1.7       TUNED, against crown length and fill.  This file's 3.2 is Hagemeier & Leuschner 2019 Table 5's sun crown, a test bound.
+#   bud_fate.short_shoot_light=0.18            TUNED, against fill: a bud that doesn't grow stays a short shoot down to the death line.
+#   mechanics.pendulous_radius_limb=0.0025     TUNED, against the look: limbs rise, and only their thin ends arch over.
+#   resource.reiteration.setpoint_angle_deg=20 TUNED, against the look: a fork rises beside the stem, not along it.
 crown_frame:
   enabled: false
   # -- how many, and at what angle ---------------------------------------------------------------------------------------
