@@ -1292,6 +1292,12 @@ class GrowthModel:
             if self._frame_on():
                 own = self._frame_setpoints()[T.axis[:n]]
                 setpoint = np.where(np.isfinite(own) & ~stem, own, setpoint)
+                sag = getattr(self.sp.crown_frame, "limb_sag_deg", None) if self._frame_earns() else None
+                if sag:
+                    # a limb's old wood gives way under its load while its young end still rises, so a limb leaves the stem low and curves up: its posture target falls with the age of the wood
+                    limb_wood = np.isfinite(own) & ~stem
+                    aged = np.exp(-np.maximum(t - T.birth[:n], 0.0) / float(self.sp.resource.branch_aging_years))
+                    setpoint = np.where(limb_wood, setpoint + math.radians(float(sag)) * (1.0 - aged), setpoint)
             mechanics.bend_and_correct(T, levels, alive, mp, leaves_now, T.leaves[:n].astype(float),
                                        r_prev, setpoint, float(self.sp.shoot.min_height_above_ground),
                                        self._stem_posture_target(n), stem, self._limb_nodes(n),
