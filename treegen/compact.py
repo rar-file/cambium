@@ -77,6 +77,6 @@ def compact(model, every: int = 3, min_share: float = 0.2) -> bool:
     model._bud_leaf_cost = None
     model._ring = None
     model.diag = {}
-    # the short-shoot log's node numbers are only for meshes, which a lean run can't make
-    model.spurs.node.clear()
+    # the short-shoot log's node numbers are only for meshes, which a lean run can't make; its length is its next record's number
+    model.spurs.node[:] = [0] * len(model.spurs.node)
     return True
