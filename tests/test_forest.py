@@ -224,7 +224,7 @@ def test_seed_runs_out_along_x_and_stops_at_the_ends():
 
 
 def test_the_mixed_kernel_is_highest_at_the_tree_and_has_a_tail():
-    r = _spread(lx=1600.0, ly=10.0)
+    r = _spread(lx=1600.0, ly=10.0, far_share=0.005)
     r.count_trees(np.zeros((0, 2)))
     x0 = np.array([[-795.0, 0.0]])
     rain = r.seed_rain(x0, np.array([1.0]))
