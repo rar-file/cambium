@@ -89,6 +89,13 @@ def foliage_table(model) -> dict:
         mb = float(length[hit & limb_axis].sum())
         out["by_wood_age"][name] = {"metres": round(m, 1), "la_m2": round(float(la[hit].sum()), 1), "la_per_m": round(float(la[hit].sum()) / max(m, 1e-9), 3), "limb_axis_metres": round(mb, 1),
                                     "limb_axis_spurs_per_m": round(float((spur & hit & limb_axis).sum()) / max(mb, 1e-9), 2)}
+    # what became of each node's lateral bud, on anything off the stem, by the age of the wood: none (still a tip or new), dormant, a living short shoot, used (it started a long shoot), dead
+    out["by_wood_age_states"] = {}
+    off = alive & ~on
+    for name, lo, hi in (("0", 0, 1), ("1", 1, 2), ("2", 2, 3), ("3-5", 3, 6), ("6-10", 6, 11), ("11-20", 11, 21), ("21+", 21, 10000)):
+        hit = off & (age >= lo) & (age < hi)
+        c = np.bincount(T.lat[:n][hit].astype(np.int64), minlength=5).astype(float)
+        out["by_wood_age_states"][name] = {"nodes": int(hit.sum()), "none": round(c[0] / max(c.sum(), 1.0), 3), "dormant": round(c[1] / max(c.sum(), 1.0), 3), "spur": round(c[2] / max(c.sum(), 1.0), 3), "used": round(c[3] / max(c.sum(), 1.0), 3), "dead": round(c[4] / max(c.sum(), 1.0), 3)}
     stem = np.nonzero(on & alive)[0]
     r = np.hypot(T.pos[:n, 0] - np.interp(T.pos[:n, 2], *_sorted_xy(T, stem, 0)), T.pos[:n, 1] - np.interp(T.pos[:n, 2], *_sorted_xy(T, stem, 1)))
     leafy = la > 0.0
