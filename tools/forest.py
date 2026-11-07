@@ -4,8 +4,11 @@ the stand's yearly measures, and no files per tree, so thousands of trees can co
     python tools/forest.py run --seed 1 --years 60 --area 1000 --tree-lists 20,30,40,50,60 --out out/forest/a
     python tools/forest.py run --seed 1 --years 40 --strip 250 6 --patch 30 --stems 4000 --spread --out out/forest/b
     python tools/forest.py plots --label thin1 --seeds 5 --years 60 --area 1000    # through the batch runner
-    python tools/stand_table.py out/bench/forest/thin1
+    python tools/forest.py plots --label both --seeds 5 --scenario today= --scenario slow=resource.alpha=3.0
+    python tools/stand_table.py out/bench/ensemble/thin1
     python tools/stand_table.py out/forest/b --spread
+
+'plots' runs one seed per process, one maths thread each, up to ORIGIN_MAX_WORKERS at once.  No saves.
 
 'run' sets mortality.enabled, plot.natural_start.enabled and plot.stand_measures; --spread sets
 regeneration.spread.enabled and switches regeneration on.  --set takes any other species value.
@@ -33,7 +36,7 @@ from treegen import checkpoint  # noqa: E402
 from treegen.params import run_manifest  # noqa: E402
 from treegen.plot import Plot  # noqa: E402
 
-BASE = ROOT / "out" / "bench" / "forest"
+BASE = ROOT / "out" / "bench" / "ensemble"   # where tools/node/fetch.sh looks
 
 
 def settings(a) -> list:
@@ -111,26 +114,30 @@ def run(a) -> None:
 def plots(a) -> int:
     """Several seeds in turn, through the batch runner's memory check."""
     from batch import Job, run_batch
-    folder = BASE / a.label
+    top = BASE / a.label
     jobs = []
-    for s in range(a.first_seed, a.first_seed + a.seeds):
-        cmd = [sys.executable, str(Path(__file__).resolve()), "run", "--seed", str(s), "--years", str(a.years),
-               "--stems", str(a.stems), "--out", str(folder / f"plot_{s}")]
-        if a.strip:
-            cmd += ["--strip", str(a.strip[0]), str(a.strip[1])]
-        else:
-            cmd += ["--area", str(a.area)]
-        if a.patch:
-            cmd += ["--patch", str(a.patch)]
-        for flag, on in (("--spread", a.spread), ("--regeneration", a.regeneration), ("--mortality-off", a.mortality_off), ("--tree-table", a.tree_table)):
-            if on:
-                cmd.append(flag)
-        if a.tree_lists:
-            cmd += ["--tree-lists", a.tree_lists]
-        for item in a.set:
-            cmd += ["--set", item]
-        jobs.append(Job(f"plot {s}", cmd, folder / f"plot_{s}" / "done.txt"))
-    return run_batch(jobs, a.peak_gb, log=folder / "runs.csv")
+    # --scenario name=key=json: each gets its own folder of seeds, side by side in one job
+    scenarios = [x.split("=", 1) for x in a.scenario] or [["", ""]]
+    for name, item in scenarios:
+        folder = top / name if name else top
+        for s in range(a.first_seed, a.first_seed + a.seeds):
+            cmd = [sys.executable, str(Path(__file__).resolve()), "run", "--seed", str(s), "--years", str(a.years),
+                   "--stems", str(a.stems), "--out", str(folder / f"plot_{s}")]
+            if a.strip:
+                cmd += ["--strip", str(a.strip[0]), str(a.strip[1])]
+            else:
+                cmd += ["--area", str(a.area)]
+            if a.patch:
+                cmd += ["--patch", str(a.patch)]
+            for flag, on in (("--spread", a.spread), ("--regeneration", a.regeneration), ("--mortality-off", a.mortality_off), ("--tree-table", a.tree_table)):
+                if on:
+                    cmd.append(flag)
+            if a.tree_lists:
+                cmd += ["--tree-lists", a.tree_lists]
+            for extra in list(a.set) + ([item] if item else []):
+                cmd += ["--set", extra]
+            jobs.append(Job(f"{name} plot {s}".strip(), cmd, folder / f"plot_{s}" / "done.txt"))
+    return run_batch(jobs, a.peak_gb, log=top / "runs.csv")
 
 
 def main():
@@ -156,6 +163,7 @@ def main():
     ap.add_argument("--gap-radius", type=float, default=10.0)
     ap.add_argument("--stop-free-gb", type=float, default=None, help="stop and save if free memory falls under this, on a shared machine")
     ap.add_argument("--set", action="append", default=[], metavar="KEY=JSON")
+    ap.add_argument("--scenario", action="append", default=[], metavar="NAME=KEY=JSON", help="plots: a folder of seeds with this one change; NAME= for none")
     ap.add_argument("--out", default=None)
     ap.add_argument("--label", default=None)
     ap.add_argument("--seeds", type=int, default=5)
