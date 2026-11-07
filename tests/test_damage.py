@@ -553,3 +553,16 @@ def test_the_rates_tool_reads_the_log(sp, tmp_path, capsys):
     assert damage_rates.main([str(tmp_path)]) == 0
     out = capsys.readouterr().out
     assert "1 plots" in out and "wind" in out and "Per 5 years" in out
+
+
+def test_weather_does_not_depend_on_the_trees_draws(sp):
+    """A seed's storm years stay the same however many trees use the damage stream."""
+    calm, busy, other = SimpleNamespace(), SimpleNamespace(), SimpleNamespace()
+    a, b, c = [], [], []
+    for _ in range(200):
+        a.append(damage.draw_weather(damage._weather_rng(calm, 5), sp.damage))
+        damage._rng(busy, 5).random(17)                      # trees drawing in between
+        b.append(damage.draw_weather(damage._weather_rng(busy, 5), sp.damage))
+        c.append(damage.draw_weather(damage._weather_rng(other, 6), sp.damage))
+    assert a == b
+    assert a != c
