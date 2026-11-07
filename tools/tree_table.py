@@ -94,6 +94,31 @@ def snapshot(model, year: int) -> dict:
             "p90_branch_m": float(np.percentile(real, 90)) if real else 0.0}
 
 
+def side_fill(pos, area, cell: float = 0.25) -> float:
+    """The share of sky the crown blocks seen from the side, inside its own outline: leaf area into 0.25 m cells from two sides,
+    each cell blocking 1 - exp(-0.5 area / cell^2) (leaves at random angles), the outline running from the lowest to the highest
+    occupied cell of each row.  My own measure, for comparing settings and for a look at photos; no paper read gives it."""
+    import numpy as np
+
+    shares = []
+    for axis in (0, 1):
+        col = np.floor(pos[:, axis] / cell).astype(np.int64)
+        row = np.floor(pos[:, 2] / cell).astype(np.int64)
+        col -= col.min()
+        row -= row.min()
+        grid = np.zeros((int(row.max()) + 1, int(col.max()) + 1))
+        np.add.at(grid, (row, col), area)
+        blocked = 1.0 - np.exp(-0.5 * grid / cell ** 2)
+        total, inside = 0.0, 0
+        for r in range(grid.shape[0]):
+            hit = np.nonzero(grid[r] > 0)[0]
+            if hit.size:
+                total += float(blocked[r, hit[0]: hit[-1] + 1].sum())
+                inside += int(hit[-1] - hit[0] + 1)
+        shares.append(total / max(inside, 1))
+    return float(np.mean(shares))
+
+
 def crown_shape(model) -> dict:
     """Crown shape from the living nodes, for telling a birch from a cone.  Reads only.
 
@@ -177,6 +202,7 @@ def crown_shape(model) -> dict:
     out["hang_max"] = float(hr.max()) if hr.size else 0.0
     out["hang_count"] = int(hr.size)
     out["hang_leaves"] = float(leaves[run[:n] > 0].sum() / max(leaves.sum(), 1e-9))
+    out["fill"] = side_fill(pos[leafy], leaves[leafy] * float(model.light.leaf_area))
     attach = np.sort(pos[T.parent[limbs], 2])
     out["lone"] = int((attach < z5).sum())
     out["gap_m"] = float(np.max(np.diff(np.concatenate([attach, [H]])))) if attach.size else H
@@ -206,7 +232,7 @@ def shed_events(model) -> dict:
     return out
 
 
-def one(seed: int, sets: list, out: Path, years: int) -> int:
+def one(seed: int, sets: list, out: Path, years: int, stand: bool = True) -> int:
     import numpy as np
 
     import cli
@@ -219,7 +245,7 @@ def one(seed: int, sets: list, out: Path, years: int) -> int:
     sp, _ = load_species(species)
     checkpoint.set_values(sp, sets)
     env_p, _ = load_environment(environment)
-    model = GrowthModel(sp, make_environment(env_p), seed, stand=True, soil=make_soil(env_p), lean=True)
+    model = GrowthModel(sp, make_environment(env_p), seed, stand=stand, soil=make_soil(env_p), lean=True)
     yearly, snaps = [], []
     for year in range(1, years + 1):
         n_before = model.tree.n
@@ -249,9 +275,9 @@ def one(seed: int, sets: list, out: Path, years: int) -> int:
     return 0
 
 
-def run(label: str, seeds: int, first: int, sets: list, years: int) -> int:
+def run(label: str, seeds: int, first: int, sets: list, years: int, stand: bool = True) -> int:
     folder = E / label
-    extra = [x for v in sets for x in ("--set", v)]
+    extra = [x for v in sets for x in ("--set", v)] + ([] if stand else ["--open"])
     jobs = [Job(f"seed {s}", [sys.executable, str(Path(__file__).resolve()), "one", "--seed", str(s), "--years", str(years),
                               "--out", str(folder / f"{s}_stand"), *extra], folder / f"{s}_stand" / "manifest.json")
             for s in range(first, first + seeds)]
@@ -463,8 +489,8 @@ def shape(labels: list, per_seed: bool = False) -> None:
     """Crown shape at 30, 50, 60.  Angle from vertical.  Published: mean branch angle 43.2 deg, range 15-80, SD 10.4 (clonal plantation, Latvia, Forests 9:52, as the
     species file quotes it); no value by height in the crown, for where the crown is widest, for leader loss or for how far twigs hang in anything read so far."""
     print("Angle from vertical. Published: mean branch angle 43.2 deg, range 15-80 (Forests 9:52, as the species file quotes it). Nothing read gives a value by crown position, for where the crown is widest, for leader loss or for twig drop. Means over seeds, (lowest-highest).\n")
-    print("| Set | Age | Seeds | Widest point, share of crown length | Top third's width over the widest | Limb angle at the stem, low | mid | up | Tip chord, low | mid | up | Thickest top-crown limb over stem | Rival tops | Bare stem at the top (m) | Hanging run, mean, p90, max (m) | Hanging runs | Leaves on them | Lone limbs below the crown | Longest gap in limbs (m) |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    print("| Set | Age | Seeds | Widest point, share of crown length | Top third's width over the widest | Limb angle at the stem, low | mid | up | Tip chord, low | mid | up | Thickest top-crown limb over stem | Rival tops | Bare stem at the top (m) | Hanging run, mean, p90, max (m) | Hanging runs | Leaves on them | Side fill (my own measure) | Lone limbs below the crown | Longest gap in limbs (m) |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for label in labels:
         runs = load(label)
         for age in (30, 50, 60):
@@ -477,7 +503,29 @@ def shape(labels: list, per_seed: bool = False) -> None:
                     v = [x[key] for x in xs if x.get(key) is not None]
                     return "-" if not v else (f"{statistics.fmean(v):{f}}" if len(v) == 1 else fmt(v, f))
                 tag = f"`{label}`" if name == "mean" else f"seed {name}"
-                print(f"| {tag} | {age} | {len(xs)} | {m('widest_at', '.2f')} | {m('width_ratio_top', '.2f')} | {m('angle_low', '.0f')} | {m('angle_mid', '.0f')} | {m('angle_up', '.0f')} | {m('tip_angle_low', '.0f')} | {m('tip_angle_mid', '.0f')} | {m('tip_angle_up', '.0f')} | {m('leader_rival', '.2f')} | {m('tops', '.1f')} | {m('bare_top_m', '.1f')} | {m('hang_mean', '.2f')}, {m('hang_p90', '.2f')}, {m('hang_max', '.2f')} | {m('hang_count', '.0f')} | {m('hang_leaves', '.2f')} | {m('lone', '.1f')} | {m('gap_m', '.1f')} |")
+                print(f"| {tag} | {age} | {len(xs)} | {m('widest_at', '.2f')} | {m('width_ratio_top', '.2f')} | {m('angle_low', '.0f')} | {m('angle_mid', '.0f')} | {m('angle_up', '.0f')} | {m('tip_angle_low', '.0f')} | {m('tip_angle_mid', '.0f')} | {m('tip_angle_up', '.0f')} | {m('leader_rival', '.2f')} | {m('tops', '.1f')} | {m('bare_top_m', '.1f')} | {m('hang_mean', '.2f')}, {m('hang_p90', '.2f')}, {m('hang_max', '.2f')} | {m('hang_count', '.0f')} | {m('hang_leaves', '.2f')} | {m('fill', '.2f')} | {m('lone', '.1f')} | {m('gap_m', '.1f')} |")
+
+
+def openset(labels: list) -> None:
+    """Trees grown in the open, beside open-grown data: Hemery, Savill & Pryor 2005 Table 1, crown diameter = 0.932 + 0.177 DBH over bark (cm), as the target file has it (information
+    only: paywalled, not opened).  Kalliovirta & Tokola 2005's birches are mixed stands, not open, so not used here."""
+    from bark import dbh_over_bark
+
+    print("Open-grown data: Hemery 2005 as the target file gives it, crown diameter = 0.932 + 0.177 x DBH over bark; information only, the paper wasn't opened. Means over seeds, (lowest-highest).\n")
+    print("| Set | Age | Seeds | Height (m) | Stem over bark (cm) | Crown width (m) | Projected diameter (m) | Hemery at that stem (m) | Crown ratio | Leaf area (m2) | Side fill | Hanging run p90, max (m) |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|")
+    for label in labels:
+        runs = load(label)
+        for age in AGES:
+            rows = [r for r in runs.values() if age in r["per_year"] and r["per_year"][age].get("dbh_cm") is not None]
+            if not rows:
+                continue
+            at = [r["per_year"][age] for r in rows]
+            sh = [r["snap"][age].get("shape") or {} for r in rows]
+            ob = [float(dbh_over_bark(a["dbh_cm"])) for a in at]
+            fill = [x["fill"] for x in sh if "fill" in x]
+            print(f"| `{label}` | {age} | {len(rows)} | {fmt([a['height_m'] for a in at])} | {fmt(ob, '.1f')} | {fmt([a['crown_width_m'] for a in at])} | {fmt([a['crown_projected_diameter_m'] for a in at])} | {statistics.fmean(0.932 + 0.177 * d for d in ob):.2f} | "
+                  f"{fmt([x.get('crown_ratio_stem') or 0.0 for x in (r['snap'][age] for r in rows)])} | {fmt([a['leaf_area_m2'] for a in at], '.0f')} | {fmt(fill) if fill else '-'} | {statistics.fmean(x.get('hang_p90', 0.0) for x in sh):.2f}, {statistics.fmean(x.get('hang_max', 0.0) for x in sh):.2f} |")
 
 
 def rootsheet(labels: list) -> None:
@@ -536,20 +584,21 @@ def main(argv=None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("what", choices=("run", "one", "table", "seeds", "fall", "driver", "young", "stem", "roots", "shape", "shapeseeds"))
+    ap.add_argument("what", choices=("run", "one", "table", "seeds", "fall", "driver", "young", "stem", "roots", "shape", "shapeseeds", "open"))
     ap.add_argument("labels", nargs="*")
     ap.add_argument("--label")
     ap.add_argument("--seeds", type=int, default=8)
     ap.add_argument("--first-seed", type=int, default=1)
     ap.add_argument("--seed", type=int)
     ap.add_argument("--years", type=int, default=60)
+    ap.add_argument("--open", action="store_true", help="grow in the open, no neighbours; the folder keeps its _stand name so the readers find it")
     ap.add_argument("--out")
     ap.add_argument("--set", action="append", default=[])
     a = ap.parse_args(argv)
     if a.what == "one":
-        return one(a.seed, a.set, Path(a.out), a.years)
+        return one(a.seed, a.set, Path(a.out), a.years, not a.open)
     if a.what == "run":
-        return run(a.label, a.seeds, a.first_seed, a.set, a.years)
+        return run(a.label, a.seeds, a.first_seed, a.set, a.years, not a.open)
     if a.what == "table":
         table(a.labels)
     elif a.what == "seeds":
@@ -566,6 +615,8 @@ def main(argv=None) -> int:
         shape(a.labels)
     elif a.what == "shapeseeds":
         shape(a.labels, per_seed=True)
+    elif a.what == "open":
+        openset(a.labels)
     else:
         driver(a.labels[0])
     return 0

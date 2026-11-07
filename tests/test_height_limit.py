@@ -31,7 +31,28 @@ def grow(years: int, sets: list, seed: int = 3, keep=None):
 def test_off_by_default():
     sp, _ = load_species("betula_pendula")
     assert sp.height_driver.enabled is False
+    assert sp.height_driver.leader_lost_in_crown is False
     assert sp.stats.limbs_on_leader is False
+    assert sp.pipe_model.heartwood_by_own_foliage is False
+    assert sp.pipe_model.branch_sapwood_senescence is None
+    assert sp.shedding.shade_softness is None
+    assert sp.mechanics.pendulous_radius_limb is None
+
+
+def test_limbs_are_soft_only_below_their_own_radius():
+    """With the limb radius set, a limb of a given thickness is stiffer than a twig of that thickness."""
+    from treegen import mechanics
+
+    model = grow(6, ON + ["mechanics.pendulous_radius_limb=0.002", "mechanics.pendulous_radius=0.01", "leader_damage.enabled=false"])
+    limbs = model._limb_nodes(model.tree.n)
+    assert limbs is not None and limbs.any()
+    T = model.tree
+    assert not limbs[T.order[: T.n] == 0].any()
+    limb = mechanics.pendulous_factor(np.array([0.004]), 0.002, 4.0)
+    twig = mechanics.pendulous_factor(np.array([0.004]), 0.01, 4.0)
+    assert limb[0] > 0.9 > twig[0]
+    plain = grow(1, ON)
+    assert plain._limb_nodes(plain.tree.n) is None
 
 
 def test_it_follows_the_curve_when_nothing_is_short():
