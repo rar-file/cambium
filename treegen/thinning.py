@@ -134,7 +134,8 @@ class Mortality:
         dg = 100.0 * math.sqrt(float(np.mean((past / 100.0) ** 2))) if len(past) else 0.0
         around_size = self.hood.blur(i, j, size) / np.maximum(count, 1e-12)
         background = self.background_rate(dg, stand_age) * size / np.maximum(around_size, 1e-12)
-        old = self.old_age_rate(age)
+        # with damage's old age on, trees die of age there, on its own clock
+        old = np.zeros(len(age)) if getattr(self, "old_age_elsewhere", False) else self.old_age_rate(age)
         return {"self-thinned": competition, "suppressed": suppressed, "background": background, "old age": old, "rd": rd}
 
     def draw(self, hz: dict, rng) -> list:

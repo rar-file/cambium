@@ -29,7 +29,8 @@ AGES = (20, 30, 40, 50, 60)
 SOURCES = [
     "Sources (over bark; none of these is a target in reference/targets.yaml's sense unless named there):",
     "- Aosaar et al. 2016 Table 3 (one 0.03 ha plot, unmanaged, fertile): 11,633 stems/ha and 11.3 m2/ha at age 8; 2,733 and 20.9 at 17.",
-    "- Hagemeier & Leuschner 2019 Table 3: 880 stems/ha at 45 (mean DBH 19 cm), 420 at 67 (25 cm); basal area worked out from those: 27.4, 20.9.",
+    "- Hagemeier & Leuschner 2019b: 880 stems/ha at 45 (mean DBH 19 cm), 25.2 m2/ha; 420 at 67 (25 cm), 28.5 m2/ha, as printed.",
+    "- Martinik et al. 2018, Silva Fennica id 9985 (natural, no treatment, rich soils): 18,720 stems/ha and 7.2 m2/ha at 8; 4,720 and 22.0 at 17; 2,800 and 25.8 at 22.",
     "- Repola 2008 Table 1: 24 Finnish stands aged 11-97, 2.7-32.3 m2/ha, mean 19.2.",
     "- Soderberg 1986 in Elfving 2010 App. 11, broadleaves, SI 26 (guide only; it under-predicts young birch): limit 20, 26, 30, 33 m2/ha at 30, 40, 50, 60.",
 ]
@@ -103,10 +104,11 @@ def stat(values) -> str:
 def table(folder: Path, ages) -> str:
     plots = [read_plot(p, ages) for p in plot_folders(folder)]
     lines = [f"**{folder.name}: {len(plots)} plot(s), of {plots[0]['area_m2']:.0f} m2.**" if plots else f"{folder}: no plots", ""]
-    head = ["Age", "Stems/ha, all", "Stems/ha past 1.3 m", "Basal area over bark (m2/ha)", "Dg over bark (cm)", "Mean height (m)", "Top height (m)", "Gap fraction",
-            "New trees a year"]
+    head = ["Age", "Stems/ha, all", "Stems/ha past 1.3 m", "Basal area over bark (m2/ha)", "Dg over bark (cm)", "Mean height (m)", "Top height (m)", "LAI",
+            "Light at 1-2 m (%)", "Gap fraction", "New trees a year"]
     lines += ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
-    keys = ["stems_per_ha", "stems_bh_per_ha", "basal_area_ob_m2_ha", "dg_ob_cm", "height_mean_m", "top_height_m", "gap_fraction", "new_trees_a_year"]
+    keys = ["stems_per_ha", "stems_bh_per_ha", "basal_area_ob_m2_ha", "dg_ob_cm", "height_mean_m", "top_height_m", "lai", "subcanopy_diffuse_light_pct", "gap_fraction",
+            "new_trees_a_year"]
     for age in ages:
         rows = [p["rows"][age] for p in plots if age in p["rows"]]
         if rows:
@@ -123,6 +125,8 @@ def table(folder: Path, ages) -> str:
 
 # Aosaar et al. 2016 Table 3, unmanaged stand: quadratic mean DBH (worked out from N and G), age, stems/ha, basal area
 AOSAAR = [(3.52, 8, 11633, 11.3), (4.36, 10, 10200, 15.2), (5.36, 12, 8300, 18.7), (6.43, 14, 6567, 21.3), (7.89, 15, 4233, 20.7), (9.87, 17, 2733, 20.9)]
+# Real stands at their own stem size, as (name, Dg from N and G, N, G): what the size-density line is checked against
+STANDS = [("Martinik 17", 7.71, 4720, 22.0), ("Martinik 22", 10.82, 2800, 25.8), ("Hagemeier 45", 19.1, 880, 25.2), ("Hagemeier 67", 29.4, 420, 28.5)]
 
 
 def size_density(plots) -> str:
@@ -143,9 +147,19 @@ def size_density(plots) -> str:
                 ys.append(hit["year"])
         if ns:
             rows.append(f"| {dg:.1f} | {age}, {n:,}, {g} | {float(np.mean(ys)):.0f}, {stat(ns)}, {stat(gs)} |")
+    for name, dg, n, g in STANDS:
+        ns, gs, ys = [], [], []
+        for p in plots:
+            hit = next((s for s in p["doc"]["stats"] if (s.get("dg_ob_cm") or 0.0) >= dg), None)
+            if hit is not None:
+                ns.append(hit["stems_per_ha"])
+                gs.append(hit["basal_area_ob_m2_ha"])
+                ys.append(hit["year"])
+        if ns:
+            rows.append(f"| {dg:.1f} | {name}, {n:,}, {g} | {float(np.mean(ys)):.0f}, {stat(ns)}, {stat(gs)} |")
     if not rows:
         return ""
-    return "\n".join(["| Dg over bark (cm) | Aosaar: age, stems/ha, m2/ha | This run: age, stems/ha, m2/ha |", "|---|---|---|", *rows])
+    return "\n".join(["| Dg over bark (cm) | Real stand: age, stems/ha, m2/ha | This run: age, stems/ha, m2/ha |", "|---|---|---|", *rows])
 
 
 def fronts(s: dict, side_y_m: float, min_stems_ha: float = 150.0, slice_m: float = 10.0) -> dict:
@@ -185,6 +199,14 @@ def spread_table(folder: Path, every: int = 5, min_stems_ha: float = 150.0) -> s
         rows = [s[y] for s in series if y in s]
         lines.append(f"| {y} | {stat([r['first'] for r in rows])} | {stat([r['forest'] for r in rows])} | {stat([r['seedling'] for r in rows])} | "
                      f"{stat([r['stems'] for r in rows])} | {stat([r['new'] for r in rows])} |")
+    # how bunched the arrivals are: the share of all recruits in a plot's three biggest years
+    bunched = []
+    for s in series:
+        new = sorted((r["new"] for r in s.values()), reverse=True)
+        if sum(new):
+            bunched.append(100.0 * sum(new[:3]) / sum(new))
+    if bunched:
+        lines.append(f"\nShare of all new trees in the three biggest years: {stat(bunched)} %.")
     # speed: a straight line through each plot's edge, while it's still moving and short of the far end
     for key, name in (("first", "furthest tree"), ("forest", "forest edge")):
         speeds = []

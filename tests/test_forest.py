@@ -65,15 +65,22 @@ def test_neighbourhood_keeps_what_it_blurs_and_reads_a_uniform_stand_as_its_dens
     assert hood.blur(i, j, np.ones(len(xy))) == pytest.approx(np.ones(len(xy)))   # one per m2
 
 
-def test_the_fit_carries_aosaars_stand_from_age_8_to_17():
-    """Given Table 3's own stems and basal area, the rate gives Table 3's count at 17."""
+def test_the_line_rests_on_two_unmanaged_studies_and_the_rate_on_their_losses():
+    """Given Table 3's own stems and basal area, the rate comes within 20 % of Table 3's count at 17, and the
+    other unmanaged study and Hagemeier's stands sit where the species file says."""
     m = mortality()
+    b = float(m.p.self_thinning_slope)
     N = np.array([11633, 11533, 10200, 9500, 8300, 7670, 6567, 4233, 3133, 2733], float)
     G = np.array([11.3, 13.2, 15.2, 16.6, 18.7, 20.1, 21.3, 20.7, 20.5, 20.9])
     dg = 100 * np.sqrt(G * 4 / np.pi / N)
-    rd = N * (dg / 25) ** 1.6 / float(m.p.sdi_max)
-    assert rd.max() == pytest.approx(1.0, abs=1e-3)
-    assert 11633 * math.exp(-m.thinning_rate(rd[:-1]).sum()) == pytest.approx(2733, rel=0.02)
+    rd = N * (dg / 25) ** b / float(m.p.sdi_max)
+    assert rd.max() == pytest.approx(1.0, abs=2e-3)
+    assert 11633 * math.exp(-m.thinning_rate(rd[:-1]).sum()) == pytest.approx(2733, rel=0.2)
+
+    def relative(n, g):
+        return n * (100 * math.sqrt(g * 4 / math.pi / n) / 25) ** b / float(m.p.sdi_max)
+    assert 0.95 < relative(4720, 22.0204) < 1.0 and 0.95 < relative(2800, 25.7693) < 1.0     # Martinik et al. 2018
+    assert 0.70 < relative(880, 25.2) < 0.77 and 0.70 < relative(420, 28.5) < 0.77           # Hagemeier & Leuschner 2019b
 
 
 def test_the_rate_starts_at_the_onset_and_is_capped():
@@ -200,7 +207,7 @@ def _spread(lx=400.0, ly=10.0, **values):
 
 
 def test_seed_runs_out_along_x_and_stops_at_the_ends():
-    r = _spread()
+    r = _spread(kernel="lognormal")
     x0 = np.array([[-195.0, 0.0]])
     r.count_trees(np.zeros((0, 2)))
     rain = r.seed_rain(x0, np.array([1.0]))
@@ -214,6 +221,49 @@ def test_seed_runs_out_along_x_and_stops_at_the_ends():
     assert along[-5:].sum() < 0.001 * along[:50].sum()
     # a source in the middle keeps nearly all of it
     assert 0.98 < r.seed_rain(np.array([[0.0, 0.0]]), np.array([1.0])).sum() <= 1.0
+
+
+def test_the_mixed_kernel_is_highest_at_the_tree_and_has_a_tail():
+    r = _spread(lx=1600.0, ly=10.0)
+    r.count_trees(np.zeros((0, 2)))
+    x0 = np.array([[-795.0, 0.0]])
+    rain = r.seed_rain(x0, np.array([1.0]))
+    along = rain.sum(1)
+    dist = np.abs(r.cx[:, 0] - x0[0, 0])
+    assert along.argmax() <= 4                                   # no hole at the tree
+    # half thrown behind is lost; of the half thrown ahead, far_share reaches its long kernel
+    assert 0.45 < rain.sum() < 0.62
+    # the near part is all but gone by 776 m, the far part isn't
+    past = along[dist > 776.0].sum() / along.sum()
+    assert past > 0.1 * float(r.p.spread.far_share) * math.exp(-776.0 / 370.0)
+    # with no far share there's next to nothing there
+    r2 = _spread(lx=1600.0, ly=10.0, far_share=0.0)
+    r2.count_trees(np.zeros((0, 2)))
+    near_only = r2.seed_rain(x0, np.array([1.0])).sum(1)
+    assert near_only[dist > 776.0].sum() < 0.01 * along[dist > 776.0].sum()
+
+
+def test_crop_and_seed_size_limit():
+    r = _spread(lx=40.0, ly=40.0, mast_share=1.0)
+    assert r.seed_crop() == pytest.approx(float(r.p.spread.mast_factor))
+    r = _spread(lx=40.0, ly=40.0, mast_share=0.0)
+    assert r.seed_crop() == 1.0
+    r = _spread(lx=40.0, ly=40.0)
+    crops = [r.seed_crop() for _ in range(3000)]
+    assert 0.3 < np.mean(np.array(crops) > 1.0) < 0.37
+    assert r.fecundity(0.10, 30) == 0.0                          # 10 cm of wood is under 12 cm over bark
+    assert r.fecundity(0.20, 30) == pytest.approx(float(r.p.seeds_ref))
+    assert r.fecundity(0.20, 5) == 0.0                           # the age rule still holds
+
+
+def test_damage_takes_over_old_age():
+    sp = species("mortality.enabled=true", "damage.enabled=true", "damage.old_age.enabled=true")
+    plot = make_plot(sp)
+    assert plot.mort.old_age_elsewhere is True
+    n = 5
+    hz = plot.mort.hazards(np.zeros((n, 2)), np.full(n, 20.0), np.full(n, 1.0), np.full(n, 200.0), 200.0)
+    assert (hz["old age"] == 0.0).all()
+    assert make_plot(species("mortality.enabled=true")).mort.old_age_elsewhere is False
 
 
 def test_a_crowded_tree_throws_seed_shorter_than_an_open_one():
@@ -284,7 +334,7 @@ def test_a_plot_spreads_recruits_from_its_patch():
     sp = species("plot.natural_start.enabled=true", "plot.natural_start.stems_per_ha=3000", "plot.natural_start.side_x_m=60",
                  "plot.natural_start.side_y_m=6", "plot.natural_start.patch_x_m=6", "plot.stand_measures=true",
                  "mortality.enabled=true", "regeneration.spread.enabled=true", "regeneration.maturity_years=2",
-                 "regeneration.spread.max_recruits_per_year=5")
+                 "regeneration.spread.seed_min_dbh_wood_cm=null", "regeneration.spread.max_recruits_per_year=5")
     plot = make_plot(sp, lean=True)
     plot.enable_regeneration()
     for _ in range(4):

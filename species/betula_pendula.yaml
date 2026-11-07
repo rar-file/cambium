@@ -1074,12 +1074,38 @@ regeneration:
   # SpreadRegeneration), off by default.
   spread:
     enabled: false
+    # exponential_mix: seed lands on a negative exponential in distance (Tiebel et al.
+    # 2020, Eur. J. For. Res. 139:731, Eq. 1, open access: most seed nearest the tree,
+    # no peak at a distance, and a lognormal fitted no better), the near part at Liu &
+    # Evans's means below, and far_share on a kernel of far_mean_m.  lognormal: Liu &
+    # Evans's own shape, which leaves few seeds near a tree and almost none past 400 m.
+    kernel: exponential_mix
+    # Tiebel et al. 2020, Table 3 and text: 367-380 m mean distance from a seed stand
+    # above a large opening, their long case (86-97 m in their short case).
+    far_mean_m: 370.0
+    # TUNED against Fedorov et al. 2024, Forests 15:34, Table 2 and pp. 6-8: four abandoned
+    # fields whose far edge, 391-776 m from a birch seed stand, holds 256-740 stems/ha at
+    # 21-24 years, only 0-4 years younger than near it, with under 5 % cover at 200-600 m
+    # at 8-9 years.  Point estimate from a grown edge (tools/spread_estimate.py --patch-age):
+    # 0.002 gives 190-280 stems/ha at 700 m at year 22, this 375-610, 0.01 680-810, and
+    # 0.01 already holds 540-1,210 at 200-600 m by year 9.
+    far_share: 0.005
+    # Tiebel et al. 2020 mapped as seed trees those of DBH at least 12 cm over bark (after
+    # Popadyuk et al. 1995, Roloff & Pietzarka 2010, not opened): 11 cm of wood here.
+    seed_min_dbh_wood_cm: 11.0
+    # Good seed years about every 3 years (Sarvas 1948, in Tiebel et al. 2020 p. 739; not
+    # opened), one chance in three each year, the same for every tree (masting is shared
+    # across hundreds of km).  Crop against a poor year's: 1,500,000 / 350,000 seeds at
+    # DBH 20 cm (Tiebel et al. 2020, 2016 against 2015), which they call a medium year
+    # or a mast year, so this may be low.  seeds_ref stands for a poor year.
+    mast_share: 0.333
+    mast_factor: 4.3
     # Liu & Evans 2021, Forests 12:929 (publisher's PDF), best model, Table 1 and
-    # Eqs 2, 5, 6: a lognormal kernel, mean distance exp(u0 + ut T) and shape
-    # exp(p0 + pt T), T the trees of DBH over 15 cm in the source's 10 m cell; 65 m
-    # in the open, 38 m at 3 trees a cell; both birches, Wytham Woods, one year
-    # (2015).  Their Eq. 2 prints "- p^2/2" after ln u, which would make the mean
-    # 1.19 u; their text calls u the mean, and that is what's used. VERIFY (sign)
+    # Eqs 2, 5, 6: mean distance exp(u0 + ut T) and shape exp(p0 + pt T), T the trees
+    # of DBH over 15 cm in the source's 10 m cell; 65 m in the open, 38 m at 3 trees a
+    # cell; both birches, Wytham Woods, one year (2015).  The shape (ln_shape) is used
+    # only by the lognormal.  Their Eq. 2 prints "- p^2/2" after ln u, which would make
+    # the mean 1.19 u; their text calls u the mean, and that is what's used. VERIFY (sign)
     ln_mean_m: 4.18
     ln_mean_per_tree: -0.18
     ln_shape: -0.86
@@ -1091,8 +1117,8 @@ regeneration:
     # Seed past the two ends of x is lost, and the sides repeat; true: x repeats too,
     # for a plot in the middle of a forest.
     repeat_ends: false
-    # How far the kernel's table runs; 6 mean distances at the open-ground mean.
-    kernel_reach_m: 400.0
+    # How far the kernel's table runs: 4 far means.
+    kernel_reach_m: 1500.0
     # TUNED: the share of germinants living through the first season rises from 0
     # at the first light to 1 at the second (relative, at 0.1 m, canopy only: the
     # organic layer's rate already holds its field layer's shade).  The first is set
@@ -1126,26 +1152,28 @@ mortality:
   enabled: false
   # --- Self-thinning: RD = SDI / sdi_max, SDI = sum of (DBH over bark / 25 cm) ^
   # slope a hectare (Reineke's stand density index, summed tree by tree).
-  # TUNED (slope): Reineke's -1.605 as cited; Hynynen 1993's birch line is
-  # paywalled and not opened, and the project catalogue's -1.6 for it is unverified.
-  self_thinning_slope: 1.6
-  # TUNED (sdi_max): the highest SDI in Aosaar et al. 2016 Table 3 (age 14, 6567
-  # stems/ha, 21.3 m2/ha).  It's one fertile 0.03 ha plot.  Checks, not fits:
-  # Hagemeier & Leuschner's two stands sit at RD 0.82 and 0.57 under it; on it,
-  # basal area is 33.5 m2/ha at Dg 20 cm and 36.7 at 25, near Repola 2008's top of
-  # 32.3 and Soderberg 1986's limit for broadleaves of 33 at age 60 (Elfving 2010,
-  # Appendix 11, at SI 26, N 600-1000).
-  sdi_max: 747.0
-  # TUNED (onset, rate_at_max, shape): stems lost per stem and year = rate_at_max *
-  # ((RD - onset) / (1 - onset)) ^ shape.  Picked from a grid of least-squares fits
-  # to Aosaar Table 3's nine yearly losses at its own RD; the data don't pin the
-  # onset (rmse 0.094-0.098 a year for 0.55-0.70).  Given Table 3's RD this takes
-  # 11,633 stems/ha at 8 to 2,731 at 17 (Table 3: 2,733).  Long's 1985 rule of thumb,
-  # not opened, puts the onset of competition mortality near 0.6 too.  The fit is to
-  # a stand at 3-10 cm DBH; no source tests it for old stands.
-  onset: 0.60
-  rate_at_max: 0.278
-  shape: 1.5
+  # Lee, Siipilehto & Hynynen 2025, For. Ecol. Manage. 575:122374 (abstract read, on
+  # research.fi and the Luke repository; full text not opened): -1.5848 fitted for silver
+  # birch plantations in Finland, against Reineke's -1.605.  Hynynen 1993 is paywalled.
+  self_thinning_slope: 1.5848
+  # TUNED (sdi_max): the highest SDI of unmanaged natural stands on rich soils, at this
+  # slope: Aosaar et al. 2016 Table 3, 763 at age 14; Martinik et al. 2018 Table 1, Silva
+  # Fennica id 9985, 731 at 17 and 743 at 22, a separate study within 4 %.  Lee et al.'s
+  # own line would replace this, but its intercept isn't in the abstract.  The intercept
+  # varies with site index (Hynynen 1993, abstract).  Under it, not fitted: Hagemeier &
+  # Leuschner 2019b at 574 and 543, with their printed basal areas.
+  sdi_max: 763.0
+  # stems lost per stem and year = rate_at_max * ((RD - onset) / (1 - onset)) ^ shape.
+  # onset: the lower edge of the self-thinning zone, RD 0.7 for silver birch at quadratic
+  # mean diameter up to 18.65 cm (Lee et al. 2025, abstract).
+  onset: 0.70
+  # TUNED (rate_at_max, shape): least squares to Aosaar Table 3's nine yearly losses at
+  # their own RD and Martinik's stands from 17 to 22, which the data can't separate
+  # (rmse 0.099-0.107 over all shapes and onsets tried).  This shape holds a mature
+  # stand losing 3 % a year at RD about 0.74, where Hagemeier's two stands sit (0.75, 0.71).
+  # Given Table 3's RD it takes 11,633 stems/ha at 8 to 3,248 at 17 (Table 3: 2,733).
+  rate_at_max: 0.247
+  shape: 1.0
   # TUNED: the most a neighbourhood loses in a year, at RD far over 1.  Aosaar's
   # worst year lost 35.5 % of stems, hazard 0.44.
   rate_cap: 0.5
