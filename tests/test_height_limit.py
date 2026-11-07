@@ -31,7 +31,6 @@ def grow(years: int, sets: list, seed: int = 3, keep=None):
 def test_off_by_default():
     sp, _ = load_species("betula_pendula")
     assert sp.height_driver.enabled is False
-    assert sp.height_driver.leader_lost_in_crown is False
     assert sp.stats.limbs_on_leader is False
     assert sp.pipe_model.heartwood_by_own_foliage is False
     assert sp.pipe_model.branch_sapwood_senescence is None

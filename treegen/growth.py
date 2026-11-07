@@ -967,11 +967,6 @@ class GrowthModel:
         # a node grown by less than one metamer has its leaf but no axillary
         # bud (bud_fate.axillary_buds_below_one_metamer): no sink
         Glat[lat_nodes[T.no_axil[lat_nodes]]] = 0.0
-        every = getattr(sp.bud_fate, "stem_bud_every", None)
-        if every:
-            # only one bud in so many on the stem can start a limb; the rest stay short shoots
-            on_stem = np.isin(T.axis[lat_nodes], np.fromiter(self.leader_axes, np.int64))
-            Glat[lat_nodes[on_stem & (T.phyllo[lat_nodes] % int(every) != 0)]] = 0.0
         if self._frame_on():
             # the frame: only the buds it named on the stem can start a limb; the rest stay short shoots
             on_stem = np.isin(T.axis[lat_nodes], np.fromiter(self.leader_axes, np.int64))
@@ -2346,9 +2341,6 @@ class GrowthModel:
         T, hd = self.tree, self.sp.height_driver
         leaders = np.fromiter(self.leader_axes, np.int64)
         tips = np.nonzero(np.isin(T.axis[term_nodes], leaders))[0]
-        if self.loss_of_dominance_year is not None and bool(getattr(hd, "leader_lost_in_crown", False)) and len(term_nodes):
-            # once the leader has lost its dominance (resource.reiteration), whichever tip stands highest carries the height
-            tips = np.arange(len(term_nodes))
         if tips.size:
             bud = int(tips[np.argmax(T.pos[term_nodes[tips], 2])])
             node, is_tip, q, dz = int(term_nodes[bud]), True, float(Qterm[term_nodes[bud]]), float(T.term_dir[term_nodes[bud], 2])
@@ -2390,18 +2382,8 @@ class GrowthModel:
                 hang = float(self.sp.crown_frame.hanging_share)
                 caps = np.minimum(caps, twig_m * (1.0 + (1.0 - hang) * np.minimum(dz_cap, 0.0)) / full)
         ratio = getattr(self.sp.height_driver, "lateral_cap_ratio", None)
-        twig_ratio = getattr(self.sp.height_driver, "twig_cap_ratio", None)
-        if twig_ratio is not None:
-            # twigs (shoots of order 2 and up) have a cap of their own, so the limbs that carry them keep the lead
-            is_twig = (T.order[starts].astype(np.int64) + (np.arange(len(starts)) >= n_term)) >= 2
-            caps = np.where(is_twig, np.minimum(caps, float(twig_ratio) * lead_len / full), caps)
         if ratio is not None:
-            # with a floor: an old leader's short shoots don't hold the whole crown to them
-            floor_m = float(getattr(self.sp.height_driver, "lateral_cap_floor_m", None) or 0.0)
-            caps = np.minimum(caps, max(float(ratio) * lead_len, floor_m) / full)
-            if self.reit_axes and bool(getattr(self.sp.height_driver, "leader_lost_in_crown", False)):
-                # a reiterated limb is a small tree on the tree: only the top of the crown holds it back
-                caps = np.where(np.isin(T.axis[starts], np.fromiter(self.reit_axes, np.int64)) & (np.arange(len(starts)) < n_term), float(nmax), caps)
+            caps = np.minimum(caps, float(ratio) * lead_len / full)
         dz = np.concatenate([T.term_dir[starts[:n_term], 2], T.lat_dir[starts[n_term:], 2]])
         top = max(hd["z"] + lead_len * hd["dz"], float(hd["ref"]))
         room = np.maximum(top - T.pos[starts, 2], 0.0)
@@ -2549,9 +2531,6 @@ class GrowthModel:
             # a limb's own shoots, new or continuing, have its radius for softness, not the twigs'
             limb_start = np.where(is_lat, on_lead | (forks_named if self._frame_on() else False), limbs[starts])
             weak = np.where(limb_start, mechanics.pendulous_factor(r_ref, float(mp.pendulous_radius_limb), float(mp.pendulous_sharpness)), weak)
-        if bool(getattr(tr, "twigs_keep_gravitropism", False)):
-            # twigs turn towards their own set-point however thin they are; with a set-point below level, they grow down
-            weak = np.where(order >= 2, 1.0, weak)
         eta = np.where((order >= 1) & ~lead_ax, eta * weak, eta)
         if self._frame_earns():
             # a shoot too thin to hold itself up can't turn to the light either: thin twigs hang, as the pendulous trait has it
