@@ -54,8 +54,9 @@ def chances(state: damage.TreeState, sp, rng) -> dict:
         uproot += event.plate is not None
         fatal += event.fatal
     lo, hi = (float(v) for v in dp.snow.load_range_kg_m2)
-    snow_event = float(np.mean([damage.snow_failure_probability(state, load, sp)[0] for load in np.linspace(lo, hi, SNOW_LOADS)]))
-    snow = snow_event / float(dp.snow.return_years) if float(state.dbh_cm) >= float(dp.snow.min_break_dbh_cm) else 0.0
+    overload = float(np.mean([damage.snow_overload_probability(state, load, sp) for load in np.linspace(lo, hi, SNOW_LOADS)]))
+    breaks = float(dp.snow.small_stem_break_share) if float(state.dbh_cm) < float(dp.snow.bend_max_dbh_cm) else 1.0
+    snow = overload * breaks / float(dp.snow.return_years)
     old = damage.old_age_hazard(state.age, dp.old_age)
     return {"hd": state.height_m / (float(state.dbh_cm) * float(dp.dbh_over_bark_factor)), "wind": wind, "uproot_share": uproot / DRAWS,
             "wind_death": wind * fatal / DRAWS, "snow": snow, "snow_death": snow * fatal / DRAWS, "old": old,

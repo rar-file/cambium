@@ -175,8 +175,8 @@ def test_snap_heights_follow_her_table_3_and_fig_4(sp):
     assert (hurt < 0.4).mean() > (plain < 0.4).mean()
 
 
-def test_a_stem_broken_below_the_crown_dies_and_within_it_lives(sp):
-    """Nykanen p. 195."""
+def test_a_stem_broken_below_the_crown_or_left_with_too_few_leaves_dies(sp):
+    """Nykanen p. 195 for the crown; TUNED for the leaves.  Leaves evenly from 8 m to 17.6 m: half are above 12.8 m."""
     wind = Weather(True, 90.0, 0.0)
     fates = {}
     for seed in range(600):
@@ -186,14 +186,21 @@ def test_a_stem_broken_below_the_crown_dies_and_within_it_lives(sp):
             fates[e.fatal] = fates.get(e.fatal, []) + [e.snap_height_m]
         else:
             assert e.fatal and e.plate
-    assert max(fates[True]) < 8.0 <= min(fates[False])
+    assert max(fates[True]) < 12.8 <= min(fates[False])
+    # the tree's own leaves, when known, decide instead
+    e = damage._failure(mean_tree(sp, crown_base_m=1.0, anchorage={"critical_turning_moment": {"by_wind_dir_knm": {"0": 1e6}}}),
+                        wind, sp, np.random.default_rng(3), "wind", share_above=lambda z: 0.9)
+    assert e.snap_height_m is not None and e.fatal
+    e = damage._failure(mean_tree(sp, crown_base_m=1.0, anchorage={"critical_turning_moment": {"by_wind_dir_knm": {"0": 1e6}}}),
+                        wind, sp, np.random.default_rng(3), "wind", share_above=lambda z: 0.1)
+    assert e.snap_height_m is not None and not e.fatal
 
 
 # -- snow ----------------------------------------------------------------------
 def test_a_birch_at_taper_1_120_stands_60_kg(sp):
     """Nykanen Fig. 2, from Peltola et al. 1997."""
     tree = TreeState(40, 12.0, 10.0 / sp.damage.dbh_over_bark_factor, crown_base_m=6.0, crown_width_m=2.0, crown_wood_kg=30.0)
-    assert damage.snow_failure_probability(tree, 60.0, sp)[0] < 0.1
+    assert damage.snow_overload_probability(tree, 60.0, sp) < 0.1
 
 
 def test_risk_falls_with_taper_and_crown_depth(sp):
@@ -210,24 +217,26 @@ def test_an_off_centre_crown_is_at_more_risk(sp):
     assert damage.snow_loading(b, 40.0, sp)[0] > damage.snow_loading(a, 40.0, sp)[0]
 
 
-def test_a_thin_stem_that_cant_carry_it_fails_and_a_stand_tree_doesnt(sp):
+def test_a_thin_stem_that_cant_carry_it_is_overloaded_and_a_stand_tree_isnt(sp):
     thin = TreeState(40, 21.4, 7.5, crown_base_m=12.0, crown_width_m=2.0, crown_wood_kg=5.0)
-    assert damage.snow_failure_probability(thin, 60.0, sp)[1] < 1.0
-    assert damage.snow_failure_probability(thin, 60.0, sp)[0] == 1.0
+    assert damage.snow_loading(thin, 60.0, sp)[1] < 1.0
+    assert damage.snow_overload_probability(thin, 60.0, sp) == 1.0
     stand = TreeState(60, 26.0, 29.0, crown_base_m=7.0, crown_width_m=3.5, crown_wood_kg=120.0)
-    assert damage.snow_failure_probability(stand, 60.0, sp)[0] < 0.01
+    assert damage.snow_overload_probability(stand, 60.0, sp) < 0.01
 
 
-def test_the_thinnest_stems_bend_and_dont_break(sp):
-    """Nykanen p. 195: small stems bend.  A stem that can't stand the load at 1 cm bends; at 3 cm it can break."""
+def test_an_overloaded_small_stem_bends_and_few_break_and_a_big_one_breaks(sp):
+    """Donis 2024: 93.7 % of damaged trees were bent, so even a stand all overloaded loses few to the snow."""
     snow = Weather(False, 0.0, 60.0)
     sp.damage.old_age.enabled = False
-    thin = TreeState(5, 4.0, 1.0, crown_base_m=1.0, crown_width_m=1.5, crown_wood_kg=0.5)
-    assert damage.snow_failure_probability(thin, 60.0, sp)[0] == 1.0
-    assert damage.assess_year(thin, snow, sp, np.random.default_rng(1)).cause == "snow bend"
-    broken = TreeState(5, 9.0, 3.0, crown_base_m=3.0, crown_width_m=2.0, crown_wood_kg=2.0)
-    assert damage.snow_failure_probability(broken, 60.0, sp)[0] == 1.0
-    assert damage.assess_year(broken, snow, sp, np.random.default_rng(1)).cause in ("snow snap", "snow uproot")
+    small = TreeState(9, 9.0, 3.0, crown_base_m=3.0, crown_width_m=2.0, crown_wood_kg=2.0)
+    assert damage.snow_overload_probability(small, 60.0, sp) == 1.0
+    rng = np.random.default_rng(1)
+    causes = [damage.assess_year(small, snow, sp, rng).cause for _ in range(4000)]
+    assert causes.count("snow bend") / 4000 == pytest.approx(0.937, abs=0.015)
+    big = TreeState(50, 40.0, 12.0, crown_base_m=20.0, crown_width_m=5.0, crown_wood_kg=40.0)
+    assert damage.snow_overload_probability(big, 60.0, sp) == 1.0
+    assert all(damage.assess_year(big, snow, sp, rng).cause in ("snow snap", "snow uproot") for _ in range(50))
 
 
 # -- pit and mound -------------------------------------------------------------
@@ -395,6 +404,116 @@ def test_in_a_plot_the_dead_go_through_finish_and_what_happened_is_saved(sp):
     survivors = [k for k in p.alive if p.info[k].get("damage")]
     assert all(p.info[k]["prior_damage"] for k in survivors)
     json.dumps(p.info)
+
+
+def test_the_log_holds_every_year_and_every_event_with_the_tree_s_size(sp):
+    import json
+
+    sp.damage.old_age.enabled = sp.damage.snow.enabled = False
+    sp.damage.wind.storm_return_years = 1
+    sp.damage.wind.min_dbh_cm = 0.0
+    sp.damage.wind.population_offset = 9.0
+    p = FakePlot(sp, [_grown(copy.deepcopy(sp), 8, seed) for seed in (1, 2, 3)])
+    p.year += 1
+    damage.plot_year(p, list(p.alive))
+    log = p.damage_log
+    assert [y["year"] for y in log["years"]] == [p.year]
+    row = log["years"][0]
+    assert row["storm"] and row["trees"] == 3 and row["wind_at_risk"] == 3 and row["events"] == len(log["events"]) > 0
+    assert row["wind_expected"] > 0.0 and row["fatal"] == sum(e["fatal"] for e in log["events"])
+    for e in log["events"]:
+        assert e["cause"].startswith("wind") and e["year"] == p.year and e["dbh_cm"] > 0 and e["height_m"] > 0 and e["hd_over_bark"] > 0
+        assert e["uprooted"] == ("plate" in e) and e["root_moment_knm"] > 0 and e["stem_moment_knm"] > 0
+        assert e["took"]["leaf_share"] > 0.0
+    json.dumps(log)
+    # and it's saved only when there's something in it, so an off run's output doesn't change
+    from pathlib import Path as P
+    root = P(__file__).resolve().parent.parent
+    assert 'if getattr(plot, "damage_log", None):' in (root / "tools" / "forest.py").read_text(encoding="utf-8")
+
+
+def test_a_year_with_no_storm_or_snow_needs_no_look_at_the_tree(sp):
+    """Trees are to grow live in a game: damage shouldn't walk every stem every year."""
+    sp.damage.wind.enabled = sp.damage.snow.enabled = False
+    p = FakePlot(sp, [_grown(copy.deepcopy(sp), 6, 1)])
+    called = []
+    real = damage.state_from_model
+    damage.state_from_model = lambda *a, **k: called.append(1) or real(*a, **k)
+    try:
+        p.year += 1
+        damage.plot_year(p, list(p.alive))
+    finally:
+        damage.state_from_model = real
+    assert not called
+
+
+def _exposure_plot(sp, n=400, side=31.6, dbh=20.0):
+    rng = np.random.default_rng(5)
+    trees = [SimpleNamespace(stats=[{"dbh_cm": dbh}]) for _ in range(n)]
+    info = [{"x": float(rng.uniform(-side / 2, side / 2)), "y": float(rng.uniform(-side / 2, side / 2))} for _ in range(n)]
+    return SimpleNamespace(trees=trees, info=info, area=side * side)
+
+
+def test_a_storm_falls_in_patches_and_takes_what_it_would_have_taken(sp):
+    p = _exposure_plot(sp)
+    trees = list(range(len(p.trees)))
+    for seed in range(5):
+        out = damage.storm_exposure(p, trees, np.random.default_rng(seed), sp.damage, 1.098)
+        centres = out.pop("centres")
+        assert len(centres) == 1
+        values = np.array([out[k] for k in trees])
+        assert values.mean() == pytest.approx(1.0)                    # the stand's damage is unchanged
+        high = values > 1.0
+        assert 0.8 == pytest.approx(values[high].sum() / values.sum())    # most of it in the patch
+        assert values[high].min() > 5.0 * values[~high].max()
+        # the patch is where it says, across the plot's repeat
+        lx = math.sqrt(p.area)
+        for k in np.nonzero(high)[0]:
+            dx, dy = abs(p.info[k]["x"] - centres[0][0]), abs(p.info[k]["y"] - centres[0][1])
+            assert math.hypot(min(dx, lx - dx), min(dy, lx - dy)) <= sp.damage.wind.gap_radius_m
+
+
+def test_exposure_scales_the_hit_and_a_small_stand_has_no_patch_to_speak_of(sp):
+    a = mean_tree(sp)
+    b = mean_tree(sp, storm_exposure=3.0)
+    assert damage.storm_hit_probability(b, sp.damage) == pytest.approx(3.0 * damage.storm_hit_probability(a, sp.damage))
+    assert damage.storm_hit_probability(mean_tree(sp, storm_exposure=1000.0), sp.damage) == 1.0
+    p = _exposure_plot(sp, n=1)
+    out = damage.storm_exposure(p, [0], np.random.default_rng(1), sp.damage, 1.098)
+    assert set(out) == {"centres"}     # all in or all out: everything at the mean
+
+
+def test_a_bent_stem_isnt_prior_damage_but_a_broken_one_is(sp):
+    sp.damage.old_age.enabled = sp.damage.wind.enabled = False
+    sp.damage.snow.return_years = 1
+    sp.damage.snow.load_range_kg_m2 = [60.0, 60.0]
+    p = FakePlot(sp, [_grown(copy.deepcopy(sp), 7, seed) for seed in (1, 2, 3)])
+    p.year += 1
+    damage.plot_year(p, list(p.alive))
+    for i in p.info:
+        for rec in i.get("damage", []):
+            if rec["cause"] == "snow bend":
+                assert not i.get("prior_damage")
+
+
+def test_the_snow_reads_the_real_stem_when_it_has_one(sp):
+    even = mean_tree(sp, crown_wood_kg=20.0)
+    z = np.linspace(0.0, even.height_m, 40)
+    p = (1.0 / sp.damage.stem_form_factor - 1.0) / 2.0
+    thick = 1.5 * 0.5 * even.dbh_cm / 100.0 * (np.maximum(even.height_m - z, 0.0) / (even.height_m - 1.3)) ** p   # the same taper, 1.5 x as thick
+    real = mean_tree(sp, crown_wood_kg=20.0, stem_z=z, stem_r=thick)
+    assert damage.snow_loading(real, 60.0, sp)[1] > 1.5 * damage.snow_loading(even, 60.0, sp)[1]
+
+
+def test_a_grown_tree_s_state_holds_its_stem(sp):
+    m = _grown(sp, 12)
+    s = damage.state_from_model(m)
+    assert (np.diff(s.stem_z) >= 0.0).all() and s.stem_z[-1] <= s.height_m + 1e-3
+    assert s.stem_r[0] >= s.stem_r[-1]
+    share = damage.top_break_share(m, 0.5 * s.height_m)
+    assert 0.0 < share <= 1.0
+    took = damage.apply_top_break(m, 0.5 * s.height_m, m.year + 1)
+    assert took["leaf_share"] == pytest.approx(share, abs=1e-3) and took["height_left_m"] < s.height_m
 
 
 def test_a_tree_in_a_plot_is_left_to_the_plot(sp):

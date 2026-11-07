@@ -907,9 +907,18 @@ damage:
     # fixed effects give about 0.9 % on the mean tree and soil mix, because the
     # plot's and tree's random effects carry the rest.  logit(3.15 %) - logit(0.94 %).
     population_offset: 1.23
-    # TUNED, no target: a storm year in five, all the period's damage in it, so
+    # TUNED, no target: a storm year in ten, all the period's damage in it, so
     # trees go in groups in the same direction instead of one by one.
-    storm_return_years: 5
+    storm_return_years: 10
+    # TUNED, no target: most of a storm's damage falls in round patches, so it opens
+    # gaps: patches of this radius (m), on this share of the ground, taking this share
+    # of the damage.  What a stand loses doesn't change with these.
+    gap_radius_m: 6.0
+    gap_area_share: 0.1
+    gap_damage_share: 0.8
+    # TUNED, no target: who counts in stems/ha and basal area, her 'overstory': trees
+    # at least this share of the tallest tree's height.
+    canopy_height_share: 0.5
     # TUNED, no target, looks only: where storms come from, and the scatter.
     wind_from_deg: 240.0
     wind_from_sd_deg: 40.0
@@ -955,6 +964,10 @@ damage:
     prior_damage: -0.090
     # Spread of a beta distribution, read from her Fig. 4 (SD 24 % of height).
     beta_concentration: 3.2
+    # TUNED against mean height staying near the undamaged plots': a stem left with less
+    # than this share of its leaves dies.  Trees losing over half their crown are likely
+    # to be attacked by insects (Juutinen 1953, in Nykanen p. 196, pine and spruce).
+    min_leaves_left: 0.5
   snow:
     enabled: false
     # Years between damaging snowfalls: every 5 in southern Finland, 3 in the
@@ -964,20 +977,19 @@ damage:
     # breakage (Zubizarreta-Gerendiain et al. 2012 p. 192), 60 mm of water is
     # severe (Solantie, in Nykanen Fig. 1).  Evenly spread within that, a choice.
     load_range_kg_m2: [20.0, 60.0]
-    # TUNED against three things together, on the saved plots' trees (base_plots):
-    # a 12 m birch of taper 1:120 stands 60 kg/m2 (Nykanen Fig. 2, Peltola 1997);
-    # one severe event breaks or uproots about 2 % of a young stand (Donis et al.
-    # 2024, in KNOWN_ISSUES; here 1-4 % at ages 8-15) and bends about 29 % (here
-    # 18-39 %).  Share of the crown's projected area that holds the load, the
-    # stem's lean under it as a share of height, the width of the break, and the
-    # stems that bend instead: buckling factor under this, DBH under this.  Stems
-    # under min_break_dbh_cm only bend.
+    # TUNED against about 31 % of a young stand damaged in a severe event (Donis et
+    # al. 2024, in KNOWN_ISSUES.md; publisher 403, not reopened), on real stems:
+    # share of the crown's projected area that holds the load, the stem's lean under
+    # it as a share of height, and the width of the line between overloaded and not.
     crown_catch_fraction: 0.10
     lever_fraction: 0.02
-    spread: 0.5
-    bend_buckling_factor: 6.0
+    spread: 0.25
+    # An overloaded stem under this DBH bends and an overloaded bigger one breaks;
+    # small stems bend (Nykanen p. 195).  TUNED, no target: the size is a choice.
     bend_max_dbh_cm: 10.0
-    min_break_dbh_cm: 2.0
+    # Share of those small overloaded stems that break or uproot instead: 93.7 % of
+    # damaged trees were bent (Donis et al. 2024, as above).
+    small_stem_break_share: 0.063
   uproot:
     # TUNED, no target, looks only: mound radius per plate radius, the mound's
     # distance past the hinge per plate radius, and how fast the relief fades.
