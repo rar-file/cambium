@@ -329,8 +329,8 @@ def test_earned_limb_sag_makes_a_limb_low_at_the_stem_and_rising_at_its_end():
     assert sag_old - sag_young > straight_old - straight_young
 
 
-def test_earned_twigs_browsed_only_on_a_lone_tree_and_only_within_reach():
-    """Twigs within a moose's reach go at the leader's yearly chance.  A stand tree grown with the switch is the same tree, and a lone tree's crown above the reach is not touched in the year."""
+def test_earned_browsing_only_on_a_lone_tree_and_only_within_reach():
+    """Axes with a thin shoot within a moose's reach go at the leader's yearly chance.  A stand tree grown with the switch is the same tree, and a lone tree's crown above the reach is not touched."""
     off = grow(14, EARNED)
     on = grow(14, EARNED + ["crown_frame.twigs_browsed=true"])
     assert off.tree.n == on.tree.n
@@ -344,7 +344,7 @@ def test_earned_twigs_browsed_only_on_a_lone_tree_and_only_within_reach():
     for _ in range(12):
         gone = np.union1d(gone, model._browsed_twigs(model.year, alive, stem))
     assert gone.size > 0
-    assert (T.is_lateral[gone] & (T.order[gone] >= 2)).all()
+    assert (T.is_lateral[gone] & (T.order[gone] >= 1) & ~stem[gone]).all()
     reach = T.radius[:n] <= 0.5 * float(model.sp.leader_damage.bite_diameter_m)
     ev = model.sp.leader_damage.events[0]
     reach &= (T.pos[:n, 2] >= float(ev.min_height_m)) & (T.pos[:n, 2] <= float(ev.max_height_m))

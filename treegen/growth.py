@@ -1519,14 +1519,14 @@ class GrowthModel:
         return rng.random(len(under)) < chance
 
     def _browsed_twigs(self, t: int, alive: np.ndarray, stem: np.ndarray) -> np.ndarray:
-        """A tree on its own stands where grazers reach it.  A twig with a shoot thin enough to bite (leader_damage.bite_diameter_m) inside a browsing event's height range goes at that
-        event's yearly chance.  Only twigs: a low limb that has lost them dies of its own carbon, if it does."""
+        """A tree on its own stands where grazers reach it.  An axis off the stem with a shoot thin enough to bite (leader_damage.bite_diameter_m) inside a browsing event's height range
+        goes at that event's yearly chance, so the stem's foot clears from the ground up while the tree is growing past the reach.  A real bite takes a shoot's end, not the axis: this is the sum of years of bites."""
         T, ld = self.tree, self.sp.leader_damage
         n0 = len(alive)
         rng = self.__dict__.get("_browse_rng")
         if rng is None:
             rng = self._browse_rng = np.random.default_rng([self.seed, 6607])
-        firsts = np.nonzero(alive & T.is_lateral[:n0] & (T.order[:n0] >= 2) & ~stem & (T.birth[:n0] <= t - int(self.sp.shedding.min_branch_age)))[0]
+        firsts = np.nonzero(alive & T.is_lateral[:n0] & (T.order[:n0] >= 1) & ~stem & (T.birth[:n0] <= t - int(self.sp.shedding.min_branch_age)))[0]
         out = [np.zeros(0, np.int64)]
         if firsts.size:
             first_of = np.full(int(T.axis[:n0].max()) + 1, -1, np.int64)
