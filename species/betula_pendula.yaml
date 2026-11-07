@@ -1622,7 +1622,19 @@ appearance:
     leaves.petiole_m: "TUNED: from the 1-2 cm petiole in this file's light.leaf_spread comment, which gives no paper."
     leaves.fold_deg: "TUNED: by eye."
     leaves.texture_size_px: "TUNED: game setting."
-    game: "TUNED: game settings, no engine or budget named yet. Every budget and size here is a setting."
+    game: "TUNED: game settings, no budget named yet. Every budget and size here is a setting."
+    game.unreal.alpha_clip: "SOURCE: the game's M_Foliage clip, the game's Tools/Editor/build_materials.py ALPHA_CLIP."
+    game.unreal.bark_wrap_tile_m: "SOURCE: the game's tileable bark repeat, the game's Tools/Assets/split_scans.py BARK_TILE_M."
+    game.unreal.roots.surface_depth_m: "SOURCE: how far the game's own root flare reaches below ground so it meets any slope, the game's Tools/Assets/make_root_flare.py."
+    game.unreal.roots.surface_min_radius_m: "TUNED: thinner roots stay in the below-ground mesh."
+    game.unreal.roots.foot_fade_m: "TUNED: below the ground line, how far the stem's thickness fades into the taproot's."
+    game.unreal.roots.ground_line_radii: "TUNED: the model's own thick roots lie just under its z = 0, so the game's ground meets the tree this many collar radii lower, and at most ground_line_max_m. A setting, not a growth change; 0 puts the ground at the model's z = 0, where almost no root shows."
+    game.unreal.roots.soil_tint: "TUNED: by eye; no measured colour of soil-stained birch root found. The game's own flare takes 0.75 of the bark's gain and 0.7 desaturated."
+    game.unreal.leaf_rows: "DERIVED: 8 rows miss the blade's outline by at most 0.75 mm on a 5 cm leaf, mean 0.12 mm; 12 rows at most 0.79 mm, mean 0.07 mm. The game's flora run about 32 triangles a leaf."
+    game.unreal.ring_tolerance: "TUNED: a ring goes if its surface stays within 10 % of the radius or 1 mm, whichever is more; 1 mm is under 2 pixels at 1 m on a 2560-wide screen at a 60 degree view. Surface area stays within 0.02 %."
+    game.unreal.ring_longest_span: "TUNED: so a long straight twig still bends in the wind, whose flex is per vertex."
+    game.unreal.chlorophyll_by_day: "DERIVED: birch at Siljan from the game's Docs/Research/Wave1/03-trees.md section 2.8 (Nature's Calendar 2008-2021, its source [28], not opened by me): leaf-out starts day 123, autumn colour starts 266, leaf fall starts 279, leafless 286.5; Siljansfors 50 % budburst 22 May is day 142. TUNED: the chlorophyll fraction on each of those days."
+    game.unreal.bark_mean_y: "DERIVED: the game's Docs/Research/Wave2/09-assets.md section 4: silver birch bark Y 0.191 at 1.3 m on the north side, white with dark lenticels and cracks, +0.10 on the south; Juola, Hovi & Rautiainen 2022, doi:10.1002/ece3.8718 (read there, blocked for me) and Juola et al. 2020, Silva Fennica 54(4) 10331 (read: birch BRF 0.22-0.55, darker near the ground, south side 0.12 brighter in the visible). TUNED: white-only stems taken as 0.32, the measured mean with an estimated 40 % of dark bark taken out, plus half the south-side gain."
   bark:
     thickness:
       # double bark (mm) = b0 + b1 DBH + b2 d, over-bark cm; the model's radii are wood
@@ -1750,3 +1762,38 @@ appearance:
     # colour and packed maps as jpeg to keep files small; png wherever alpha is needed
     jpeg_quality: 88
     texture_seed: 4177
+    # tools/game_export.py --target unreal: the game's pipeline, as treegen/game_unreal.py writes for it
+    unreal:
+      # the name the tree goes under in the game's folders; a new name, so its birch stays as it is
+      asset: betula_pendula_grown
+      # the season a variant's name doesn't mention
+      base_season: summer
+      alpha_clip: 0.35
+      # one tile of the game's tileable bark, m
+      bark_wrap_tile_m: 0.4
+      # leave out rings that lie inside the parent, and rings the tube would be the same without; 0 and 0 keep them all
+      ring_tolerance: 0.10
+      ring_tolerance_m: 0.001
+      ring_longest_span: 0.5
+      # the real roots (treegen/roots.py): what goes with the tree, and what's left as its own mesh
+      roots:
+        surface_depth_m: 0.10
+        surface_min_radius_m: 0.01
+        ground_line_radii: 1.4
+        ground_line_max_m: 0.20
+        foot_fade_m: 0.15
+        soil_tint: [0.72, 0.66, 0.58]
+      # leaf atlas: columns from this chlorophyll fraction to that one; a leaf's level picks its column
+      leaf_levels: 8
+      leaf_level_range: [0.04, 1.0]
+      # rows of vertices from a blade's base to its tip, cut to its outline; 4 (rows - 1) triangles a leaf
+      leaf_rows: 8
+      # how deep the mesh's coarse teeth cut, as a share of the half width; how far the tip bends back, of its length
+      leaf_tooth: 0.05
+      leaf_curl: 0.10
+      card_levels: 4
+      strip_opacity_levels: 4
+      chlorophyll_by_day: [[118, 0.1], [123, 0.25], [142, 0.5], [160, 0.85], [175, 1.0], [262, 1.0], [266, 0.92], [276, 0.5], [286.5, 0.05]]
+      days: {spring: 142, summer: 200, early_autumn: 270, autumn: 283}
+      # linear luminance a bark stage's tile is scaled to; a stage not named stays as it is
+      bark_mean_y: {papery: 0.32}

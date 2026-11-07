@@ -269,6 +269,8 @@ class PeelStrips:
     colour: np.ndarray       # linear RGBA, A is the strip's opacity
     faces: np.ndarray
     count: int
+    node: np.ndarray = None   # node each vertex's strip sits on
+    opacity: np.ndarray = None  # each vertex's strip's opacity
 
 
 def peel_strips(look: dict, pos: np.ndarray, parent: np.ndarray, radius_wood: np.ndarray, birth: np.ndarray, select: np.ndarray,
@@ -372,4 +374,4 @@ def peel_strips(look: dict, pos: np.ndarray, parent: np.ndarray, radius_wood: np
     col[:, 3] = np.tile(np.repeat(op, per), 2)
     # darker where the sheet is still on the bark, in the shade of its own roll
     col[:, :3] = np.tile((0.72 + 0.28 * smooth(0.0, 0.8, uv_a)).ravel(), 2)[:, None]
-    return PeelStrips(v_all, n_all, uv_all, col, faces.astype(np.int64), int(n))
+    return PeelStrips(v_all, n_all, uv_all, col, faces.astype(np.int64), int(n), np.tile(np.repeat(node, per), 2), col[:, 3].copy())

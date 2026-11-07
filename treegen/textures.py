@@ -558,6 +558,41 @@ def bake_branch_atlas(look: dict, tiles: list, states: list, px=None) -> dict:
 
 
 # -- leaves and strips ----------------------------------------------------------------------------
+def leaf_half_width(look: dict, t) -> np.ndarray:
+    """The blade's half width at t (0 base, 1 tip), 1 at its widest, before its teeth: the same curve
+    as ``_leaf_outline``, for meshes that cut the leaf's real outline."""
+    w0 = float(look["leaves"]["shape"]["widest_at"])
+    t = np.asarray(t, float)
+    up = np.clip(t / w0, 0.0, 1.0)
+    down = np.clip(1.0 - (t - w0) / (1.0 - w0), 0.0, 1.0)
+    k = 0.32
+    d_ = np.clip(k - np.abs(up - down), 0.0, k) / k
+    rounded = np.minimum(up, down) - d_ * d_ * k * 0.25
+    half = rounded * (1.0 - 0.34 * smooth(0.55, 1.0, t) * (1.0 - smooth(0.9, 1.0, t)))
+    return np.where(t <= 0, 0.0, half)
+
+
+def push_pull_fill(rgb: np.ndarray, weight: np.ndarray) -> np.ndarray:
+    """Colour flooded into the texels of zero weight from their nearest weighted neighbours, coarse to
+    fine, so mips of a cut-out never average in what lies under the cut (the game's bleed_foliage.py
+    does this to its leaf textures, or distant crowns frost)."""
+    levels = []
+    colour, total = rgb * weight[..., None], weight
+    while min(colour.shape[:2]) > 1:
+        levels.append((colour, total))
+        h, w = colour.shape[0] // 2, colour.shape[1] // 2
+        colour = colour[:h * 2, :w * 2].reshape(h, 2, w, 2, 3).sum((1, 3))
+        total = total[:h * 2, :w * 2].reshape(h, 2, w, 2).sum((1, 3))
+    fill = colour / np.maximum(total, 1e-6)[..., None]
+    for colour, total in reversed(levels):
+        coarse = np.repeat(np.repeat(fill, 2, 0), 2, 1)
+        coarse = np.pad(coarse, ((0, colour.shape[0] - coarse.shape[0]), (0, colour.shape[1] - coarse.shape[1]), (0, 0)), mode="edge")
+        own = colour / np.maximum(total, 1e-6)[..., None]
+        have = np.minimum(total, 1.0)[..., None]
+        fill = own * have + coarse * (1.0 - have)
+    return fill.astype(np.float32)
+
+
 def _leaf_outline(look: dict, n: int) -> np.ndarray:
     """A birch blade in a square, base at the bottom row, tip at the top: mask 0-1.  The outline
     is triangular with a truncate base and double teeth, and sits inside the diamond the mesh uses
