@@ -132,6 +132,12 @@ class Mortality:
         suppressed = np.where(d_ub_cm > 0.0, float(v.suppressed_hazard) * slow, 0.0)
         past = d_ob[d_ob > 0.0]
         dg = 100.0 * math.sqrt(float(np.mean((past / 100.0) ** 2))) if len(past) else 0.0
+        slope = getattr(v, "relative_size_slope", None)
+        if slope and dg > 0.0:
+            # a slow-ringed tree above the stand's quadratic mean diameter dies less of it, as the odds of
+            # mortality fall with relative diameter in Maleki & Kiviste 2016; below the mean it holds as tuned
+            d_rel = d_ob / dg
+            suppressed = suppressed * np.exp(-float(slope) * np.maximum(d_rel - float(getattr(v, "relative_size_from", 1.0)), 0.0))
         around_size = self.hood.blur(i, j, size) / np.maximum(count, 1e-12)
         background = self.background_rate(dg, stand_age) * size / np.maximum(around_size, 1e-12)
         # with damage's old age on, trees die of age there, on its own clock
