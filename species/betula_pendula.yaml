@@ -1714,6 +1714,8 @@ crown_frame:
   # TUNED, against the look (sky between the curtains), with earned: the same for a tree with no neighbours.  Repola 2008 Eq. 12 would be 3.2, as above; forest trees, and outside its range.  null: crown_lai_max.
   open_lai_max: null
   # TUNED, against the open-grown band in reference.dbh: the share of what a full crown can't use that goes on the stem; the rest is lost.  With earned, for trees with no neighbours only.
+  # "Lost" here and in the run logs is photosynthesis turned down because the sinks are full: it's booked as sink_limited, carbon the leaves didn't fix, not carbon fixed and
+  # thrown away.  Young stand trees turn down 30-50 % at ages 8-12 because their limbs and twigs can't grow fast enough to use it (crown_frame's limb and twig rules).
   surplus_to_stem: 0.1
   # TUNED, against crown ratio and stem wood: one bud in this many, on limbs and finer, can start a long shoot; the rest stay short shoots.
   # 13 gave crown ratio 0.48, 0.45 at 50, 60; 7 gave 0.60, 0.59 with stem wood 10-14 % under Repola; 10 gives 0.56, 0.52, 3-8 % under.  Lintunen 2013
