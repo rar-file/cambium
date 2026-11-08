@@ -998,15 +998,7 @@ class GrowthModel:
                 last = int(T.axis[:n0].max()) + 1
                 tip_ph = np.zeros(last, np.int64)
                 np.maximum.at(tip_ph, T.axis[:n0][alive], T.phyllo[:n0][alive].astype(np.int64))
-                ends = np.full(last, int(getattr(sp.crown_frame, "twig_end_buds", 1)), np.int64)
-                per_m = getattr(sp.crown_frame, "end_buds_per_m", None)
-                if per_m:
-                    # a long shoot branches by its length: one more bud at its end can start a long shoot for every so many metres of last year's shoot, so a young
-                    # vigorous shoot forks several ways and an old tree's short shoots keep their one end bud
-                    grew = alive & (T.birth[:n0] == t - 1)
-                    shoot_len = np.bincount(T.axis[:n0][grew], weights=T.length[:n0][grew], minlength=last)
-                    ends = ends + np.floor(shoot_len / float(per_m)).astype(np.int64)
-                Glat[lat_nodes[~on_stem & (tip_ph[T.axis[lat_nodes]] - T.phyllo[lat_nodes].astype(np.int64) >= ends[T.axis[lat_nodes]])]] = 0.0
+                Glat[lat_nodes[~on_stem & (tip_ph[T.axis[lat_nodes]] - T.phyllo[lat_nodes].astype(np.int64) >= int(getattr(sp.crown_frame, "twig_end_buds", 1)))]] = 0.0
         self._hd = self._height_limit_plan(t, term_nodes, lat_nodes, Qterm, Qlat, 1.0 - stress) if self._height_limit_on() else None
         if self._hd is not None:
             self._leader_phi = float((phi_t if self._hd["is_tip"] else phi_l)[self._hd["bud"]])
@@ -1966,7 +1958,8 @@ class GrowthModel:
                             ring_out[stem] += w * used * unit / spread
                             self._unspent -= used
                             return lo, ring_out
-            if lead_at is not None and self._frame_earns() and not self.stand and getattr(self, "_plot_view", None) is None:
+            if lead_at is not None and self._frame_earns() and ((not self.stand and getattr(self, "_plot_view", None) is None)
+                                                               or bool(getattr(sp.crown_frame, "surplus_with_neighbours", False))):
                 # with no neighbours, whatever the crown can't use goes the same way, whichever limit it met: else a crown short of its limits starves the stem that sets them
                 share_stem = self._surplus_share()
                 unspent = max(target - parts(lo)[0], 0.0)
@@ -2202,7 +2195,7 @@ class GrowthModel:
         cf = getattr(self.sp, "crown_frame", None)
         share = float(getattr(cf, "surplus_to_stem", 0.0) or 0.0)
         if self._frame_earns():
-            if self.stand or getattr(self, "_plot_view", None) is not None:
+            if (self.stand or getattr(self, "_plot_view", None) is not None) and not getattr(cf, "surplus_with_neighbours", False):
                 return 0.0
             d_wood = self.dbh_m()
             if d_wood is not None and 100.0 * float(cf.over_bark_ratio) * d_wood >= float(cf.stem_cm_per_height_m) * self._frame_crown()[0]:
