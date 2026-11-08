@@ -33,7 +33,7 @@ Run it with `tools/tree_table.py run --label node_X --seeds 20 --set ...`. It wr
 | Height (m) | 25.29 | 27.07 | 21.95 | 23.75 | SI 23: 21.95, 23.75 |
 | Reads as SI | 26.2 | 26.3 | 23.0 | 23.0 | one value, 15 to 60 |
 | LAI | 3.09 | 3.27 | 4.27 | 4.09 | 3.6-5.4 |
-| Seeds at 3.6 or more | 2/20 | 4/20 | 19/20 | 17/20 | |
+| Seeds at 3.6 or more | 2/20 | 4/20 | 19/20 | 17/20 | the band is 3.6-5.4; this counts its lower edge only |
 | Light (%) | 30.1 | 27.5 | 18.8 | 19.4 | 6.4-19.8 |
 | Seeds inside the light band | 0/20 | 0/20 | 15/20 | 11/20 | |
 | Implied k | 0.393 | 0.398 | 0.394 | 0.406 | paper 0.37 |

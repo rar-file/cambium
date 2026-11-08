@@ -38,7 +38,8 @@ TREE_METRICS = (("Height (m)", lambda r, a: r["per_year"][a]["height_m"], ".2f")
                 ("Hanging share of leaves", lambda r, a: r["snap"][a]["shape"].get("hang_leaves"), ".3f"),
                 ("Branches, count", lambda r, a: r["snap"][a]["branches"], ".1f"),
                 ("Mean branch (m)", lambda r, a: r["snap"][a]["mean_branch_m"], ".2f"))
-PLOT_METRICS = (("Stems/ha", "stems_ha", ".0f"), ("Mean height (m)", "mean_height_m", ".2f"), ("Top height (m)", "top_height_m", ".2f"),
+PLOT_METRICS = (("Stems/ha", "stems_ha", ".0f"), ("Mean height (m)", "mean_height_m", ".2f"),
+                ("Mean height of the 100 thickest/ha (m; a cross-check, not the approved top height)", "top_height_m", ".2f"),
                 ("Basal area (m2/ha)", "basal_area", ".1f"), ("LAI", "lai", ".2f"), ("Light (%)", "light", ".1f"))
 
 
@@ -143,7 +144,8 @@ def plots(base, tests):
         return [float(p[age][key]) for p in all_rows[label] if p.get(age, {}).get(key) is not None]
 
     for name, key, f in (("Stems/ha", "stems_per_ha", ".0f"), ("Basal area over bark (m2/ha)", "basal_area_ob_m2_ha", ".1f"), ("Mean height (m)", "height_mean_m", ".2f"),
-                         ("Top height (m)", "top_height_m", ".2f"), ("Tallest (m)", "height_max_m", ".2f"), ("Mean stem, wood (cm)", "dbh_mean_cm", ".2f"),
+                         ("Mean height of the 100 thickest/ha (m; a cross-check, not the approved top height)", "top_height_m", ".2f"),
+                         ("Tallest (m)", "height_max_m", ".2f"), ("Mean stem, wood (cm)", "dbh_mean_cm", ".2f"),
                          ("LAI", "lai", ".2f"), ("Light (%)", "subcanopy_diffuse_light_pct", ".1f")):
         for age in AGES:
             b = get(base[0], age, key)
