@@ -6,6 +6,7 @@
     python tools/tree_table.py fall X Y             # twigs and branches shed, crown base, lowest branch, crown ratio
     python tools/tree_table.py driver X             # what held the leader back, year by year, across seeds
     python tools/tree_table.py height X Y           # where the leaf area and crown width peak by height, beside Hagemeier & Leuschner 2019a
+    python tools/tree_table.py limbs X Y            # limb sizes, forks, the crown's diameter as Dubois 2021 measured it, and the carbon lost
 
 Writes out/bench/ensemble/<label>/<seed>_stand/, the same stats.json an ensemble writes (so tools/scorecard.py,
 tools/m3_alternation.py and tools/m3_crown_compare.py read it), plus tree.json: new shoot length each year, wood and
@@ -209,6 +210,11 @@ def crown_shape(model) -> dict:
         above = np.where(mains >= 0, T.radius[np.maximum(mains, 0)], T.radius[T.parent[under_top]])
         forks = int(((T.radius[under_top] >= 0.7 * np.maximum(above, 1e-9)) & (tip_z[T.axis[under_top]] >= H - 0.5)).sum())
     out["double_tops"] = forks
+    # the same, reading it loosely, for comparison: at least 0.5 as thick, its axis ending within 1 m of the top
+    loose = 0
+    if under_top.size:
+        loose = int(((T.radius[under_top] >= 0.5 * np.maximum(above, 1e-9)) & (tip_z[T.axis[under_top]] >= H - 1.0)).sum())
+    out["double_tops_loose"] = loose
     tips_all = np.nonzero(alive & (T.term[:n] == 1))[0]
     stem_axes = np.isin(T.axis[tips_all], np.fromiter(model.leader_axes, np.int64))
     out["tops"] = int(((pos[tips_all, 2] >= H - 0.5) & ~stem_axes).sum())
@@ -228,6 +234,33 @@ def crown_shape(model) -> dict:
     attach = np.sort(pos[T.parent[limbs], 2])
     out["lone"] = int((attach < z5).sum())
     out["gap_m"] = float(np.max(np.diff(np.concatenate([attach, [H]])))) if attach.size else H
+    # limb sizes: a birch has a few thick limbs and many thin ones.  limb_d: limbs' base diameters (cm), largest first, the top 10; limb_d_med the median;
+    # limb_top5: the top 5's mean over the median, limb_thick: limbs at least half as thick as the thickest.  limb_forks: axes on limbs at least 0.6 as thick at
+    # their base as the limb just above them; forked: the share of limbs with one.  My own measures: no paper read gives them.
+    real_limbs = limbs[lengths >= 0.3]
+    d = np.sort(200.0 * T.radius[real_limbs])[::-1] if real_limbs.size else np.zeros(1)
+    out["limb_d"] = [round(float(x), 2) for x in d[:10]]
+    out["limb_d_med"] = float(np.median(d))
+    out["limb_top5"] = float(d[:5].mean() / max(float(np.median(d)), 1e-6))
+    out["limb_thick"] = int((d >= 0.5 * d[0]).sum())
+    side = np.nonzero(alive & T.is_lateral[:n] & ~on_lead & ~on_lead[np.maximum(T.parent[:n], 0)])[0]
+    limb_of = T.scaffold[:n].astype(np.int64)
+    if side.size:
+        parent = T.parent[side]
+        over = T.main_child[parent]
+        above = np.where(over >= 0, T.radius[np.maximum(over, 0)], T.radius[parent])
+        fork = side[(T.radius[side] >= 0.6 * np.maximum(above, 1e-9)) & (200.0 * T.radius[side] >= 1.0)]
+        out["limb_forks"] = int(fork.size)
+        out["forked"] = float(np.unique(limb_of[fork]).size) / max(int(real_limbs.size), 1)
+    else:
+        out["limb_forks"], out["forked"] = 0, 0.0
+    # the crown's diameter as Dubois et al. 2021 measured it: eight radii, each from the stem to the furthest leafy node's vertical projection in that direction
+    base_xy = pos[stem[0], :2]
+    off = pos[leafy, :2] - base_xy
+    sector = np.floor((np.arctan2(off[:, 1], off[:, 0]) + math.pi) / (math.pi / 4.0)).astype(np.int64) % 8
+    far = np.zeros(8)
+    np.maximum.at(far, sector, np.hypot(off[:, 0], off[:, 1]))
+    out["crown_d8"] = 2.0 * float(far.mean())
     return out
 
 
@@ -388,14 +421,16 @@ def table(labels: list) -> None:
             si = reads_as(item, statistics.fmean(h), age)
             lai = [a["lai"] for a in at]
             light = [a["subcanopy_diffuse_light_pct"] for a in at]
-            ks = [-math.log(max(x, 1e-6) / 100.0) / max(y, 1e-6) for x, y in zip(light, lai)]
+            # a tree in the open has no canopy above a floor to read
+            has_light = None not in light
+            ks = [-math.log(max(x, 1e-6) / 100.0) / max(y, 1e-6) for x, y in zip(light, lai)] if has_light else []
             ob = [float(dbh_over_bark(a["dbh_cm"])) for a in at]
             rep = [repola(d, a["height_m"]) for d, a in zip(ob, at)]
             ev = [evo_median(d, evo) for d in ob]
             ev = [x for x in ev if x is not None]
             crown = [a["crown_ratio"] or 0.0 for a in at]
             per10 = [s["branches"] / 10.0 for s in sn]
-            print(f"| `{label}` | {age} | {len(rows)} | {fmt(h)} | {'-' if si is None else f'{si:.1f}'} | {statistics.fmean(ob):.1f} | {fmt(lai)} | {fmt(light, '.1f')} | {statistics.fmean(ks):.3f} | "
+            print(f"| `{label}` | {age} | {len(rows)} | {fmt(h)} | {'-' if si is None else f'{si:.1f}'} | {statistics.fmean(ob):.1f} | {fmt(lai)} | {fmt(light, '.1f') if has_light else '-'} | {f'{statistics.fmean(ks):.3f}' if has_light else '-'} | "
                   f"{statistics.fmean(s['stem_kg'] for s in sn):.0f} | {statistics.fmean(x[0] for x in rep):.0f} | {statistics.fmean(s['branch_kg'] for s in sn):.1f} | {statistics.fmean(x[1] for x in rep):.1f} | "
                   f"{fmt([a['crown_width_m'] for a in at])} | {statistics.fmean(ev) if ev else float('nan'):.1f} | {statistics.fmean(s['mean_branch_m'] for s in sn):.2f}, {statistics.fmean(s['median_branch_m'] for s in sn):.2f} | {fmt(per10, '.1f')} |")
     print("\nYears under 2 cm of height growth (all seeds), and whole-crown flips: years where side shoots total under a fifth of the median of the 5 years around them, or none at all.\n")
@@ -539,6 +574,45 @@ def shape(labels: list, per_seed: bool = False) -> None:
                 print(f"| {tag} | {age} | {len(xs)} | {m('widest_at', '.2f')} | {m('width_ratio_top', '.2f')} | {m('angle_low', '.0f')} | {m('angle_mid', '.0f')} | {m('angle_up', '.0f')} | {m('tip_angle_low', '.0f')} | {m('tip_angle_mid', '.0f')} | {m('tip_angle_up', '.0f')} | {m('leader_rival', '.2f')} | {m('tops', '.1f')} | {m('bare_top_m', '.1f')} | {m('hang_mean', '.2f')}, {m('hang_p90', '.2f')}, {m('hang_max', '.2f')} | {m('hang_count', '.0f')} | {m('hang_leaves', '.2f')} | {m('fill', '.2f')} | {m('lone', '.1f')} | {m('gap_m', '.1f')} | {sum(1 for x in xs if x.get('double_tops', 0) > 0)}/{len(xs)} |")
 
 
+def limbsheet(labels: list) -> None:
+    """Limb sizes and where the carbon goes.  Shows open or stand trees alike: the two are judged apart.  d8 is the crown's diameter as Dubois et al. 2021 measured it (eight radii);
+    Hemery et al. 2005 (0.932 + 0.177 D) and Dubois (0.761 + 0.186 D) are for open-grown or crown-released trees, D the stem over bark in cm."""
+    from bark import dbh_over_bark
+    from m3_wood import repola
+
+    print("| Set | Age | Seeds | Stem over bark (cm) | Crown d8 (m) | Hemery, Dubois at that stem (m) | Widest, share of crown | Widest, share of height | Top third over widest | Thickest limb (cm) | 5th | Median | Top 5 over median | Limbs half as thick as the thickest | Forks | Limbs with a fork | Double tops | Pool lost (%) | Fixed lost (%) | Twigs at their cap (%) | Stem wood, branch wood (kg) | Repola at that size | Crown ratio | Lowest live (m) | Leaf area (m2) |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    for label in labels:
+        runs = load(label)
+        for age in (30, 50, 60):
+            rows = [r for r in runs.values() if age in r["snap"] and r["snap"][age].get("shape") and "limb_d" in r["snap"][age]["shape"]]
+            if not rows:
+                continue
+            sh = [r["snap"][age]["shape"] for r in rows]
+            ob = [float(dbh_over_bark(r["per_year"][age]["dbh_cm"])) for r in rows]
+            lost, fixed, cap = [], [], []
+            for r in rows:
+                for y in range(age - 4, age + 1):
+                    u = (r["new"][y].get("driver") or {}).get("use")
+                    if not u:
+                        continue
+                    spent = u["lead"] + u["limbs"] + u["twigs"] + u["rings"]
+                    lost.append(max(u["pool"] - spent, 0.0) / max(u["pool"], 1e-9))
+                    c = r["per_year"][y].get("carbon", {})
+                    fix = float(c.get("fixed", 0.0)) + float(c.get("sink_limited", 0.0))
+                    fixed.append(max(u["pool"] - spent, 0.0) / max(fix, 1e-9))
+                    cap.append(u["at_cap"] / max(u["twig_shoots"], 1))
+            rep = [repola(d, r["per_year"][age]["height_m"]) for d, r in zip(ob, rows)]
+            hem = statistics.fmean(0.932 + 0.177 * d for d in ob)
+            dub = statistics.fmean(0.761 + 0.186 * d for d in ob)
+            print(f"| `{label}` | {age} | {len(rows)} | {fmt(ob, '.1f')} | {fmt([x['crown_d8'] for x in sh])} | {hem:.2f}, {dub:.2f} | {fmt([x['widest_at'] for x in sh])} | {fmt([x['wide_peak_at'] for x in sh])} | {fmt([x['width_ratio_top'] for x in sh])} | "
+                  f"{fmt([x['limb_d'][0] for x in sh], '.1f')} | {statistics.fmean(x['limb_d'][min(4, len(x['limb_d']) - 1)] for x in sh):.1f} | {statistics.fmean(x['limb_d_med'] for x in sh):.1f} | {fmt([x['limb_top5'] for x in sh], '.1f')} | "
+                  f"{statistics.fmean(x['limb_thick'] for x in sh):.1f} | {statistics.fmean(x['limb_forks'] for x in sh):.1f} | {statistics.fmean(x['forked'] for x in sh):.2f} | {sum(1 for x in sh if x.get('double_tops', 0) > 0)}/{len(sh)} | "
+                  f"{100.0 * statistics.fmean(lost) if lost else 0.0:.0f} | {100.0 * statistics.fmean(fixed) if fixed else 0.0:.0f} | {100.0 * statistics.fmean(cap) if cap else 0.0:.0f} | "
+                  f"{statistics.fmean(r['snap'][age]['stem_kg'] for r in rows):.0f}, {statistics.fmean(r['snap'][age]['branch_kg'] for r in rows):.0f} | {statistics.fmean(rp[0] for rp in rep):.0f}, {statistics.fmean(rp[1] for rp in rep):.0f} | "
+                  f"{statistics.fmean(r['snap'][age].get('crown_ratio_stem') or 0.0 for r in rows):.2f} | {statistics.fmean(r['snap'][age].get('lowest_stem_branch_m') or 0.0 for r in rows):.1f} | {statistics.fmean(r['per_year'][age]['leaf_area_m2'] for r in rows):.0f} |")
+
+
 def crownheight(labels: list) -> None:
     """Where the leaves are by height on the tree, beside Hagemeier & Leuschner 2019a (6 felled birches 22-26 m tall, closed stands, Germany): all leaf area in the upper
     half, most at about 0.80 of height, and crown radius the same; density 0.142 + 2.91 x^9.02 m2/m3 at relative height x (their Figure 6's fit, as read by the main session).  For stand trees."""
@@ -635,7 +709,7 @@ def main(argv=None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("what", choices=("run", "one", "table", "seeds", "fall", "driver", "young", "stem", "roots", "shape", "shapeseeds", "open", "height"))
+    ap.add_argument("what", choices=("run", "one", "table", "seeds", "fall", "driver", "young", "stem", "roots", "shape", "shapeseeds", "open", "height", "limbs"))
     ap.add_argument("labels", nargs="*")
     ap.add_argument("--label")
     ap.add_argument("--seeds", type=int, default=8)
@@ -645,7 +719,10 @@ def main(argv=None) -> int:
     ap.add_argument("--open", action="store_true", help="grow in the open, no neighbours; the folder keeps its _stand name so the readers find it")
     ap.add_argument("--out")
     ap.add_argument("--set", action="append", default=[])
+    ap.add_argument("--sets", help="a file of KEY=JSON lines, read before --set")
     a = ap.parse_args(argv)
+    if a.sets:
+        a.set = Path(a.sets).read_text(encoding="utf-8").split() + a.set
     if a.what == "one":
         return one(a.seed, a.set, Path(a.out), a.years, not a.open)
     if a.what == "run":
@@ -670,6 +747,8 @@ def main(argv=None) -> int:
         openset(a.labels)
     elif a.what == "height":
         crownheight(a.labels)
+    elif a.what == "limbs":
+        limbsheet(a.labels)
     else:
         driver(a.labels[0])
     return 0

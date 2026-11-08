@@ -33,11 +33,14 @@ def main():
     ap.add_argument("--years", type=int, default=30)
     ap.add_argument("--plot-trees", type=int, default=0)
     ap.add_argument("--base", choices=["crown", "testA", "default"], default="crown")
+    ap.add_argument("--base-file", help="settings from this file of KEY=JSON lines, in place of --base")
     ap.add_argument("--workers", type=int, default=2)
     ap.add_argument("--only", default="", help="comma-separated settings to try, instead of all")
     ap.add_argument("--label", default="", help="also append the table to out/bench/ensemble/<label>/drift.txt")
     a = ap.parse_args()
     base = {"crown": CROWN, "testA": TEST_A, "default": []}[a.base]
+    if a.base_file:
+        base = Path(a.base_file).read_text(encoding="utf-8").split()
     seeds = [int(x) for x in a.seeds.split(",")]
     cases = {"none": []}
     for s in ([x if "=" in x else f"speed.{x}=true" for x in a.only.split(",") if x and x != "six"] or SIX + EXTRA):

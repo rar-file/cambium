@@ -286,9 +286,6 @@ bud_fate:
   # survival of second-order shoots (99 -> 53 % after 5-8 years), seed 1 at
   # 25 years (phase 15). VERIFY (the value 3)
   long_shoot_threshold: 3.0
-  # Set: only one bud in this many on the stem can start a limb; the rest stay short shoots.  null (as it has been): any of them.
-  # TUNED, against Lintunen's branch count, but not settled: the 20-seed test was cancelled; 6 made a leaning stem on one seed.
-  stem_bud_every: null
   # Axis tips extend continuously: shoot length is l0 * v, and a tip that
   # can afford less than one metamer still makes one shorter internode (it
   # used to stop: seedlings in the field layer, at ~38 % light, could afford
@@ -543,9 +540,6 @@ tropism:
   # width and kept limbs almost parallel to the stem (poplar-like).  Higher
   # orders VERIFY.
   setpoint_angle_deg: [0, 43, 45, 65]
-  # true: twigs (order 2 and up) keep their gravitropism however thin they are, so a set-point below level above makes
-  # them grow down, in curtains.  false (as it has been): thin shoots lose it.  TUNED, by eye only; not in test A.
-  twigs_keep_gravitropism: false
 
 mechanics:
   # Bending under load and posture control ([J00], [AF09]; mechanics.py).
@@ -633,6 +627,8 @@ pipe_model:
   # TUNED, against Repola's branch wood: the same for side axes alone.  null (as it has been): one figure for the whole tree.
   # Test A: 0.30 (branches 38.5, 52.6 kg at 50, 60 against 46.1, 59.2).  It lays about 0.75 mm a year on a 5 mm limb (my sum; no birch ring width read).
   branch_sapwood_senescence: null
+  # TUNED, against branch wood in the open: above this radius (m) a limb's sapwood turns over more slowly, in proportion to its radius.  null: one rate.
+  branch_sapwood_thick_m: null
   # true: the requirement is on the conducting wood, with
   # sapwood_senescence_per_year; false: on the whole wood, no turnover.
   sapwood: true
@@ -1590,18 +1586,11 @@ height_driver:
   # TUNED, against Evo's crown width: no side shoot longer than this share of the leader's shoot this year.  null = no limit.
   # Test A: 0.6.  Without it crowns are 9.5 m at 60, against 7.3 m with it; Evo about 5.  The cap has a fault: see the floor below.
   lateral_cap_ratio: null
-  # TUNED, against nothing measured: that cap never falls below this length (m).  null = no floor.  Without one, once the
-  # leader's shoot is under long_shoot_threshold x internode / ratio (0.21 m in test A, about age 46 at SI 23), no new side shoot can start.
-  lateral_cap_floor_m: null
-  # TUNED, against nothing measured, and a dead end so far: no twig (order 2 and up) longer than this share of the leader's shoot.
-  # null = no limit of its own.
-  twig_cap_ratio: null
-  # Once the leader has lost dominance (resource.reiteration), whichever tip stands highest carries the height, and
-  # reiterated limbs aren't held to the side shoot cap, so the leader can be lost in the crown.  false: the stem's own tip, always.
-  leader_lost_in_crown: false
   # TUNED, against whole-crown flips: the most of the pool the year's rings may take; sapwood comes first, and only the
   # wind's thickening waits.  Test A: 0.5.  Without it flips were 116 in 448 seed-years (8 PC seeds); with it, 42, both before density control.  null = no limit.
   ring_share_max: null
+  # TUNED, against photos of open-grown birches, no measurement read: a tree with no neighbours grows this share of the stand's yearly height.  The curve is for stands.  null: all of it.
+  open_grown_share: null
   # TUNED, against nothing: never needed, so never tested with the rest; the brief allowed it for flips, and density control did that.
   # The share of each year's pool that waits for next year (a small carbon store).  null = none.
   store_fraction: null
@@ -1627,6 +1616,28 @@ height_driver:
 #   bud_fate.short_shoot_light=0.18            TUNED, against fill: a bud that doesn't grow stays a short shoot down to the death line.
 #   mechanics.pendulous_radius_limb=0.0025     TUNED, against the look: limbs rise, and only their thin ends arch over.
 #   resource.reiteration.setpoint_angle_deg=20 TUNED, against the look: a fork rises beside the stem, not along it.
+# With crown_frame.earned=true (Crown 2; cases/crown2.txt has the whole list), these differ from the above.  resource.apical_dominance does nothing there and is left out:
+#   crown_frame.earned=true                    The switch; see that block at the end of crown_frame.
+#   pipe_model.stem_theory.wind_speed_m_s=8    TUNED, against Dg, stems and LAI on plots.  12 was set in a brief, not fitted.  12 gave Dg 25.1, 29.7 and 490, 352 stems/ha at 50, 60; rings no longer hit their cap all the time.
+#   shedding.light_per_leaf_threshold=0.15, bud_fate.short_shoot_survival_light=0.15, bud_fate.short_shoot_light=0.15
+#                                              TUNED, against light under the canopy.  Under Hagemeier & Leuschner 2019b Fig. 6's lowest reading of about 18.7 % by eye.
+#   mechanics.pendulous_radius=0.012           TUNED, against the look: twigs thinner than about this hang; 0.006 sprayed outward, and hung only at their ends.
+#   crown_frame.twig_shoot_max_m=0.5           TUNED, against the look and leaf area in the open.
+#   crown_frame.limb_shoot_floor_m=0.2         TUNED, against the outline: 0.3 let an old tree's top limbs go flat; 0.15 left open trees narrow.
+#   crown_frame.crown_lai_max=7                As before: TUNED, a sink limit.  With it the crown sheds old short shoots (full_crown_spur_years).
+#   crown_frame.open_lai_max=5                 TUNED, against the look: sky between the curtains.  7 gave a dark mass.  Bears only on trees with no neighbours.
+#   crown_frame.surplus_to_stem=1.0            All of it, up to stem_cm_per_height_m: a tree in the open was fixing carbon it then lost while its stem, and so its crown, was still small.  Bears only on trees with no neighbours.
+#   crown_frame.limb_sag_deg=45                TUNED, against the look: limbs curve up from a low start.  On stand trees wider crowns, and 0.2 less LAI at 60 (6 PC seeds).
+#   crown_frame.twigs_browsed=0                A choice of place, see below.  0 in the main open tree: fewer guesses, and young open trees come out ahead of stand trees.  0.5 is TUNED, on a DERIVED rate, for a place with moose: a clear foot to the stem, curtains stopping above the ground.  Bears only on trees with no neighbours.
+#   crown_frame.stem_cm_per_height_m=2.4       TUNED, with height_driver.open_grown_share: the same 45 cm cap on a shorter tree.
+#   crown_frame.reach_scatter=0.5              TUNED, against the look: limbs of even length read as a fishbone.  0.2 was against an even outline.  Capped at the published crown.
+#   crown_frame.spacing_overlap=1.15           TUNED, against stand light and width: limbs now carry the width themselves; 1.0 gave 0.25 less LAI.
+#   crown_frame.peak_depth=0.65, .base_share=0.4, .profile_power=0.8
+#                                              TUNED, against the outline in both settings: a crown whose length is all the tree's is widest about a third of the way up, one in a stand about 0.7 of the way up.
+#   crown_frame.full_crown_spur_years=12, .hanging_share=0.35   TUNED: see those values below.
+#   pipe_model.branch_sapwood_thick_m=0.02     TUNED, against the thickest limbs in the open: 23 cm on a 44 cm stem without it, 16 with it.
+#   resource.reiteration.setpoint_angle_deg=12 TUNED, against the look: at 20 a second top stands out to one side.
+#   height_driver.open_grown_share=0.8         TUNED, against photos, no measurement: no open-grown height found in Dubois 2021 or Tallo, and Hemery 2005 is unread.  Bears only on trees with no neighbours.
 crown_frame:
   enabled: false
   # -- how many, and at what angle ---------------------------------------------------------------------------------------
@@ -1697,12 +1708,40 @@ crown_frame:
   # standing in for what really stops a tree with light to spare; what it refuses is lost, bar surplus_to_stem.  4 left about 15 % of fixed carbon unused
   # at 11-50 in stand trees; 7 leaves 18 and 12 % at 11-20, 21-30, then none.  Repola 2008 Eq. 12 at a 45 cm stem over Hemery's crown would be 3.2, outside Eq. 12's range.
   crown_lai_max: 7.0
-  # TUNED, against the open-grown band in reference.dbh: the share of what a full crown can't use that goes on the stem; the rest is lost.
+  # TUNED, against the look (sky between the curtains), with earned: the same for a tree with no neighbours.  Repola 2008 Eq. 12 would be 3.2, as above; forest trees, and outside its range.  null: crown_lai_max.
+  open_lai_max: null
+  # TUNED, against the open-grown band in reference.dbh: the share of what a full crown can't use that goes on the stem; the rest is lost.  With earned, for trees with no neighbours only.
+  # "Lost" here and in the run logs is photosynthesis turned down because the sinks are full: it's booked as sink_limited, carbon the leaves didn't fix, not carbon fixed and
+  # thrown away.  Young stand trees turn down 30-50 % at ages 8-12 because their limbs and twigs can't grow fast enough to use it (crown_frame's limb and twig rules).
   surplus_to_stem: 0.1
   # TUNED, against crown ratio and stem wood: one bud in this many, on limbs and finer, can start a long shoot; the rest stay short shoots.
   # 13 gave crown ratio 0.48, 0.45 at 50, 60; 7 gave 0.60, 0.59 with stem wood 10-14 % under Repola; 10 gives 0.56, 0.52, 3-8 % under.  Lintunen 2013
   # Fig. 6C (model output) has 2-4 long shoots per second-order branch.  Even values make all of them fall on one side of a two-ranked shoot.  null: all.
   twig_bud_every: 10
+  # -- with earned on: limbs and twigs go by what they earn -----------------------------------------------------------------
+  # What changes (Crown 2): limbs reach the published crown themselves, and it's the widest they go (length_per_reach, steep_limit, twig_overshoot, twig_bud_every aren't read), and a twig goes no further than a
+  # year's shoot past its limb's tip.  A bud's share goes with its own light, its limb's standing against its neighbours and its limb's age (_scaffold_vigour), not the split down
+  # the branches (so resource.apical_dominance does nothing); a bud on a shoot that hangs doesn't start a long shoot (gravimorphism).  Only the bud at the end of last
+  # year's shoot can start a long shoot on anything finer than the stem, and on a limb or a fork it's paid first, by its own light.  Thin twigs turn neither up nor to the
+  # light (mechanics.pendulous_radius), so they hang.  A limb's own shoot slows with the leader's; no limb's tip ends above where the leader was three years ago, so the leader stands clear.
+  # One limb on a forking tree (fork_share_of_trees) goes up as a second top.  Off: the frame as it was.
+  earned: false
+  # TUNED, against the look: a twig heading straight down makes this share of a level twig's shoot, so curtains reach a few metres, not the ground.  Gravimorphism's form (Wareing & Nasr 1961); no birch value.
+  hanging_share: 0.35
+  # TUNED, against the look: a limb carrying more than this leaf area (m2) per axis of its own makes another axis, a fork, stiff like the limb and rising like it.  null: none.
+  fork_leaf_area_m2: 1.5
+  # TUNED, against nothing: how many limbs on each side count as a limb's neighbours (_frame_earned): about a metre of stem.
+  limb_rivals: 5
+  # TUNED, against the look: how far a limb's posture target moves with the age of its wood (over resource.branch_aging_years): new wood stands a third of this above the limb's own set-point, old wood settles towards two thirds below it, so limbs leave the stem low and curve up.  null: straight.
+  limb_sag_deg: null
+  # With earned, for a tree with no neighbours, and a matter of place: a park has no moose.  Limbs and twigs whose thin shoots are within a moose's reach get bitten off, at leader_damage.events' height range and this share of its yearly chance.
+  # DERIVED: the rate is Bergqvist et al. 2014's, measured on leaders of young stands in southern Sweden, not on twigs.  0: none.  1: the rate as measured, which takes half the leaf area of a 20-year-old tree.
+  twigs_browsed: 0
+  # TUNED, against the look: when the crown has all the leaf area it can hold (crown_lai_max), short shoots this old die, so new shoots have room and the foliage moves out.
+  # 8 left 71 % of an open tree's twig length leafless, the dark brooms; 12 leaves about 60 %.  Birch short shoots live several years (Maillette 1982, abstract only).  null: none die of age.
+  full_crown_spur_years: 12
+  # TUNED, against stem size in stands: below the crown, this share of the sapwood last year's new leaves asked for isn't retired and rebuilt each year.  0: all of it is, as heartwood_by_own_foliage has it.
+  sapwood_kept: 0.3
 
 # Field-layer competition on clearcuts (Option A, Nilsson & Örlander 1999).
 # Sourced clear-cut field-layer sward growth and light extinction.

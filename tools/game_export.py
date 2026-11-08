@@ -585,6 +585,7 @@ def main() -> int:
     e.add_argument("--stand", action="store_true", default=True)
     e.add_argument("--open", dest="stand", action="store_false", help="grow in the open, not in a stand")
     e.add_argument("--set", action="append", default=[], metavar="KEY=JSON", help="growth values, from the start of the run")
+    e.add_argument("--sets", help="a file of KEY=JSON lines, read before --set")
     e.add_argument("--budget", action="append", default=[], metavar="LEVEL=TRIANGLES", help="e.g. lod1=8000; 'none' for no limit")
     e.add_argument("--target", choices=("generic", "unreal"), default="generic", help="unreal: what the game reads (docs/unreal.md); generic: a self-contained .glb for any engine")
     e.add_argument("--look", action="append", default=[], metavar="KEY=JSON", help="change a value in the appearance block for this export, e.g. bark.stem_texture_px=[512,2048]")
@@ -601,6 +602,8 @@ def main() -> int:
     v = sub.add_parser("values", help="where each look value comes from: SOURCE, DERIVED or TUNED")
     v.add_argument("--species", default="betula_pendula")
     a = ap_.parse_args()
+    if getattr(a, "sets", None):
+        a.set = Path(a.sets).read_text(encoding="utf-8").split() + a.set
     if a.command == "export":
         return main_export(a)
     if a.command == "render":
