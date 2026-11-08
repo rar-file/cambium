@@ -37,10 +37,21 @@ SNAPSHOT_EVERY = 5
 DENSITY = 530.0
 WINDOWS = ((5, 14), (15, 19), (20, 39), (40, 60))
 LINTUNEN_M, LINTUNEN_PER_10 = 1.02, 5.2
-LAI_FLOOR, LIGHT_BAND = 3.6, (6.4, 19.8)
-DENSE_CROWN_RATIO = (0.30, 0.45)    # dense unmanaged plots, ages 11-22: not a stand-tree target; shown as information
-REPOLA_CROWN_RATIO = (0.29, 0.96)   # Repola 2008 Table 2, single sample trees, mean 0.58; information in the target file
-CROWN_RATIO_FLOOR = 0.50            # Hynynen 2010: a recommendation for managed crop trees; information in the target file
+
+
+def bands() -> dict:
+    """The target bands this tool quotes, read from reference/targets.yaml at the tag targets-approved (tools/scorecard.py's
+    reader), not written here.  The crown ratio ones are all information only for stand trees."""
+    from scorecard import load_approved_targets
+
+    canopy = load_approved_targets("targets-approved")["stand_canopy"]
+    lcr = canopy["live_crown_ratio"]
+    return {"lai": tuple(canopy["lai_hagemeier"]["stand_range"]),                        # Hagemeier & Leuschner 2019
+            "light": tuple(canopy["subcanopy_light_transmittance"]["target_range_pct"]),  # Hagemeier & Leuschner 2019b
+            "dense_crown_ratio": tuple(lcr["dense_unmanaged_stand"]["target_range"]),     # dense unmanaged plots, ages 11-22
+            "repola_crown_ratio": tuple(lcr["managed_stand_empirical"]["range"]),         # Repola 2008 Table 2, single trees
+            "repola_mean": lcr["managed_stand_empirical"]["mean_ratio"],
+            "crown_ratio_floor": lcr["silvicultural_recommendation"]["min_ratio"]}        # Hynynen 2010, a recommendation
 
 
 def snapshot(model, year: int) -> dict:
@@ -332,7 +343,8 @@ def one(seed: int, sets: list, out: Path, years: int, stand: bool = True) -> int
                 snaps[-1]["root_arch"] = root_measure.architecture(model)
     out.mkdir(parents=True, exist_ok=True)
     (out / "tree.json").write_text(json.dumps({"yearly": yearly, "snapshots": snaps, "shed": shed_events(model)}), encoding="utf-8")
-    meta = {"species": sp.species.scientific_name, "species_file": species, "environment": environment, "mode": "stand", "seed": seed,
+    # as cli.py has it: tools/scorecard.py reads "stand" as stand-tree, managed and "open" as single-tree, open-grown
+    meta = {"species": sp.species.scientific_name, "species_file": species, "environment": environment, "mode": "stand" if stand else "open", "seed": seed,
             "generator": "treegen 0.4, tools/tree_table.py"}
     meta["run_manifest"], meta["options"] = cli.run_manifest(species, environment, sp)
     meta["run_manifest"].update({"resumed_from": None, "scenario": list(sets)})
@@ -402,8 +414,10 @@ def table(labels: list) -> None:
     from m3_wood import repola
 
     item = height_item()
+    b = bands()
     evo = evo_rows()
-    print("Means over seeds, (lowest-highest seed). Height's site index is read on the approved equation and T13 rule. Light is diffuse, at 1-2 m, as the target measures it. Repola is at the tree's own size, over bark. Evo is the median of his trees in the same over-bark stem-diameter bin. Lintunen: 1.02 m, 5.2 per 10 % of crown length, ages 4-32.\n")
+    print(f"Approved bands, for stands aged 45-67: LAI {b['lai'][0]}-{b['lai'][1]}, light {b['light'][0]}-{b['light'][1]} % (reference/targets.yaml at targets-approved).")
+    print("Means over seeds, (lowest-highest seed). Height's site index is read on the approved equation and T13 rule. Light is diffuse; the model reads it at 1-2 m, and the target doesn't state its sensor's height. Repola is at the tree's own size, over bark. Evo is the median of his trees in the same over-bark stem-diameter bin. Lintunen: 1.02 m, 5.2 per 10 % of crown length, ages 4-32.\n")
     print("| Set | Age | Seeds | Height (m) | Reads as SI | Stem over bark (cm) | LAI | Light (%) | Implied k | Stem wood (kg) | Repola stem | Branch wood (kg) | Repola branches | Crown width (m) | Evo at that stem | Branch mean, median (m) | Branches per 10 % |")
     print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for label in labels:
@@ -498,9 +512,11 @@ def seeds(label: str) -> None:
 
 
 def fall(labels: list) -> None:
+    bd = bands()
+    dense, repola, floor = bd["dense_crown_ratio"], bd["repola_crown_ratio"], bd["crown_ratio_floor"]
     print(f"Twig and branch fall: an outcome of light and carbon in each tree, no schedule. Per year over the 5 years up to each age, means over seeds. Branch: a side axis on the stem. Twig: a side axis on anything else. "
-          f"Crown ratio bands, all information only in the target file for stand trees: dense unmanaged plots at 11-22 yr {DENSE_CROWN_RATIO[0]}-{DENSE_CROWN_RATIO[1]} (Niemisto 1995, unchecked), Repola's trees {REPOLA_CROWN_RATIO[0]}-{REPOLA_CROWN_RATIO[1]}, mean 0.58, Hynynen's managed floor {CROWN_RATIO_FLOOR}.\n")
-    print("| Set | Age | Seeds | Branches shed /yr | Twigs shed /yr | Short shoots lost /yr | Crown base (m), limbs on the stem | Lowest live branch (m), on the stem | Crown ratio, limbs on the stem | Crown ratio as stats.json has it | Trees with a replaced leader | Inside Repola's range | At or over Hynynen's 0.50 |")
+          f"Crown ratio bands, all information only in the target file for stand trees: dense unmanaged plots at 11-22 yr {dense[0]}-{dense[1]} (Niemisto 1995, unchecked), Repola's trees {repola[0]}-{repola[1]}, mean {bd['repola_mean']}, Hynynen's managed floor {floor}.\n")
+    print(f"| Set | Age | Seeds | Branches shed /yr | Twigs shed /yr | Short shoots lost /yr | Crown base (m), limbs on the stem | Lowest live branch (m), on the stem | Crown ratio, limbs on the stem | Crown ratio as stats.json has it | Trees with a replaced leader | Inside Repola's range | At or over Hynynen's {floor} |")
     print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for label in labels:
         runs = load(label)
@@ -517,8 +533,8 @@ def fall(labels: list) -> None:
             ll = [x.get("lowest_stem_branch_m") or 0.0 for x in sn]
             cr = [x.get("crown_ratio_stem") or 0.0 for x in sn]
             cr_stats = [r["per_year"][age].get("crown_ratio") or 0.0 for r in rows]
-            inside = sum(REPOLA_CROWN_RATIO[0] <= x <= REPOLA_CROWN_RATIO[1] for x in cr)
-            over = sum(x >= CROWN_RATIO_FLOOR for x in cr)
+            inside = sum(repola[0] <= x <= repola[1] for x in cr)
+            over = sum(x >= floor for x in cr)
             lost = sum((x.get("leader_losses") or 0) > 0 for x in sn)
             print(f"| `{label}` | {age} | {len(rows)} | {fmt(b, '.1f')} | {fmt(t, '.0f')} | {fmt(s, '.0f')} | {fmt(cb, '.1f')} | {fmt(ll, '.1f')} | {fmt(cr)} | {fmt(cr_stats)} | {lost}/{len(rows)} | {inside}/{len(rows)} | {over}/{len(rows)} |")
     print("\nStems cleared by first thinning, Hynynen & Niemisto 2009 as in reports/birch_knowledge_base.md C1: 5-7 m at dominant height 13-15 m (planted, 1,600/ha; a cross-check, not a target). Each seed's snapshot nearest 14 m tall:\n")

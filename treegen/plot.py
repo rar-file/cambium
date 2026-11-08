@@ -169,7 +169,8 @@ class Plot:
         mp = getattr(species, "mortality", None)
         if mp is not None and bool(getattr(mp, "enabled", False)):
             lx, ly = self._sides()
-            self.mort = Mortality(mp, lx, ly, self.cell[0], self.cell[1])
+            # old age reads damage.old_age's values (one AMAX), whether damage is on or not
+            self.mort = Mortality(mp, lx, ly, self.cell[0], self.cell[1], getattr(getattr(species, "damage", None), "old_age", None))
             self.mort.old_age_elsewhere = damage._is_on(species) and bool(getattr(species.damage.old_age, "enabled", False))
             self.mort_rng = np.random.default_rng([seed, 5381])
             self.rings = {}

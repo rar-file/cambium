@@ -56,7 +56,7 @@ def run(a) -> dict:
     rng = np.random.default_rng([a.seed, 7001])
     lx, ly = float(a.length), float(a.width)
     R = SpreadRegeneration(sp.regeneration, sp.bud_fate.short_shoot_survival_light, soil, lx, ly, a.seed)
-    M = Mortality(sp.mortality, lx, ly, -lx / 2, -ly / 2)
+    M = Mortality(sp.mortality, lx, ly, -lx / 2, -ly / 2, getattr(getattr(sp, "damage", None), "old_age", None))
     ages, dbh_curve, h_curve = size_by_age(Path(a.curve))
     n0 = max(1, int(round(a.stems * a.patch * ly / 1e4)))
     x = list(rng.uniform(-lx / 2, -lx / 2 + a.patch, n0))

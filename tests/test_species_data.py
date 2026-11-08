@@ -157,6 +157,23 @@ def test_the_label_rules():
     assert "status must be" in schema.check_labels(raw, {"a.x": {"status": "tuned"}})[0]
 
 
+def test_the_appearance_blocks_provenance_is_read_as_its_labels():
+    """The look values carry their labels in appearance.provenance (SOURCE, DERIVED, TUNED); the counts read them
+    there, the longest name that covers a value first (final check (a), finding 5)."""
+    raw = {"appearance": {"provenance": {"a": "SOURCE: x", "a.b": "DERIVED: y", "c": "TUNED: z"},
+                          "a": {"b": 1.0, "d": 2.0}, "c": {"e": [1, 2]}, "f": 3.0}}
+    got = schema.read_labels(raw, "", {})
+    assert got["appearance.a.b"].status == "DERIVED" and got["appearance.a.b"].note == "DERIVED: y"
+    assert got["appearance.a.d"].status == "sourced"
+    assert got["appearance.c.e"].status == "TUNED"
+    assert got["appearance.f"].status == "VERIFY" and got["appearance.f"].note == "no label"
+    assert "appearance.provenance.a" not in got                       # a label's text isn't a value
+    assert schema.check_labels({"a": {"x": 1.0}}, {"a.x": {"status": "DERIVED"}}) == ["a.x: DERIVED must name the source"]
+    # birch: every look value is labelled by its provenance
+    look = {p: lab for p, lab in schema.read_labels(birch(), "", {}).items() if p.startswith("appearance.")}
+    assert look and all(lab.note != "no label" for lab in look.values())
+
+
 def test_a_tuned_comment_in_the_species_file_is_read_and_comes_first():
     text = textwrap.dedent("""\
         shoot:

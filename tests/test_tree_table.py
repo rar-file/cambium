@@ -43,6 +43,18 @@ def test_shed_events_count_each_axis_once():
     assert all(int(year) <= model.year + 1 for year in events)
 
 
+def test_an_open_tree_is_saved_as_open_grown_for_the_scorecard(tmp_path):
+    """With --open, stats.json says mode "open", as cli.py writes it, so tools/scorecard.py scores it as a
+    single-tree, open-grown run (final check (a), finding 2), not as a stand tree."""
+    import scorecard
+
+    for stand, mode, kind in ((False, "open", ("single-tree", "open-grown")), (True, "stand", ("stand-tree", "managed"))):
+        out = tmp_path / mode
+        assert tree_table.one(1, [], out, 2, stand) == 0
+        assert json.loads((out / "stats.json").read_text(encoding="utf-8"))["mode"] == mode
+        assert scorecard.run_type(scorecard.load_run_data(str(out))) == kind
+
+
 def test_a_flip_is_a_year_far_under_the_years_around_it():
     new = {y: {"new_lateral_m": 10.0} for y in range(1, 21)}
     assert tree_table.crown_flips({"new": new}, 3, 18) == 0

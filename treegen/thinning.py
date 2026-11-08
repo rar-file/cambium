@@ -20,13 +20,19 @@ each tree has a yearly hazard, the sum of:
    neighbourhood isn't over-full.
 4. Background: Bengtsson 1978's deciduous rate, what Heureka uses in stands
    below the self-thinning density, shared out by size.
-5. Old age: Elfving 2010's p = 1 / (1 + exp(10 - 12 A / Amax)).
+5. Old age: Elfving 2010 pp. 67-68, p = 1 / (1 + exp(10 - 12 A / AMAX)) the share
+   dead of ageing by breast-height age A, so the yearly hazard is
+   [p(A + 1) - p(A)] / [1 - p(A)].  treegen/damage.py's own function, on the
+   species' damage.old_age values, so both paths read one AMAX.  Used only while
+   damage's old age is off; with it on, trees die of age there.
 """
 from __future__ import annotations
 
 import math
 
 import numpy as np
+
+from . import damage
 
 
 def over_bark_cm(d_ub_cm, bark) -> np.ndarray:
@@ -65,8 +71,11 @@ class Neighbourhood:
 
 
 class Mortality:
-    def __init__(self, mp, lx: float, ly: float, x0: float, y0: float):
+    def __init__(self, mp, lx: float, ly: float, x0: float, y0: float, old_age=None):
+        """mp: the species' mortality block.  old_age: its damage.old_age block, where the
+        old-age values are kept; None (a species with no damage block) means no old age."""
         self.p = mp
+        self.old_age = old_age
         self.bark = tuple(float(x) for x in mp.bark_double_mm)
         self.hood = Neighbourhood(lx, ly, x0, y0, float(mp.grid_m), float(mp.neighbourhood_sigma_m))
         self.fs_d = np.asarray(mp.size_weight.dbh_cm, float)
@@ -111,9 +120,12 @@ class Mortality:
         return max(float(b.intercept) + float(b.per_d) * d + float(b.per_age) * a, 0.0) * float(b.reduced_to) / 100.0
 
     def old_age_rate(self, age: np.ndarray) -> np.ndarray:
-        """Elfving 2010: p = 1 / (1 + exp(10 - 12 A / Amax)); a year."""
-        amax = float(self.p.old_age.max_age_years)
-        return 1.0 / (1.0 + np.exp(10.0 - 12.0 * age / amax))
+        """Chance a year that a tree of this total age dies of ageing: Elfving 2010 pp. 67-68,
+        p(A) the share dead by breast-height age A, hazard [p(A + 1) - p(A)] / [1 - p(A)]
+        (damage.old_age_hazard, with damage.old_age's AMAX and years to breast height)."""
+        if self.old_age is None:
+            return np.zeros(len(age))
+        return np.array([damage.old_age_hazard(float(a), self.old_age) for a in age], float)
 
     def hazards(self, xy: np.ndarray, d_ub_cm: np.ndarray, rings_mm: np.ndarray, age: np.ndarray, stand_age: float) -> dict:
         """Each tree's yearly hazard by cause, and its neighbourhood's relative density."""

@@ -1,5 +1,6 @@
 """The stand by age, as a forester reads it, against the sources: stems/ha, basal area over bark,
-mean and top height, gap fraction, new trees a year.
+mean height and the mean height of the 100 thickest a hectare (a cross-check, not the approved top
+height), gap fraction, new trees a year.
 
     python tools/stand_table.py out/bench/forest/thin1                 # a folder of plot_N folders
     python tools/stand_table.py out/bench/forest/thin1/plot_1          # one plot
@@ -32,7 +33,8 @@ SOURCES = [
     "- Hagemeier & Leuschner 2019b: 880 stems/ha at 45 (mean DBH 19 cm), 25.2 m2/ha; 420 at 67 (25 cm), 28.5 m2/ha, as printed.",
     "- Martinik et al. 2018, Silva Fennica id 9985 (natural, no treatment, rich soils): 18,720 stems/ha and 7.2 m2/ha at 8; 4,720 and 22.0 at 17; 2,800 and 25.8 at 22.",
     "- Repola 2008 Table 1: 24 Finnish stands aged 11-97, 2.7-32.3 m2/ha, mean 19.2.",
-    "- Soderberg 1986 in Elfving 2010 App. 11, broadleaves, SI 26 (guide only; it under-predicts young birch): limit 20, 26, 30, 33 m2/ha at 30, 40, 50, 60.",
+    "- Soderberg 1986 in Elfving 2010 App. 11, broadleaves (guide only; it under-predicts young birch): limit 20, 26, 30, 33 m2/ha at 30, 40, 50, 60, "
+    "figures that come out only at SI 26 on the pine scale, pure broadleaf, 800 stems/ha.",
 ]
 
 
@@ -104,7 +106,10 @@ def stat(values) -> str:
 def table(folder: Path, ages) -> str:
     plots = [read_plot(p, ages) for p in plot_folders(folder)]
     lines = [f"**{folder.name}: {len(plots)} plot(s), of {plots[0]['area_m2']:.0f} m2.**" if plots else f"{folder}: no plots", ""]
-    head = ["Age", "Stems/ha, all", "Stems/ha past 1.3 m", "Basal area over bark (m2/ha)", "Dg over bark (cm)", "Mean height (m)", "Top height (m)", "LAI",
+    # top_height_m is the mean height of the 100 thickest a hectare: a cross-check, not the approved top height, which is
+    # the height on a Naslund curve at their mean diameter (reference/targets.yaml, site_index_curves; tools/scorecard.py)
+    head = ["Age", "Stems/ha, all", "Stems/ha past 1.3 m", "Basal area over bark (m2/ha)", "Dg over bark (cm)", "Mean height (m)",
+            "Mean height of the 100 thickest/ha (m; a cross-check, not the approved top height)", "LAI",
             "Light at 1-2 m (%)", "Gap fraction", "New trees a year"]
     lines += ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
     keys = ["stems_per_ha", "stems_bh_per_ha", "basal_area_ob_m2_ha", "dg_ob_cm", "height_mean_m", "top_height_m", "lai", "subcanopy_diffuse_light_pct", "gap_fraction",

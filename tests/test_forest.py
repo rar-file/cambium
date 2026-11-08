@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 
 import cli
-from treegen import checkpoint
+from treegen import checkpoint, damage
 from treegen.plot import Plot
 from treegen.regeneration import SpreadRegeneration
 from treegen.thinning import Mortality, Neighbourhood, gap_fraction, over_bark_cm, top_height_m
@@ -36,7 +36,7 @@ def mortality(lx=50.0, ly=50.0, **values):
     sp = species()
     for k, v in values.items():
         setattr(sp.mortality, k, v)
-    return Mortality(sp.mortality, lx, ly, -lx / 2, -ly / 2)
+    return Mortality(sp.mortality, lx, ly, -lx / 2, -ly / 2, sp.damage.old_age)
 
 
 def test_every_setting_is_off_by_default_and_a_plot_then_has_none_of_it():
@@ -132,9 +132,25 @@ def test_background_and_old_age_follow_their_sources():
     # Elfving 2010 p. 64, deciduous, south, D 20, A 60: 0.46 - 0.4 + 0.276 = 0.336 % of volume, less 25 %
     assert m.background_rate(20.0, 60.0) == pytest.approx(0.336 * 0.75 / 100)
     assert m.background_rate(1.0, 5.0) == m.background_rate(7.0, 30.0)   # the closest limit, outside the range
-    amax = float(m.p.old_age.max_age_years)
-    assert m.old_age_rate(np.array([amax]))[0] == pytest.approx(1.0 / (1.0 + math.exp(-2.0)))
-    assert m.old_age_rate(np.array([60.0]))[0] < 0.001
+    # Elfving 2010 pp. 67-68: p(A) = 1 / (1 + exp(10 - 12 A / AMAX)) is the share dead of ageing by breast-height
+    # age A, not a yearly rate, so the yearly hazard is [p(A + 1) - p(A)] / [1 - p(A)].  On damage.old_age's AMAX
+    # and years to breast height, so both old-age paths read one value (final check (a), finding 1).
+    oa = species().damage.old_age
+    amax = damage.max_age_years(oa)
+    assert amax == pytest.approx(277.6, abs=0.1)              # SIS 27.5, n 10,000
+
+    def p(a):
+        return 1.0 / (1.0 + math.exp(10.0 - 12.0 * a / amax))
+
+    for age in (60.0, 150.0, 200.0, 280.0):
+        a = age - float(oa.years_to_breast_height)
+        assert m.old_age_rate(np.array([age]))[0] == pytest.approx((p(a + 1.0) - p(a)) / (1.0 - p(a)), rel=1e-12)
+        assert m.old_age_rate(np.array([age]))[0] == damage.old_age_hazard(age, oa)
+    assert m.old_age_rate(np.array([60.0]))[0] < 1e-4
+    # p itself read as a yearly rate, as this path did before, was 0.163 a year at 200
+    assert m.old_age_rate(np.array([200.0]))[0] == pytest.approx(0.00741, abs=1e-5)
+    # a species with no damage block has no old age here either
+    assert (Mortality(m.p, 50.0, 50.0, -25.0, -25.0).old_age_rate(np.array([300.0])) == 0.0).all()
 
 
 def test_ring_width_reads_the_window():
@@ -264,6 +280,24 @@ def test_damage_takes_over_old_age():
     hz = plot.mort.hazards(np.zeros((n, 2)), np.full(n, 20.0), np.full(n, 1.0), np.full(n, 200.0), 200.0)
     assert (hz["old age"] == 0.0).all()
     assert make_plot(species("mortality.enabled=true")).mort.old_age_elsewhere is False
+
+
+def test_the_final_plots_never_read_the_corrected_old_age(monkeypatch):
+    """The final plots run cases/crown2_with_roots_speed.txt, which has damage's old age on.  Trees then die of age
+    in treegen/damage.py, and Mortality.old_age_rate, which final check (a) corrected, is never called: the final
+    plots' numbers can't move with it."""
+    case = (Path(__file__).resolve().parent.parent / "cases" / "crown2_with_roots_speed.txt").read_text(encoding="utf-8").split()
+    assert "damage.enabled=true" in case and "damage.old_age.enabled=true" in case
+    plot = make_plot(species("mortality.enabled=true", *case))
+    assert plot.mort.old_age_elsewhere is True
+
+    def never(self, age):
+        raise AssertionError("Mortality.old_age_rate read with damage's old age on")
+
+    monkeypatch.setattr(Mortality, "old_age_rate", never)
+    n = 5
+    hz = plot.mort.hazards(np.zeros((n, 2)), np.full(n, 20.0), np.full(n, 1.0), np.full(n, 250.0), 250.0)
+    assert (hz["old age"] == 0.0).all()
 
 
 def test_a_crowded_tree_throws_seed_shorter_than_an_open_one():

@@ -32,6 +32,7 @@ Birch's targets stay in `reference/targets.yaml`, and `reference/betula_pendula/
    | Label | Means | Must say |
    |---|---|---|
    | `sourced` | A published source gives it for this species | `source`; add `checked: page` once someone has read the page and it supports the value |
+   | `DERIVED` | Worked out from a source with a stated step: a mean, a ratio, a conversion, a reading of a figure | `source`, with the step |
    | `TUNED` | No direct source; it was set to make the tree match something | `against`: what it was tuned to match |
    | `VERIFY` | Neither yet: a guess, or borrowed from elsewhere | A `note`, if there's something to say |
 
