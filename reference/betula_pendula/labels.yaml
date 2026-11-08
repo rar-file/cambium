@@ -29,7 +29,7 @@ resource.reiteration.min_light: {status: VERIFY, value: 0.8, note: 'Model''s own
 resource.reiteration.min_relative_vigour: {status: VERIFY, value: 0.3}
 resource.reiteration.interval_years: {status: TUNED, value: 5, against: 'about six reiterated limbs between ages 30 and 60, as the 4-7 major limbs in the reference photos'}
 resource.reiteration.rejuvenation: {status: VERIFY, value: 0.5}
-resource.reiteration.setpoint_angle_deg: {status: VERIFY, value: 0}
+resource.reiteration.setpoint_angle_deg: {status: TUNED, value: 12, against: 'the look: a reiterated limb rises as a second top beside the stem; at 20 it stood out to one side (cases/crown2.txt, commit 439ae41; the species file''s list of run-time settings, 23260bb). 0 before birch v1, VERIFY'}
 resource.maintenance_per_internode: {status: TUNED, value: 0.5, against: whole-tree carbon use efficiency about 0.47 (Waring 1998); natural plot 0.42 from age 20}
 resource.growth_respiration_coefficient: {status: VERIFY, value: 0.25, note: Full text blocked.}
 resource.leaf_costs.wood_basic_density_kg_m3: {status: sourced, value: 530.0, source: 'Aosaar et al. 2016, 10.14214/sf.1628', checked: page}
@@ -41,13 +41,13 @@ resource.branch_export_fraction: {status: VERIFY, value: null, note: 'Branch aut
 resource.root_share_min: {status: VERIFY, value: 0.25, note: 'Carbon split between crown and roots: functional balance (Brouwer 1963; Thornley 1972 Ann. Bot. 36:431) sends more to the roots the more the leaves are water-limited. Root share runs from min (no wate'}
 resource.root_share_max: {status: VERIFY, value: 0.6, note: Model's own choice (inferred). 0.6 is above the comment's own 25-40 %. Aosaar's 17.8 % is below it.}
 resource.root_segments_per_unit: {status: VERIFY, value: 0.2, note: 'Root segments (segment_length each) built per unit of carbon, relative to one shoot metamer. VERIFY'}
-bud_fate.long_shoot_threshold: {status: VERIFY, value: 3.0, note: 'A bud with v forms floor(v) metamers [P09]. Axis tips extend with v >= 1; a lateral bud forms a long shoot with v >= this many metamers, otherwise a short shoot. Birch shoots are dimorphic: a lateral'}
+bud_fate.long_shoot_threshold: {status: TUNED, value: 5, against: 'crown flips and branch count: the Tree agent''s test A (reports/tree_handover.md; the species file''s list of run-time settings, 1e445cb). 3 before birch v1, VERIFY'}
 bud_fate.min_tip_extension: {status: VERIFY, value: 0.1, note: 'Axis tips extend continuously: shoot length is l0 * v, and a tip that can afford less than one metamer still makes one shorter internode (it used to stop: seedlings in the field layer, at ~38 % light,'}
 bud_fate.density_control.af_full: {status: VERIFY, value: 0.3}
-bud_fate.density_control.af_zero: {status: VERIFY, value: 3.2}
+bud_fate.density_control.af_zero: {status: TUNED, value: 1.7, against: 'crown length and fill, the Crown agent (the species file''s list of run-time settings, 1e445cb). The old 3.2 was Hagemeier & Leuschner 2019 Table 5''s sun-crown leaf density, a test bound'}
 bud_fate.density_control.cell_m: {status: VERIFY, value: 0.5}
-bud_fate.short_shoot_light: {status: VERIFY, value: 0.3, note: 'Short shoots are cheap and self-financing, so their fate is local and driven by light, not by BH resource: a lateral bud that does not extend forms a short shoot (spur) if its exposure Q reaches short'}
-bud_fate.short_shoot_survival_light: {status: VERIFY, value: 0.21, note: 'A spur dies when its exposure falls below this: the lowermost shade leaves of Betula pendula stands sit at 21 % relative light (median of 120-150 measurements; Hagemeier & Leuschner 2019, Forests 10:9'}
+bud_fate.short_shoot_light: {status: TUNED, value: 0.15, against: 'light under the canopy (target 6.4-19.8 %), set to the spur death line (short_shoot_survival_light) so a bud that does not grow stays a short shoot down to it (commit 74d162d; the species file''s list of run-time settings, 9b73c12). 0.30 before birch v1, VERIFY'}
+bud_fate.short_shoot_survival_light: {status: TUNED, value: 0.15, against: 'light under the canopy (target 6.4-19.8 %; commit 74d162d; the species file''s list of run-time settings, 9b73c12). It no longer matches its source: Hagemeier & Leuschner 2019b (Forests 10:925) put the lowermost shade leaves at 21 % relative light, which the old 0.21 followed; 0.15 is under that, and under the paper''s Fig. 6 lowest reading of about 18.7 %, read by eye'}
 bud_fate.spur_release_threshold: {status: VERIFY, value: 6.0, note: 'A spur releases a long shoot only with clearly more resource than a fresh bud; release of short shoots into long shoots is uncommon [M82]. VERIFY'}
 bud_fate.spur_lifespan: {status: sourced, value: null, source: 'Short-shoot lifespan in years; birch short shoots persist for several years [M82]. null: no fixed lifespan, a short shoot dies only of light (below short_shoot_survival_light); 8 years made the lower '}
 bud_fate.dormant_bud_lifespan: {status: VERIFY, value: 3, note: 'Years an unbroken lateral bud stays viable; birch builds few epicormic shoots from old dormant buds [A92]. VERIFY'}
@@ -74,7 +74,7 @@ light.perception_cone_deg: {status: VERIFY, value: 80, note: 'Perception volume 
 light.perception_samples: {status: VERIFY, value: 64, note: 'Perception volume for the optimal growth direction V [P09]: probe distance (m), cone half-angle, number of probe directions, soft-min width (shadow units). VERIFY'}
 light.perception_softmin: {status: VERIFY, value: 0.05, note: 'Perception volume for the optimal growth direction V [P09]: probe distance (m), cone half-angle, number of probe directions, soft-min width (shadow units). VERIFY'}
 light.woody_shade.k_wood: {status: VERIFY, value: 0.4, note: 'No source read gives 0.40 for wood, in any form. Approved on by default in DECISIONS.md row 3; the species file contradicts itself at light.extinction_coefficient.'}
-shedding.light_per_leaf_threshold: {status: VERIFY, value: 0.21, note: 'Set to the same light, as its comment says.'}
+shedding.light_per_leaf_threshold: {status: TUNED, value: 0.15, against: 'set to the spur death line, bud_fate.short_shoot_survival_light, as its comment says: light under the canopy (commit 74d162d; the species file''s list of run-time settings, 9b73c12). 0.21 before birch v1'}
 shedding.min_branch_age: {status: VERIFY, value: 2, note: Branches younger than this are never shed. VERIFY}
 architecture.phyllotaxis_orthotropic_deg: {status: VERIFY, value: 137.5, note: Divergence angle on the vertical leader (spiral phyllotaxis). VERIFY}
 architecture.phyllotaxis_plagiotropic_deg: {status: VERIFY, value: 180.0, note: 'Alternate, two-ranked buds on lateral shoots: Betula leaves are alternate [A92]; distichous arrangement on plagiotropic shoots. VERIFY'}
@@ -105,7 +105,7 @@ mechanics.youngs_modulus_wood: {status: VERIFY, value: 10000000000.0, note: 'der
 mechanics.youngs_modulus_shoot: {status: VERIFY, value: 2500000000.0, note: 'Stiffness of thin current-year shoots (Pa): mostly primary tissue; birch shoots lose 2-2.5x stiffness when thawing (Russian shoot-bending study, doi:10.1134/S1995425522070150). VERIFY'}
 mechanics.reaction_wood_coefficient: {status: VERIFY, value: 0.012, note: 'Posture control: corrective curvature per year <= C * dr / r^2 [AF09], C = 4 * (maturation-strain asymmetry of reaction wood, ~0.003). VERIFY'}
 mechanics.sine_law_saturation_deg: {status: VERIFY, value: 10.0, note: 'Posture control follows the sine law of gravitropism (Galland 2002, Physiol. Plant. 115:481; Bastien et al. 2013, PNAS 110:755): the correction scales with the sine of the deviation from the set-point'}
-mechanics.pendulous_radius: {status: VERIFY, value: 0.006, note: 'The pendulous trait of silver birch [A92]: shoots thinner than this radius (m) are soft and cannot correct their posture, so long thin shoots hang under their own weight and the load they carry. Stiff'}
+mechanics.pendulous_radius: {status: TUNED, value: 0.012, against: 'the look: twigs thinner than about this hang; 0.006 sprayed outward, and hung only at their ends (the species file''s list of run-time settings, 23260bb). 0.006 before birch v1, VERIFY'}
 mechanics.pendulous_sharpness: {status: VERIFY, value: 4.0, note: 'The pendulous trait of silver birch [A92]: shoots thinner than this radius (m) are soft and cannot correct their posture, so long thin shoots hang under their own weight and the load they carry. Stiff'}
 mechanics.substeps: {status: VERIFY, value: 4, note: The year's load increment is applied in sub-steps on the updated shape; no internode turns more than this per sub-step (rad). Model guard.}
 mechanics.max_rotation_per_step: {status: VERIFY, value: 0.25, note: The year's load increment is applied in sub-steps on the updated shape; no internode turns more than this per sub-step (rad). Model guard.}
@@ -129,7 +129,7 @@ pipe_model.wind_load.streamlining_n: {status: VERIFY, value: 0.881, note: 'borro
 pipe_model.wind_load.streamlining_min_wind_m_s: {status: VERIFY, value: 10.0, note: 'borrowed: fgr code and manual'}
 pipe_model.wind_load.streamlining_max_wind_m_s: {status: VERIFY, value: 20.0, note: 'borrowed: fgr code and manual'}
 pipe_model.wind_load.deflection_loading_factor: {status: VERIFY, value: 1.136, note: 'borrowed: fgr vignette Deflection_Loading_Factor.Rmd, crediting Hale et al. 2015, 10.1016/j.envsoft.2015.01.016 (the comment used to credit Gardiner et al. 2000)'}
-pipe_model.stem_theory.wind_speed_m_s: {status: VERIFY, value: 12.0, note: An assumption.}
+pipe_model.stem_theory.wind_speed_m_s: {status: TUNED, value: 8, against: 'Dg, stems/ha and LAI on plots: 12, set in the phase-37 brief and not fitted, gave Dg 25.1, 29.7 cm and 490, 352 stems/ha at 50, 60 (commit 74d162d; the species file''s list of run-time settings, 9b73c12)'}
 pipe_model.stem_theory.canopy_wind_attenuation: {status: VERIFY, value: 2.0, note: 'borrowed: Inoue 1963, J Meteorol Soc Jpn 41:317'}
 geometry.root_collar_height_coef:
   status: VERIFY
@@ -171,7 +171,7 @@ plot.germination_weights:
   value: [0.4, 0.3, 0.2, 0.1]
   note: A plot of independent trees (treegen/plot.py, tools/plot.py). Trees differ by seed, by germination year (natural regeneration on a clear felling establishes over a few years; VERIFY) and by a heritabl
 plot.vigour_sd: {status: VERIFY, value: 0.06, note: 'A plot of independent trees (treegen/plot.py, tools/plot.py). Trees differ by seed, by germination year (natural regeneration on a clear felling establishes over a few years; VERIFY) and by a heritabl'}
-plot.height_follows_dominants: {status: sourced, value: false, source: 'Elfving 2010 p. 58: "Top height is defined as the height according to the height curve at the mean diameter of the 100 by diameter largest trees per hectare"; the model takes the 100 thickest a hectare; off by default', checked: page}
+plot.height_follows_dominants: {status: sourced, value: false, source: 'Elfving 2010 p. 58: "Top height is defined as the height according to the height curve at the mean diameter of the 100 by diameter largest trees per hectare"; the model takes the 100 thickest a hectare; on by default since birch v1', checked: page}
 regeneration.seeds_ref: {status: sourced, value: 137000, source: 'Liu & Evans 2021, Forests 12:929: both birches, UK', checked: page}
 regeneration.dbh_ref_m: {status: sourced, value: 0.2, source: 'Natural regeneration in a plot (treegen/regeneration.py; tools/plot.py --regeneration). Seeds shed in a year by a tree of 20 cm DBH: ~137,000 (Wytham Woods, UK, 2015, inverse modelling of seed traps) '}
 regeneration.fecundity_exponent: {status: VERIFY, value: 2.0, note: Seed output in proportion to basal area (DBH^2). VERIFY}
@@ -217,9 +217,9 @@ roots.taproot_fade_years: {status: VERIFY, value: 4, note: 'Silver birch has no 
 roots.taproot_max_depth: {status: VERIFY, value: 0.4, note: '... and stops at this depth (m), so the main laterals leave from the root collar zone. VERIFY'}
 roots.taproot_setpoint_deg: {status: VERIFY, value: 180, note: 'Gravitropic set-points (deg from vertical-up; 180 = straight down) and strengths (1/m). Main laterals run nearly horizontally in the top soil, most root length lies in the top 20-30 cm (76 % of fine r'}
 roots.taproot_gravitropism_per_m: {status: VERIFY, value: 3.0, note: 'Gravitropic set-points (deg from vertical-up; 180 = straight down) and strengths (1/m). Main laterals run nearly horizontally in the top soil, most root length lies in the top 20-30 cm (76 % of fine r'}
-roots.lateral_setpoint_deg: {status: VERIFY, value: 97, note: 'Gravitropic set-points (deg from vertical-up; 180 = straight down) and strengths (1/m). Main laterals run nearly horizontally in the top soil, most root length lies in the top 20-30 cm (76 % of fine r'}
+roots.lateral_setpoint_deg: {status: TUNED, value: 92, against: 'Laitakari 1934 p. 198: the horizontal root system a mean 13-15 cm deep from 5 cm DBH up (the Roots agent, commit 62cbcbe and reports/research_notes.md). 97 before birch v1, VERIFY'}
 roots.lateral_setpoint_spread_deg: {status: VERIFY, value: 4, note: 'Gravitropic set-points (deg from vertical-up; 180 = straight down) and strengths (1/m). Main laterals run nearly horizontally in the top soil, most root length lies in the top 20-30 cm (76 % of fine r'}
-roots.lateral_gravitropism_per_m: {status: VERIFY, value: 1.5, note: 'Gravitropic set-points (deg from vertical-up; 180 = straight down) and strengths (1/m). Main laterals run nearly horizontally in the top soil, most root length lies in the top 20-30 cm (76 % of fine r'}
+roots.lateral_gravitropism_per_m: {status: TUNED, value: 3.0, against: 'as roots.lateral_setpoint_deg: Laitakari 1934 p. 198, horizontal roots a mean 13-15 cm deep (commit 62cbcbe). 1.5 before birch v1, VERIFY'}
 roots.sinker_setpoint_deg: {status: VERIFY, value: 180, note: 'Sinker roots drop from main laterals near the stem to the compact subsoil; birch root plates are ~0.9 m deep at the centre (31 trees, Finnish re-measurement of [L35]). VERIFY'}
 roots.sinker_gravitropism_per_m: {status: VERIFY, value: 4.0, note: 'Sinker roots drop from main laterals near the stem to the compact subsoil; birch root plates are ~0.9 m deep at the centre (31 trees, Finnish re-measurement of [L35]). VERIFY'}
 roots.sinker_probability: {status: VERIFY, value: 0.06, note: 'Sinker roots drop from main laterals near the stem to the compact subsoil; birch root plates are ~0.9 m deep at the centre (31 trees, Finnish re-measurement of [L35]). VERIFY'}
@@ -299,7 +299,7 @@ soil_water_balance.dry_year_precipitation_mm:
   status: sourced
   value: [6.8, 26.5, 89.1, 105.1, 44.6]
   source: 'drought_scenario: use the 2018 precipitation, Uppsala 97520, SMHI open data (parameter 23, monthly sums): dry May-June, wet July-August; its May-Sep total (272 mm) is close to the normal (280 mm). PET'
-# The tree agent's settings, all off or null by default; the values in test A, and what each was set against (reports/tree_handover.md).
+# The tree agent's settings, off or null by default until birch v1 (2026-11-08); the values in test A, and what each was set against (reports/tree_handover.md).
 height_driver.site_index: {status: TUNED, value: 23.0, against: 'the middle of the target band SI 20-26; a plain setting, not fixed anywhere'}
 height_driver.reference_age_years: {status: VERIFY, value: 50.0, note: 'as reference/targets.yaml (reference_age_years 50, breast-height age); not printed on Elfving 2010 Appendix 9 p. 58, so it rests on Eriksson et al. 1997, not opened'}
 height_driver.t13_numerator: {status: sourced, value: 150.0, source: 'Elfving 2010 Appendix 7 p. 56, as reference/targets.yaml'}
@@ -391,7 +391,7 @@ mortality.vigour.window_years: {status: TUNED, value: 5, against: 'base plots wh
 mortality.vigour.ring_scale_mm: {status: TUNED, value: 0.5, against: 'base plots whose trees stood still for decades'}
 mortality.vigour.floor: {status: TUNED, value: 0.02, against: 'base plots whose trees stood still for decades'}
 mortality.vigour.suppressed_hazard: {status: TUNED, value: 0.1, against: 'base plots whose trees stood still for decades'}
-mortality.vigour.relative_size_slope: {status: DERIVED, value: null, source: 'off by default; 3.263 when on: Maleki & Kiviste 2016, iForest 9:643, Table 3, d_rel -3.263 on the logit of dying in 5 years (read by the 2026-11-08 check), used here as an odds factor on the yearly hazard'}
+mortality.vigour.relative_size_slope: {status: DERIVED, value: 3.263, source: 'Maleki & Kiviste 2016, iForest 9:643, Table 3, d_rel -3.263 on the logit of dying in 5 years (the column read settled by the 2026-11-08 check), used here as an odds factor on the yearly hazard; on since birch v1 (Forest agent, a0bf6cb)'}
 mortality.vigour.relative_size_from: {status: TUNED, value: 1.0, against: 'the relief starts at the stand mean diameter, so the hazard holds as tuned below it'}
 plot.natural_start.stems_per_ha: {status: TUNED, value: 16000, against: '11,633 stems/ha at age 8 in Aosaar et al. 2016 Table 3, with alpha 3.0 standing in for slower young growth'}
 regeneration.spread.far_mean_m: {status: sourced, value: 370.0, source: 'Tiebel et al. 2020, Eur. J. For. Res. 139:731: 367-380 m, their long case', checked: page}
@@ -453,6 +453,7 @@ crown_frame.top_share: {status: VERIFY, value: 0.165, note: 'a model value: Lint
 crown_frame.length_per_reach: {status: VERIFY, value: 1.07, note: 'a model value over a second-hand line: Lintunen 2013 Fig. 5''s 1.54 m chord (LIGNUM output) over half of Hemery''s crown at 11 cm over bark (a 10 cm stem taken as wood, x 1.1, which the comment didn''t say); at 10 cm over bark it would be 1.14'}
 crown_frame.steep_limit: {status: VERIFY, value: 0.5, note: 'a guess, set against nothing (it said TUNED with no target)'}
 crown_frame.chase: {status: VERIFY, value: 0.5, note: 'a guess, set against nothing (it said TUNED with no target)'}
-crown_frame.twig_shoot_max_m: {status: VERIFY, value: 0.4, note: 'a guess, set against nothing (it said TUNED with no target); the final runs set 0.5, TUNED there against the look and leaf area in the open'}
+crown_frame.twig_shoot_max_m: {status: TUNED, value: 0.5, against: 'the look and leaf area in the open (the species file''s list of run-time settings, 23260bb). The old 0.4 was a guess, set against nothing'}
 crown_frame.limb_rivals: {status: VERIFY, value: 5, note: 'a guess, set against nothing (it said TUNED with no target)'}
+crown_frame.surplus_to_stem: {status: VERIFY, value: 1.0, note: 'a choice, not fitted: all of what a full crown cannot use goes on the stem, up to stem_cm_per_height_m, so a tree in the open doesn''t lose carbon it fixed while small (commit e277a9a); since birch v1. 0.1-0.4 were tuned against the open DBH band, which is not a target'}
 crown_frame.twigs_browsed: {status: VERIFY, value: 0, note: 'a choice of place, not a model value: 0 is no browsing (a park); 1 is Bergqvist et al. 2014''s rate on leaders, used for twigs (DERIVED)'}

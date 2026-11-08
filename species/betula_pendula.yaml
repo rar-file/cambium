@@ -191,6 +191,8 @@ resource:
     min_relative_vigour: 0.3
     interval_years: 5
     rejuvenation: 0.5
+    # TUNED, against the look: a reiterated limb rises as a second top beside the stem; at 20 it stood out to one
+    # side (cases/crown2.txt, commit 439ae41).  12 since birch v1 (2026-11-08); 0 before.
     setpoint_angle_deg: 12
   # Maintenance cost of one living internode, in metamer units per year,
   # charged as resource flows acropetally (LIGNUM carbon balance,
@@ -284,7 +286,8 @@ bud_fate:
   # made 12x as many 1-2-node third-order shoots, doubled the local leaf
   # density around twig buds (3.8 -> 7.3 m2/m3 within 0.25 m) and halved the
   # survival of second-order shoots (99 -> 53 % after 5-8 years), seed 1 at
-  # 25 years (phase 15). VERIFY (the value 3)
+  # 25 years (phase 15).  TUNED (5, since birch v1 (2026-11-08)): against crown flips and branch count
+  # (the Tree agent's test A, reports/tree_handover.md).  The old 3 was VERIFY.
   long_shoot_threshold: 5
   # Axis tips extend continuously: shoot length is l0 * v, and a tip that
   # can afford less than one metamer still makes one shorter internode (it
@@ -302,9 +305,11 @@ bud_fate:
   # increment, weak tips stacked buds and short shoots at a few mm
   # (phase 26).
   axillary_buds_below_one_metamer: false
-  # VERIFY.  Exploring only (M3a), off: Sievanen et al. 2018 Eq. 11's density term.  Its fitted values aren't
-  # printed.  These two bracket birch crown leaf density, shade 0.3 and sun 3.2 m2/m3, Hagemeier &
-  # Leuschner 2019 Table 5, as a test, not a claim.  The 0.5 m cell stands in for their 0.5 m cone.
+  # Sievanen et al. 2018 Eq. 11's density term, on since birch v1 (2026-11-08) (the Tree agent's lead, against crown flips).  Its
+  # fitted values aren't printed.  af_full 0.3 is birch's shade-crown leaf density, Hagemeier & Leuschner 2019
+  # Table 5, a test bound, VERIFY.  af_zero 1.7 is TUNED, against crown length and fill (the Crown agent); it was
+  # 3.2, the sun crown's density in the same table, as a test, not a claim.  The 0.5 m cell stands in for their
+  # 0.5 m cone.
   density_control:
     enabled: true
     af_full: 0.3
@@ -315,11 +320,16 @@ bud_fate:
   # driven by light, not by BH resource: a lateral bud that does not extend
   # forms a short shoot (spur) if its exposure Q reaches short_shoot_light;
   # most lateral buds of a birch long shoot become short shoots [M82].
-  # A non-extending shoot tip also lives on as a short shoot while lit. VERIFY
+  # A non-extending shoot tip also lives on as a short shoot while lit.  TUNED
+  # (0.15, since birch v1 (2026-11-08)): against light under the canopy, set to the spur death line
+  # below, so a bud that doesn't grow stays a short shoot down to it (0.30 before).
   short_shoot_light: 0.15
-  # A spur dies when its exposure falls below this: the lowermost shade
-  # leaves of Betula pendula stands sit at 21 % relative light (median of
-  # 120-150 measurements; Hagemeier & Leuschner 2019, Forests 10:925).
+  # A spur dies when its exposure falls below this.  TUNED (0.15, since birch v1 (2026-11-08)):
+  # against light under the canopy (target 6.4-19.8 %).  It no longer matches
+  # its source: the lowermost shade leaves of Betula pendula stands sit at 21 %
+  # relative light (median of 120-150 measurements; Hagemeier & Leuschner 2019,
+  # Forests 10:925), which the old 0.21 followed.  0.15 is under that, and under
+  # the paper's Fig. 6 lowest reading of about 18.7 %, read by eye.
   short_shoot_survival_light: 0.15
   # A spur releases a long shoot only with clearly more resource than a fresh
   # bud; release of short shoots into long shoots is uncommon [M82]. VERIFY
@@ -455,11 +465,12 @@ shedding:
   # healthy limbs pushed Q/N to within 20% of any fixed threshold, so limbs
   # were shed in waves.  Branches die when their own foliage falls below
   # compensation (Sprugel, Hinckley & Schaap 1991).  Set to the light at
-  # which short shoots die. VERIFY
+  # which short shoots die (bud_fate.short_shoot_survival_light): TUNED (0.15,
+  # since birch v1 (2026-11-08)), against light under the canopy; 0.21 before.
   light_per_leaf_threshold: 0.15
   # Branches younger than this are never shed. VERIFY
   min_branch_age: 2
-  # How a branch, a short shoot or a resting tip falls under its light or carbon line.  null (as it has been): all
+  # How a branch, a short shoot or a resting tip falls under its light or carbon line.  null (the default before birch v1): all
   # of them, the first year.  Set: a chance a year, from 0 at the line to 1 at (1 - this) of it.  Without it a crown
   # whose neighbours are copies of it all crosses the line at once: leaf area 94 m2, then 11 m2 the next year (seed 4 at 50-51).
   # TUNED, against leaf area and light, and year-to-year steadiness.  Test A: 0.5.
@@ -574,11 +585,13 @@ mechanics:
   # The pendulous trait of silver birch [A92]: shoots thinner than this
   # radius (m) are soft and cannot correct their posture, so long thin
   # shoots hang under their own weight and the load they carry.  Stiffness
-  # and correction are scaled by s(r) = (r/r_p)^p / (1 + (r/r_p)^p). VERIFY
+  # and correction are scaled by s(r) = (r/r_p)^p / (1 + (r/r_p)^p).  TUNED
+  # (0.012, since birch v1 (2026-11-08)), against the look: twigs thinner than about this hang; 0.006
+  # sprayed outward, and hung only at their ends.
   pendulous_radius: 0.012
   pendulous_sharpness: 4.0
   # Set: limbs (side axes on the stem) have this radius instead, so limbs ascend and only their thin ends arch over,
-  # and the hanging is the twigs'.  null (as it has been): one radius for all.  TUNED, by eye only; not in test A.  0.0025 with crown_frame.
+  # and the hanging is the twigs'.  null (the default before birch v1): one radius for all.  TUNED, by eye only; not in test A.  0.0025 with crown_frame.
   pendulous_radius_limb: 0.0025
   # The year's load increment is applied in sub-steps on the updated shape;
   # no internode turns more than this per sub-step (rad). Model guard.
@@ -624,7 +637,7 @@ pipe_model:
   # Tree Physiol. 28:1821, Table 1), so 0.014 (0.011-0.025).  No birch
   # count found: VERIFY (birch).  LIGNUM's Scots pine value is 0.07.
   sapwood_senescence_per_year: 0.014
-  # TUNED, against Repola's branch wood: the same for side axes alone.  null (as it has been): one figure for the whole tree.
+  # TUNED, against Repola's branch wood: the same for side axes alone.  null (the default before birch v1): one figure for the whole tree.
   # Test A: 0.30 (branches 38.5, 52.6 kg at 50, 60 against 46.1, 59.2).  It lays about 0.75 mm a year on a 5 mm limb (my sum; no birch ring width read).
   branch_sapwood_senescence: 0.30
   # TUNED, against branch wood in the open: above this radius (m) a limb's sapwood turns over more slowly, in proportion to its radius.  null: one rate.
@@ -638,8 +651,8 @@ pipe_model:
   # converted to heartwood, eliminating the need to lay down replacement
   # rings for retired crown layers.
   crown_rise_heartwood: false
-  # true: below the crown base each internode keeps the sapwood its own foliage beyond needs.  false (as it has
-  # been): all of them keep the crown base's figure, on one side of a fork, so on a forked stem the other side
+  # true: below the crown base each internode keeps the sapwood its own foliage beyond needs.  false (the default
+  # before birch v1): all of them keep the crown base's figure, on one side of a fork, so on a forked stem the other side
   # loses sapwood every year and rebuilds it.
   heartwood_by_own_foliage: true
   # Count the rings that keep this season's foliage supplied (replacing
@@ -764,7 +777,9 @@ pipe_model:
   # stage 2 ("b"): stage 1 plus the wind envelope (wind_load above, with its
   # strength parameters: target stress = wood_mor_green_mpa x knot_factor /
   # safety_factor = 18 MPa, VERIFY as noted there) at wind_speed_m_s at the
-  # canopy top.  12 m/s was set in the phase-37 brief, not fitted: VERIFY.
+  # canopy top.  TUNED (8 m/s, since birch v1 (2026-11-08)), against Dg, stems/ha and LAI on plots:
+  # the 12 m/s of the phase-37 brief, not fitted, gave Dg 25.1, 29.7 cm and 490,
+  # 352 stems/ha at 50, 60 (commit 74d162d).
   # Below a taller canopy top (plot mode: the tallest living tree) the wind
   # at the tree's own height follows the exponential within-canopy profile
   # u(z) = u_h exp(a (z / h_c - 1)) (Inoue 1963, J. Meteorol. Soc. Jpn.
@@ -1225,7 +1240,7 @@ mortality:
     floor: 0.02
     # A tree laying no wood dies at this hazard a year wherever it stands.
     suppressed_hazard: 0.10
-    # Off unless set (null): above the stand's quadratic mean diameter (stems past 1.3 m), the
+    # On since birch v1 (2026-11-08); null turns it off.  Above the stand's quadratic mean diameter (stems past 1.3 m), the
     # hazard above falls as exp(-slope (d_rel - relative_size_from)), d_rel = DBH over that mean,
     # so a slow-ringed dominant isn't taken for a suppressed tree.  3.263 is the d_rel coefficient
     # of Maleki & Kiviste 2016 (iForest 9:643, Table 3, best model: logit of dying in 5 years,
@@ -1299,7 +1314,7 @@ stats:
   # A first-order limb counts towards the crown base only if its subtree
   # carries at least this share of the tree's leaves.
   crown_base_min_leaf_share: 0.005
-  # true: a limb is a side axis on the stem or on a leader that replaced it.  false (as it has been): order == 1,
+  # true: a limb is a side axis on the stem or on a leader that replaced it.  false (the default before birch v1): order == 1,
   # which counts a replacement leader as a limb attached low, and doesn't count the limbs on it.
   limbs_on_leader: true
   # Hanging runs shorter than this (m) are not counted as hanging twigs.
@@ -1385,6 +1400,8 @@ roots:
   # 20-30 cm in a Swedish B. pendula plantation). VERIFY
   taproot_setpoint_deg: 180
   taproot_gravitropism_per_m: 3.0
+  # TUNED (92 and lateral_gravitropism_per_m 3.0, since birch v1 (2026-11-08); 97 and 1.5 before): against
+  # Laitakari 1934 p. 198, the horizontal root system a mean 13-15 cm deep from 5 cm DBH up.
   lateral_setpoint_deg: 92
   lateral_setpoint_spread_deg: 4
   lateral_gravitropism_per_m: 3.0
@@ -1488,9 +1505,9 @@ roots:
   # Roots that cost carbon, on by default since birch v1 (2026-11-08).  With it off, root radii are copied from the stem base for free and
   # most of the root share is lost.  With it on (RootSystem.update_radii_paid, GrowthModel._pay_roots) the share
   # pays for fine roots, then root wood, ring by ring each year; what's left is logged as unresolved (woody-root
-  # respiration, exudates, mycorrhiza), and goes to nothing else.  Use it with lateral_setpoint_deg 92 and
+  # respiration, exudates, mycorrhiza), and goes to nothing else.  It goes with lateral_setpoint_deg 92 and
   # lateral_gravitropism_per_m 3.0 above, TUNED against Laitakari 1934 p. 198, horizontal roots a mean 13-15 cm deep,
-  # and with geometry.root_flare_min_share 0.5.
+  # and with geometry.root_flare_min_share 0.5: all four are the defaults since birch v1.
   paid:
     enabled: true
     # Over-bark stump diameter from over-bark DBH: dS = 2 + 1.25 d, cm.  VERIFY: Repola 2008, Silva Fennica 42:605,
@@ -1636,9 +1653,11 @@ height_driver:
 # The crown's frame: published data set the main limbs, as the height curve sets the leader; light and carbon decide what
 # they and everything finer do.  Needs height_driver on, and shares its code path.  On by default since birch v1 (2026-11-08).  Limbs are real nodes,
 # paid first from the pool, that grow a shoot a year, and can fall short or die by the usual rules.  Not compatible yet with
-# speed.compiled_carbon: treegen/fast.py's copy of the carbon sum doesn't know these limbs.
+# speed.compiled_carbon: that held until commit 04c9d3b, since when the compiled carbon sum uses the model's own shoots,
+# so the frame's limbs are right with it on.
 #
-# Set at run time with it (--set); this file's own defaults for these stay as they were, so nothing moves while the frame is off:
+# Set at run time (--set) until birch v1 (2026-11-08); the final ones (cases/crown2_with_roots_speed.txt) are now this
+# file's defaults.  What each was set against, first with the frame as it was, then with earned:
 #   height_driver.enabled=true                 The approved curve; the curve held the leader in all 1,200 seed-years measured, so height is close to scripted.
 #   stats.limbs_on_leader=true                 A measure's definition, not a value.
 #   pipe_model.heartwood_by_own_foliage=true   A correction for forked and broken stems (Tree agent).
@@ -1707,24 +1726,27 @@ crown_frame:
   # each other's shade: a limb's yearly shoot goes with the light at its tip.
   crown_a: 0.932
   crown_b: 0.177
-  # TUNED, against the open-grown band in this file's reference.dbh: 40-50 cm at 60, where the curve's height is 23.7 m, so about 1.9.
+  # TUNED, against the open-grown band in this file's reference.dbh: 40-50 cm at 60, where the curve's height is 23.7 m, so about 1.9;
+  # 2.4 since birch v1 (2026-11-08), with height_driver.open_grown_share 0.8: the same 45 cm cap on a tree 0.8 as tall (45 / 19.0 m).
   # That band is not a target: its source (Dubois et al. 2021) was read as an abstract only, and gives a potential, not a band.
   # The stem that counts towards the crown is no more than this many cm per m of height, or a tree in the open runs away.
   stem_cm_per_height_m: 2.4
   # Stem over bark per stem in wood, near enough to tools/bark.py at 10-40 cm (1.09-1.10).
   over_bark_ratio: 1.1
-  # TUNED, against Evo's crown width at the same stem (0.9 gave 6.3 m at 60, 0.85 gives 6.2, 0.8 gave 5.6): in a stand a limb's reach stops at this
+  # TUNED (1.15, since birch v1 (2026-11-08)), against stand light and width: with earned, limbs carry the width themselves, and 1.0 gave 0.25 less LAI (commit 23260bb).
+  # Before earned it was 0.85, against Evo's crown width at the same stem (0.9 gave 6.3 m at 60, 0.85 6.2, 0.8 5.6).  In a stand a limb's reach stops at this
   # share of half the spacing, where it meets the next crown.  Set by the stand's mean density, not by the real neighbour.  No limit in the open.  null: none.
   spacing_overlap: 1.15
   # A limb's reach at the top of the crown as a share of the widest: Lintunen 2013 Fig. 5 (model output, as above), chord 0.254 m
   # at the top and 1.54 m at the base.
   top_share: 0.165
-  # TUNED, against crown ratio and the look: how far down the crown the frame is widest, as a share of crown length.  Hagemeier & Leuschner
-  # 2019a (closed stands, widest at about 0.80 of height, crown in the upper half) alone would say 0.4; 0.5 and 0.7 made the crown shorter.
+  # TUNED, against the outline in both settings (0.65, since birch v1 (2026-11-08); 0.9 before): how far down the crown the frame is widest, as a share of crown
+  # length.  A crown whose length is all the tree's is widest about a third of the way up, one in a stand about 0.7 of the way up (commit 9b73c12).
+  # Hagemeier & Leuschner 2019a (closed stands, widest at about 0.80 of height, crown in the upper half) alone would say 0.4.
   peak_depth: 0.65
-  # TUNED, against crown ratio and the look, so a crown isn't a cone: a limb's reach at the crown base, as a share of the widest.
+  # TUNED, against the outline in both settings, with peak_depth (0.4, since birch v1 (2026-11-08); 0.8 before): a limb's reach at the crown base, as a share of the widest.
   base_share: 0.4
-  # TUNED, against the look: reach above the widest point goes as depth^this.  Under 1 is a rounder top.
+  # TUNED, against the outline and crown ratio (0.8, since birch v1 (2026-11-08), commit e277a9a; 0.6 before): reach above the widest point goes as depth^this.  Under 1 is a rounder top.
   profile_power: 0.8
   # A limb's length over its reach: Lintunen 2013 Fig. 5's chord of 1.54 m (a chord in a LIGNUM model's figure, not a measurement)
   # over half of Hemery's crown at his tree's 10 cm stem taken as wood, so 11 cm over bark with the 1.1 of over_bark_ratio (1.44 m):
@@ -1732,7 +1754,8 @@ crown_frame:
   length_per_reach: 1.07
   # VERIFY: a guess, set against nothing: sine of the steepest angle that still lengthens a limb to reach as far as the others.  0.5 is 30 deg.
   steep_limit: 0.5
-  # TUNED, against the width of stand trees and an even outline: each limb's own share of the reach, log-normal SD.
+  # TUNED, against the look (0.5, since birch v1 (2026-11-08); 0.1 before): limbs of even length read as a fishbone (commit 8a5d3ba); capped at the published crown.
+  # Each limb's own share of the reach, log-normal SD.
   reach_scatter: 0.5
   # TUNED, against the same: twigs on a limb may go this many times its reach, outward; down and in as they please.
   twig_overshoot: 1.0
@@ -1741,8 +1764,10 @@ crown_frame:
   chase: 0.5
   # TUNED, against the look: no limb's shoot is longer than the leader's that year (apical control, and no whips at the top), down
   # to this floor (m), which lets an old leader's limbs still round out the top.  Replaces height_driver.lateral_cap_ratio and its fault.
+  # 0.2 since birch v1 (2026-11-08), against the outline: 0.3 let an old tree's top limbs go flat; 0.15 left open trees narrow (commit 9b73c12).
   limb_shoot_floor_m: 0.2
-  # VERIFY: a guess, set against nothing: the longest shoot of anything finer in a year (m).
+  # TUNED (0.5, since birch v1 (2026-11-08)), against the look and leaf area in the open: the longest shoot of anything finer in a year (m).
+  # The old 0.4 was a guess, set against nothing.
   twig_shoot_max_m: 0.5
   # TUNED, against open-grown stem size and the carbon left unused: the most leaf area the crown carries, per m2 of the frame's crown.  A sink limit
   # standing in for what really stops a tree with light to spare; what it refuses is lost, bar surplus_to_stem.  4 left about 15 % of fixed carbon unused
@@ -1751,8 +1776,11 @@ crown_frame:
   crown_lai_max: 7.0
   # TUNED, against the look (sky between the curtains), with earned: the same for a tree with no neighbours.  Repola 2008 Eq. 12 would be about 3.6, as above; forest trees, and outside its range.  null: crown_lai_max.
   open_lai_max: 5
-  # TUNED, against the open-grown band in reference.dbh (not a target: Dubois et al. 2021, read as an abstract only, a potential, not a band): the
-  # share of what a full crown can't use that goes on the stem; the rest is lost.  With earned, for trees with no neighbours only.
+  # VERIFY, a choice, not fitted (1.0, since birch v1 (2026-11-08), commit e277a9a): all of what a full crown can't use goes on the stem, up to
+  # stem_cm_per_height_m, since a tree in the open was fixing carbon it then lost while its stem, and so its crown, was still small.
+  # The open-grown band (not a target: Dubois et al. 2021, abstract only) now bears on stem_cm_per_height_m, the cap; 0.1-0.4 were tuned
+  # against it before.  The share of what a full crown can't use that goes on the stem; the rest is lost.  With earned, for trees with no
+  # neighbours only.
   # "Lost" here and in the run logs is photosynthesis turned down because the sinks are full: it's booked as sink_limited, carbon the leaves didn't fix, not carbon fixed and
   # thrown away.  Young stand trees turn down 30-50 % at ages 8-12 because their limbs and twigs can't grow fast enough to use it (crown_frame's limb and twig rules).
   surplus_to_stem: 1.0
