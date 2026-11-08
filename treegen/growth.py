@@ -2211,7 +2211,12 @@ class GrowthModel:
         # the crown follows the stem, and the stem follows the crown's leaves: with nothing to hold it, a tree in the open runs away.
         # So no more stem counts here than a birch of this height has at the most
         d_ob = min(d_ob, float(cf.stem_cm_per_height_m) * h)
-        return 0.5 * (float(cf.crown_a) + float(cf.crown_b) * d_ob)
+        a, b = float(cf.crown_a), float(cf.crown_b)
+        stand_ab = getattr(cf, "stand_crown_ab", None)
+        if stand_ab and (self.stand or getattr(self, "_plot_view", None) is not None):
+            # a tree with neighbours takes its crown from forest-grown birches, not open-grown ones
+            a, b = float(stand_ab[0]), float(stand_ab[1])
+        return 0.5 * (a + b * d_ob)
 
     def _frame_earned(self, starts, q_bud, bud_leaf) -> None:
         """Each limb's leaf area this year, and how it stands against its neighbours on the stem: x, its leaf area over the median of the limbs around it, gives 2 x^2 / (1 + x^2),
