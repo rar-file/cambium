@@ -360,10 +360,11 @@ class ShadowPropagation:
 
 
 # Heights (m) at which the light under the canopy is read for the output
-# (stats per_year / plot stats "subcanopy_light_pct"): the 1.0-2.0 m of the
-# light target in reference/targets.yaml (stand_canopy.subcanopy_light_
-# transmittance, Hagemeier & Leuschner 2019b).  Output only; growth never
-# reads it.
+# (stats per_year / plot stats "subcanopy_light_pct"), for the light target in
+# reference/targets.yaml (stand_canopy.subcanopy_light_transmittance,
+# Hagemeier & Leuschner 2019b).  The model reads at 1.0-2.0 m; the target
+# doesn't state its sensor's height ("on a 2 m pole, its height above the
+# ground not stated").  Output only; growth never reads it.
 SUBCANOPY_LIGHT_HEIGHTS_M = (1.0, 1.5, 2.0)
 
 
