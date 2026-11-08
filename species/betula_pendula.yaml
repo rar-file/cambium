@@ -1729,6 +1729,10 @@ crown_frame:
   # How many buds at the end of last year's shoot, on anything finer than the stem, can start a long shoot.  1: one, so twigs only lengthen and a curtain is single strands.
   # Lintunen 2013 Fig. 6C (model output) has 2-4 long shoots per second-order branch.
   twig_end_buds: 1
+  # A TEST, off by default: one more bud at the end of last year's shoot can start a long shoot for every this many metres of that shoot, on top of twig_end_buds.
+  # TUNED against Lintunen 2013 Fig. 6C's 2-4 long shoots per second-order axis (LIGNUM model output, not a measurement), the 5-7 m self-pruned stem at 13-15 m
+  # (Hynynen & Niemisto 2009), and young-stand leaf area (Uri 2007, Aosaar 2016).  null: off.
+  end_buds_per_m: null
   # A TEST, off: each limb's buds share what its own leaves would earn by their light, however many buds it has.  For the question why two end buds lose leaf.
   limb_share_by_leaf: false
   # What a bud on a shoot heading straight down gets, as a share of a level one's: gravimorphism's floor.  TUNED.

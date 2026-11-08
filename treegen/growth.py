@@ -998,7 +998,15 @@ class GrowthModel:
                 last = int(T.axis[:n0].max()) + 1
                 tip_ph = np.zeros(last, np.int64)
                 np.maximum.at(tip_ph, T.axis[:n0][alive], T.phyllo[:n0][alive].astype(np.int64))
-                Glat[lat_nodes[~on_stem & (tip_ph[T.axis[lat_nodes]] - T.phyllo[lat_nodes].astype(np.int64) >= int(getattr(sp.crown_frame, "twig_end_buds", 1)))]] = 0.0
+                ends = np.full(last, int(getattr(sp.crown_frame, "twig_end_buds", 1)), np.int64)
+                per_m = getattr(sp.crown_frame, "end_buds_per_m", None)
+                if per_m:
+                    # a long shoot branches by its length: one more bud at its end can start a long shoot for every so many metres of last year's shoot, so a young
+                    # vigorous shoot forks several ways and an old tree's short shoots keep their one end bud
+                    grew = alive & (T.birth[:n0] == t - 1)
+                    shoot_len = np.bincount(T.axis[:n0][grew], weights=T.length[:n0][grew], minlength=last)
+                    ends = ends + np.floor(shoot_len / float(per_m)).astype(np.int64)
+                Glat[lat_nodes[~on_stem & (tip_ph[T.axis[lat_nodes]] - T.phyllo[lat_nodes].astype(np.int64) >= ends[T.axis[lat_nodes]])]] = 0.0
         self._hd = self._height_limit_plan(t, term_nodes, lat_nodes, Qterm, Qlat, 1.0 - stress) if self._height_limit_on() else None
         if self._hd is not None:
             self._leader_phi = float((phi_t if self._hd["is_tip"] else phi_l)[self._hd["bud"]])
