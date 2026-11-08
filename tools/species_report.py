@@ -37,7 +37,7 @@ from treegen import species_schema as schema  # noqa: E402
 
 SPECIES_DIR = ROOT / "species"
 DEFAULT_AGES = (50, 60)
-LABEL_RANK = {"sourced": 0, "TUNED": 1, "VERIFY": 2}
+LABEL_RANK = {"sourced": 0, "DERIVED": 1, "TUNED": 2, "VERIFY": 3}
 
 
 def species_files() -> list:
@@ -141,7 +141,7 @@ def age_of(target: str) -> int | None:
 
 
 def value_counts(labels: dict) -> dict:
-    c = {"values": len(labels), "sourced": 0, "checked": 0, "TUNED": 0, "VERIFY": 0, "changed": 0}
+    c = {"values": len(labels), "sourced": 0, "checked": 0, "DERIVED": 0, "TUNED": 0, "VERIFY": 0, "changed": 0}
     for lab in labels.values():
         c[lab.status] = c.get(lab.status, 0) + 1
         c["checked"] += lab.status == "sourced" and lab.checked == "page"
@@ -159,7 +159,7 @@ def target_verdicts(rows: list) -> dict:
 
 
 def summary_line(name: str, counts: dict, rows: list | None, n_runs: int, ages: list, approved: bool) -> str:
-    values = f"{counts['sourced']} of {counts['values']} values sourced, {counts['TUNED']} tuned, {counts['VERIFY']} unchecked"
+    values = f"{counts['sourced']} of {counts['values']} values sourced, {counts['DERIVED']} derived, {counts['TUNED']} tuned, {counts['VERIFY']} unchecked"
     if rows is None:
         return f"{name}: no runs scored; {values}."
     verdicts = target_verdicts(rows)
@@ -213,7 +213,7 @@ def report(path: Path, folder: Path, ensembles: list, ages: list) -> int:
     for p in problems:
         print(f"- labels: {p}")
     print(f"\nValues: {counts['values']}: {counts['sourced']} sourced ({counts['checked']} checked against the page), "
-          f"{counts['TUNED']} TUNED, {counts['VERIFY']} unchecked (VERIFY), of which {counts['changed']} changed since labelled. "
+          f"{counts['DERIVED']} DERIVED, {counts['TUNED']} TUNED, {counts['VERIFY']} unchecked (VERIFY), of which {counts['changed']} changed since labelled. "
           "Switches and choices aren't counted.\n")
     rows, n_runs, approved = None, 0, True
     if ensembles:
@@ -284,7 +284,7 @@ def init_labels(path: Path, folder: Path) -> Path:
     target = folder / "labels.yaml"
     if target.exists():
         raise SystemExit(f"{target} already exists")
-    target.write_text("# status: sourced (add source:) | TUNED (add against:) | VERIFY.  See docs/adding_a_species.md.\n"
+    target.write_text("# status: sourced (add source:) | DERIVED (add source: and the step) | TUNED (add against:) | VERIFY.  See docs/adding_a_species.md.\n"
                       + yaml.safe_dump(out, sort_keys=False, width=10000, default_flow_style=None), encoding="utf-8")
     return target
 

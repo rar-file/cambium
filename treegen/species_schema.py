@@ -1,7 +1,7 @@
 """What a species file must hold, with units and ranges, and where each value came from.
 
 Nothing in the growth model reads this file.  ``validate`` checks a species file;
-``read_labels`` says of each value whether it's sourced, TUNED or VERIFY.
+``read_labels`` says of each value whether it's sourced, DERIVED, TUNED or VERIFY.
 tools/species_report.py and docs/adding_a_species.md are how it's used.
 
 The ranges are limits of sense, not targets: a value outside one is almost certainly a
@@ -19,7 +19,11 @@ from pathlib import Path
 
 import yaml
 
-STATUSES = ("sourced", "TUNED", "VERIFY")
+# sourced: a source gives the value; DERIVED: worked out from a source with a stated step (a mean, a
+# ratio, a conversion, a reading of a figure); TUNED: no direct source, set against what it says.
+STATUSES = ("sourced", "DERIVED", "TUNED", "VERIFY")
+# The appearance block labels its own values, in appearance.provenance, with these words.
+PROVENANCE_STATUS = {"SOURCE": "sourced", "DERIVED": "DERIVED", "TUNED": "TUNED"}
 
 # Blocks a species can go without, and what's lost.  Everything else is required.
 OPTIONAL_BLOCKS = {
@@ -618,8 +622,8 @@ def validate_file(path) -> Report:
 # -- where each value came from ------------------------------------------------
 @dataclass
 class Label:
-    status: str          # sourced | TUNED | VERIFY
-    note: str = ""       # the source, what it was tuned against, or why it's unchecked
+    status: str          # sourced | DERIVED | TUNED | VERIFY
+    note: str = ""       # the source (and the step, if DERIVED), what it was tuned against, or why it's unchecked
     checked: str = ""    # sourced values: "page" if someone read the page and it supports the value
     changed: bool = False   # the value isn't what it was when labelled, so the label no longer speaks for it
 
@@ -654,13 +658,33 @@ def tuned_in_comments(text: str) -> dict:
     return out
 
 
+def provenance_labels(raw: dict) -> dict:
+    """Dotted path -> Label for the appearance block's values, from the block's own "provenance": a line
+    covers the value it names and everything under it, and the longest name that covers a value wins
+    (the rule tests/test_game_export.py checks every number against).  Its first word is the status:
+    SOURCE is sourced, DERIVED and TUNED are themselves."""
+    look = raw.get("appearance") if isinstance(raw, dict) else None
+    prov = look.get("provenance") if isinstance(look, dict) else None
+    if not isinstance(prov, dict):
+        return {}
+    out = {}
+    for path in flatten({k: v for k, v in look.items() if k != "provenance"}, "appearance."):
+        rel = path[len("appearance."):]
+        names = [k for k in prov if rel == k or rel.startswith(k + ".")]
+        if names:
+            text = str(prov[max(names, key=len)])
+            out[path] = Label(PROVENANCE_STATUS.get(text.split(":", 1)[0].strip(), "VERIFY"), text)
+    return out
+
+
 def read_labels(raw: dict, species_text: str = "", labels: dict | None = None) -> dict:
     """Dotted path -> Label for every value that isn't a switch.  A TUNED comment in the species
-    file comes first, because it's the rule for anyone tuning a value; then the labels file; a
-    value with neither is VERIFY.  A value that changed since its label was written is VERIFY
-    too, until someone looks at it."""
+    file comes first, because it's the rule for anyone tuning a value; then the labels file; then,
+    for the appearance block, its own provenance lines; a value with none of these is VERIFY.  A
+    value that changed since its label was written is VERIFY too, until someone looks at it."""
     labels = labels or {}
     tuned = tuned_in_comments(species_text) if species_text else {}
+    prov = provenance_labels(raw)
     out = {}
     for path, value in flatten(raw).items():
         if path.startswith("species.") or is_setting(path, value):
@@ -669,7 +693,9 @@ def read_labels(raw: dict, species_text: str = "", labels: dict | None = None) -
             out[path] = Label("TUNED", tuned[path])
             continue
         e = labels.get(path)
-        if not e:
+        if not e and path in prov:
+            out[path] = prov[path]
+        elif not e:
             out[path] = Label("VERIFY", "no label")
         elif "value" in e and e["value"] != value:
             out[path] = Label("VERIFY", f"labelled {e.get('status')} at {e['value']!r}; now {value!r}", changed=True)
@@ -681,7 +707,7 @@ def read_labels(raw: dict, species_text: str = "", labels: dict | None = None) -
 
 def check_labels(raw: dict, labels: dict) -> list:
     """What's wrong with a labels file itself: a value with no such key, an unknown status, a
-    TUNED value not saying what it was tuned against, a sourced value naming no source."""
+    TUNED value not saying what it was tuned against, a sourced or DERIVED value naming no source."""
     flat = flatten(raw)
     problems = []
     for path, e in (labels or {}).items():
@@ -693,8 +719,8 @@ def check_labels(raw: dict, labels: dict) -> list:
             problems.append(f"{path}: status must be one of {list(STATUSES)}, not {status!r}")
         elif status == "TUNED" and not e.get("against"):
             problems.append(f"{path}: TUNED must say what it was tuned against")
-        elif status == "sourced" and not e.get("source"):
-            problems.append(f"{path}: sourced must name the source")
+        elif status in ("sourced", "DERIVED") and not e.get("source"):
+            problems.append(f"{path}: {status} must name the source")
     return problems
 
 
