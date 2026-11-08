@@ -29,13 +29,15 @@ def grow(years: int, sets: list, seed: int = 3, keep=None):
 
 
 def test_off_by_default():
+    """Named when all of these were off by default.  Since birch v1 (2026-11-08) they're the final settings
+    (cases/crown2_with_roots_speed.txt)."""
     sp, _ = load_species("betula_pendula")
-    assert sp.height_driver.enabled is False
-    assert sp.stats.limbs_on_leader is False
-    assert sp.pipe_model.heartwood_by_own_foliage is False
-    assert sp.pipe_model.branch_sapwood_senescence is None
-    assert sp.shedding.shade_softness is None
-    assert sp.mechanics.pendulous_radius_limb is None
+    assert sp.height_driver.enabled is True
+    assert sp.stats.limbs_on_leader is True
+    assert sp.pipe_model.heartwood_by_own_foliage is True
+    assert sp.pipe_model.branch_sapwood_senescence == 0.30
+    assert sp.shedding.shade_softness == 0.5
+    assert sp.mechanics.pendulous_radius_limb == 0.0025
 
 
 def test_limbs_are_soft_only_below_their_own_radius():
@@ -50,7 +52,7 @@ def test_limbs_are_soft_only_below_their_own_radius():
     limb = mechanics.pendulous_factor(np.array([0.004]), 0.002, 4.0)
     twig = mechanics.pendulous_factor(np.array([0.004]), 0.01, 4.0)
     assert limb[0] > 0.9 > twig[0]
-    plain = grow(1, ON)
+    plain = grow(1, ON + ["mechanics.pendulous_radius_limb=null"])      # 0.0025 by default since birch v1
     assert plain._limb_nodes(plain.tree.n) is None
 
 

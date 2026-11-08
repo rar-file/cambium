@@ -279,7 +279,8 @@ def test_damage_takes_over_old_age():
     n = 5
     hz = plot.mort.hazards(np.zeros((n, 2)), np.full(n, 20.0), np.full(n, 1.0), np.full(n, 200.0), 200.0)
     assert (hz["old age"] == 0.0).all()
-    assert make_plot(species("mortality.enabled=true")).mort.old_age_elsewhere is False
+    # damage is on by default since birch v1; switched off, old age is the mortality block's own
+    assert make_plot(species("mortality.enabled=true", "damage.enabled=false")).mort.old_age_elsewhere is False
 
 
 def test_the_final_plots_never_read_the_corrected_old_age(monkeypatch):
@@ -486,7 +487,8 @@ def test_shade_trial_field_scales_light():
 
 def test_a_slow_dominant_is_not_taken_for_a_suppressed_tree():
     m = mortality()
-    assert m.p.vigour.relative_size_slope is None
+    assert m.p.vigour.relative_size_slope == 3.263      # the default since birch v1; null before
+    m.p.vigour.relative_size_slope = None
     xy = np.array([[0.0, 0.0], [20.0, 20.0], [-20.0, 10.0]])
     d, rings, age = np.array([10.0, 30.0, 20.0]), np.zeros(3), np.full(3, 100.0)
     off = m.hazards(xy, d, rings, age, 100.0)["suppressed"]
@@ -502,7 +504,7 @@ def test_a_slow_dominant_is_not_taken_for_a_suppressed_tree():
 def test_plot_heights_follow_the_dominants():
     items = ["plot.natural_start.enabled=true", "plot.natural_start.stems_per_ha=6000", "plot.natural_start.area_m2=25",
              "mortality.enabled=true", "plot.stand_measures=true"]
-    plain = make_plot(species(*items), lean=True)
+    plain = make_plot(species(*items, "plot.height_follows_dominants=false"), lean=True)      # on by default since birch v1
     assert plain._hd_own is None and all(plain.trees[k].sp.height_driver is plain.species.height_driver for k in plain.alive)
     sp = species(*items, "plot.height_follows_dominants=true")
     ref0 = float(sp.height_driver.reference_alpha)

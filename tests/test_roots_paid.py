@@ -1,4 +1,4 @@
-"""roots.paid: root wood and fine roots cost carbon, and the books close.  Off by default."""
+"""roots.paid: root wood and fine roots cost carbon, and the books close.  On by default since birch v1 (2026-11-08)."""
 from __future__ import annotations
 
 import math
@@ -19,15 +19,16 @@ from treegen.params import load_environment, load_species  # noqa: E402
 
 def _model(paid: bool, seed: int = 4, sets: tuple = ()):
     sp, _ = load_species("betula_pendula")
-    if paid:
-        checkpoint.set_values(sp, ["roots.paid.enabled=true", *sets])
+    # said both ways: it's on by default since birch v1
+    checkpoint.set_values(sp, [f"roots.paid.enabled={'true' if paid else 'false'}", *(sets if paid else ())])
     env, _ = load_environment("sweden_open_field")
     return GrowthModel(sp, make_environment(env), seed, stand=True, soil=make_soil(env), lean=True)
 
 
 def test_it_is_off_by_default():
+    """Named when it was off by default; on since birch v1 (2026-11-08).  Switched off, it books nothing."""
     sp, _ = load_species("betula_pendula")
-    assert sp.roots.paid.enabled is False
+    assert sp.roots.paid.enabled is True
     model = _model(False)
     for _ in range(3):
         model.step()
