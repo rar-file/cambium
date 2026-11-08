@@ -78,7 +78,9 @@ def test_root_radii_never_shrink():
 
 
 def test_with_carbon_to_spare_the_collar_sums_to_the_stump():
-    model = _model(True)
+    # at the size this test was written for: on the height curve (on by default since birch v1) the 14-year tree has a
+    # 5.3 cm stump and its collar sums to 0.69, just under the floor here (node_fb_dg_collar); off, 12.6 cm and 0.94
+    model = _model(True, sets=("height_driver.enabled=false",))
     for _ in range(14):
         model.step()
     log = model.roots.carbon_log

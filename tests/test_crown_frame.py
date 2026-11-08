@@ -256,14 +256,17 @@ def test_earned_a_browsed_stem_has_no_sharp_crook():
 
 
 def test_thick_limbs_sapwood_turns_over_more_slowly():
-    sets = ON + ["pipe_model.branch_sapwood_senescence=0.3", "pipe_model.branch_sapwood_thick_m=0.01"]
+    # the line between thin and thick at 5 mm: with birch v1's defaults no limb of this 16-year open tree reaches 1 cm
+    # (6.1 mm at most, node_fb_dg_limbs), where the old defaults' bigger tree had some
+    thick_m = 0.005
+    sets = ON + ["pipe_model.branch_sapwood_senescence=0.3", f"pipe_model.branch_sapwood_thick_m={thick_m}"]
     model = grow(16, sets, stand=False)
     T = model.tree
     n = T.n
     on = np.isin(T.axis[:n], np.fromiter(model.leader_axes, np.int64))
     loss = model._sapwood_loss(n)
-    thin = ~on & (T.radius[:n] <= 0.01) & (T.death[:n] < 0)
-    thick = ~on & (T.radius[:n] > 0.01) & (T.death[:n] < 0)
+    thin = ~on & (T.radius[:n] <= thick_m) & (T.death[:n] < 0)
+    thick = ~on & (T.radius[:n] > thick_m) & (T.death[:n] < 0)
     assert thin.any() and thick.any()
     assert np.allclose(loss[thin], 0.3) and (loss[thick] < 0.3).all()
     assert np.allclose(loss[on], float(model.sp.pipe_model.sapwood_senescence_per_year))
