@@ -1958,8 +1958,7 @@ class GrowthModel:
                             ring_out[stem] += w * used * unit / spread
                             self._unspent -= used
                             return lo, ring_out
-            if lead_at is not None and self._frame_earns() and ((not self.stand and getattr(self, "_plot_view", None) is None)
-                                                               or bool(getattr(sp.crown_frame, "surplus_with_neighbours", False))):
+            if lead_at is not None and self._frame_earns() and not self.stand and getattr(self, "_plot_view", None) is None:
                 # with no neighbours, whatever the crown can't use goes the same way, whichever limit it met: else a crown short of its limits starves the stem that sets them
                 share_stem = self._surplus_share()
                 unspent = max(target - parts(lo)[0], 0.0)
@@ -2195,7 +2194,7 @@ class GrowthModel:
         cf = getattr(self.sp, "crown_frame", None)
         share = float(getattr(cf, "surplus_to_stem", 0.0) or 0.0)
         if self._frame_earns():
-            if (self.stand or getattr(self, "_plot_view", None) is not None) and not getattr(cf, "surplus_with_neighbours", False):
+            if self.stand or getattr(self, "_plot_view", None) is not None:
                 return 0.0
             d_wood = self.dbh_m()
             if d_wood is not None and 100.0 * float(cf.over_bark_ratio) * d_wood >= float(cf.stem_cm_per_height_m) * self._frame_crown()[0]:
@@ -2211,12 +2210,7 @@ class GrowthModel:
         # the crown follows the stem, and the stem follows the crown's leaves: with nothing to hold it, a tree in the open runs away.
         # So no more stem counts here than a birch of this height has at the most
         d_ob = min(d_ob, float(cf.stem_cm_per_height_m) * h)
-        a, b = float(cf.crown_a), float(cf.crown_b)
-        stand_ab = getattr(cf, "stand_crown_ab", None)
-        if stand_ab and (self.stand or getattr(self, "_plot_view", None) is not None):
-            # a tree with neighbours takes its crown from forest-grown birches, not open-grown ones
-            a, b = float(stand_ab[0]), float(stand_ab[1])
-        return 0.5 * (a + b * d_ob)
+        return 0.5 * (float(cf.crown_a) + float(cf.crown_b) * d_ob)
 
     def _frame_earned(self, starts, q_bud, bud_leaf) -> None:
         """Each limb's leaf area this year, and how it stands against its neighbours on the stem: x, its leaf area over the median of the limbs around it, gives 2 x^2 / (1 + x^2),

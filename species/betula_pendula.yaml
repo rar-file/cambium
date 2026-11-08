@@ -1669,9 +1669,6 @@ crown_frame:
   # each other's shade: a limb's yearly shoot goes with the light at its tip.
   crown_a: 0.932
   crown_b: 0.177
-  # SOURCED, a test, off by default: the same for a tree with neighbours, from forest-grown birch: Evo 2024's TLS tree list (birch-data/evo2024, Evo_TLS_2024_treelist_v3.csv,
-  # tree_sp 3), crown diameter on stem diameter, least squares over 3-30 cm, n 885, RMSE 1.30 m: [1.332, 0.142].  Medians agree with Hemery's within about 10 % at 2-30 cm.  null: crown_a, crown_b.
-  stand_crown_ab: null
   # TUNED, against the open-grown band in this file's reference.dbh: 40-50 cm at 60, where the curve's height is 23.7 m, so about 1.9.
   # The stem that counts towards the crown is no more than this many cm per m of height, or a tree in the open runs away.
   stem_cm_per_height_m: 1.9
@@ -1734,8 +1731,6 @@ crown_frame:
   # How many buds at the end of last year's shoot, on anything finer than the stem, can start a long shoot.  1: one, so twigs only lengthen and a curtain is single strands.
   # Lintunen 2013 Fig. 6C (model output) has 2-4 long shoots per second-order branch.
   twig_end_buds: 1
-  # A TEST, off by default: what a crown can't use goes on the stem in trees with neighbours too, as in the open, up to stem_cm_per_height_m.  One rule for every tree.
-  surplus_with_neighbours: false
   # A TEST, off: each limb's buds share what its own leaves would earn by their light, however many buds it has.  For the question why two end buds lose leaf.
   limb_share_by_leaf: false
   # What a bud on a shoot heading straight down gets, as a share of a level one's: gravimorphism's floor.  TUNED.
