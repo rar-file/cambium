@@ -119,6 +119,12 @@ class Plot:
                 if not len(d) or (np.hypot(d[:, 0], d[:, 1]) >= dmin).all():
                     pts.append(q)
         self.trees, self.info = [], []
+        # plot.height_follows_dominants: one height reference for the plot, set each year from its dominants
+        self._hd_own = None
+        hd0 = getattr(species, "height_driver", None)
+        if bool(getattr(pp, "height_follows_dominants", False)) and getattr(hd0, "reference_alpha", None):
+            self._hd_own = copy.copy(hd0)
+            self._hd_ref0 = float(hd0.reference_alpha)
         shared_soil = make_soil() if self.lean else None
         for k in range(n0):
             sp_k = self._tree_species(species)
@@ -196,10 +202,29 @@ class Plot:
         """A tree's own copy of the species: all of it, or (lean) only the part
         that differs between trees."""
         if not getattr(self, "lean", False):
-            return copy.deepcopy(species)
-        sp = copy.copy(species)
-        sp.resource = copy.copy(species.resource)
+            sp = copy.deepcopy(species)
+        else:
+            sp = copy.copy(species)
+            sp.resource = copy.copy(species.resource)
+        if getattr(self, "_hd_own", None) is not None:
+            sp.height_driver = self._hd_own
         return sp
+
+    def _height_reference(self):
+        """plot.height_follows_dominants: a site-index curve is the height of the dominants (top height,
+        the 100 thickest a hectare), so a tree's height limit is the curve times its vigour over the mean
+        vigour of the plot's dominants this year, not over 1.  The dominants then follow the curve, and a
+        tree of the dominants' vigour grows as a single tree of vigour 1 does."""
+        ks = [k for k in self.alive if self.trees[k].stats]
+        if not ks:
+            return
+        n = max(1, int(round(100 * self.area / 1e4)))
+        d = np.array([self._dbh(k) for k in ks])
+        h = np.array([self.trees[k].stats[-1]["height_m"] for k in ks])
+        top = np.lexsort((-h, -d))[:n]      # thickest, and the tallest while none has a DBH
+        v = float(np.mean([float(self.trees[ks[i]].sp.resource.alpha) for i in top])) / float(self.species.resource.alpha)
+        self._dominant_vigour = v
+        self._hd_own.reference_alpha = self._hd_ref0 * v
 
     @staticmethod
     def _lighten(m, light):
@@ -359,6 +384,8 @@ class Plot:
                 ls.append(lq)
             self.soil.update(np.concatenate(pts) if pts else np.zeros((0, 3)), np.concatenate(ls) if ls else np.zeros(0))
         h_canopy = max((self.trees[k].stats[-1]["height_m"] for k in active if self.trees[k].stats), default=0.0)
+        if getattr(self, "_hd_own", None) is not None:
+            self._height_reference()
         for k in active:
             m = self.trees[k]
             m._plot_view = OffsetField(field, self._offset(k)) if field is not None else None
@@ -574,6 +601,8 @@ class Plot:
                                                if getattr(self, "_subcanopy_diffuse_light", None) is not None else None)}
         if getattr(self, "measures", False):
             row.update(self._stand_row(d, h))
+        if getattr(self, "_hd_own", None) is not None:
+            row["dominant_vigour"] = round(float(getattr(self, "_dominant_vigour", 1.0)), 4)
         if getattr(self, "regen", None) is not None:
             # everything above counts the recruits too
             row["recruits_alive"] = sum(1 for k in self.alive if self.info[k].get("recruit"))

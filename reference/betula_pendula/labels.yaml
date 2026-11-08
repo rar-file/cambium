@@ -171,6 +171,7 @@ plot.germination_weights:
   value: [0.4, 0.3, 0.2, 0.1]
   note: A plot of independent trees (treegen/plot.py, tools/plot.py). Trees differ by seed, by germination year (natural regeneration on a clear felling establishes over a few years; VERIFY) and by a heritabl
 plot.vigour_sd: {status: VERIFY, value: 0.06, note: 'A plot of independent trees (treegen/plot.py, tools/plot.py). Trees differ by seed, by germination year (natural regeneration on a clear felling establishes over a few years; VERIFY) and by a heritabl'}
+plot.height_follows_dominants: {status: sourced, value: false, source: 'Elfving 2010 p. 58: top height is the height of the 100 thickest a hectare; off by default', checked: page}
 regeneration.seeds_ref: {status: sourced, value: 137000, source: 'Liu & Evans 2021, Forests 12:929: both birches, UK', checked: page}
 regeneration.dbh_ref_m: {status: sourced, value: 0.2, source: 'Natural regeneration in a plot (treegen/regeneration.py; tools/plot.py --regeneration). Seeds shed in a year by a tree of 20 cm DBH: ~137,000 (Wytham Woods, UK, 2015, inverse modelling of seed traps) '}
 regeneration.fecundity_exponent: {status: VERIFY, value: 2.0, note: Seed output in proportion to basal area (DBH^2). VERIFY}
@@ -390,6 +391,8 @@ mortality.vigour.window_years: {status: TUNED, value: 5, against: 'base plots wh
 mortality.vigour.ring_scale_mm: {status: TUNED, value: 0.5, against: 'base plots whose trees stood still for decades'}
 mortality.vigour.floor: {status: TUNED, value: 0.02, against: 'base plots whose trees stood still for decades'}
 mortality.vigour.suppressed_hazard: {status: TUNED, value: 0.1, against: 'base plots whose trees stood still for decades'}
+mortality.vigour.relative_size_slope: {status: VERIFY, value: null, note: 'off by default; 3.263 when on, the d_rel coefficient of Maleki & Kiviste 2016, iForest 9:643, Table 3, read from the column order'}
+mortality.vigour.relative_size_from: {status: TUNED, value: 1.0, against: 'the relief starts at the stand mean diameter, so the hazard holds as tuned below it'}
 plot.natural_start.stems_per_ha: {status: TUNED, value: 16000, against: '11,633 stems/ha at age 8 in Aosaar et al. 2016 Table 3, with alpha 3.0 standing in for slower young growth'}
 regeneration.spread.far_mean_m: {status: sourced, value: 370.0, source: 'Tiebel et al. 2020, Eur. J. For. Res. 139:731: 367-380 m, their long case', checked: page}
 regeneration.spread.far_share: {status: TUNED, value: 0.003, against: 'Fedorov et al. 2024, Forests 15:34: stems at 391-776 m from a birch seed stand, 256-740 a ha at 21-24 years, and under 5 % cover at 200-600 m at 8-9 years; whole-tree strips on the server, 2 each at 0.005 and 0.003'}

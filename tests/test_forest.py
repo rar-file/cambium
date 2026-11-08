@@ -448,3 +448,41 @@ def test_shade_trial_field_scales_light():
     assert f.exposure(np.zeros((3, 3)), np.zeros(3))[0] == pytest.approx(0.2)
     assert np.exp(-f.sample(np.zeros((1, 3)))[0]) == pytest.approx(0.25)
     assert f.relative_light_at_heights([2.0]) is None and f.diffuse_light_at_heights([2.0]) is None
+
+
+def test_a_slow_dominant_is_not_taken_for_a_suppressed_tree():
+    m = mortality()
+    assert m.p.vigour.relative_size_slope is None
+    xy = np.array([[0.0, 0.0], [20.0, 20.0], [-20.0, 10.0]])
+    d, rings, age = np.array([10.0, 30.0, 20.0]), np.zeros(3), np.full(3, 100.0)
+    off = m.hazards(xy, d, rings, age, 100.0)["suppressed"]
+    assert off == pytest.approx(np.full(3, float(m.p.vigour.suppressed_hazard)))
+    m.p.vigour.relative_size_slope = 3.263
+    on = m.hazards(xy, d, rings, age, 100.0)["suppressed"]
+    ob = over_bark_cm(d, m.bark)
+    d_rel = ob / math.sqrt(float(np.mean(ob ** 2)))
+    assert on == pytest.approx(off * np.exp(-3.263 * np.maximum(d_rel - 1.0, 0.0)))
+    assert on[0] == off[0] and on[1] < 0.5 * off[1]          # below the mean as tuned, above it less
+
+
+def test_plot_heights_follow_the_dominants():
+    items = ["plot.natural_start.enabled=true", "plot.natural_start.stems_per_ha=6000", "plot.natural_start.area_m2=25",
+             "mortality.enabled=true", "plot.stand_measures=true"]
+    plain = make_plot(species(*items), lean=True)
+    assert plain._hd_own is None and all(plain.trees[k].sp.height_driver is plain.species.height_driver for k in plain.alive)
+    sp = species(*items, "plot.height_follows_dominants=true")
+    ref0 = float(sp.height_driver.reference_alpha)
+    plot = make_plot(sp, lean=True)
+    assert all(plot.trees[k].sp.height_driver is plot._hd_own for k in plot.alive)
+    for _ in range(3):
+        plot.step()
+    assert float(sp.height_driver.reference_alpha) == ref0      # the template is left alone
+    plot._height_reference()
+    ks = [k for k in plot.alive if plot.trees[k].stats]
+    n = max(1, int(round(100 * plot.area / 1e4)))
+    d = np.array([plot._dbh(k) for k in ks])
+    h = np.array([plot.trees[k].stats[-1]["height_m"] for k in ks])
+    top = np.lexsort((-h, -d))[:n]
+    v = np.mean([plot.info[ks[i]]["vigour"] for i in top])
+    assert plot._hd_own.reference_alpha == pytest.approx(ref0 * v, rel=1e-3)
+    assert plot.stats[-1]["dominant_vigour"] > 0.0
