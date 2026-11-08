@@ -332,7 +332,8 @@ def one(seed: int, sets: list, out: Path, years: int, stand: bool = True) -> int
                 snaps[-1]["root_arch"] = root_measure.architecture(model)
     out.mkdir(parents=True, exist_ok=True)
     (out / "tree.json").write_text(json.dumps({"yearly": yearly, "snapshots": snaps, "shed": shed_events(model)}), encoding="utf-8")
-    meta = {"species": sp.species.scientific_name, "species_file": species, "environment": environment, "mode": "stand", "seed": seed,
+    # as cli.py has it: tools/scorecard.py reads "stand" as stand-tree, managed and "open" as single-tree, open-grown
+    meta = {"species": sp.species.scientific_name, "species_file": species, "environment": environment, "mode": "stand" if stand else "open", "seed": seed,
             "generator": "treegen 0.4, tools/tree_table.py"}
     meta["run_manifest"], meta["options"] = cli.run_manifest(species, environment, sp)
     meta["run_manifest"].update({"resumed_from": None, "scenario": list(sets)})
