@@ -882,6 +882,7 @@ damage:
     amax_n: 10000
     # Site index on the top-height-at-100 scale.  SI 20 and SI 26 of the height
     # target are 25.08 and 29.93 m on it (targets.yaml); this is about SI 23.
+    # The mortality block's old age reads this AMAX too, so there is one.
     site_index_sis_m: 27.5
     # Elfving p. 68, p = 1 / (1 + exp(a - b A / AMAX)) (from MELA, Hynynen 2002).
     ageing_a: 10.0
@@ -1233,10 +1234,11 @@ mortality:
     reduced_to: 0.75
     d_range_cm: [7.0, 30.0]
     age_range_years: [30.0, 120.0]
-  # Elfving 2010 pp. 67-68: p = 1 / (1 + exp(10 - 12 A / Amax)), a year; ln Amax =
-  # 4.6246 - 0.02192 SIS + 0.1742 ln n at n = 10,000, birch, SIS 26: 287 years.
-  old_age:
-    max_age_years: 287.0
+  # Old age has no values of its own here: it reads damage.old_age's, one AMAX for both paths (SIS 27.5
+  # there, about 278 years).  Elfving 2010 pp. 67-68: p = 1 / (1 + exp(10 - 12 A / AMAX)) is the share
+  # dead of ageing by breast-height age A, not a yearly rate, so the yearly hazard is
+  # [p(A + 1) - p(A)] / [1 - p(A)] (treegen/damage.py old_age_hazard).  It counts here only while
+  # damage.old_age is off; with it on, trees die of age in treegen/damage.py instead.
 
 stand:
   # --stand: neighbour trees as shadow volumes.  The light grid is one
