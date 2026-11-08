@@ -202,7 +202,9 @@ def report(path: Path, folder: Path, ensembles: list, ages: list) -> int:
     label_file = schema.load_labels(folder / "labels.yaml")
     labels = schema.read_labels(raw, text, label_file)
     problems = schema.check_labels(raw, label_file)
-    counts = value_counts(labels)
+    # the look block (appearance) is counted on its own line: growth reads none of it, and it labels itself in its provenance
+    counts = value_counts({p: lab for p, lab in labels.items() if not p.startswith("appearance.")})
+    look = value_counts({p: lab for p, lab in labels.items() if p.startswith("appearance.")})
     title = (raw.get("species") or {}).get("scientific_name", name) if isinstance(raw, dict) else name
     print(f"## {title} ({name})\n")
     print(f"Species file: {len(check.errors)} errors, {len(check.warnings)} warnings.")
@@ -214,7 +216,11 @@ def report(path: Path, folder: Path, ensembles: list, ages: list) -> int:
         print(f"- labels: {p}")
     print(f"\nValues: {counts['values']}: {counts['sourced']} sourced ({counts['checked']} checked against the page), "
           f"{counts['DERIVED']} DERIVED, {counts['TUNED']} TUNED, {counts['VERIFY']} unchecked (VERIFY), of which {counts['changed']} changed since labelled. "
-          "Switches and choices aren't counted.\n")
+          "Switches and choices aren't counted.")
+    if look["values"]:
+        print(f"Look values (the appearance block, which growth doesn't read; labelled in its own provenance): {look['values']}: "
+              f"{look['sourced']} sourced, {look['DERIVED']} DERIVED, {look['TUNED']} TUNED, {look['VERIFY']} unchecked (VERIFY).")
+    print()
     rows, n_runs, approved = None, 0, True
     if ensembles:
         targets, where, approved = load_targets(folder, name)
