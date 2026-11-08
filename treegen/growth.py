@@ -1771,6 +1771,14 @@ class GrowthModel:
             light_share *= self._scaffold_vigour(self.year + 1, starts)
             # gravimorphism (Wareing & Nasr 1961, resource.gravimorphism): a bud on a shoot that hangs doesn't start a long shoot, so curtains are single strands, not brooms
             light_share[len(term_nodes):] *= np.maximum(float(getattr(sp.crown_frame, "hanging_bud_share", 0.05)), 1.0 + float(sp.resource.gravimorphism) * T.dir[lat_nodes, 2])
+            if getattr(sp.crown_frame, "limb_share_by_leaf", False):
+                # A TEST, off by default: each limb (and the stem) gets in all what its own leaves, by their light, would earn, however many buds it has; its buds split that
+                group = np.minimum(sc_, n0 - 1)
+                total = np.zeros(n0)
+                np.add.at(total, group, light_share)
+                earn = np.zeros(n0)
+                np.add.at(earn, group, np.minimum(q_bud, 1.0) * bud_leaf)
+                light_share = np.where(total[group] > 0.0, light_share * earn[group] / np.maximum(total[group], 1e-30), 0.0)
             share = light_share / max(float(light_share.sum()), 1e-12)
             self._frame_share = share
         thr = np.concatenate([np.full(len(term_nodes), float(getattr(bf, "min_tip_extension", 1.0))),
