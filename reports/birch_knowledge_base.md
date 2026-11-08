@@ -74,7 +74,7 @@ Version 2, 4 Nov 2026 (v1 was 3 Nov), compiled by Claude (chat), for the Cambium
 | Sellin et al. 2012, Trees 26: 821 | Shoot hydraulics | Abs | Paywalled | 01-D1 |
 | Hagemeier & Leuschner 2019a and b, Forests | LAI, light, density | (in project) | Open | 02-A1 |
 | Hynynen 1993, SJFR 8: 326 | Self-thinning line | Abs | Paywalled | 02-A2 |
-| Niemistö 1995, SJFR 10: 235 and 245 | Crown ratio, spacing | (in project) | Paywalled | 02-A5 |
+| Niemistö 1995, SJFR 10: 235 and 245 | Crown ratio, spacing | Not on disk: the birch-data file named for 10: 235 is Tuomela & Kanninen 1995, Silva Fennica 29(3): 217-224, on *Eucalyptus* (QUESTIONS.md Q15) | Paywalled | 02-A5 |
 | Karlsson et al. 1998, Silva Fennica 32(3) | Natural regeneration (mostly downy) | Full | Open | 02-A6 |
 | Dahlgren Lidman 2022, SLU thesis | Natural regeneration, Sweden | Abs | Open PDF | 02-A7 |
 | Elfving 2010, Heureka report | Height curves, top height, mortality, maximum age | Full | Open | 02-B2 |
