@@ -1,0 +1,60 @@
+site_name: Cambium
+site_description: A self-organising growth model of silver birch, crown and roots, for game developers and scientists.
+site_url: https://rar-file.github.io/cambium/
+repo_url: https://github.com/rar-file/cambium
+repo_name: rar-file/cambium
+edit_uri: edit/main/docs/site/
+docs_dir: docs/site
+copyright: Copyright &copy; 2026 rar-file. Apache License 2.0.
+
+theme:
+  name: material
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.footer
+    - navigation.instant
+    - content.code.copy
+    - search.suggest
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: green
+      accent: light green
+      toggle:
+        icon: material/weather-night
+        name: Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: green
+      accent: light green
+      toggle:
+        icon: material/weather-sunny
+        name: Light mode
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+
+nav:
+  - Home: index.md
+  - Install: install.md
+  - Grow a tree: grow.md
+  - Forests: forests.md
+  - Use in game engines: game-engines.md
+  - Species and sources: species.md
+  - How real is it: how-real.md
+  - How it works: how-it-works.md
+  - 3D viewer: viewer.md
+  - Contributing: contributing.md

@@ -1,0 +1,51 @@
+name: Bug report
+description: Something doesn't run, gives a wrong number, or exports a broken file.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. A run is deterministic, so the exact command and seed usually let us see the same thing.
+        For a security problem, don't open an issue: see SECURITY.md.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command or code
+      description: The exact command (`cambium grow --seed 7 --years 60 ...`) or Python, with every setting you changed.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output or traceback
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Cambium version
+      description: "`cambium --version`, or the commit if you run from a checkout"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Python and operating system
+      placeholder: Python 3.14.7, Ubuntu 24.04 (x86_64)
+    validations:
+      required: true
+  - type: dropdown
+    id: lock
+    attributes:
+      label: Package versions
+      options:
+        - requirements.lock (exact versions)
+        - whatever pip installed
+        - not sure
