@@ -248,6 +248,8 @@ The maintainer's plan: trees grown live, swapped while the player looks away.
 | **D. `UDynamicMeshComponent`** | Yes (**read in source**). Copied and drawn in the editor, **tested**: 16,000 triangles in 0.07 s | Hardware tracing: on by default. Its distance field support is deprecated (**read in source**) | As C | As C | As C. Per-tree draw calls, no instancing |
 | **E. `ProceduralMeshComponent`** | Yes (**read in source**) | Hardware tracing: on by default. Its code has nothing on distance fields or Lumen (**read in source**) | As C | As C | As C, and no LODs of its own. The game's own research note: "ProcMesh terrain can't be Nanite" |
 
+> **Superseded by DECISIONS.md row 91 (2026-11-07, on master).** Every tree is its own tree, near or far, and can be felled and cut. Far away it keeps growing as itself in a lighter form, never a shared copy. So option A's "trees come from a library", the recommendation of A, and the library of stages below no longer stand. What this section found about what a shipped game can and can't build still holds. The plan that follows row 91 is `reports/cpp_port_plan.md` section 3.
+
 **What I'd do.** Grow the library in advance: this project grows the tree, and the editor builds each stage. At run time, the game's growth picks the nearest stage and scale, and swaps while the player looks away (A). If one special tree must be truly unique, say next to the player's home, use D at `_lod1` size for that tree alone.
 
 A library of 14 stages for one tree is about 400 MB of mesh on disk in the editor, and five variants of it about 2 GB. That's the editor's asset, with its source mesh. I haven't measured a cooked game.
