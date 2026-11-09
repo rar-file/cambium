@@ -266,11 +266,11 @@ anchorage.h_dbh2_coefficient_range:
   value: [25.0, 38.0]
   source: Krisans et al. 2022 Tables 1-2, site means
 anchorage.critical_moment_per_stem_volume_knm_per_m3: {status: DERIVED, value: 101.0, source: 'derived: Krisans et al. 2022, Forests 13:127', checked: page}
-anchorage.rooting_depth_radius_m: {status: VERIFY, value: 1.5, note: 'Critical turning moment, ForestGALES-style: an empirical regression of tree-pulling moments on stem size, M = C_reg x stem volume. Silver birch pulled to uprooting [K22, Tables 1-2], site means: V 0.6'}
+anchorage.rooting_depth_radius_m: {status: VERIFY, value: 1.5, note: 'Critical turning moment, ForestGALES-style: M = C_reg x stem volume, my line through two published averages, not a published regression. Silver birch pulled to uprooting [K22, Tables 1-2], site means: V 0.6'}
 anchorage.reference_rooting_depth_m: {status: sourced, value: 0.85, source: 'Krisans et al. 2022, Forests 13:127', checked: page}
-anchorage.depth_factor_min: {status: VERIFY, value: 0.5, note: 'Critical turning moment, ForestGALES-style: an empirical regression of tree-pulling moments on stem size, M = C_reg x stem volume. Silver birch pulled to uprooting [K22, Tables 1-2], site means: V 0.6'}
-anchorage.depth_factor_max: {status: VERIFY, value: 1.2, note: 'Critical turning moment, ForestGALES-style: an empirical regression of tree-pulling moments on stem size, M = C_reg x stem volume. Silver birch pulled to uprooting [K22, Tables 1-2], site means: V 0.6'}
-anchorage.root_tension_share: {status: VERIFY, value: 0.5, note: 'Critical turning moment, ForestGALES-style: an empirical regression of tree-pulling moments on stem size, M = C_reg x stem volume. Silver birch pulled to uprooting [K22, Tables 1-2], site means: V 0.6'}
+anchorage.depth_factor_min: {status: VERIFY, value: 0.5, note: 'Critical turning moment, ForestGALES-style: M = C_reg x stem volume, my line through two published averages, not a published regression. Silver birch pulled to uprooting [K22, Tables 1-2], site means: V 0.6'}
+anchorage.depth_factor_max: {status: VERIFY, value: 1.2, note: 'Critical turning moment, ForestGALES-style: M = C_reg x stem volume, my line through two published averages, not a published regression. Silver birch pulled to uprooting [K22, Tables 1-2], site means: V 0.6'}
+anchorage.root_tension_share: {status: VERIFY, value: 0.5, note: 'Critical turning moment, ForestGALES-style: M = C_reg x stem volume, my line through two published averages, not a published regression. Silver birch pulled to uprooting [K22, Tables 1-2], site means: V 0.6'}
 field_layer_competition.max_height_m: {status: sourced, value: 0.45, source: Mean mature grass sward height (Nilsson & Örlander 1999)}
 field_layer_competition.max_lai: {status: sourced, value: 3.3, source: Mature sward LAI (~3 Mg/ha aboveground biomass; Nilsson & Örlander 1999)}
 field_layer_competition.extinction: {status: sourced, value: 0.45, source: Beer-Lambert k for erectophile grass canopy (Nilsson & Örlander 1999)}
@@ -381,7 +381,7 @@ damage.uproot.mound_radius_factor: {status: TUNED, value: 1.0, against: 'no targ
 damage.uproot.mound_distance_factor: {status: TUNED, value: 1.0, against: 'no target, looks only'}
 damage.uproot.relief_half_life_years: {status: TUNED, value: 20.0, against: 'no target, looks only'}
 mortality.self_thinning_slope: {status: sourced, value: 1.5848, source: 'Lee, Siipilehto & Hynynen 2025, For. Ecol. Manage. 575:122374: silver birch plantations, Finland; abstract only', checked: abstract}
-mortality.sdi_max: {status: TUNED, value: 763.0, against: 'a high SDI of unmanaged natural stands at this slope: Aosaar et al. 2016 Table 3, 763; Martinik et al. 2018 Table 1, 731 and 743, and 766 in its age-18 row, so 763 is not the highest'}
+mortality.sdi_max: {status: TUNED, value: 763.0, against: 'the SDI of a natural stand at this slope: Aosaar et al. 2016 Table 3, 763, a naturally afforested stand; Martinik et al. 2018 Table 1, 731 and 743, and 766 in its age-18 row, so 763 is not the highest. Lee et al. 2025''s line is from planted forests; the maintainer kept 763 (Q33, 2026-11-09)'}
 mortality.onset: {status: sourced, value: 0.7, source: 'Lee et al. 2025: lower edge of the self-thinning zone, RD 0.7 at Dq up to 18.65 cm; abstract only; applied at all sizes', checked: abstract}
 mortality.rate_at_max: {status: TUNED, value: 0.247, against: 'least squares to the yearly stem losses of Aosaar et al. 2016 Table 3 and Martinik et al. 2018 "17 to 22", at their own RD; those are two different stands, and each stand''s own recount shows no loss'}
 mortality.shape: {status: TUNED, value: 1.0, against: 'as rate_at_max; the data do not separate shapes; this one holds a stand losing 3 % a year at RD 0.74, near Hagemeier and Leuschner 2019b'}
