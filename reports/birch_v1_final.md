@@ -20,7 +20,7 @@ The three reviews and the maintainer's open questions are on master:
 - Checker (a), sources and targets: `reports/reviews/2026-11-08_final_check_a_sources.md`;
 - Checker (b), numbers and consistency: `reports/reviews/2026-11-09_final_check_b_numbers.md`;
 - Checker (c), rules and completeness: `reports/reviews/2026-11-09_final_check_c_rules.md`;
-- QUESTIONS.md Q30-Q38.
+- QUESTIONS.md Q30-Q39.
 
 ## 1. What's in the model
 
@@ -137,6 +137,7 @@ How the hand-worked ones were done (all in `tools/v1_workings.py`):
 | Lone trees' longest hanging strands | longest 5.2 / 6.1 m; p90 at 60 4.1 m (3.9-4.3) | about 2-4 m in photos, judged by eye | p90 is at the top of the photo range |
 | No early deaths in young dense forests | none of the trees in a 9,000/ha plot die in their first 5 years | real young stands lose stems at this stage | Self-thinning and background death act at any size. But self-thinning can't start until stems past 1.3 m make the stand dense, the "suppressed" hazard needs a stem diameter, and the carbon rule kills none. Trees on the height curve stay under 1.3 m for the first years |
 | Young trees grow almost no roots | a 6-year tree has one root axis, 10 cm long; collar roots at 14 sum to 0.69, under Kalliokoski's lowest stand (0.86) | Laitakari 1934 p. 182: small trees (DBH under 5 cm) "may have only 2-3" main roots | The collar's room for roots is set by spacing tuned on 8-30 cm stumps (roots.py `_collar_waiting`). The fix comes after v1 |
+| Small trees' uprooting decided by rounding | root strength read at 0.01 kNm steps; an 8-year tree's directions read 0.00-0.02, giving uproot chances of 1.0 or 0.0006 | | roots.py:855-857 rounds what damage reads. Fixed after v1 (DECISIONS 98) |
 | Old trees die of carbon shortfall after 120 | crowns lost from below | no source gives a rate | Per-internode upkeep is untested at those ages |
 | Foliage in stands | single strands | clumped sprays | Option J (d278fd4) gave sprays (Q37) |
 
@@ -201,7 +202,7 @@ The reset asked for a birch matching real life, forests that spread like real on
   - this report corrected;
   - the workings script added;
   - KNOWN_ISSUES.md given a v1 section with the corrections;
-  - DECISIONS rows 93-97 added;
+  - DECISIONS rows 93-98 added;
   - docs/unreal.md and cpp_port_plan.md brought in line with row 91.
 
 ## 9. How this was checked
@@ -215,9 +216,11 @@ The reset asked for a birch matching real life, forests that spread like real on
   - All 225 output files are identical. Hashes are in `Cambium-int/out/bench/golden/`.
   - A new golden baseline is recorded after the last merge, since the damage-log and export fixes change some output files.
 - **Speed settings:** all six together give identical trees (2 seeds, stand trees to 30).
-- **Tests:**
-  - 391 tests. On d5f0ea3, 28 failed: the 4 known environment ones, plus 24 from the switch, now sorted on final-fixes-b.
-  - The 4 environment failures include the approved-targets-tag test and the scorecard test. They last passed on the PC at ae1a2e1. They're being run in a real clone on the server.
+- **Tests, at 64b3fc2 (merged as 85d147a):**
+  - 391 tests; 5 fail.
+  - One is a known model fault, kept failing on purpose (DECISIONS 98): small trees' root strength is rounded to 0.01 kNm (roots.py:855-857), so whether they uproot depends on rounding.
+  - The other 4 need the full project: the approved-targets-tag test, the scorecard test and two machine tests. They last passed on the PC at ae1a2e1 (2026-11-07) and were **not run for v1**. A full clone on the server was blocked by a safety check, and the PC is the maintainer's (Q39).
+  - A separate review checks that the 22 edited tests aren't loosened.
 - **The three checkers** ran on three versions: (a) at 359bea4, (b) at 8521164, (c) at 8fd4fdb. Each version after the last checked one changed labels, tests, the export and this report, not growth.
 
 ## 10. Corrections to earlier reports
@@ -237,14 +240,15 @@ Also in KNOWN_ISSUES.md:
 
 ## 11. Decisions
 
-DECISIONS.md rows 93-97:
+DECISIONS.md rows 93-98:
 - 93: the defaults switch;
 - 94: the forest fixes, adopted on 3 plots, then confirmed on 20 with light up 0.8 at 50;
 - 95: keeping the current crown over J;
 - 96: server-only work while the PC is the maintainer's;
-- 97: the targets.yaml citation fix without moving the tag.
+- 97: the targets.yaml citation fix without moving the tag;
+- 98: v1 ships with the small-tree root-strength rounding, young roots and early deaths as known faults, fixed together after v1 with one re-run.
 
-The maintainer's open questions: Q30-Q38.
+The maintainer's open questions: Q30-Q39.
 
 ## 12. Tried and dropped
 
