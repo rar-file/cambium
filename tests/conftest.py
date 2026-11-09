@@ -13,6 +13,8 @@ import pytest
 
 SLOW_FIXTURES = {"unreal_export"}
 SLOW = {
+    "tests/test_cambium.py::test_a_small_forest",
+    "tests/test_cambium.py::test_glb_export_every_level_and_stage",
     "tests/test_checkpoint.py::test_a_tree_saved_and_resumed_is_the_same_tree",
     "tests/test_crown_frame.py::test_a_full_crown_stops_making_leaves_and_its_surplus_is_paid_for",
     "tests/test_crown_frame.py::test_earned_a_full_crown_sheds_its_oldest_short_shoots",
