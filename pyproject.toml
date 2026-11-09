@@ -1,0 +1,92 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pycambium"
+version = "0.9.0"
+description = "A self-organising growth model of silver birch, crown and roots, year by year: statistics for science, meshes for games."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "rar-file" }]
+# The lower bound is NumPy 2.5 and SciPy 1.18 (requirements.lock), which need 3.12; the upper is usd-core,
+# which has no wheel for 3.15.  Results are only bit-identical to the project's own on 3.14.7 with the lock.
+requires-python = ">=3.12,<3.15"
+keywords = ["tree", "growth model", "silver birch", "procedural", "forest", "gltf", "usd", "functional-structural plant model"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Games/Entertainment",
+    "Topic :: Multimedia :: Graphics :: 3D Modeling",
+    "Topic :: Scientific/Engineering",
+]
+# Ranges for a library.  requirements.lock pins every version, for results the same to the bit.
+dependencies = [
+    "numpy>=2.0",
+    "scipy>=1.12",
+    "numba>=0.68.1,<0.69",
+    "trimesh>=4.0",
+    "usd-core>=24.0",
+    "pyyaml>=6.0",
+    "matplotlib>=3.8",
+    "pillow>=10.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+docs = ["mkdocs-material>=9.5"]
+
+[project.scripts]
+cambium = "cambium.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/rar-file/cambium"
+Documentation = "https://rar-file.github.io/cambium/"
+Source = "https://github.com/rar-file/cambium"
+Issues = "https://github.com/rar-file/cambium/issues"
+
+[tool.hatch.build]
+exclude = ["__pycache__/", "*.pyc"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["cambium", "treegen"]
+
+# What the engine reads at run time, copied into the package so an installed Cambium runs the same
+# files a checkout runs (cambium/_engine.py finds them).  The research tools, tests, reports and
+# reference photos stay in the repository.
+[tool.hatch.build.targets.wheel.force-include]
+"species" = "cambium/data/species"
+"environments" = "cambium/data/environments"
+"reference/targets.yaml" = "cambium/data/reference/targets.yaml"
+"reference/betula_pendula/labels.yaml" = "cambium/data/reference/betula_pendula/labels.yaml"
+"cli.py" = "cambium/_scripts/cli.py"
+"tools/game_export.py" = "cambium/_scripts/game_export.py"
+"tools/tree_list.py" = "cambium/_scripts/tree_list.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/cambium",
+    "/treegen",
+    "/species",
+    "/environments",
+    "/reference/targets.yaml",
+    "/reference/betula_pendula",
+    "/cli.py",
+    "/tools/game_export.py",
+    "/tools/tree_list.py",
+    "/requirements.txt",
+    "/requirements.lock",
+    "/README.md",
+    "/LICENSE",
+    "/CITATION.cff",
+]

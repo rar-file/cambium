@@ -1,0 +1,47 @@
+name: docs
+
+# Builds the site from docs/site with MkDocs Material on every change to it; publishes it to GitHub
+# Pages from main or master, once the repository is public.  Pages must be set to "GitHub Actions" in the repository's settings once.
+on:
+  push:
+    branches: [main, master]
+    paths: ["docs/site/**", "mkdocs.yml", ".github/workflows/docs.yml"]
+  pull_request:
+    paths: ["docs/site/**", "mkdocs.yml", ".github/workflows/docs.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+      - run: python -m pip install "mkdocs-material>=9.5,<10"
+      - run: mkdocs build --strict
+      - uses: actions/upload-pages-artifact@v4
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && !github.event.repository.private
+        with:
+          path: site
+
+  deploy:
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && !github.event.repository.private
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

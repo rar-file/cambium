@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://rar-file.github.io/cambium/
+    about: Install, growing trees and forests, game engines, and how real the model is.
+  - name: Security problem
+    url: https://github.com/rar-file/cambium/security/advisories/new
+    about: Report it privately, not as an issue (see SECURITY.md).

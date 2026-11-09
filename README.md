@@ -4,6 +4,32 @@ An engine-agnostic core that grows a tree year by year (crown and roots) and
 exports meshes plus the full growth history. The first species is silver birch
 (*Betula pendula*).
 
+## Cambium 0.9: install and grow
+
+The model is published as **Cambium**: install it with pip, then grow a tree from Python or the command
+line. `cambium` is a thin public layer over the `treegen` engine below; it gives the same tree as
+`cli.py` for the same seed. Python 3.12 to 3.14. Documentation: https://rar-file.github.io/cambium/
+
+```
+pip install pycambium
+cambium grow --species birch --seed 7 --years 60              # stats.json and stats.csv
+cambium grow --species birch --seed 7 --years 30 --export glb # game-ready .glb, three levels of detail
+cambium forest --species birch --seed 1 --years 40            # a forest plot
+cambium species
+```
+
+```python
+import cambium
+tree = cambium.grow(species="birch", seed=7, years=60)
+print(tree.height_m, tree.dbh_cm)
+tree.stats.to_csv("birch7.csv")
+tree.export("birch7", format="glb")    # or format="usd"
+```
+
+Licence: Apache-2.0 (`LICENSE`). Citing: `CITATION.cff`. Contributing: `docs/site/contributing.md`.
+
+## The research checkout
+
 ```
 python -m venv .venv && .venv\Scripts\pip install -r requirements.txt
 .venv\Scripts\python cli.py --species betula_pendula --seed 1 --years 60           # open-grown

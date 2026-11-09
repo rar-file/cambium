@@ -4,8 +4,15 @@ __pycache__/
 .pytest_cache/
 *.pyc
 
+# packaging and docs builds
+/dist/
+/build/
+*.egg-info/
+/site/
+
 # generated outputs (runs, renders, meshes, checkpoints)
 out/
+cambium_out/
 *.glb
 *.usdc
 *.usda
