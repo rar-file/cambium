@@ -475,6 +475,13 @@ shedding:
   # whose neighbours are copies of it all crosses the line at once: leaf area 94 m2, then 11 m2 the next year (seed 4 at 50-51).
   # TUNED, against leaf area and light, and year-to-year steadiness.  Test A: 0.5.
   shade_softness: 0.5
+  # TESTS for young crowns, off by default (null).  A limb (an axis off the stem) dies under its own line, softened as above:
+  # limb_light_line: its leaves' light, absolute.  0.21 is Hagemeier & Leuschner 2019b's lowest shade leaves in birch stands (median of 120-150 readings).
+  # limb_relative_light: its leaves' light as a share of the whole crown's.  TUNED, no source.
+  # limb_carbon_margin: its own carbon must cover this many times its upkeep (the rest pays its ring and shoots).  TUNED, no source.
+  limb_light_line: null
+  limb_relative_light: null
+  limb_carbon_margin: null
   # A branch also dies when the carbon its own leaves fix (alpha x light x
   # stomatal opening, after the root share) no longer pays the upkeep of its
   # wood (maintenance_per_internode per internode; Sprugel, Hinckley &

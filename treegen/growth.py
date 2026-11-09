@@ -813,6 +813,19 @@ class GrowthModel:
         cand = np.nonzero(alive & T.is_lateral[:n0] & ~stem & (T.birth[:n0] <= t - sh.min_branch_age))[0]
         ratio = QWtot[cand] / np.maximum(Wtot[cand], 1e-12)
         shed = cand[(Wtot[cand] <= 0.0) | self._falls(ratio, sh.light_per_leaf_threshold)]
+        limb_line = getattr(sh, "limb_light_line", None)
+        limb_rel = getattr(sh, "limb_relative_light", None)
+        if limb_line or limb_rel:
+            # TESTS, off by default (young crowns): a limb, an axis off the stem, has its own line.  limb_light_line: its leaves' light, absolute.
+            # limb_relative_light: as a share of the light the whole crown's leaves get, so a limb in the crown's own shade goes however bright the sky
+            is_limb = stem[np.maximum(T.parent[cand], 0)]
+            line = np.zeros(len(cand))
+            if limb_line:
+                line = np.maximum(line, float(limb_line))
+            if limb_rel and Wtot[0] > 0.0:
+                line = np.maximum(line, float(limb_rel) * float(QWtot[0] / Wtot[0]))
+            pick = cand[is_limb]
+            shed = np.union1d(shed, pick[self._falls(ratio[is_limb], line[is_limb])])
         # branch autonomy: limbs that could not pay their own upkeep last year
         starving = self._starving[(self._starving < n0)]
         starving = starving[alive[starving] & ~stem[starving] & (T.birth[starving] <= t - sh.min_branch_age)]
@@ -1092,7 +1105,13 @@ class GrowthModel:
             np.add.at(leaf_c, *self._bud_leaf_cost)
             upkeep_c = mu * T.basipetal(levels, ones_c) + T.basipetal(levels, leaf_c)
             br = np.nonzero(alive & T.is_lateral[:n0] & (T.birth[:n0] <= t - sh.min_branch_age))[0]
-            self._starving = np.union1d(self._starving, br[self._falls(own_c[br], upkeep_c[br])])
+            line_c = upkeep_c[br]
+            margin = getattr(sh, "limb_carbon_margin", None)
+            if margin:
+                # A TEST, off by default (young crowns): a limb must earn this many times its upkeep, the rest being what its ring and new shoots cost, or it goes
+                limb_br = np.isin(T.axis[:n0], np.fromiter(self.leader_axes, np.int64))[np.maximum(T.parent[br], 0)]
+                line_c = np.where(limb_br, float(margin) * line_c, line_c)
+            self._starving = np.union1d(self._starving, br[self._falls(own_c[br], line_c)])
         def flow(fm):
             vin = np.zeros(n0)
             vm = np.zeros(n0)
