@@ -1006,12 +1006,13 @@ class GrowthModel:
                 # they take turns on the two sides of a two-ranked shoot
                 Glat[lat_nodes[~on_stem & (T.phyllo[lat_nodes] % int(every) != 0)]] = 0.0
             if self._frame_earns():
-                # acrotony: on anything finer, only the bud at the end of last year's shoot can start a long shoot; the rest stay short shoots.
+                # acrotony: on anything finer, only the buds at the end of last year's shoot (crown_frame.twig_end_buds, 1 by default; option J is 2) can start a long shoot;
+                # the rest stay short shoots.
                 # So an axis ends in a fork, whatever the length of its shoot, not in a comb.  A bud counts from its own axis's tip
                 last = int(T.axis[:n0].max()) + 1
                 tip_ph = np.zeros(last, np.int64)
                 np.maximum.at(tip_ph, T.axis[:n0][alive], T.phyllo[:n0][alive].astype(np.int64))
-                Glat[lat_nodes[~on_stem & (tip_ph[T.axis[lat_nodes]] > T.phyllo[lat_nodes].astype(np.int64))]] = 0.0
+                Glat[lat_nodes[~on_stem & (tip_ph[T.axis[lat_nodes]] - T.phyllo[lat_nodes].astype(np.int64) >= int(getattr(sp.crown_frame, "twig_end_buds", 1) or 1))]] = 0.0
         self._hd = self._height_limit_plan(t, term_nodes, lat_nodes, Qterm, Qlat, 1.0 - stress) if self._height_limit_on() else None
         if self._hd is not None:
             self._leader_phi = float((phi_t if self._hd["is_tip"] else phi_l)[self._hd["bud"]])
@@ -1790,6 +1791,15 @@ class GrowthModel:
             light_share *= self._scaffold_vigour(self.year + 1, starts)
             # gravimorphism (Wareing & Nasr 1961, resource.gravimorphism): a bud on a shoot that hangs doesn't start a long shoot, so curtains are single strands, not brooms
             light_share[len(term_nodes):] *= np.maximum(0.05, 1.0 + float(sp.resource.gravimorphism) * T.dir[lat_nodes, 2])
+            if getattr(sp.crown_frame, "limb_share_by_leaf", False):
+                # A TEST, off by default (option J, d278fd4): each limb (and the stem) gets in all what its own leaves, by their light, would earn, however many
+                # buds it has; its buds split that
+                group = np.minimum(sc_, n0 - 1)
+                total = np.zeros(n0)
+                np.add.at(total, group, light_share)
+                earn = np.zeros(n0)
+                np.add.at(earn, group, np.minimum(q_bud, 1.0) * bud_leaf)
+                light_share = np.where(total[group] > 0.0, light_share * earn[group] / np.maximum(total[group], 1e-30), 0.0)
             share = light_share / max(float(light_share.sum()), 1e-12)
             self._frame_share = share
         thr = np.concatenate([np.full(len(term_nodes), float(getattr(bf, "min_tip_extension", 1.0))),
