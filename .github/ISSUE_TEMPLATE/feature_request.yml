@@ -1,0 +1,30 @@
+name: Feature request
+description: Something Cambium could do for your game, your research, or both.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What you need
+      description: The problem first, then the feature you have in mind. What would you do with it?
+    validations:
+      required: true
+  - type: dropdown
+    id: who
+    attributes:
+      label: Mainly for
+      options:
+        - games and real-time graphics
+        - science and forestry
+        - both
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do now instead
+  - type: textarea
+    id: sources
+    attributes:
+      label: Sources
+      description: If it changes how a tree grows, the published measurements it should match (publisher, PMC or author-repository links).

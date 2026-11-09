@@ -1,0 +1,58 @@
+name: New species or source
+description: Propose a species to add, or a published measurement a value or target should rest on.
+labels: [species-data]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Every value in a species file is labelled: **sourced** (a source gives it for this species), **DERIVED** (worked out from a source with a stated step), **TUNED** (set against a stated target) or **VERIFY** (not yet checked). A source moves a value up that list; targets are never loosened to make a run pass.
+
+        Please link the source where anyone can check it: the **publisher's page** (with DOI), **PubMed Central (PMC)**, or the **authors' own repository** (institutional archive, Zenodo, Dryad, GitHub). No copies of paywalled PDFs, please; a link and the page or table number are enough.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What this is
+      options:
+        - a new species
+        - a source for a value in an existing species file
+        - a new target (a published measurement the model should match)
+        - a correction to a value, label or target
+    validations:
+      required: true
+  - type: input
+    id: species
+    attributes:
+      label: Species
+      placeholder: Pinus sylvestris (Scots pine)
+    validations:
+      required: true
+  - type: textarea
+    id: values
+    attributes:
+      label: Values
+      description: For each value, its path in the species file (e.g. `shoot.internode_length`) or the target, the number with units, and where in the source it is (page, table, figure).
+    validations:
+      required: true
+  - type: textarea
+    id: sources
+    attributes:
+      label: Sources
+      description: Full reference and a link to the publisher (DOI), PMC or the authors' repository, one per line.
+      placeholder: |
+        Hynynen J. et al. 2010. Silviculture of birch in northern Europe. Forestry 83:103-119. https://doi.org/10.1093/forestry/cpp035
+    validations:
+      required: true
+  - type: textarea
+    id: conditions
+    attributes:
+      label: Where and how it was measured
+      description: Site, latitude, open-grown or in a stand, tree ages and sizes, sample size. Values only carry over to conditions like these.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I read the cited page or table myself, and it supports the number.
+          required: true
+        - label: Every source above is a publisher, PMC or author-repository link.
+          required: true

@@ -1,0 +1,46 @@
+cff-version: 1.2.0
+message: "If you use Cambium in your research, please cite it as below."
+type: software
+title: "Cambium: a self-organising growth model of silver birch, crown and roots"
+authors:
+  - alias: rar-file
+version: 0.9.0
+license: Apache-2.0
+repository-code: "https://github.com/rar-file/cambium"
+url: "https://rar-file.github.io/cambium/"
+abstract: >-
+  Cambium grows a tree year by year, crown and roots, from light, water and carbon: a self-organising
+  model after Palubicki et al. (2009) with hydraulics, root growth by competition for soil water, wood
+  mechanics and stand dynamics. The first species is silver birch (Betula pendula). It writes yearly
+  statistics for science and game-ready meshes for real-time engines.
+keywords:
+  - tree growth model
+  - functional-structural plant model
+  - silver birch
+  - Betula pendula
+  - procedural generation
+  - forest dynamics
+references:
+  - type: article
+    title: "Self-organizing tree models for image synthesis"
+    authors:
+      - family-names: Palubicki
+        given-names: Wojciech
+      - family-names: Horel
+        given-names: Kipp
+      - family-names: Longay
+        given-names: Steven
+      - family-names: Runions
+        given-names: Adam
+      - family-names: Lane
+        given-names: Brendan
+      - family-names: Měch
+        given-names: Radomír
+      - family-names: Prusinkiewicz
+        given-names: Przemyslaw
+    journal: "ACM Transactions on Graphics"
+    volume: 28
+    issue: 3
+    start: 58
+    year: 2009
+    doi: "10.1145/1531326.1531364"
