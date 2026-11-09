@@ -546,7 +546,15 @@ def test_unreal_roots_are_the_models_and_meet_the_tree(unreal_export):
         rt = st["roots"]
         line = rt["ground_line_m"]
         assert line < 0.0
+        # a roots file at every age.  A young tree whose roots all sit in the stem's foot (birch v1's 6-year tree: one 10 cm
+        # stub) has nothing below it; its file then holds a copy of the foot's faces wholly under the ground line
+        # (game_unreal.roots_file_part), and says so.  Nothing is moved out of the tree's own file.
+        assert set(rt["files"]) >= {"lod0", "lod1"}
         below = rt["files"]["lod0"]
+        for f in rt["files"].values():
+            assert f["triangles"] > 0
+            if f["from_foot"]:
+                assert f["max_z_m"] < line
         # the model's depth, less the ground line, as the roots sink by that going out
         assert below["triangles"] > 0 and below["min_z_m"] == pytest.approx(line - rt["deepest_m"], abs=0.1)
         near = st["seasons"]["summer"]["lod0"]

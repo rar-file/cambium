@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from cli import anchorage_numbers, build_meshes, reduced_threshold, skeleton, stream
-from treegen import export, mesh
+from treegen import checkpoint, export, mesh
 from treegen.environment import make_environment, make_soil
 from treegen.growth import GrowthModel, LAT_SPUR
 from treegen.params import load_environment, load_species
@@ -19,8 +19,9 @@ ENV = "sweden_open_field"
 YEARS = 18
 
 
-def new_model(seed: int, stand: bool = False) -> tuple[GrowthModel, object]:
+def new_model(seed: int, stand: bool = False, sets: tuple = ()) -> tuple[GrowthModel, object]:
     sp, _ = load_species(SPECIES)
+    checkpoint.set_values(sp, list(sets))
     env, _ = load_environment(ENV)
     return GrowthModel(sp, make_environment(env), seed, stand=stand, soil=make_soil(env)), sp
 
@@ -106,10 +107,13 @@ def test_pipe_model_at_every_junction(grown):
     assert (m._r_pipe[T.parent[kids]] >= m._r_pipe[kids] - 1e-12).all()
 
 
-def test_root_pipes_continue_the_stem(grown):
+def test_root_pipes_continue_the_stem():
     """The stem's pipes continue into the roots: collar radius = stem base,
-    and the root pipe sums hold at every root junction."""
-    m = grown[0]
+    and the root pipe sums hold at every root junction.  That's the free rule, with
+    roots.paid off; on (the default since birch v1) the collar is the real stump,
+    paid ring by ring and wider than the stem's wood (tests/test_roots_paid.py)."""
+    m, _ = new_model(7, sets=("roots.paid.enabled=false",))
+    m.run(YEARS)
     R = m.roots.tree
     n = R.n
     alive = R.death[:n] < 0

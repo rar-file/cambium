@@ -32,6 +32,59 @@ def make_plot(sp, seed=1, mode="natural", lean=False, n_final=1):
     return Plot(sp, cli.make_environment(env_p), lambda: cli.make_soil(env_p), n_final, seed, mode, lean=lean)
 
 
+# The 48 values birch v1 (d5f0ea3) changed, as they were before it: for a test that needs the old model's young trees.
+BEFORE_V1 = [
+    "resource.reiteration.setpoint_angle_deg=0",
+    "bud_fate.long_shoot_threshold=3.0",
+    "bud_fate.density_control.enabled=false",
+    "bud_fate.density_control.af_zero=3.2",
+    "bud_fate.density_control.after_growth=false",
+    "bud_fate.short_shoot_light=0.3",
+    "bud_fate.short_shoot_survival_light=0.21",
+    "shedding.light_per_leaf_threshold=0.21",
+    "shedding.shade_softness=null",
+    "mechanics.pendulous_radius=0.006",
+    "mechanics.pendulous_radius_limb=null",
+    "pipe_model.branch_sapwood_senescence=null",
+    "pipe_model.branch_sapwood_thick_m=null",
+    "pipe_model.heartwood_by_own_foliage=false",
+    "pipe_model.stem_theory.wind_speed_m_s=12.0",
+    "geometry.root_flare_min_share=0.0",
+    "damage.enabled=false",
+    "damage.old_age.enabled=false",
+    "damage.wind.enabled=false",
+    "damage.snow.enabled=false",
+    "plot.height_follows_dominants=false",
+    "mortality.vigour.relative_size_slope=null",
+    "stats.limbs_on_leader=false",
+    "roots.lateral_setpoint_deg=97",
+    "roots.lateral_gravitropism_per_m=1.5",
+    "roots.paid.enabled=false",
+    "height_driver.enabled=false",
+    "height_driver.ring_share_max=null",
+    "height_driver.open_grown_share=null",
+    "crown_frame.enabled=false",
+    "crown_frame.stem_cm_per_height_m=1.9",
+    "crown_frame.spacing_overlap=0.85",
+    "crown_frame.peak_depth=0.9",
+    "crown_frame.base_share=0.8",
+    "crown_frame.profile_power=0.6",
+    "crown_frame.reach_scatter=0.1",
+    "crown_frame.limb_shoot_floor_m=0.3",
+    "crown_frame.twig_shoot_max_m=0.4",
+    "crown_frame.open_lai_max=null",
+    "crown_frame.surplus_to_stem=0.1",
+    "crown_frame.earned=false",
+    "crown_frame.limb_sag_deg=null",
+    "speed.compiled_carbon=false",
+    "speed.compiled_mechanics=false",
+    "speed.light_layers=false",
+    "speed.keep_soil_grids=false",
+    "speed.quick_solve=false",
+    "speed.quick_levels=false",
+]
+
+
 def mortality(lx=50.0, ly=50.0, **values):
     sp = species()
     for k, v in values.items():
@@ -279,7 +332,8 @@ def test_damage_takes_over_old_age():
     n = 5
     hz = plot.mort.hazards(np.zeros((n, 2)), np.full(n, 20.0), np.full(n, 1.0), np.full(n, 200.0), 200.0)
     assert (hz["old age"] == 0.0).all()
-    assert make_plot(species("mortality.enabled=true")).mort.old_age_elsewhere is False
+    # damage is on by default since birch v1; switched off, old age is the mortality block's own
+    assert make_plot(species("mortality.enabled=true", "damage.enabled=false")).mort.old_age_elsewhere is False
 
 
 def test_the_final_plots_never_read_the_corrected_old_age(monkeypatch):
@@ -371,7 +425,10 @@ def test_a_plot_spreads_recruits_from_its_patch():
     sp = species("plot.natural_start.enabled=true", "plot.natural_start.stems_per_ha=3000", "plot.natural_start.side_x_m=60",
                  "plot.natural_start.side_y_m=6", "plot.natural_start.patch_x_m=6", "plot.stand_measures=true",
                  "mortality.enabled=true", "regeneration.spread.enabled=true", "regeneration.maturity_years=2",
-                 "regeneration.spread.seed_min_dbh_wood_cm=null", "regeneration.spread.max_recruits_per_year=5")
+                 "regeneration.spread.seed_min_dbh_wood_cm=null", "regeneration.spread.max_recruits_per_year=5",
+                 # seed goes with a tree's DBH, and on the height curve (on by default since birch v1) no tree passes 1.3 m in
+                 # these 4 years (0.88 m at most, node_fb_dg_plots); this test is about the spread, so its trees grow as before
+                 "height_driver.enabled=false")
     plot = make_plot(sp, lean=True)
     plot.enable_regeneration()
     for _ in range(4):
@@ -428,7 +485,9 @@ def test_the_fast_spread_estimate_runs_on_the_models_own_rules(tmp_path):
 
 def test_a_plot_year_as_a_plain_tree_list(tmp_path):
     import tree_list
-    sp = species("plot.natural_start.enabled=true", "plot.natural_start.stems_per_ha=9000", "plot.natural_start.area_m2=20",
+    # this test needs trees that died: under birch v1's defaults none of these 18 does in 5 years (node_fb_dg_treelist; it takes the
+    # old height and the old bud settings together), so it grows the model as it was
+    sp = species(*BEFORE_V1, "plot.natural_start.enabled=true", "plot.natural_start.stems_per_ha=9000", "plot.natural_start.area_m2=20",
                  "mortality.enabled=true", "plot.stand_measures=true")
     plot = make_plot(sp, lean=True)
     for _ in range(5):
@@ -486,7 +545,8 @@ def test_shade_trial_field_scales_light():
 
 def test_a_slow_dominant_is_not_taken_for_a_suppressed_tree():
     m = mortality()
-    assert m.p.vigour.relative_size_slope is None
+    assert m.p.vigour.relative_size_slope == 3.263      # the default since birch v1; null before
+    m.p.vigour.relative_size_slope = None
     xy = np.array([[0.0, 0.0], [20.0, 20.0], [-20.0, 10.0]])
     d, rings, age = np.array([10.0, 30.0, 20.0]), np.zeros(3), np.full(3, 100.0)
     off = m.hazards(xy, d, rings, age, 100.0)["suppressed"]
@@ -502,7 +562,7 @@ def test_a_slow_dominant_is_not_taken_for_a_suppressed_tree():
 def test_plot_heights_follow_the_dominants():
     items = ["plot.natural_start.enabled=true", "plot.natural_start.stems_per_ha=6000", "plot.natural_start.area_m2=25",
              "mortality.enabled=true", "plot.stand_measures=true"]
-    plain = make_plot(species(*items), lean=True)
+    plain = make_plot(species(*items, "plot.height_follows_dominants=false"), lean=True)      # on by default since birch v1
     assert plain._hd_own is None and all(plain.trees[k].sp.height_driver is plain.species.height_driver for k in plain.alive)
     sp = species(*items, "plot.height_follows_dominants=true")
     ref0 = float(sp.height_driver.reference_alpha)

@@ -35,11 +35,13 @@ def limbs_of(model):
 
 
 def test_off_by_default():
+    """Named when the frame was off by default.  Since birch v1 (2026-11-08) it's on, and all of a full crown's surplus goes on
+    the stem, up to the stem cap: without the cap, all of it on the stem ran to 114 cm."""
     sp, _ = load_species("betula_pendula")
-    assert sp.crown_frame.enabled is False
-    assert sp.crown_frame.surplus_to_stem < 1.0     # the rest of a full crown's surplus is lost; all on the stem ran to 114 cm
+    assert sp.crown_frame.enabled is True
+    assert sp.crown_frame.surplus_to_stem == 1.0 and float(sp.crown_frame.stem_cm_per_height_m) > 0.0
     # and with the height limit off it stays off, whatever its own switch says
-    model = grow(3, ["crown_frame.enabled=true"])
+    model = grow(3, ["crown_frame.enabled=true", "height_driver.enabled=false"])
     assert not model._frame_on()
     assert "_frame_named" not in model.__dict__
 
@@ -56,7 +58,7 @@ def test_only_named_buds_start_limbs_and_their_angles_are_the_drawn_ones():
 
 
 def test_fewer_limbs_than_without_the_frame():
-    sets = [s for s in ON if not s.startswith("crown_frame")]
+    sets = [s for s in ON if not s.startswith("crown_frame")] + ["crown_frame.enabled=false"]     # on by default since birch v1
     assert limbs_of(grow(18, ON)).size < limbs_of(grow(18, sets)).size
 
 
@@ -153,9 +155,10 @@ EARNED = ON + ["crown_frame.earned=true", "mechanics.pendulous_radius=0.012", "m
 
 
 def test_earned_off_by_default():
+    """Named when earned was off by default; on since birch v1 (2026-11-08).  Switched off, it's off."""
     sp, _ = load_species("betula_pendula")
-    assert sp.crown_frame.earned is False
-    model = grow(6, ON)
+    assert sp.crown_frame.earned is True
+    model = grow(6, ON + ["crown_frame.earned=false"])
     assert not model._frame_earns()
 
 
@@ -220,7 +223,8 @@ def test_earned_a_limb_behind_its_neighbours_has_less_supply():
 
 
 def test_earned_a_full_crown_sheds_its_oldest_short_shoots():
-    cap = ["crown_frame.crown_lai_max=2.0", "crown_frame.full_crown_spur_years=3"]
+    # an open tree has its own limit since birch v1 (open_lai_max 5); null hands it back to crown_lai_max, which this test sets
+    cap = ["crown_frame.crown_lai_max=2.0", "crown_frame.full_crown_spur_years=3", "crown_frame.open_lai_max=null"]
     model = grow(20, EARNED + cap, stand=False)
     T = model.tree
     assert model._frame_crown_full
@@ -235,7 +239,8 @@ def test_earned_on_a_tree_that_forks_one_limb_goes_up_as_a_second_top():
     assert tops.size == 1
     T = model.tree
     nodes = np.nonzero((T.axis[: T.n] == tops[0]) & (T.death[: T.n] < 0))[0]
-    assert np.degrees(model._frame_setpoints()[tops[0]]) == float(model.sp.resource.reiteration.setpoint_angle_deg)
+    # degrees(radians(x)) comes back exactly for the old 20 but not for v1's 12 (12.000000000000002)
+    assert abs(np.degrees(model._frame_setpoints()[tops[0]]) - float(model.sp.resource.reiteration.setpoint_angle_deg)) < 1e-9
     assert float(T.pos[nodes, 2].max()) > float(T.pos[T.parent[nodes[0]], 2]) + 1.0
 
 
@@ -251,14 +256,17 @@ def test_earned_a_browsed_stem_has_no_sharp_crook():
 
 
 def test_thick_limbs_sapwood_turns_over_more_slowly():
-    sets = ON + ["pipe_model.branch_sapwood_senescence=0.3", "pipe_model.branch_sapwood_thick_m=0.01"]
+    # the line between thin and thick at 5 mm: with birch v1's defaults no limb of this 16-year open tree reaches 1 cm
+    # (6.1 mm at most, node_fb_dg_limbs), where the old defaults' bigger tree had some
+    thick_m = 0.005
+    sets = ON + ["pipe_model.branch_sapwood_senescence=0.3", f"pipe_model.branch_sapwood_thick_m={thick_m}"]
     model = grow(16, sets, stand=False)
     T = model.tree
     n = T.n
     on = np.isin(T.axis[:n], np.fromiter(model.leader_axes, np.int64))
     loss = model._sapwood_loss(n)
-    thin = ~on & (T.radius[:n] <= 0.01) & (T.death[:n] < 0)
-    thick = ~on & (T.radius[:n] > 0.01) & (T.death[:n] < 0)
+    thin = ~on & (T.radius[:n] <= thick_m) & (T.death[:n] < 0)
+    thick = ~on & (T.radius[:n] > thick_m) & (T.death[:n] < 0)
     assert thin.any() and thick.any()
     assert np.allclose(loss[thin], 0.3) and (loss[thick] < 0.3).all()
     assert np.allclose(loss[on], float(model.sp.pipe_model.sapwood_senescence_per_year))
@@ -266,13 +274,14 @@ def test_thick_limbs_sapwood_turns_over_more_slowly():
 
 def test_open_grown_share_leaves_a_stand_tree_bit_identical():
     """It's for trees with no neighbours: a stand tree grown with it is the same tree, node for node."""
-    off = grow(14, EARNED)
+    none = ["height_driver.open_grown_share=null"]          # 0.8 by default since birch v1
+    off = grow(14, EARNED + none)
     on = grow(14, EARNED + ["height_driver.open_grown_share=0.8"])
     assert off.tree.n == on.tree.n
     assert (off.tree.pos[: off.tree.n] == on.tree.pos[: on.tree.n]).all()
     assert (off.tree.radius[: off.tree.n] == on.tree.radius[: on.tree.n]).all()
     # and an open tree comes out shorter, by about that share of the curve's height
-    open_off = float(grow(20, EARNED, stand=False).stats[-1]["height_m"])
+    open_off = float(grow(20, EARNED + none, stand=False).stats[-1]["height_m"])
     open_on = float(grow(20, EARNED + ["height_driver.open_grown_share=0.8"], stand=False).stats[-1]["height_m"])
     assert 0.75 * open_off < open_on < 0.9 * open_off
 
@@ -324,7 +333,7 @@ def test_earned_limb_sag_makes_a_limb_low_at_the_stem_and_rising_at_its_end():
             out_young.append(lean[nodes.size // 2: 3 * nodes.size // 4].mean())
         return float(np.mean(out_old)), float(np.mean(out_young))
 
-    straight_old, straight_young = lean_of_old_and_young(grow(30, EARNED))
+    straight_old, straight_young = lean_of_old_and_young(grow(30, EARNED + ["crown_frame.limb_sag_deg=null"]))     # 45 by default since birch v1
     sag_old, sag_young = lean_of_old_and_young(grow(30, EARNED + ["crown_frame.limb_sag_deg=45"]))
     assert sag_old - sag_young > straight_old - straight_young
 

@@ -767,7 +767,7 @@ pipe_model:
     streamlining_min_wind_m_s: 10.0
     streamlining_max_wind_m_s: 20.0
     deflection_loading_factor: 1.136
-  # Stem theory (phase 37), off by default (stage 0).
+  # Stem theory (phase 37): stage 2 by default; stage 0 turns it off.
   # stage 1 ("a"): plain pipe model - huber_path_exponent and
   # huber_radius_exponent are not used (c = 0); below the live crown base the
   # conducting sapwood is that of the crown base, A_s(z) = A_s(H_c)
@@ -1532,8 +1532,8 @@ roots:
     far_d_cm_per_m: 0.35
     far_d_exponent: 0.564
     # At the collar a root's pull in the Borchert-Honda split goes as its size to this power, so no root runs away.
-    # TUNED against Laitakari 1934 p. 185: 7-12 dominant roots, thickest 68-87 % of DBH, means for strong- and
-    # weak-rooted trees, the diameters measured the horizontal (narrow) way;
+    # TUNED against Laitakari 1934: 7-12 dominant roots (p. 182); the thickest 68-87 % of DBH, means for strong- and
+    # weak-rooted trees, its base diameter measured the horizontal (narrow) way (p. 185);
     # Kalliokoski Table 3: mean 5.0, SD 2.9 cm at a 30 cm stump.
     collar_evenness: 0.9
     # Length over which a root's near-collar widening fades, per stump diameter.  TUNED against Kalliokoski Table 7's
@@ -1546,10 +1546,10 @@ roots:
     # age 10, 0.89 over 1.35 Mg/ha.  (Varik 2014's 32-year stand: about 0.6.)
     fine_root_turnover_per_year: 0.66
     # Spacing of the taproot's nodes (m), one possible root each.  TUNED: 40 down to taproot_max_depth, more than the
-    # 11-28 roots at the collar in Kalliokoski Table 1, so room round the stump decides how many start, not this.
+    # 11-28 roots at the collar in Kalliokoski Table 3, so room round the stump decides how many start, not this.
     collar_node_m: 0.01
     # A new root starts at the collar only while there are fewer than the stump's girth over this (m).  TUNED against
-    # Kalliokoski Table 1: 11, 20, 25, 28, 16 roots at stumps of 8.1, 16.1, 30.0, 26.4, 19.1 cm: 2.3-3.8 cm of girth per root.
+    # Kalliokoski Table 3: 11, 20, 25, 28, 16 roots, at stumps of 8.1, 16.1, 30.0, 26.4, 19.1 cm (Table 1): 2.3-3.8 cm of girth per root.
     collar_spacing_m: 0.035
     # A collar root's primordium lasts this long unused (years): roots keep starting as the stump grows.  VERIFY: a
     # guess, set against nothing.
@@ -1958,7 +1958,7 @@ appearance:
     game.unreal.roots.surface_min_radius_m: "TUNED: a root never this thick, or surface_min_radius_share of the collar, stays in the below-ground mesh."
     game.unreal.roots.surface_min_radius_share: "TUNED: as above."
     game.unreal.roots.sink_length_radii: "TUNED: by eye. How fast, in collar radii, a root's height goes from where the model has it at the stem to its depth under the ground line; the game's own flare sinks its roots along their 1-2.3 m."
-    game.unreal.roots.paid_surface_min_radius_share: "TUNED: by eye, with roots.paid only. A root shows if its base is at least this share of the stem foot's radius; Laitakari 1934 p. 185 has 7-12 dominant roots (means for strong- and weak-rooted trees), and the game's own flare 5-7."
+    game.unreal.roots.paid_surface_min_radius_share: "TUNED: by eye, with roots.paid only. A root shows if its base is at least this share of the stem foot's radius; Laitakari 1934 p. 182 has 7-12 dominant roots, and the game's own flare 5-7."
     game.unreal.roots.paid_sink_length_radii: "TUNED: by eye, with roots.paid only. As sink_length_radii, for the thick roots' longer run: a look against the game's own flare (its author's estimate from pine and spruce photos, not birch data) and birch-data/summer_reference/Arnhem-Delhuyzen."
     game.unreal.roots.paid_bury_per_sink_length: "TUNED: by eye, with roots.paid only. A root goes under gradually, not as a rod lying on the soil; no measurement of this was found."
     game.unreal.roots.paid_ground_line_radii: "TUNED: by eye, with roots.paid only. As ground_line_radii. The thick roots leave the stump 10-25 cm down in the model, so this decides how many of them break the ground."

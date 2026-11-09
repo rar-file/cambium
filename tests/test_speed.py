@@ -252,7 +252,10 @@ def test_nothing_the_compiled_code_copies_has_changed(what):
 # about as long as the tree.  If this fails: does the new name hold node numbers?  Then compact() must renumber it, or dropping dead
 # nodes breaks it.  Add it here once that's settled.
 NODE_STATE_CHECKED = {"_established", "_limb_draw", "_r_last", "_r_pipe", "_psi", "_stem_pipe_prev", "_starving", "spur_rec", "reit", "_relay_buds", "_relay_first",
-                      "_frame_named", "_frame_reach", "_frame_gsa", "_frame_axis_reach", "_frame_la_tot", "_frame_fork_of", "_frame_fork_buds", "_frame_la", "_frame_vig", "_frame_limb_reach", "keyframes", "radius_history", "_bud_q", "_bud_leaf_cost", "_ring", "_clone_angle"}
+                      "_frame_named", "_frame_reach", "_frame_gsa", "_frame_axis_reach", "_frame_la_tot", "_frame_fork_of", "_frame_fork_buds", "_frame_la", "_frame_vig", "_frame_limb_reach", "keyframes", "radius_history", "_bud_q", "_bud_leaf_cost", "_ring", "_clone_angle",
+                      # crown_frame.earned's bud shares (on by default since birch v1): one value per bud of this year's list, no node
+                      # numbers; _growth_factor sets it to None, refills it, and step() reads it straight after, so no year reads another's
+                      "_frame_share"}
 
 
 def test_no_new_state_might_hold_node_numbers():

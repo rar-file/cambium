@@ -37,9 +37,15 @@ def mean_tree(sp, **k) -> TreeState:
 
 # -- off by default ------------------------------------------------------------
 def test_everything_is_off_by_default_and_off_leaves_the_golden_hash_alone():
+    """Named when damage was off by default.  Since birch v1 (2026-11-08) old age, wind and snow are on; switched
+    off, they leave the golden hash alone and touch nothing."""
     from golden import strip_metadata
 
     s, _ = load_species("betula_pendula")
+    on = {k: v for k, v in option_values(s).items() if k.startswith("damage.")}
+    assert on["damage.enabled"] is on["damage.old_age.enabled"] is on["damage.wind.enabled"] is on["damage.snow.enabled"] is True
+    assert on["damage.log_snow_trees"] is False
+    s.damage.enabled = s.damage.old_age.enabled = s.damage.wind.enabled = s.damage.snow.enabled = False
     opts = {k: v for k, v in option_values(s).items() if k.startswith("damage.")}
     assert opts and all(v is False for v in opts.values())
     assert "damage.enabled" in opts
@@ -50,6 +56,7 @@ def test_everything_is_off_by_default_and_off_leaves_the_golden_hash_alone():
 
 def test_off_means_a_model_and_a_plot_are_not_touched():
     s, _ = load_species("betula_pendula")
+    s.damage.enabled = False                # on by default since birch v1
     m = SimpleNamespace(sp=s, stats=[{}], seed=1)
     assert damage.tree_year(m, 1) is None and not hasattr(m, "damage_log") and not hasattr(m, "_damage_rng")
     p = SimpleNamespace(species=s, seed=1)

@@ -414,6 +414,24 @@ def split_roots(md: meshlib.MeshData | None, cfg: dict, line: float, collar: flo
     return _face_subset(md, foot), _face_subset(md, surface), _face_subset(md, ~(foot | surface))
 
 
+def roots_file_part(below: meshlib.MeshData | None, foot: meshlib.MeshData | None, line: float,
+                    fallback: meshlib.MeshData | None = None) -> tuple:
+    """What a level's roots file holds: everything below ground.  A young tree whose few roots all sit in the stem's
+    foot has nothing there (under birch v1's defaults a 6-year tree's roots are one 10 cm stub, all of it within the
+    foot's reach below the ground line).  Then the file holds a copy of the foot's faces that lie wholly under the
+    ground line, which the tree's own file also draws, so the game finds a roots file at every age; under the
+    ground both are hidden.  Nothing is moved: the tree's file keeps its foot, and its lowest point, as they were.
+    A coarse level's foot may have no face wholly under the line; it then takes ``fallback``, the full level's stub.
+    Returns (part, from_foot)."""
+    if below is not None or foot is None:
+        return below, False
+    z = foot.vertices[foot.faces][..., 2]
+    stub = _face_subset(foot, z.max(1) < line)
+    if stub is None:
+        stub = fallback
+    return stub, stub is not None
+
+
 def stem_goes_down(skel, is_root: np.ndarray, line: float, cfg: dict):
     """The skeleton with the stem carried straight down to below the ground line.  In the model the
     stem runs on as the taproot, whose first half metre leans well out to one side.  That's buried
@@ -1163,7 +1181,7 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
     lods = {lod["name"]: lod for lod in look["game"]["lods"]}
     lod1 = next((v for v in lods.values() if v["kind"] == "reduced"), None)
     arrays1 = None
-    surface1, below1 = None, None
+    foot1, surface1, below1 = None, None, None
     if lod1 is not None and lod1.get("budget") is not None:
         rm = look["game"]["reduced_mesh"]
         settings1 = meshlib.MeshSettings(edge_target=rm["edge_target"], sides_allowed=tuple(rm["sides_allowed"]), ring_spacing_factor=rm["ring_spacing_factor"],
@@ -1197,17 +1215,24 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
     root_files = _bark_maps(maps, root_slot, root_bake)
     surface_a = {"full": root_arrays(look, wood, surface0, root_bake, root_birth, root_radius), "reduced": root_arrays(look, wood, surface1, root_bake, root_birth, root_radius)}
     root_files_out = {}
-    for lname, below_md in (("lod0", below0), ("lod1", below1)):
+    stub0 = None
+    for lname, below_md, foot_md in (("lod0", below0, foot0), ("lod1", below1, foot1)):
+        # with nothing below the foot, the foot's own faces under the ground line (roots_file_part): a file at every age
+        below_md, from_foot = roots_file_part(below_md, foot_md, line, stub0)
+        if from_foot and lname == "lod0":
+            stub0 = below_md
         arr = root_arrays(look, wood, below_md, root_bake, root_birth, root_radius)
         if arr is None:
             continue
         rname = f"{base_name}_roots" + ("" if lname == "lod0" else f"_{lname}")
         rpath = split / f"{rname}.gltf"
-        rglb = GameGLB(rpath, rname, {**meta, "age": age, "level": lname, "part": "everything below ground", "color0": COLOR0, "uv_layout": UV_LAYOUT})
+        part = "the stem foot's faces under the ground line, also in the tree's own file" if from_foot else "everything below ground"
+        rglb = GameGLB(rpath, rname, {**meta, "age": age, "level": lname, "part": part, "color0": COLOR0, "uv_layout": UV_LAYOUT})
         rglb.origin_z = origin_z
         _root_mesh(rglb, wood, arr, "roots_below_ground", maps.material(rglb, root_slot, root_files, CLAMP, REPEAT), root_birth, root_radius, phase, tile_m)
         info = rglb.write_gltf()
-        info.update(file=str(rpath.relative_to(out)).replace("\\", "/"), variant=rname, min_z_m=round(float(arr["V"][:, 2].min()), 3))
+        info.update(file=str(rpath.relative_to(out)).replace("\\", "/"), variant=rname, min_z_m=round(float(arr["V"][:, 2].min()), 3),
+                    max_z_m=round(float(arr["V"][:, 2].max()), 3), from_foot=from_foot)
         root_files_out[lname] = info
     # leaves
     blade0 = tx.leaf_blade(look, seed + 500)
