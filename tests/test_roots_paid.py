@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
 
@@ -103,11 +104,11 @@ def test_on_the_v1_defaults_the_collar_sums_to_the_stump():
 
 
 def test_a_small_stump_has_room_for_at_least_two_collar_roots():
-    """roots.paid.collar_roots_min (off by default, 2 when on): Laitakari 1934 p. 182, "Small trees (d1.3 < 5 cm) may have
-    only 2-3 such roots".  On the height curve a 6-year tree's stump allows 0-1 by its girth, and it had one 10 cm stub."""
+    """roots.paid.collar_roots_min (2, on since v1-young-roots2): Laitakari 1934 p. 182, "Small trees (d1.3 < 5 cm) may
+    have only 2-3 such roots".  On the height curve a 6-year tree's stump allows 0-1 by its girth."""
     sp, _ = load_species("betula_pendula")
-    assert sp.roots.paid.collar_roots_min is None
-    floor, girth = _model(True, seed=1, sets=("roots.paid.collar_roots_min=2",)), _model(True, seed=1)
+    assert sp.roots.paid.collar_roots_min == 2
+    floor, girth = _model(True, seed=1), _model(True, seed=1, sets=("roots.paid.collar_roots_min=null",))
     for _ in range(6):
         floor.step()
         girth.step()
@@ -117,6 +118,23 @@ def test_a_small_stump_has_room_for_at_least_two_collar_roots():
         return len(np.unique(R.axis[: R.n][R.death[: R.n] < 0]))
 
     assert axes(floor) > axes(girth)
+
+
+def test_a_young_taproot_grows_while_its_primordium_waits():
+    """roots.paid.tip_weight_apart (on since v1-young-roots2): the taproot's tip carries a collar primordium; waiting for
+    room, that primordium's 0 took the tip's share too, and the taproot stayed at its 10 cm radicle (node_yr2_dg1)."""
+    sp, _ = load_species("betula_pendula")
+    assert sp.roots.paid.tip_weight_apart is True and sp.roots.paid.widen_from_node_start is True
+    apart, one = _model(True, seed=4), _model(True, seed=4, sets=("roots.paid.tip_weight_apart=false", "roots.paid.collar_roots_min=null"))
+    for _ in range(4):
+        apart.step()
+        one.step()
+
+    def deepest(m):
+        R = m.roots.tree
+        return float(-R.pos[: R.n][R.death[: R.n] < 0, 2].min())
+
+    assert deepest(one) == pytest.approx(0.10, abs=0.01) and deepest(apart) > 0.2
 
 
 def test_no_carbon_no_rings():

@@ -224,7 +224,7 @@ def test_a_plot_is_the_same_with_the_settings_on(base):
 # edit at all.  If one fails: change the copy named in the message to match, run tools/speed_drift.py on the settings in use, and
 # only then put the new hash here.
 COPIED = {
-    "parts() in _growth_factor: fast.carbon_parts copies it. shoots() is shared, not copied": ("treegen/growth.py", "        def parts(lam):\n", '        if fast.on(sp, "compiled_carbon"):', "7595d988b0383b1e"),
+    "parts() in _growth_factor: fast.carbon_parts copies it. shoots() is shared, not copied": ("treegen/growth.py", "        def parts(lam):\n", '        if fast.on(sp, "compiled_carbon"):', "30de02621e5521f0"),
     "solve_for's bisection: fast.quick_bisect must reach its answer": ("treegen/growth.py", "                lo, hi = 0.0, 1.0\n                while parts(hi)", '            if lead_at is not None and getattr(sp.height_driver, "leaf_growth_max"', "5c50bb4dfe5d1226"),
     "bending's sub-steps: fast.bend_steps copies them": ("treegen/mechanics.py", "    # 1. bending under this year's added load", "    # 2. posture control", "e2a61dc6a1b05a89"),
     "_quat, _qrot: fast.bend_steps and fast.apply_rotation copy them": ("treegen/mechanics.py", "def _quat(", "def setpoint_directions(", "9a1d0817498d2f03"),
