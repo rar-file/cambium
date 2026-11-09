@@ -453,6 +453,7 @@ crown_frame.top_share: {status: VERIFY, value: 0.165, note: 'a model value: Lint
 crown_frame.length_per_reach: {status: VERIFY, value: 1.07, note: 'a model value over a second-hand line: Lintunen 2013 Fig. 5''s 1.54 m chord (LIGNUM output) over half of Hemery''s crown at 11 cm over bark (a 10 cm stem taken as wood, x 1.1, which the comment didn''t say); at 10 cm over bark it would be 1.14'}
 crown_frame.steep_limit: {status: VERIFY, value: 0.5, note: 'a guess, set against nothing (it said TUNED with no target)'}
 crown_frame.chase: {status: TUNED, value: 1.0, against: 'young leaf area for height, Konopka et al. 2023 Eq. 4, tuned with crown_frame.limb_shoot_floor_m 0.5 (DECISIONS 107); was 0.5, a guess'}
+crown_frame.limb_shoot_floor_m: {status: TUNED, value: 0.5, against: 'young leaf area for height, Konopka et al. 2023 Eq. 4, tuned with crown_frame.chase 1.0 (DECISIONS 107); was 0.2'}
 crown_frame.twig_shoot_max_m: {status: TUNED, value: 0.5, against: 'the look and leaf area in the open (the species file''s list of run-time settings, 23260bb). The old 0.4 was a guess, set against nothing'}
 crown_frame.limb_rivals: {status: VERIFY, value: 5, note: 'a guess, set against nothing (it said TUNED with no target)'}
 crown_frame.surplus_to_stem: {status: VERIFY, value: 1.0, note: 'a choice, not fitted: all of what a full crown cannot use goes on the stem, up to stem_cm_per_height_m, so a tree in the open doesn''t lose carbon it fixed while small (commit e277a9a); since birch v1. 0.1-0.4 were tuned against the open DBH band, which is not a target'}

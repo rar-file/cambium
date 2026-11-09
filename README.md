@@ -47,7 +47,7 @@ stand runs to `out/<seed>_stand/`.
 
 | path | role |
 |---|---|
-| `species/betula_pendula.yaml` | every species parameter, each with its source; estimates are marked `VERIFY` |
+| `species/betula_pendula.yaml` | every species parameter; each is labelled sourced, `TUNED` (with what it was tuned against), DERIVED or `VERIFY` (unchecked) in `reference/betula_pendula/labels.yaml`. About a fifth are sourced; height follows a published site-index curve by design |
 | `environments/sweden_open_field.yaml` | site: latitude, season, sky, diffuse fraction, and the soil (rootable depth field, moisture by depth, stones, bulk density) |
 | `treegen/growth.py` | yearly cycle: light, shedding, water, Borchert–Honda allocation, shoot growth, pipe model, mechanics |
 | `treegen/light.py` | shadow propagation, layer by layer in 2-D Fourier space; Beer–Lambert exposure; periodic stand cell |

@@ -1041,6 +1041,10 @@ plot:
   # vigour of that year's dominants, not over 1 (treegen/plot.py, Plot._height_reference).  The
   # dominants then follow the curve, and a single tree of vigour 1 is unchanged.
   height_follows_dominants: true
+  # A TEST, off by default (null), no source: the spacing that stops a limb's reach (crown_frame.spacing_overlap) and sets the wind's load
+  # counts only trees at least this share of the canopy top's height.  Null: every living tree counts, seedlings included, so in an old
+  # forest with regeneration a veteran's limbs stop at the seedlings' spacing (treegen/plot.py, Plot.step; review 2026-11-09, finding 6).
+  spacing_min_height_share: null
   # Output only, off by default: basal area over bark, top height, gap fraction
   # and new trees in the plot's yearly stats (tools/stand_table.py).  A gap: no
   # leaf above gap_above_m over a ground cell of gap_cell_m (Brokaw's hole in the
