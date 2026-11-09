@@ -173,7 +173,8 @@ def uprooting_moment_knm(state: TreeState, wind_from_deg: float, sp) -> float:
     known; without them Krisans' regression on stem volume alone."""
     a = state.anchorage or {}
     ctm = a.get("critical_turning_moment") or {}
-    by_dir = ctm.get("by_wind_dir_knm")
+    # unrounded when the roots give them (anchorage.moments_unrounded), else as printed
+    by_dir = ctm.get("by_wind_dir_knm_unrounded") or ctm.get("by_wind_dir_knm")
     if by_dir:
         key = min(by_dir, key=lambda d: abs((float(d) - wind_from_deg + 180.0) % 360.0 - 180.0))
         return float(by_dir[key])
