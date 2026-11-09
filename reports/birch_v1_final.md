@@ -127,6 +127,8 @@ How some of these were worked out:
 | Leaf density near the top | 0.19 / 0.22 | their fit's 1.97 | Untouched |
 | Double tops | 0 of 20 (strict) | 35 % (Zeltins, unopened) | Only an axis's end bud starts long shoots |
 | Lone trees' longest hanging strands | longest 5.2 / 6.1 m; p90 at 60 4.1 m (3.9-4.3) | about 2-4 m in photos, judged by eye | p90 is at the top of the photo range |
+| No early deaths in young dense forests | none of the trees in a 9,000/ha plot die in their first 5 years; mortality only acts on trees past 1.3 m, and the carbon rule kills none | real young stands lose stems at this stage | Trees on the height curve stay under 1.3 m for the first years |
+| Young trees grow almost no roots | a 6-year tree has one root axis, 10 cm long; collar roots at 14 sum to 0.69, under Kalliokoski's lowest stand (0.86) | Laitakari 1934 p. 182: small trees (DBH under 5 cm) "may have only 2-3" main roots | The collar's room for roots is set by spacing tuned on 8-30 cm stumps (roots.py `_collar_waiting`). The fix is after v1 |
 | Old trees die of carbon shortfall after 120 | crowns lost from below | no source gives a rate | Per-internode upkeep is untested at those ages |
 | Foliage in stands | single strands | clumped sprays | Option J (d278fd4) gave sprays (Q37) |
 
