@@ -32,14 +32,34 @@ def _row(id_: int, x: float, y: float, species: str, last: dict, bark) -> dict:
             "height_m": round(float(last["height_m"]), 3),
             "dbh_cm": None if wood is None else round(float(over_bark_cm(wood, bark)), 2),
             "crown_base_m": None if last.get("crown_base_height_m") is None else round(float(last["crown_base_height_m"]), 3),
-            "crown_width_m": round(float(last.get("crown_width_m") or 0.0), 3)}
+            "crown_width_m": round(float(last.get("crown_width_m") or 0.0), 3),
+            **{k: (None if last.get(k) is None else round(float(last[k]), 4)) for k in EXTRA}}
+
+
+# For checks on young trees (2026-11-09): leaf area and leaf dry mass, the stem's wood diameter at 5 cm (a stand-in for a stem-base
+# diameter), the lowest live branch, and the carbon fixed and turned down this year (sink_limited).  Null where a row doesn't carry them.
+EXTRA = ("leaf_area_m2", "leaf_dm_g", "d0_wood_cm", "lowest_live_branch_m", "carbon_fixed", "carbon_sink_limited")
+
+
+def _base_wood_cm(model, at_m: float = 0.05):
+    T = model.tree
+    trunk = T.trunk_chain(model.leader_axes)
+    z, r = T.pos[trunk, 2], T.radius[trunk]
+    if len(trunk) < 2 or z.max() < at_m:
+        return None
+    j = max(int((z >= at_m).argmax()), 1)
+    f = (at_m - z[j - 1]) / max(z[j] - z[j - 1], 1e-9)
+    return 200.0 * float(r[j - 1] + f * (r[j] - r[j - 1]))
 
 
 def last_year_of(model) -> dict:
     """What a list needs from a living tree's last yearly row."""
     s = model.stats[-1]
+    c = s.get("carbon") or {}
     return {"age_years": model.year, "height_m": s["height_m"], "dbh_cm": s.get("dbh_cm"),
-            "crown_base_height_m": s.get("crown_base_height_m"), "crown_width_m": s.get("crown_width_m")}
+            "crown_base_height_m": s.get("crown_base_height_m"), "crown_width_m": s.get("crown_width_m"),
+            "leaf_area_m2": s.get("leaf_area_m2"), "leaf_dm_g": c.get("leaf_dm_g"), "d0_wood_cm": _base_wood_cm(model),
+            "lowest_live_branch_m": s.get("lowest_live_branch_m"), "carbon_fixed": c.get("fixed"), "carbon_sink_limited": c.get("sink_limited")}
 
 
 def tree_list(plot, dead_years: int = 10, run: dict | None = None) -> dict:
