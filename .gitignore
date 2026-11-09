@@ -5,10 +5,10 @@ __pycache__/
 *.pyc
 
 # packaging and docs builds
-dist/
-build/
+/dist/
+/build/
 *.egg-info/
-site/
+/site/
 
 # generated outputs (runs, renders, meshes, checkpoints)
 out/
