@@ -684,6 +684,8 @@ def main():
                         help="Age to evaluate (repeatable); default 50 and 60 where the run reaches them")
     parser.add_argument("--ref", default=TAG,
                         help=f"git ref to read reference/targets.yaml from (default: the tag {TAG})")
+    parser.add_argument("--independent", action="store_true",
+                        help="with --ensemble: also print the reported rows of tools/independent_checks.py, which are outside the approved targets and never PASS/FAIL")
     args = parser.parse_args()
 
     targets = load_approved_targets(args.ref)
@@ -698,6 +700,10 @@ def main():
             header += f" NOT the approved tag {TAG} (commit {commit_of(TAG)}): results are a preview, not approved."
         header += f" Ensemble: {args.ensemble}, {len(runs)} runs."
         print(print_ensemble(evaluate_ensemble(targets, runs, ages), header))
+        if args.independent:
+            import independent_checks
+            print()
+            print(independent_checks.table(independent_checks.rows_for(args.ensemble), "Reported checks, outside the approved targets"))
         return
     if not args.paths:
         parser.error("give run paths or --ensemble")
