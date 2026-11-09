@@ -214,7 +214,7 @@ The reset asked for a birch matching real life, forests that spread like real on
 - **Defaults switch (golden proof):**
   - Golden runs recorded with the final settings set by hand on 8c2c496 (node_gold_v1pre), and as defaults on d5f0ea3 (node_gold_v1post).
   - All 225 output files are identical. Hashes are in `Cambium-int/out/bench/golden/`.
-  - A new golden baseline is recorded after the last merge, since the damage-log and export fixes change some output files.
+  - New golden baseline at 85d147a, after the last code merge (node_gold_v1final). It's identical to d5f0ea3's in all 225 files, so the later fixes (export roots file, example_tree, tests) changed no model output. The hashes are in `Cambium-int/out/bench/golden/node_gold_v1final`.
 - **Speed settings:** all six together give identical trees (2 seeds, stand trees to 30).
 - **Tests, at 64b3fc2 (merged as 85d147a):**
   - 392 tests; 6 fail.
