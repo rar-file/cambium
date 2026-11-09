@@ -422,6 +422,23 @@ def test_in_a_plot_the_dead_go_through_finish_and_what_happened_is_saved(sp):
     json.dumps(p.info)
 
 
+def test_a_saplings_root_strength_is_read_unrounded(sp):
+    """anchorage.moments_unrounded (on since v1-young-known): damage reads the moments as computed, not to 0.01 kNm,
+    where a sapling's few N m read as 0.00 or 0.01 by wind direction."""
+    assert sp.anchorage.moments_unrounded is True
+    ctm = {"by_wind_dir_knm": {"0": 0.0, "180": 0.01}, "by_wind_dir_knm_unrounded": {"0": 0.0031, "180": 0.0042}}
+    st = mean_tree(sp, anchorage={"critical_turning_moment": ctm})
+    assert damage.uprooting_moment_knm(st, 180.0, sp) == 0.0042 and damage.uprooting_moment_knm(st, 0.0, sp) == 0.0031
+    del ctm["by_wind_dir_knm_unrounded"]
+    assert damage.uprooting_moment_knm(st, 0.0, sp) == 0.0          # as printed, without it
+    # a grown sapling's own numbers: 4 significant figures printed, none of them 0
+    m = _grown(copy.deepcopy(sp), 8, 3)
+    got = damage.anchorage_of(m)["critical_turning_moment"]
+    exact = got["by_wind_dir_knm_unrounded"]
+    assert exact and all(v > 0.0 for v in exact.values())
+    assert all(got["by_wind_dir_knm"][k] == float(f"{v:.4g}") for k, v in exact.items())
+
+
 def test_the_log_holds_every_year_and_every_event_with_the_tree_s_size(sp):
     import json
 

@@ -1551,6 +1551,11 @@ roots:
     # A new root starts at the collar only while there are fewer than the stump's girth over this (m).  TUNED against
     # Kalliokoski Table 3: 11, 20, 25, 28, 16 roots, at stumps of 8.1, 16.1, 30.0, 26.4, 19.1 cm (Table 1): 2.3-3.8 cm of girth per root.
     collar_spacing_m: 0.035
+    # Room at the collar for at least this many roots, however thin the stump: the girth rule above, from stumps of 8-30 cm,
+    # allows 0-1 on a sapling's 1-2 cm, and a 6-year tree on the height curve had one 10 cm stub (node_fb_dg_roots).  Laitakari
+    # 1934 p. 182: "Small trees (d1.3 < 5 cm) may have only 2-3 such roots" (dominant main roots); the low end.  On
+    # (v1-young-known, 2026-11-09); null: the girth rule alone.
+    collar_roots_min: 2
     # A collar root's primordium lasts this long unused (years): roots keep starting as the stump grows.  VERIFY: a
     # guess, set against nothing.
     collar_primordium_lifespan: 200
@@ -1606,6 +1611,10 @@ anchorage:
   depth_factor_min: 0.5
   depth_factor_max: 1.2
   root_tension_share: 0.5
+  # On (v1-young-known, 2026-11-09): the critical turning moment printed to 4 significant figures, not 0.01 kNm, and
+  # treegen/damage.py reads it unrounded.  To 0.01 kNm a sapling's few N m read as 0.00 or 0.01 by wind direction, so
+  # whether a failing small tree uprooted or snapped went by the rounding (node_fb_dg_anchor).  A fix, not a value.
+  moments_unrounded: true
 
 
 # The height limit, on by default since birch v1 (2026-11-08): the approved site-index curve limits how much the leader may grow in a

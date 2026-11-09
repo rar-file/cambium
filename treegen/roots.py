@@ -713,7 +713,13 @@ class RootSystem:
         n = T.n
         lc = T.lat_child[:n]
         have = int(np.count_nonzero(collar[:n] & (lc >= 0) & (T.death[np.maximum(lc, 0)] < 0)))
-        room = max(int(math.pi * max(self.stump_d_m, 0.01) / float(self.p.paid.collar_spacing_m)) - have, 0)
+        room = int(math.pi * max(self.stump_d_m, 0.01) / float(self.p.paid.collar_spacing_m))
+        # roots.paid.collar_roots_min: room for at least this many on a small stump, where the girth rule allows 0-1
+        # ("Small trees (d1.3 < 5 cm) may have only 2-3 such roots", Laitakari 1934 p. 182).  null: the girth rule alone.
+        floor = getattr(self.p.paid, "collar_roots_min", None)
+        if floor:
+            room = max(room, int(floor))
+        room = max(room - have, 0)
         out[on[np.argsort(-q[on], kind="stable")[room:]]] = True
         return out
 
@@ -850,16 +856,26 @@ class RootSystem:
         share = float(ap.root_tension_share)
         f_asym = (1.0 - share) + share * tens / max(float(tens.mean()), 1e-12)
         m = float(creg) * stem_volume_m3 * f_depth * f_asym
-        return {
+        # anchorage.moments_unrounded: 4 significant figures for output, and the unrounded moments for damage to read; to
+        # 0.01 kNm a sapling's few N m read as 0.00 or 0.01, so whether it uprooted or snapped went by the rounding
+        exact = bool(getattr(ap, "moments_unrounded", False))
+
+        def rnd(v):
+            return float(f"{float(v):.4g}") if exact else round(float(v), 2)
+
+        out = {
             "method": "C_reg x stem volume (Krisans et al. 2022, silver birch) x rooting-depth factor x root asymmetry",
-            "mean_knm": round(float(m.mean()), 2),
-            "min_knm": round(float(m.min()), 2),
-            "by_wind_dir_knm": {f"{int(np.degrees(w))}": round(float(v), 2) for w, v in zip(dirs, m)},
+            "mean_knm": rnd(m.mean()),
+            "min_knm": rnd(m.min()),
+            "by_wind_dir_knm": {f"{int(np.degrees(w))}": rnd(v) for w, v in zip(dirs, m)},
             "stem_volume_m3": round(stem_volume_m3, 4),
             "rooting_depth_m": round(d_root, 3),
             "depth_factor": round(f_depth, 3),
             "asymmetry_factor_range": [round(float(f_asym.min()), 3), round(float(f_asym.max()), 3)],
         }
+        if exact:
+            out["by_wind_dir_knm_unrounded"] = {f"{int(np.degrees(w))}": float(v) for w, v in zip(dirs, m)}
+        return out
 
     def anchorage(self, ap, height_m: float, dbh_cm: float | None, stem_mass_kg: float,
                   stem_volume_m3: float = 0.0) -> dict:
