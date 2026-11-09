@@ -1188,18 +1188,19 @@ mortality:
   enabled: false
   # --- Self-thinning: RD = SDI / sdi_max, SDI = sum of (DBH over bark / 25 cm) ^
   # slope a hectare (Reineke's stand density index, summed tree by tree).
-  # Lee, Siipilehto & Hynynen 2025, For. Ecol. Manage. 575:122374 (abstract read, on
-  # research.fi and the Luke repository; full text not opened): -1.5848 fitted for silver
-  # birch plantations in Finland, against Reineke's -1.605.  Hynynen 1993 is paywalled.
+  # Lee, Siipilehto & Hynynen 2025, For. Ecol. Manage. 575:122374 (full text open in Luke's
+  # Jukuri, CC BY; read by the final check (a) of 2026-11-08): -1.5848 fitted for silver
+  # birch plantations in Finland, so planted forests, against Reineke's -1.605.  Hynynen
+  # 1993 is paywalled.
   self_thinning_slope: 1.5848
-  # TUNED (sdi_max): a high SDI of unmanaged natural stands on rich soils, at this slope:
-  # Aosaar et al. 2016 Table 3, 763 at age 14; Martinik et al. 2018 Table 1, Silva Fennica
-  # id 9985, 731 at 17 and 743 at 22, and 766 in its age-18 row, so 763 isn't the highest.
-  # Lee et al.'s own line could replace this: its full text is open (Jukuri, CC BY), and the
-  # final check (a) of 2026-11-08 read k1 11.9013, Nmax 898 at Dq 25 cm, for plantations;
-  # whether it should is a question for the maintainer.  The intercept
+  # TUNED (sdi_max): the SDI of a natural stand on rich soil, at this slope: Aosaar et al.
+  # 2016 Table 3, 763 at age 14, a naturally afforested stand.  Not the highest seen:
+  # Martinik et al. 2018 Table 1, Silva Fennica id 9985, gives 731 at 17, 743 at 22 and 766
+  # in its age-18 row.  Lee et al. 2025's own line (k1 11.9013, Nmax 898 at Dq 25 cm) is from
+  # planted forests, so it isn't used here; the maintainer kept 763 (Q33, 2026-11-09).  The intercept
   # varies with site index (Hynynen 1993, abstract).  Under it, not fitted: Hagemeier &
-  # Leuschner 2019b at 574 and 543, with their printed basal areas.
+  # Leuschner 2019b at 574 and 543, with their printed basal areas, which don't square with
+  # their own stem counts and mean DBH (Q32).
   sdi_max: 763.0
   # stems lost per stem and year = rate_at_max * ((RD - onset) / (1 - onset)) ^ shape.
   # onset: the lower edge of the self-thinning zone, RD 0.7 for silver birch at quadratic
@@ -1596,8 +1597,8 @@ anchorage:
   # means, not tree-level data). ESTIMATE from [K22]
   h_dbh2_coefficient_knm_per_m3: 31.0
   h_dbh2_coefficient_range: [25.0, 38.0]
-  # Critical turning moment, ForestGALES-style: an empirical regression of
-  # tree-pulling moments on stem size, M = C_reg x stem volume.  Silver birch
+  # Critical turning moment, ForestGALES-style: M = C_reg x stem volume, my line
+  # through two published averages, not a published regression.  Silver birch
   # pulled to uprooting [K22, Tables 1-2], site means: V 0.67 m3, 46.9 kN m;
   # V 1.43 m3, 154.3 kN m; least squares through the origin gives
   # C_reg = 101 kN m per m3 of stem.  Adjusted for the simulated rooting
