@@ -191,7 +191,9 @@ So the review's finding 1 overstated one part:
   - Requires the same height within 0.3 m, and a wider crown with more leaf area with fix C.
 - `test_plot_spacing_counts_every_tree_by_default_and_only_the_canopy_with_the_switch`.
 
-**Test run on the server** (`node_f5_tests`, `613f630`, `pytest -q`): 410 passed, 1 skipped, 4 failed.
+**Test runs on the server** (`pytest -q`), the same result both times: 410 passed, 1 skipped, 4 failed.
+- `node_f5_tests`, at `613f630`.
+- `node_f5_tests2`, at `f9121b7`, the branch with the tools and the scorecard flag.
 - The 4 are the known environment ones; the server's copy has no git tag and no `.python-version`:
   - `test_scorecard_runs`;
   - `test_birchs_targets_are_read_through_the_approved_tag`;
