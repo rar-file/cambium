@@ -217,10 +217,12 @@ The reset asked for a birch matching real life, forests that spread like real on
   - A new golden baseline is recorded after the last merge, since the damage-log and export fixes change some output files.
 - **Speed settings:** all six together give identical trees (2 seeds, stand trees to 30).
 - **Tests, at 64b3fc2 (merged as 85d147a):**
-  - 391 tests; 5 fail.
-  - One is a known model fault, kept failing on purpose (DECISIONS 98): small trees' root strength is rounded to 0.01 kNm (roots.py:855-857), so whether they uproot depends on rounding.
+  - 392 tests; 6 fail.
+  - Two are known model faults, kept failing on purpose (DECISIONS 98):
+    - small trees' root strength is rounded to 0.01 kNm (roots.py:855-857), so whether they uproot depends on rounding;
+    - on the shipped defaults the 14-year collar sums to 0.69, under the 0.70 floor (`test_on_the_v1_defaults_the_collar_sums_to_the_stump`, added after the test-edit review).
   - The other 4 need the full project: the approved-targets-tag test, the scorecard test and two machine tests. They last passed on the PC at ae1a2e1 (2026-11-07) and were **not run for v1**. A full clone on the server was blocked by a safety check, and the PC is the maintainer's (Q39).
-  - A separate review checks that the 22 edited tests aren't loosened.
+  - A separate review of the 23 changed tests, 2 helpers and 3 new tests since 359bea4 found none loosened (master: `reports/reviews/2026-11-09_test_edits_review.md`).
 - **The three checkers** ran on three versions: (a) at 359bea4, (b) at 8521164, (c) at 8fd4fdb. Each version after the last checked one changed labels, tests, the export and this report, not growth.
 
 ## 10. Corrections to earlier reports

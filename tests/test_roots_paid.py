@@ -90,6 +90,18 @@ def test_with_carbon_to_spare_the_collar_sums_to_the_stump():
     assert a["rel_sum_stump"] >= float(model.sp.roots.paid.rel_sum_d2) * 0.6
 
 
+def test_on_the_v1_defaults_the_collar_sums_to_the_stump():
+    """The same rule on the model as shipped (height curve on).  Fails on birch v1: the collar sums to 0.69, under
+    the floor, because young trees get room for too few collar roots (DECISIONS 98; fixed after v1 with the young-roots
+    floor).  Kept failing on purpose, not skipped."""
+    model = _model(True)
+    for _ in range(14):
+        model.step()
+    a = root_measure.architecture(model)
+    assert a["rel_sum_stump"] <= float(model.sp.roots.paid.rel_sum_d2) * 1.02
+    assert a["rel_sum_stump"] >= float(model.sp.roots.paid.rel_sum_d2) * 0.6
+
+
 def test_no_carbon_no_rings():
     """A root system that can't pay is thinner, and gets no free wood."""
     model = _model(True)
