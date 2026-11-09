@@ -6,7 +6,7 @@ name: tests
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, master]
   schedule:
     - cron: "23 2 * * *"
   workflow_dispatch:
