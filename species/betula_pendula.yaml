@@ -1557,6 +1557,14 @@ roots:
     # by default (null: the girth rule alone): on, the v1 collar sum at 14 fell from 0.69 to 0.574 and two tests failed
     # (node_vy_tests1), not yet understood.
     collar_roots_min: null
+    # A fix, not a value (v1-young-roots2): a node that is both a growing tip and a collar primordium keeps the two pulls
+    # apart (treegen/roots.py, step).  In one, a waiting primordium's 0 took the taproot tip's share as well, so a young
+    # tree's taproot stayed at its 10 cm radicle for 6 years with 0.4-25 segments of budget to spare (node_yr2_dg1).
+    tip_weight_apart: true
+    # A fix, not a value (v1-young-roots2): the collar widening fades from where a node starts, so the roots leaving the
+    # collar sum to rel_sum_d2 x the stump, as the rule says (treegen/roots.py, update_radii_paid).  From where a node
+    # ends, a 5 cm first node kept exp(-5 cm / fade) of it: 0.53 at a 6 cm stump, the collar sum's shortfall.
+    widen_from_node_start: true
     # A collar root's primordium lasts this long unused (years): roots keep starting as the stump grows.  VERIFY: a
     # guess, set against nothing.
     collar_primordium_lifespan: 200
