@@ -1553,9 +1553,10 @@ roots:
     collar_spacing_m: 0.035
     # Room at the collar for at least this many roots, however thin the stump: the girth rule above, from stumps of 8-30 cm,
     # allows 0-1 on a sapling's 1-2 cm, and a 6-year tree on the height curve had one 10 cm stub (node_fb_dg_roots).  Laitakari
-    # 1934 p. 182: "Small trees (d1.3 < 5 cm) may have only 2-3 such roots" (dominant main roots); the low end.  On
-    # (v1-young-known, 2026-11-09); null: the girth rule alone.
-    collar_roots_min: 2
+    # 1934 p. 182: "Small trees (d1.3 < 5 cm) may have only 2-3 such roots" (dominant main roots); 2, the low end.  Off
+    # by default (null: the girth rule alone): on, the v1 collar sum at 14 fell from 0.69 to 0.574 and two tests failed
+    # (node_vy_tests1), not yet understood.
+    collar_roots_min: null
     # A collar root's primordium lasts this long unused (years): roots keep starting as the stump grows.  VERIFY: a
     # guess, set against nothing.
     collar_primordium_lifespan: 200

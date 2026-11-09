@@ -103,11 +103,11 @@ def test_on_the_v1_defaults_the_collar_sums_to_the_stump():
 
 
 def test_a_small_stump_has_room_for_at_least_two_collar_roots():
-    """roots.paid.collar_roots_min (on since v1-young-known): Laitakari 1934 p. 182, "Small trees (d1.3 < 5 cm) may have
+    """roots.paid.collar_roots_min (off by default, 2 when on): Laitakari 1934 p. 182, "Small trees (d1.3 < 5 cm) may have
     only 2-3 such roots".  On the height curve a 6-year tree's stump allows 0-1 by its girth, and it had one 10 cm stub."""
     sp, _ = load_species("betula_pendula")
-    assert sp.roots.paid.collar_roots_min == 2
-    floor, girth = _model(True, seed=1), _model(True, seed=1, sets=("roots.paid.collar_roots_min=null",))
+    assert sp.roots.paid.collar_roots_min is None
+    floor, girth = _model(True, seed=1, sets=("roots.paid.collar_roots_min=2",)), _model(True, seed=1)
     for _ in range(6):
         floor.step()
         girth.step()
