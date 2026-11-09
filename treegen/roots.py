@@ -316,15 +316,21 @@ class RootSystem:
         wt = np.zeros(n0)
         wt[tips] = q_tip[tips] * np.where(self.kind[ax[tips]] == 0, tap_fade, 1.0)
         collar = self.kind[ax] == 0                # nodes on the taproot / root collar
-        wt[prim] = q_prim[prim] * np.where(collar[prim], float(p.collar_primordium_weight), float(p.primordium_weight))
+        # roots.paid.tip_weight_apart: a node that is both a growing tip and a primordium keeps the two pulls apart.  In
+        # one array the primordium's overwrote the tip's, and a waiting primordium's 0 took the tip's share too: the
+        # taproot's tip carries a collar primordium, so a young paid-root tree's taproot didn't grow until its stump had
+        # room for a root (node_yr2_dg1: 10 cm for 6 years, with 0.4-25 segments of budget).
+        apart = self._paid() and bool(getattr(p.paid, "tip_weight_apart", False))
+        wp = np.zeros(n0) if apart else wt
+        wp[prim] = q_prim[prim] * np.where(collar[prim], float(p.collar_primordium_weight), float(p.primordium_weight))
         waiting = None
         if self._paid():
             waiting = self._collar_waiting(prim, q_prim[prim], collar)
-            wt[prim[waiting]] = 0.0
-        Wtot = T.basipetal(levels, wt)
+            wp[prim[waiting]] = 0.0
+        Wtot = T.basipetal(levels, wt + wp if apart else wt)
         mc, lc = T.main_child[:n0], T.lat_child[:n0]
         Qm = np.where(mc >= 0, Wtot[np.maximum(mc, 0)], np.where(T.term[:n0] == 1, wt, 0.0))
-        Ql = np.where(lc >= 0, Wtot[np.maximum(lc, 0)], np.where(T.lat[:n0] == LAT_DORMANT, wt, 0.0))
+        Ql = np.where(lc >= 0, Wtot[np.maximum(lc, 0)], np.where(T.lat[:n0] == LAT_DORMANT, wp, 0.0))
         lam = np.where(lc >= 0, float(p.apical_control), float(p.apical_dominance))
         # once the taproot has stopped, the collar is no apex: its main
         # laterals share without a bias towards the deeper ones
@@ -765,7 +771,12 @@ class RootSystem:
         first = alive & T.is_lateral[:n] & on_collar[np.maximum(T.parent[:n], 0)]
         sum_far = float(far[first].sum()) + float(a_tip)
         widen = area_stump / max(sum_far, 1e-30)
-        want = far * (1.0 + (widen - 1.0) * np.exp(-d / fade)) if widen >= 1.0 else far * widen
+        # roots.paid.widen_from_node_start: the widening fades with the distance from the collar to where a node starts, so
+        # the nodes leaving the collar carry all of it and sum to rel_sum_d2 x the stump, as above.  Measured to where a node
+        # ends, a first node 5 cm long kept exp(-5 cm / fade) of it: 0.53 at a 6 cm stump (node_yr2_dg1), the collar sum's
+        # shortfall.
+        d_fade = d - np.where(alive & ~on_collar, T.length[:n], 0.0) if bool(getattr(cfg, "widen_from_node_start", False)) else d
+        want = far * (1.0 + (widen - 1.0) * np.exp(-d_fade / fade)) if widen >= 1.0 else far * widen
         # the stump: the taproot's chain carries what leaves it below each point
         here = np.zeros(n)
         np.add.at(here, T.parent[:n][first], want[first])

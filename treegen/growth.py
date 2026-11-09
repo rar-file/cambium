@@ -1851,6 +1851,11 @@ class GrowthModel:
                 grow[lead_at] = hd["v"] > 0.0
             return v, grow
 
+        # the rings' sums run over the living nodes only, in their order: summed over every node, the dead ones' zeros
+        # moved where numpy's pairwise sum cut its halves, so a run that drops its dead nodes (speed.drop_dead) parted
+        # from one that keeps them in the last bit (node_yr2_bits2, bits5: _ring_need first)
+        live_idx = np.nonzero(alive)[0]
+
         def parts(lam):
             v, grow = shoots(lam)
             vc = np.minimum(v, caps)
@@ -1876,8 +1881,8 @@ class GrowthModel:
                 if lead_at is not None:
                     # sapwood for the leaves comes first; the wind's thickening is what can wait
                     extra = np.maximum(a_wind - wood_keep - ring, 0.0)
-                    hd["sap_units"] = float((ring * L).sum()) / unit
-                    extra_units = float((extra * L).sum()) / unit
+                    hd["sap_units"] = float((ring * L)[live_idx].sum()) / unit
+                    extra_units = float((extra * L)[live_idx].sum()) / unit
                     hd["wind_units"] = extra_units
                     if ring_cap is not None:
                         room = max(ring_cap - hd["sap_units"], 0.0)
@@ -1886,7 +1891,7 @@ class GrowthModel:
                     ring = ring + extra
                 else:
                     ring = np.maximum(ring, a_wind - wood_keep)
-            return (shoot_vol + float((ring * L).sum())) / unit + leaf_units, ring
+            return (shoot_vol + float((ring * L)[live_idx].sum())) / unit + leaf_units, ring
 
         if fast.on(sp, "compiled_carbon"):
             parts = fast.parts_function(shoots, hd, lead_at, ahead, caps, full, per_met, early, lma, extra_per_node, starts, z_node, levels, alive, T.parent,

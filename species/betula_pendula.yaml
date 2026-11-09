@@ -1564,10 +1564,19 @@ roots:
     collar_spacing_m: 0.035
     # Room at the collar for at least this many roots, however thin the stump: the girth rule above, from stumps of 8-30 cm,
     # allows 0-1 on a sapling's 1-2 cm, and a 6-year tree on the height curve had one 10 cm stub (node_fb_dg_roots).  Laitakari
-    # 1934 p. 182: "Small trees (d1.3 < 5 cm) may have only 2-3 such roots" (dominant main roots); 2, the low end.  Off
-    # by default (null: the girth rule alone): on, the v1 collar sum at 14 fell from 0.69 to 0.574 and two tests failed
-    # (node_vy_tests1), not yet understood.
-    collar_roots_min: null
+    # 1934 p. 182: "Small trees (d1.3 < 5 cm) may have only 2-3 such roots" (dominant main roots); 2, the low end.  On
+    # (v1-young-roots2; null: the girth rule alone).  Alone it lowered the collar sum (0.574 at 14, node_vy_tests1): the
+    # early roots' bases missed the widening, which widen_from_node_start below fixes; with both and tip_weight_apart the
+    # sum is 1.14 at 14 and a 6-year tree has the taproot and 2 collar roots, 43 cm deep (node_yr2_dg3).
+    collar_roots_min: 2
+    # A fix, not a value (v1-young-roots2): a node that is both a growing tip and a collar primordium keeps the two pulls
+    # apart (treegen/roots.py, step).  In one, a waiting primordium's 0 took the taproot tip's share as well, so a young
+    # tree's taproot stayed at its 10 cm radicle for 6 years with 0.4-25 segments of budget to spare (node_yr2_dg1).
+    tip_weight_apart: true
+    # A fix, not a value (v1-young-roots2): the collar widening fades from where a node starts, so the roots leaving the
+    # collar sum to rel_sum_d2 x the stump, as the rule says (treegen/roots.py, update_radii_paid).  From where a node
+    # ends, a 5 cm first node kept exp(-5 cm / fade) of it: 0.53 at a 6 cm stump, the collar sum's shortfall.
+    widen_from_node_start: true
     # A collar root's primordium lasts this long unused (years): roots keep starting as the stump grows.  VERIFY: a
     # guess, set against nothing.
     collar_primordium_lifespan: 200
