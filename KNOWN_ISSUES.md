@@ -2125,7 +2125,7 @@ The Birch v1 campaign replaces round-by-round briefs; `CAMPAIGN.md` is where to 
 - **Height band:** T13 = 150/SIS (Elfving 2010 p. 56) replaces a fixed 4 years, with a stand-in for SIS. Plot top height is on a Naslund curve (Elfving p. 58; the curve is the maintainer's choice). At the approved tag the stand tree passes at 40 and 50 by 0.003 m and 0.03 m; at master it fails.
 - **Run outputs:** `subcanopy_diffuse_light_pct` per year; manifests fingerprint uncommitted code where git exists.
 - **Audit:** `reports/parameter_audit.csv`, 274 values, 71 looked at, 15 not supported by the page. Screen: 77 of 160 values within the noise at 5 seeds (`out/bench/node/screen5/`, `screen20/`).
-- **`light.woody_shade` looks like a double count** against `light.extinction_coefficient`: K_PAR comes from measured transmission against leaf-only LAI (`reports/hagemeier2019b_publisher_reading.md`). Not changed. For M2 and M3.
+- **`light.woody_shade` looks like a double count** against `light.extinction_coefficient`: K_PAR comes from measured transmission against leaf-only LAI (`reports/hagemeier2019b_publisher_reading.md`). Not changed. For M2 and M3. **Confirmed 2026-11-09** (Forests 10:925 read at the publisher): section 4.2 says K_PAR takes in "the area of twigs and branches in the radiation beam", so the model's wood shade counts the wood twice. Tested on branch v1-young-light.
 - **Open:** the Niemistö file in `birch-data` is the wrong paper; stands in three targets differ from the sources' (QUESTIONS.md Q13, Q15).
 
 ## Campaign M1: citations corrected, 2026-11-06

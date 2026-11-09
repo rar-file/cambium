@@ -375,10 +375,12 @@ light:
   # stems and branches: wood casts no shade of its own in the model (it would
   # be counted twice).  The model's ground light follows exp(-0.37 LAI)
   # within ~2 points (phase 20).
-  # VERIFY: light.woody_shade below is now on and adds wood shade to this k,
-  # which contradicts the lines above.  Whether it double-counts turns on how
-  # K_PAR was computed; Forests 10:925 could not be opened in M1c.  Forests
-  # 10:265 p. 5 confirms the LAI is leaves only.
+  # light.woody_shade below adds wood shade to this k, and so counts the wood
+  # twice.  Forests 10:925, read at the publisher (2026-11-09): K_PAR comes from
+  # its Eq. 1, overcast-sky PAR on the forest floor against litter-trap LAI
+  # (leaves only; sections 2.2-2.3), and section 4.2 says K_PAR takes in "the
+  # area of twigs and branches in the radiation beam".  Forests 10:265 p. 5
+  # also confirms the LAI is leaves only.  Not changed here.
   extinction_coefficient: 0.37
   # One-sided area of a silver-birch leaf (m^2): blades 3-7.5 cm long and
   # 1.5-6 cm wide (Flora of NSW; NC State Extension plant toolbox).  Current-
@@ -452,7 +454,8 @@ light:
   # DOI 10.1093/treephys/27.6.859; Chen et al. 1997, DOI 10.1029/97JD01107).
   # Enabled by default (physics, not a scenario setting).
   # VERIFY: in M1c no opened page gave 0.40 for wood, in any form (Granier and
-  # Barclay not reached; Duursma and Chen abstracts only).
+  # Barclay not reached; Duursma and Chen abstracts only).  And with K_PAR above
+  # it counts the wood twice (Hagemeier & Leuschner 2019b section 4.2).
   woody_shade:
     enabled: true
     k_wood: 0.40
