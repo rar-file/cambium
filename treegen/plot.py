@@ -387,11 +387,18 @@ class Plot:
         h_canopy = max((self.trees[k].stats[-1]["height_m"] for k in active if self.trees[k].stats), default=0.0)
         if getattr(self, "_hd_own", None) is not None:
             self._height_reference()
+        # plot.spacing_min_height_share, off by default (null): the spacing that stops a limb's reach and sets the wind's
+        # load counts only trees at least this share of the canopy top's height, so seedlings and suppressed trees under
+        # a canopy don't shrink the big trees' crowns.  Null: every living tree counts, as it has been
+        share = getattr(self.species.plot, "spacing_min_height_share", None)
+        n_space = len(self.alive)
+        if share:
+            n_space = sum(1 for k in self.alive if self.trees[k].stats and self.trees[k].stats[-1]["height_m"] >= float(share) * h_canopy)
         for k in active:
             m = self.trees[k]
             m._plot_view = OffsetField(field, self._offset(k)) if field is not None else None
             m._plot_soil = self.soil
-            m._plot_spacing = math.sqrt(self.area / max(len(self.alive), 1))
+            m._plot_spacing = math.sqrt(self.area / max(n_space, 1))
             # canopy top for the within-canopy wind profile (stem theory stage b)
             m._plot_canopy_height = h_canopy
             m.step()
