@@ -114,6 +114,9 @@ def _axis_marks(wood: WoodParts, stem_md, shoot, pos: np.ndarray, age: int, radi
     on_stem[stem_nodes[stem_nodes < shoot.n]] = True
     idx = np.nonzero(shoot.is_lateral[:n].astype(bool) & (shoot.parent[:n] >= 0) & (shoot.birth[:n] <= age))[0]
     idx = idx[on_stem[shoot.parent[idx]]]
+    if ap.stem_stub_share(wood.look) > 0.0:
+        # the lateral that took over from a lost leader is the stem, and leaves no mark on it
+        idx = idx[~on_stem[idx]]
     if idx.size == 0:
         return []
     order = np.argsort(stem_md["s"])
@@ -175,7 +178,7 @@ def bake_wood(wood: WoodParts, crown, shoot, pos: np.ndarray, radius_history) ->
     stem_md = {"node": nd, "s": s, "around": np.nan_to_num(crown.attributes["ring_around"][is_stem], nan=0.0), "pos": crown.vertices[is_stem],
                "z_profile": np.maximum.accumulate(z_p), "s_profile": uniq}
     marks = _axis_marks(wood, stem_md, shoot, pos, wood.age, radius_history)
-    wood.stem_bake = tx.bake_stem(look, wood.tiles, prof, wood.state, marks)
+    wood.stem_bake = tx.bake_stem(look, wood.tiles, prof, wood.state, marks, y_offset=getattr(wood, "stem_y_offset", 0.0), tree_seed=getattr(wood, "tree_seed", 0), dbh_ob_cm=wood.dbh_ob)
     wood.marks = marks
     wood.profile = prof
     # branch classes: the mean state of the parts in each, by surface area
@@ -185,23 +188,73 @@ def bake_wood(wood: WoodParts, crown, shoot, pos: np.ndarray, radius_history) ->
     branch_faces = F[~is_stem[F[:, 0]]]
     states = [None] * len(classes)
     wood.class_state = states
+    wood.column_table, wood.column_class = None, None
+    columns = None
+    step = ap.limb_level_step(look)
     if len(branch_faces):
         cl = _face_class(crown.attributes["radius"], branch_faces, classes)
         V = crown.vertices
         area = 0.5 * np.linalg.norm(np.cross(V[branch_faces[:, 1]] - V[branch_faces[:, 0]], V[branch_faces[:, 2]] - V[branch_faces[:, 0]]), axis=1)
         vstate = wood.state(wood.age - wood.birth[node], 2.0 * wood.radius_wood[node], V[:, 2])
-        for k in range(len(classes)):
-            sel = cl == k
-            if not sel.any():
-                continue
+
+        def mean_state(sel):
             v0 = branch_faces[sel, 0]
             wts = area[sel] / max(area[sel].sum(), 1e-12)
-            states[k] = {"weights": (vstate["weights"][:, v0] * wts).sum(1), "peel": float((vstate["peel"][v0] * wts).sum()),
-                         "grime": float((vstate["grime"][v0] * wts).sum()), "fissure_m": float((vstate["fissure_m"][v0] * wts).sum())}
-    wood.atlas = tx.bake_branch_atlas(look, wood.tiles, states)
+            return {"weights": (vstate["weights"][:, v0] * wts).sum(1), "peel": float((vstate["peel"][v0] * wts).sum()),
+                    "grime": float((vstate["grime"][v0] * wts).sum()), "fissure_m": float((vstate["fissure_m"][v0] * wts).sum())}
+
+        if step > 0.0:
+            states, columns = _limb_columns(wood, vstate, branch_faces, cl, classes, step, mean_state)
+            wood.class_state = states
+        else:
+            for k in range(len(classes)):
+                sel = cl == k
+                if sel.any():
+                    states[k] = mean_state(sel)
+    wood.atlas = tx.bake_branch_atlas(look, wood.tiles, states, columns=columns, seed=int(look["game"]["texture_seed"]) + 7919 * (int(getattr(wood, "tree_seed", 0)) + 1) + 130)
     wood.stage_means = np.array([t.mean_colour for t in wood.tiles])
-    W, H = bark["atlas_px"]
+    W = wood.atlas["albedo"].shape[1]
     wood.layout_uv = [(x0 / W, x1 / W, c) for x0, x1, c in wood.atlas["layout"]]
+
+
+def _limb_columns(wood: WoodParts, vstate: dict, faces: np.ndarray, cl: np.ndarray, classes: np.ndarray, step: float, mean_state) -> tuple:
+    """Atlas columns by circumference and by how much of the bark has gone white: a face reads the one
+    nearest its own share, so a limb's colour follows its own thickness and age, in small steps of the
+    same patches, not in one jump at each circumference."""
+    look = wood.look
+    names = [t["name"] for t in look["bark"]["stages"]]
+    wood.white_stage = names.index(look["bark"]["uneven_top"]["limbs"]["stage"])
+    level = np.rint(vstate["weights"][wood.white_stage][faces].mean(1) / step).astype(np.int64)
+    n_levels = int(round(1.0 / step)) + 1
+    wood.column_table = np.zeros((len(classes), n_levels), np.int64)
+    states, columns, of_class = [], [], []
+    for k, c in enumerate(classes):
+        sel = cl == k
+        used = np.unique(level[sel]) if sel.any() else np.array([0])
+        ids = []
+        for j in used:
+            pick = sel & (level == j)
+            st = None
+            if pick.any():
+                st = mean_state(pick)
+                st["weights"][wood.white_stage] = float(j) * step
+            ids.append(len(states))
+            states.append(st)
+            columns.append({"circumference": float(c), "share": float(j) * step})
+            of_class.append(k)
+        wood.column_table[k] = np.asarray(ids)[np.argmin(np.abs(used[:, None] - np.arange(n_levels)), axis=0)]
+    wood.column_class = np.asarray(of_class)
+    return states, columns
+
+
+def _face_columns(wood: WoodParts, radius_attr: np.ndarray, node: np.ndarray, V: np.ndarray, faces: np.ndarray, classes: np.ndarray) -> np.ndarray:
+    """The atlas column each branch face reads."""
+    cl = _face_class(radius_attr, faces, classes)
+    if getattr(wood, "column_table", None) is None:
+        return cl
+    white = wood.state(wood.age - wood.birth[node], 2.0 * wood.radius_wood[node], V[:, 2])["weights"][wood.white_stage]
+    level = np.rint(white[faces].mean(1) / ap.limb_level_step(wood.look)).astype(np.int64)
+    return wood.column_table[cl, np.clip(level, 0, wood.column_table.shape[1] - 1)]
 
 
 def _face_class(radius_attr, faces, classes):
@@ -247,25 +300,27 @@ def wood_arrays(wood: WoodParts, md, relief: bool = False) -> dict:
         if relief:
             V = V + N * _relief(wood, u, v)[:, None]
         T = _tangents(V, N, UV, nf)
-        out["stem"] = {"V": V, "N": N, "F": nf, "UV": UV, "T": T, "node": node[old], "radius": md.attributes["radius"][old]}
+        out["stem"] = {"V": V, "N": N, "F": nf, "UV": UV, "T": T, "node": node[old], "radius": md.attributes["radius"][old], "around": u, "along": s}
     if (~stem_f).any():
         f = F[~stem_f]
         classes = np.asarray(bark["branch_circumference_m"], float)
-        cl = _face_class(md.attributes["radius"], f, classes)
+        cl = _face_columns(wood, md.attributes["radius"], node, md.vertices, f, classes)
         nf, old, u, col = _unwrap(f, around, cl)
         V, N = md.vertices[old], md.normals[old]
         lay = wood.layout_uv
         x0 = np.array([a for a, b, c in lay])[col]
         x1 = np.array([b for a, b, c in lay])[col]
-        v = along[old] / float(bark["tile_size_m"])
+        v = along[old] / float(wood.atlas["span_m"])
         UV = np.stack([x0 + (x1 - x0) * np.minimum(u, 1.0), v], 1)
         T = _tangents(V, N, UV, nf)
         st = wood.state(wood.age - wood.birth[node[old]], 2.0 * wood.radius_wood[node[old]], V[:, 2])
         want = ap.state_colour(wood.stage_means, st["weights"])
         have = np.array([ap.state_colour(wood.stage_means, np.asarray((wood.class_state[k] or {"weights": st["weights"][:, 0]})["weights"])[:, None])[0]
-                         for k in range(len(classes))])
+                         for k in range(len(wood.class_state))])
         tint = want / np.maximum(have[col], 1e-4)
-        out["branch"] = {"V": V, "N": N, "F": nf, "UV": UV, "T": T, "node": node[old], "radius": md.attributes["radius"][old], "tint": tint, "col": col}
+        out["branch"] = {"V": V, "N": N, "F": nf, "UV": UV, "T": T, "node": node[old], "radius": md.attributes["radius"][old], "tint": tint, "col": col,
+                         "class": col if getattr(wood, "column_class", None) is None else wood.column_class[col],
+                         "around": u, "along": along[old]}
     return out
 
 
@@ -410,7 +465,7 @@ def blades_arrays(look: dict, leaves: ap.LeafInstances, ll: dict) -> dict:
             "node": np.repeat(leaves.node, 4), "sun": np.repeat(leaves.sun, 4), "turn": np.repeat(leaves.delay, 4)}
 
 
-def leaf_cards(look: dict, leaves: ap.LeafInstances, ll: dict, target: int, coverage: list, grid: int, centre: np.ndarray) -> dict:
+def leaf_cards(look: dict, leaves: ap.LeafInstances, ll: dict, target: int, coverage: list, grid: int, centre: np.ndarray, return_groups: bool = False) -> dict:
     """Leaves gathered into alpha-masked cards by a grid over the crown, with the grid's cell size
     searched so the count meets ``target``.  Each card is sized so its opaque area is the leaf area
     it stands for, which keeps the crown's shade."""
@@ -463,7 +518,10 @@ def leaf_cards(look: dict, leaves: ap.LeafInstances, ll: dict, target: int, cove
     T = T - (T * N).sum(1, keepdims=True) * N / np.maximum((N * N).sum(1, keepdims=True), 1e-9)
     wt = np.sign((np.cross(N, T) * np.repeat(w, 4, axis=0)).sum(1))
     colour = np.c_[np.repeat(tint, 4, axis=0), np.ones(4 * m)]
-    return {"V": V, "N": N, "F": F, "UV": uv, "T": np.c_[T, np.where(wt == 0, 1.0, wt)], "colour": colour, "represented_area": float((side * side * cov).sum())}
+    out = {"V": V, "N": N, "F": F, "UV": uv, "T": np.c_[T, np.where(wt == 0, 1.0, wt)], "colour": colour, "represented_area": float((side * side * cov).sum())}
+    if return_groups:
+        out.update(groups=inv, count=m)
+    return out
 
 
 # -- bark strips ----------------------------------------------------------------------------------
@@ -487,7 +545,7 @@ def _dilate(rgb, cover, it=10):
     return out
 
 
-def far_cards(look: dict, near_path, cfg: dict, glb: GameGLB, jpeg: int) -> None:
+def far_sheets(near_path, cfg: dict) -> dict:
     """Crossed cards with the tree baked on, from the near level's file: colour, normal and coverage,
     with no lighting in them.  Each card is two one-sided sheets back to back, each with its own view,
     so the lighting holds from either side, where a two-sided card would turn its normals over.  The
@@ -505,7 +563,7 @@ def far_cards(look: dict, near_path, cfg: dict, glb: GameGLB, jpeg: int) -> None
     frame_h = half_w * px / cell_w
     alb_sheet = np.zeros((px, cell_w * views, 3), np.float32)
     nrm_sheet = np.zeros((px, cell_w * views, 3), np.float32)
-    a_sheet = np.zeros((px, cell_w * views), np.float32)
+    cov_sheet = np.zeros((px, cell_w * views), np.float32)
     verts, norms, faces, uvs, tans = [], [], [], [], []
     shade = Lights(prims, (0.0, 0.0, 1.0), res=16, sky_res=512, sky_dirs=6)
     for k in range(views):
@@ -514,7 +572,6 @@ def far_cards(look: dict, near_path, cfg: dict, glb: GameGLB, jpeg: int) -> None
         view = View(centre + d * 100.0, centre, cell_w, px, ortho_half_h=frame_h)
         b = bake_views(prims, view, lights=shade)
         cov = b["coverage"]
-        alpha = np.clip(cov ** 0.6 * 1.25, 0.0, 1.0)
         col = _dilate(b["albedo"], cov)
         # normals into the card's own frame: +x right, +y up, +z towards the viewer
         n = b["normal"]
@@ -524,7 +581,7 @@ def far_cards(look: dict, near_path, cfg: dict, glb: GameGLB, jpeg: int) -> None
         x0 = k * cell_w
         alb_sheet[:, x0:x0 + cell_w] = col
         nrm_sheet[:, x0:x0 + cell_w] = nrm
-        a_sheet[:, x0:x0 + cell_w] = alpha
+        cov_sheet[:, x0:x0 + cell_w] = cov
         r, u_ = view.right, view.up
         verts.append(np.stack([centre - r * half_w - u_ * half_h, centre + r * half_w - u_ * half_h, centre + r * half_w + u_ * half_h, centre - r * half_w + u_ * half_h]))
         norms.append(np.tile(-view.fwd, (4, 1)))
@@ -535,11 +592,19 @@ def far_cards(look: dict, near_path, cfg: dict, glb: GameGLB, jpeg: int) -> None
         tans.append(np.tile(np.r_[r, 1.0], (4, 1)))
         i = 4 * k
         faces.append(np.array([[i, i + 1, i + 2], [i, i + 2, i + 3]]))
-    tb = glb.add_texture(*encode_image(ap.linear_to_srgb(alb_sheet), a_sheet), 33071, 33071, "far_base")
-    tn = glb.add_texture(*encode_image(nrm_sheet * 0.5 + 0.5, kind="jpeg_full", quality=jpeg + 4), 33071, 33071, "far_normal")
+    return {"albedo": alb_sheet, "normal": nrm_sheet, "coverage": cov_sheet, "V": np.concatenate(verts), "N": np.concatenate(norms), "F": np.concatenate(faces),
+            "UV": np.concatenate(uvs), "T": np.concatenate(tans)}
+
+
+def far_cards(look: dict, near_path, cfg: dict, glb: GameGLB, jpeg: int) -> None:
+    """The far level, written into ``glb``."""
+    f = far_sheets(near_path, cfg)
+    alpha = np.clip(f["coverage"] ** 0.6 * 1.25, 0.0, 1.0)
+    tb = glb.add_texture(*encode_image(ap.linear_to_srgb(f["albedo"]), alpha), 33071, 33071, "far_base")
+    tn = glb.add_texture(*encode_image(f["normal"] * 0.5 + 0.5, kind="jpeg_full", quality=jpeg + 4), 33071, 33071, "far_normal")
     m = glb.add_material({"name": "far_card", "alphaMode": "MASK", "alphaCutoff": 0.5,
                           "pbrMetallicRoughness": {"baseColorTexture": {"index": tb}, "metallicFactor": 0.0, "roughnessFactor": 0.8}, "normalTexture": {"index": tn}})
-    glb.add_mesh("far_cards", m, np.concatenate(verts), np.concatenate(norms), np.concatenate(faces), np.concatenate(uvs), np.concatenate(tans))
+    glb.add_mesh("far_cards", m, f["V"], f["N"], f["F"], f["UV"], f["T"])
 
 
 def reduced_selection(skel, rad_ob, thr: float) -> np.ndarray:

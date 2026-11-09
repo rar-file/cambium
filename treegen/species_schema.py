@@ -1,7 +1,7 @@
 """What a species file must hold, with units and ranges, and where each value came from.
 
 Nothing in the growth model reads this file.  ``validate`` checks a species file;
-``read_labels`` says of each value whether it's sourced, TUNED or VERIFY.
+``read_labels`` says of each value whether it's sourced, DERIVED, TUNED or VERIFY.
 tools/species_report.py and docs/adding_a_species.md are how it's used.
 
 The ranges are limits of sense, not targets: a value outside one is almost certainly a
@@ -19,7 +19,11 @@ from pathlib import Path
 
 import yaml
 
-STATUSES = ("sourced", "TUNED", "VERIFY")
+# sourced: a source gives the value; DERIVED: worked out from a source with a stated step (a mean, a
+# ratio, a conversion, a reading of a figure); TUNED: no direct source, set against what it says.
+STATUSES = ("sourced", "DERIVED", "TUNED", "VERIFY")
+# The appearance block labels its own values, in appearance.provenance, with these words.
+PROVENANCE_STATUS = {"SOURCE": "sourced", "DERIVED": "DERIVED", "TUNED": "TUNED"}
 
 # Blocks a species can go without, and what's lost.  Everything else is required.
 OPTIONAL_BLOCKS = {
@@ -30,6 +34,7 @@ OPTIONAL_BLOCKS = {
     "plot": "tools/plot.py can't run",
     "regeneration": "no natural regeneration in plots",
     "soil_water_balance": "no soil water balance option",
+    "speed": "no speed settings: everything runs the plain way",
 }
 
 
@@ -234,6 +239,7 @@ _n("pipe_model.stem_theory.canopy_wind_attenuation", "-", 0.0, 20.0, "wind's fal
 _c("geometry.root_flare_mode", ("buttress", "bell"), "shape of the stem base")
 _l("geometry.root_collar_height_coef", "cm per cm, cm per m", 0.0, 10.0, "root collar height from DBH and height", length=(2, 2))
 _n("geometry.root_flare_extra", "-", 0.0, 10.0, "radius gain at the ground, bell shape")
+_n("geometry.root_flare_min_share", "-", 0.0, 1.0, "only roots this share of the thickest raise a ridge, and ridges don't pile up; 0 = all, added up")
 _n("geometry.root_flare_height", "m", 0.01, 20.0, "its decay height")
 _n("geometry.junction_blend", "-", 0.0, 10.0, "junction fillet, per child radius")
 _n("geometry.collar_extra", "-", 0.0, 10.0, "branch collar's extra radius")
@@ -257,6 +263,7 @@ _n("leader_damage.bite_diameter_m", "m", 0.0, 0.2, "browsing clips down to this 
 _r("leader_damage.events", ("name", "min_height_m", "max_height_m", "probability_per_year"), "what can take the leader")
 # ----------------------------------------------------------------------- damage
 _b("damage.enabled", "old age, wind and snow can act (treegen/damage.py)")
+_b("damage.log_snow_trees", "keep every tree's size and buckling sum in each snow year, in plot.json; for tuning", optional=True)
 _n("damage.dbh_over_bark_factor", "cm/cm", 1.0, 2.0, "over-bark DBH per wood DBH")
 _n("damage.stem_form_factor", "-", 0.2, 1.0, "stem volume over pi/4 DBH^2 H")
 _b("damage.old_age.enabled", "ageing can kill")
@@ -275,6 +282,10 @@ _n("damage.wind.prior_damage", "logit", -10.0, 10.0, "effect of earlier stem dam
 _n("damage.wind.period_years", "years", 0.1, 100.0, "the period the chance is per")
 _n("damage.wind.population_offset", "logit", -10.0, 10.0, "brings the mean tree to the observed damage")
 _n("damage.wind.storm_return_years", "years", 1.0, 1000.0, "years between storms")
+_n("damage.wind.gap_radius_m", "m", 0.5, 500.0, "a storm's patches: radius")
+_n("damage.wind.gap_area_share", "-", 0.0, 1.0, "share of the ground in patches")
+_n("damage.wind.gap_damage_share", "-", 0.0, 1.0, "share of a storm's damage in them")
+_n("damage.wind.canopy_height_share", "-", 0.0, 1.0, "the canopy layer: at least this share of the tallest tree's height")
 _n("damage.wind.wind_from_deg", "deg", 0.0, 360.0, "where storms come from")
 _n("damage.wind.wind_from_sd_deg", "deg", 0.0, 180.0, "scatter of that")
 _n("damage.wind.min_dbh_cm", "cm", 0.0, 100.0, "smaller trees take no wind damage")
@@ -290,15 +301,14 @@ _n("damage.snap.intercept", "-", 0.0, 1.0, "relative snapping height = intercept
 _n("damage.snap.slenderness", "per m/cm", -1.0, 1.0, "slenderness")
 _n("damage.snap.prior_damage", "-", -1.0, 1.0, "prior damage")
 _n("damage.snap.beta_concentration", "-", 0.1, 1000.0, "spread of the snapping height")
+_n("damage.snap.min_leaves_left", "-", 0.0, 1.0, "a stem left with less than this share of its leaves dies")
 _b("damage.snow.enabled", "wet snow can break and bend")
 _n("damage.snow.return_years", "years", 1.0, 1000.0, "years between damaging snowfalls")
 _l("damage.snow.load_range_kg_m2", "kg/m2 of crown", 0.0, 500.0, "load of a damaging snowfall", length=(2, 2))
 _n("damage.snow.crown_catch_fraction", "-", 0.0, 1.0, "share of the crown's area that holds the load")
 _n("damage.snow.lever_fraction", "-", 0.0, 1.0, "the load's offset from the stem, per height")
-_n("damage.snow.spread", "-", 0.01, 10.0, "width of the break")
-_n("damage.snow.bend_buckling_factor", "-", 0.0, 1000.0, "stems below this buckling factor bend")
-_n("damage.snow.bend_max_dbh_cm", "cm", 0.0, 500.0, "only stems under this DBH bend")
-_n("damage.snow.min_break_dbh_cm", "cm", 0.0, 500.0, "stems under this DBH bend and don't break")
+_n("damage.snow.spread", "-", 0.01, 10.0, "width of the line between overloaded and not")
+_n("damage.snow.break_share", "-", 0.0, 1.0, "share of overloaded stems that break or uproot; the rest bend")
 _n("damage.uproot.mound_radius_factor", "-", 0.1, 10.0, "mound radius per plate radius")
 _n("damage.uproot.mound_distance_factor", "-", 0.0, 10.0, "mound's distance past the hinge per plate radius")
 _n("damage.uproot.relief_half_life_years", "years", 0.1, 5000.0, "how fast pit and mound fade")
@@ -391,6 +401,23 @@ _n("roots.avoid_zone_radius_m", "m", 0.0, 50.0, "within this of the stem")
 _n("roots.avoid_weight", "-", 0.0, 100.0, "strength of that push")
 _n("roots.max_turn_deg_per_segment", "deg", 0.0, 180.0, "most a root turns per segment; null = no limit", nullable=True)
 _b("roots.trim_taproot", "the taproot decays below the deepest main lateral")
+_b("roots.paid.enabled", "root wood and fine roots cost carbon")
+_n("roots.paid.stump_d_intercept_cm", "cm", 0.0, 50.0, "stump diameter at no stem diameter")
+_n("roots.paid.stump_d_per_dbh", "cm/cm", 0.5, 3.0, "stump diameter per stem diameter")
+_n("roots.paid.rel_sum_d2", "-", 0.1, 5.0, "roots' squared base diameters over the stump's")
+_n("roots.paid.fade_per_stump_d", "m/m", 0.01, 50.0, "a root's near-collar widening fades over this, per stump diameter")
+_n("roots.paid.taproot_length_per_depth", "-", 1.0, 10.0, "the taproot stops at this length, per taproot_max_depth")
+_n("roots.paid.stump_fill_power", "-", 0.5, 50.0, "how full the stump is down to where the taproot stops")
+_n("roots.paid.far_d_cm_per_m", "cm", 0.01, 10.0, "diameter beyond the rapid taper, at 1 m of root beyond it")
+_n("roots.paid.far_d_exponent", "-", 0.1, 2.0, "and how it goes with the length")
+_n("roots.paid.collar_evenness", "-", 0.0, 1.0, "a collar root's pull goes as its size to this power")
+_n("roots.paid.wood_density_kg_m3", "kg/m3", 100.0, 1200.0, "root density with bark")
+_n("roots.paid.fine_root_turnover_per_year", "1/year", 0.0, 10.0, "fine roots made per fine root standing")
+_n("roots.paid.collar_node_m", "m", 0.002, 1.0, "spacing of the collar's nodes")
+_n("roots.paid.collar_spacing_m", "m", 0.001, 1.0, "stump girth per root at the collar")
+_i("roots.paid.collar_primordium_lifespan", "years", 0, 5000, "a collar primordium lasts this long unused")
+_n("roots.paid.collar_angle_top_deg", "deg", 0.0, 180.0, "a collar root's angle from the taproot, at the top")
+_n("roots.paid.collar_angle_bottom_deg", "deg", 0.0, 180.0, "the same at the bottom")
 # -------------------------------------------------------------------- anchorage
 _n("anchorage.plate_root_diameter", "m", 1e-3, 1.0, "a main root counts up to where it thins below this")
 _n("anchorage.plate_structural_share", "-", 0.0, 1.0, "share of main-root area the plate is measured from")
@@ -432,6 +459,19 @@ _l("soil_water_balance.precipitation_mm", "mm", 0.0, 3000.0, "May-September rain
 _l("soil_water_balance.pet_mm", "mm", 0.0, 3000.0, "May-September PET", length=(5, 5))
 _l("soil_water_balance.dry_year_precipitation_mm", "mm", 0.0, 3000.0, "the drought year's rain", length=(5, 5))
 _b("soil_water_balance.drought_scenario", "use the drought year's rain")
+# ---------------------------------------------------------------- speed (ways of running; reports/speed_research.md)
+_b("speed.compiled_carbon", "carbon solve compiled; same bits")
+_b("speed.quick_solve", "carbon solve in fewer evaluations; same bits on the runs tested")
+_b("speed.compiled_mechanics", "bending compiled; same bits")
+_b("speed.quick_levels", "the order of passes from a compiled count; same bits")
+_b("speed.light_layers", "light grids held layer first; same bits")
+_b("speed.keep_soil_grids", "soil grids kept between years; same bits")
+_b("speed.light_rows", "light by frequency rows, scipy's ffts; new rounding")
+_b("speed.drop_dead", "lean runs drop dead nodes; same yearly stats on the runs tested")
+_i("speed.light_every", "years", 1, 10, "years one light field lasts; lossy")
+_l("speed.sky_elevations_deg", "deg", 0.0, 90.0, "fewer sky directions; lossy", nullable=True)
+_i("speed.sky_azimuth_count", "-", 1, 64, "fewer sky directions; lossy", nullable=True)
+_n("speed.sun_hour_step", "h", 0.25, 6.0, "fewer sun directions; lossy", nullable=True)
 
 BY_PATH = {f.path: f for f in FIELDS}
 SWITCH_KINDS = ("switch", "choice", "text")
@@ -582,8 +622,8 @@ def validate_file(path) -> Report:
 # -- where each value came from ------------------------------------------------
 @dataclass
 class Label:
-    status: str          # sourced | TUNED | VERIFY
-    note: str = ""       # the source, what it was tuned against, or why it's unchecked
+    status: str          # sourced | DERIVED | TUNED | VERIFY
+    note: str = ""       # the source (and the step, if DERIVED), what it was tuned against, or why it's unchecked
     checked: str = ""    # sourced values: "page" if someone read the page and it supports the value
     changed: bool = False   # the value isn't what it was when labelled, so the label no longer speaks for it
 
@@ -618,13 +658,33 @@ def tuned_in_comments(text: str) -> dict:
     return out
 
 
+def provenance_labels(raw: dict) -> dict:
+    """Dotted path -> Label for the appearance block's values, from the block's own "provenance": a line
+    covers the value it names and everything under it, and the longest name that covers a value wins
+    (the rule tests/test_game_export.py checks every number against).  Its first word is the status:
+    SOURCE is sourced, DERIVED and TUNED are themselves."""
+    look = raw.get("appearance") if isinstance(raw, dict) else None
+    prov = look.get("provenance") if isinstance(look, dict) else None
+    if not isinstance(prov, dict):
+        return {}
+    out = {}
+    for path in flatten({k: v for k, v in look.items() if k != "provenance"}, "appearance."):
+        rel = path[len("appearance."):]
+        names = [k for k in prov if rel == k or rel.startswith(k + ".")]
+        if names:
+            text = str(prov[max(names, key=len)])
+            out[path] = Label(PROVENANCE_STATUS.get(text.split(":", 1)[0].strip(), "VERIFY"), text)
+    return out
+
+
 def read_labels(raw: dict, species_text: str = "", labels: dict | None = None) -> dict:
     """Dotted path -> Label for every value that isn't a switch.  A TUNED comment in the species
-    file comes first, because it's the rule for anyone tuning a value; then the labels file; a
-    value with neither is VERIFY.  A value that changed since its label was written is VERIFY
-    too, until someone looks at it."""
+    file comes first, because it's the rule for anyone tuning a value; then the labels file; then,
+    for the appearance block, its own provenance lines; a value with none of these is VERIFY.  A
+    value that changed since its label was written is VERIFY too, until someone looks at it."""
     labels = labels or {}
     tuned = tuned_in_comments(species_text) if species_text else {}
+    prov = provenance_labels(raw)
     out = {}
     for path, value in flatten(raw).items():
         if path.startswith("species.") or is_setting(path, value):
@@ -633,7 +693,9 @@ def read_labels(raw: dict, species_text: str = "", labels: dict | None = None) -
             out[path] = Label("TUNED", tuned[path])
             continue
         e = labels.get(path)
-        if not e:
+        if not e and path in prov:
+            out[path] = prov[path]
+        elif not e:
             out[path] = Label("VERIFY", "no label")
         elif "value" in e and e["value"] != value:
             out[path] = Label("VERIFY", f"labelled {e.get('status')} at {e['value']!r}; now {value!r}", changed=True)
@@ -645,7 +707,7 @@ def read_labels(raw: dict, species_text: str = "", labels: dict | None = None) -
 
 def check_labels(raw: dict, labels: dict) -> list:
     """What's wrong with a labels file itself: a value with no such key, an unknown status, a
-    TUNED value not saying what it was tuned against, a sourced value naming no source."""
+    TUNED value not saying what it was tuned against, a sourced or DERIVED value naming no source."""
     flat = flatten(raw)
     problems = []
     for path, e in (labels or {}).items():
@@ -657,8 +719,8 @@ def check_labels(raw: dict, labels: dict) -> list:
             problems.append(f"{path}: status must be one of {list(STATUSES)}, not {status!r}")
         elif status == "TUNED" and not e.get("against"):
             problems.append(f"{path}: TUNED must say what it was tuned against")
-        elif status == "sourced" and not e.get("source"):
-            problems.append(f"{path}: sourced must name the source")
+        elif status in ("sourced", "DERIVED") and not e.get("source"):
+            problems.append(f"{path}: {status} must name the source")
     return problems
 
 

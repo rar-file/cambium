@@ -2134,12 +2134,68 @@ Crossref shows `10.1139/b65-035` is Loman 1965 on basidiomycetes and `10.1139/b6
 
 ## Campaign M2: found, 2026-11-06
 
-- **Fresh laterals' leaves aren't charged.** `_leaf_costs` waives next spring's clusters on fresh side buds (`treegen/growth.py:1325`), saying they were built with the shoot, but `_growth_factor` charges only one late leaf per node and the tip's cluster (`:1606-1608`). `resource.leaf_costs.charge_fresh_laterals` charges them; it's off by default. Q23.
+- **Fresh laterals' leaves aren't charged.** `_leaf_costs` waives next spring's clusters on fresh side buds (`treegen/growth.py:1325`), saying they were built with the shoot, but `_growth_factor` charges only one late leaf per node and the tip's cluster (`:1606-1608`). **Superseded (2026-11-09):** `growth.py:1325` and `:1606-1608` now point at other code (`_pay_roots` and `_leaf_path_length`). The waiver is at `growth.py:1452-1455` and the charges at `:1782-1783`, at 8fd4fdb. `resource.leaf_costs.charge_fresh_laterals` charges them; it's off by default. Q23.
 - **`0386ce7` is output-only with wood shade on, not off.** Every golden run is identical. Two wood-off ensembles at `f45928e` and `3f3d687`, same seeds, differ on all 20 seeds from about year 6-7; `0386ce7` lengthens the grid when wood is off, and it's the likely cause (inference). `out/bench/ensemble/m2_linked.txt`.
 - **The model's k with no wood sits below its input.** Implied k is about 0.345 at 50-60 from an input of 0.37, on trees and plots; with wood on, 0.39-0.40. Neither is the paper's 0.37. The offset is about the 2 points in the phase 17-20 table above. Q21.
-- **Plots barely thin.** About 1,480-1,660 stems/ha at 60 at alpha 4.8, and basal area over bark 62-67 m2/ha, against Repola Table 1's top of 32.3. M4. `out/bench/ensemble/m2_validation.txt`.
+- **Plots barely thin.** About 1,480-1,660 stems/ha at 60 at alpha 4.8, and basal area over bark 62-67 m2/ha, against Repola Table 1's top of 32.3. M4. `out/bench/ensemble/m2_validation.txt`. **Superseded (2026-11-09):** v1 plots have 520 (470-570) stems/ha and 25.7 m²/ha at 60 (`node_v1_plots`); see Birch v1 below.
 - **`tools/plots_identical.py` walks the first folder's plots:** give a partial control first, or it reports the others missing.
 - **Plots' thickest trees run taller than a stand tree at the same alpha.** At 60, the thickest 100 per hectare are 2.0-6.8 m over; the average plot tree is +0.95, -2.15, -4.54 m at alpha 3.0, 3.5, 4.8. So trees and plots want different alphas (row 76). Why isn't established: it may be selection, or crowding. M4.
 - **`base_trees` is a low draw for LAI:** 3.09, 3.27 at 50, 60, against 3.36, 3.46 on seeds 21-40. Its verdicts stand, but every row paired with it inherits that (row 77).
 - **The Baltic LAI band's papers print no LAI** (Q26).
 - **`tools/m3_wood.py` and `tools/m2_validation.py` used wood-only diameters against over-bark sources until `tools/bark.py` went in** (row 80).
+
+## Birch v1 (reset), 2026-11-09
+
+The reset's one full check (PROTOCOL section 10). The full report is `reports/birch_v1_final.md` on `reset-integration`. The three reviews are on master: `reports/reviews/2026-11-08_final_check_a_sources.md`, `2026-11-09_final_check_b_numbers.md` and `2026-11-09_final_check_c_rules.md`. The hand-worked figures (young crown ratio, "46 of 55", k, the paired ±) are recomputed in `reports/birch_v1_workings.txt` in Cambium-int.
+
+### What v1 is
+
+- **Defaults switch, d5f0ea3.** The 52 settings of `cases/crown2_with_roots_speed.txt` and the two forest changes became the species defaults: 48 values changed, 4 were already set. The golden runs before (8c2c496, settings by hand) and after (d5f0ea3, defaults) are identical: 225 files, 0 differ (`Cambium-int/out/bench/golden/node_gold_v1pre`, `node_gold_v1post`).
+- **On by default since then:**
+
+| Part | Setting | What it does |
+|---|---|---|
+| Crown frame, earned | `crown_frame.enabled`, `crown_frame.earned` | Limbs earn their reach and place by their leaf area against the limbs around them (`growth.py` `_frame_earned`). Reach is capped at Hemery's crown (`growth.py:2196-2205`) |
+| Height driver | `height_driver.enabled` | The leader grows up to the Eriksson 1997 site-index curve (SI 23). Height is by design |
+| Damage | `damage.enabled`, with `old_age`, `wind` and `snow` | Old age (Elfving 2010), wind (Kitenberga 2021), snow |
+| Paid roots | `roots.paid.enabled` | The root share's carbon pays for fine roots and root wood (`growth.py` `_pay_roots`) |
+| Forest change 1 (359bea4) | `plot.height_follows_dominants` | Plot heights follow the dominants' vigour |
+| Forest change 2 (359bea4) | `mortality.vigour.relative_size_slope` 3.263 | Slow-ringed trees above the stand's Dg die less of "suppressed" (Maleki & Kiviste 2016 Table 3, DERIVED; `thinning.py:147-152`) |
+
+- The rest of the 48 values are crown, shedding, stem and speed settings: `git show d5f0ea3`.
+- **Forests need more than the defaults.** `mortality.enabled` and `plot.natural_start.enabled` stay false in the species file. `tools/forest.py` sets both (lines 44-46), and turns regeneration on with `--regeneration` or `--spread` (lines 67-68). The forest results depend on all three.
+
+### Open issues
+
+Runs in `Cambium-int/out/bench/ensemble/`: plots `node_v1_plots` (20), young plots `node_v1_young` (20, to 22), stand trees `node_v1_treesR` (20), lone trees `node_v1_openR` (8), old plots `node_v1_200` (3).
+
+| Issue | v1 | Real | Cause, as far as known |
+|---|---|---|---|
+| Young crown ratio | 0.92 / 0.96 / 0.94 / 0.93 at 11 / 15 / 20 / 22 (young plots) | 0.30-0.45 at 11-22 (Niemistö 1995, unopened; read through targets.yaml) | Not tested. Lower limbs and short shoots stay alive in deep shade. The shedding lines were lowered to 0.15 to keep light in the band, which works against this |
+| Young crown base | At 13.5 m tall: lowest live branch 0.8 m (0.2-1.8), crown base 1.6 m (0.5-2.9); 0 of 20 in 5-7 m (stand trees) | 5-7 m at 13-15 m tall (Hynynen & Niemistö 2009) | As above. Crown 2 reads it as young limbs extending slowly, so the canopy closes late. No measured number for that |
+| Baltic LAI | 4.54 at 50 (40 % of plots inside), 4.36 at 60 (85 %): FAIL at 50 by 0.04, PASS at 60 (report section 3). Under 2.5 at 6-14, over 4.5 at 18-54, peak 5.63 at 27: outside in 46 of 55 years | 2.5-4.5 at 6-60; its source is in doubt (Q30) | Young crowns hold too much leaf. At 50-60, the light trade-off below. Tuned against at 50-60 |
+| Light near the top of the range | Plots 18.5 at 50, 19.0 at 60; stand trees 16.2, 16.4 | 6.4-19.8 %, median 14.8 % | Tied to LAI through k: light follows LAI at k about 0.37-0.40. Light at the median needs LAI about 5.1, which fails the Baltic band. LAI 4.5 gives light of about 18.7 % at 50 and 18.0 % at 60. The forest changes raised light at 50 by 0.83 ± 0.26 points (paired, 20 seeds). Tuned against |
+| Leaf size | Sized by light: 0.0015 m² × 60.8 / LMA, so 10.2-18.1 cm² (`growth.py:1414-1426`); earlier look runs measured means of 17-17.8 cm². The stats' steady 15.0 cm² is an artefact: `growth.py:3117` counts every leaf at 0.0015 m² | 11.9 ± 5.7 cm² (Konôpka & Pajtík 2026, trees aged 4-20) | Leaves come per node. Smaller leaves at the same count gave 7-9 cm thicker stems |
+| Leaf density at the top | 0.19 / 0.22 | their fit's 1.97 | Untouched |
+| Double tops | 0 of 20 (strict) | 35 % (Zeltins 2018) | Cause unknown. The end-bud rule applies only to axes finer than the stem (`growth.py:995-1001`). Second tops are drawn per tree at Zeltins' 0.349 (`growth.py:2052-2053`) and through reiteration, and don't last |
+| Hanging strands, lone trees | Longest 5.2 / 6.1 m; p90 at 60 4.1 m (3.9-4.3) | About 2-4 m in photos, judged by eye | p90 sits at the top of the photo range |
+| No early deaths in young plots | None of the trees in a 9,000/ha plot die in their first 5 years | Real young stands lose stems at this stage | Trees on the height curve stay under 1.3 m for the first years. Self-thinning and background death act at any size, but self-thinning can't start until stems past 1.3 m make the stand dense (`thinning.py:105`), "suppressed" needs a stem diameter (`thinning.py:144`), and the carbon rule kills none |
+| Young roots | A 6-year tree has one root axis, 10 cm long. Collar roots at 14 sum to 0.69, under Kalliokoski's lowest stand (0.86) | Laitakari 1934 p. 182: small trees (DBH under 5 cm) "may have only 2-3" main roots | The collar's room for roots is set by spacing tuned on 8-30 cm stumps (`roots.py` `_collar_waiting`). Changing it comes after v1. The game export is to write a roots file for these trees anyway (master log 00:08) |
+| Small trees' uprooting by rounding | Root strength is saved at 0.01 kNm steps (`roots.py:855-857`); by the report, damage reads those, so an 8-year tree's uproot chance comes out 1.0 or 0.0006 | | After v1 (DECISIONS row 98, on master) |
+| Old trees' carbon death | After 120 years, first-generation trees die of carbon shortfall, losing their crowns from below. 30-90 per ha still stand at 200 (3 plots, indicative) | No source gives a rate. Stands persist to 121-150; typical maximum age about 100, sometimes 150 (abstracts) | Per-internode upkeep is untested at those ages |
+| Foliage strands in stands | Single strands | Clumped sprays in photos | Option J (two end buds, d278fd4) gave sprays and was dropped on light and young LAI. The choice is closer than first said (Q37) |
+
+### Corrections to earlier reports (PROTOCOL 5)
+
+| Wrong claim | Where | What's right |
+|---|---|---|
+| Lone trees' crown width agreeing with Hemery was a check | Master log 19:51 (8.55 / 9.32 m against 8.70 / 9.52), and to the maintainer | It holds by design: crown_frame caps a limb's reach at Hemery's crown (`growth.py:2196-2205`). It's INFO, not a test (checker (a) finding 7). Height under the curve is by design too |
+| A 5.2 m crown base (lowest live branch) at about 14 m tall, 13 of 20 inside 5-7 m | `reports/tree_handover.md:79` | That was the Tree agent's older crown. v1 has 0.8 m (0.2-1.8), 0 of 20 inside. The line is marked superseded there (c811354) |
+| "29 % of leaf area in the outer 75-100 % of radius against 44 % of plan area", and the axis-order figures (1,173 twig axes, 28 m of limb, 2.3 short shoots per m on limbs) | Master log 19:21; the first was passed to the maintainer as a fact | Withdrawn at 19:40. The radius was against the whole tree's one radius, so a tapering crown reads thin far out at the top anyway. The order figures were wrong on trees that lost a leader. At 20:02, "curtains inside the crown" was withdrawn for the stand |
+| Elfving's old-age logistic read as a yearly rate: 0.34 % at 100 and 1.92 % at 140 | Said at 03:30 on 2026-11-08, as the master log's correction names it; the 03:30 entry itself doesn't hold the numbers | It's the share dead by an age. The yearly hazard is 0.012 % at 100 and 0.066 % at 140 (correction in the master log). `thinning.py`'s old age made the same misreading, about 25-29 times the source's hazard (checker (a) finding 1). It ran only with damage's old age off, which the final runs don't use. It now uses `damage.old_age_hazard` (`thinning.py:122-128`, merged at a0f4880) |
+| "The new line brings light inside the limit" (19.7 %) on the older crown | An earlier reading, named in the master log at 16:00 on 2026-11-08; told to the maintainer | Partly weather. Weather shared a random stream with the trees' draws, so a seed's storms differed by run, and runs weren't paired. Weather has its own stream since ae1a2e1 |
+| The model's young LAI is "near the band anyway" | QUESTIONS.md Q30's recommendation | Outside the Baltic band in 46 of its 55 years: under it at 6-14, over it at 18-54. Corrected in Q30 on master |
+| `birch-data/01_shoot_dynamics/Ryynanen_Vihera-Aarnio_1995_Crown_structure_birch.pdf` is Ryynänen & Viherä-Aarnio 1995 | The file's name, and birch-data's `catalogue.csv`, which still lists it so | It's Hytönen 1995, on Salix (master log 07:31). No line in this repository cites it |
+| `birch-data/02_branch_architecture/Niemisto_1995_Crown_branch_properties_silver_birch.pdf` is Niemistö 1995 | The file's name; known since M1 (Q15, the M1 notes above) | It's Tuomela & Kanninen 1995, on Eucalyptus microtheca in Kenya (Silva Fennica 29(3):217-224; checker (a) finding 3). Niemistö 1995 itself has been read only to its abstract (master log 07:31), so the phase 33 table's "Yes" for it can't rest on this file |
+
+Stale lines above, marked superseded and kept: M2's "1,480-1,660 stems/ha at 60", and M2's `growth.py:1325`.

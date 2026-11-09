@@ -166,6 +166,9 @@ class RootSystem:
         self.field = None
         self.P = np.zeros(1)
         self.diag = {}
+        # roots.paid: what this year's roots cost, in carbon units, and the stump they grow from
+        self.stump_d_m = 0.0
+        self.carbon_log = {}
 
     # -- per-axis traits ----------------------------------------------------
     def _new_axes(self, ids: np.ndarray, kind: np.ndarray):
@@ -228,7 +231,14 @@ class RootSystem:
             nx, ny = int(hi[0] - lo[0] + 1), int(hi[1] - lo[1] + 1)
         nz = -zlo + 1
         rld = _root_density(pts, ls, lo, (nx, ny, nz), vs, p, cell is not None)
-        static, stone = _soil_grids(self.soil, sseed, lo, nx, ny, nz, vs)
+        key = (int(lo[0]), int(lo[1]), int(lo[2]), nx, ny, nz, sseed)
+        kept = getattr(self, "_kept_soil", None)
+        if kept is not None and kept[0] == key:
+            static, stone = kept[1], kept[2]
+        else:
+            static, stone = _soil_grids(self.soil, sseed, lo, nx, ny, nz, vs)
+            if getattr(self, "keep_soil_grids", False):
+                self._kept_soil = (key, static, stone)
         A = static * np.exp(-float(p.depletion_coefficient) * rld)
         self.field = (A.astype(np.float32), lo, stone, cell)
         return self.field
@@ -301,11 +311,16 @@ class RootSystem:
         # Borchert-Honda split of the root budget
         ax = T.axis[:n0]
         tap_age = t
-        tap_fade = math.exp(-tap_age / float(p.taproot_fade_years))
+        # roots.paid: the seedling's taproot goes on down until it stops at taproot_max_depth [L35]
+        tap_fade = 1.0 if self._paid() else math.exp(-tap_age / float(p.taproot_fade_years))
         wt = np.zeros(n0)
         wt[tips] = q_tip[tips] * np.where(self.kind[ax[tips]] == 0, tap_fade, 1.0)
         collar = self.kind[ax] == 0                # nodes on the taproot / root collar
         wt[prim] = q_prim[prim] * np.where(collar[prim], float(p.collar_primordium_weight), float(p.primordium_weight))
+        waiting = None
+        if self._paid():
+            waiting = self._collar_waiting(prim, q_prim[prim], collar)
+            wt[prim[waiting]] = 0.0
         Wtot = T.basipetal(levels, wt)
         mc, lc = T.main_child[:n0], T.lat_child[:n0]
         Qm = np.where(mc >= 0, Wtot[np.maximum(mc, 0)], np.where(T.term[:n0] == 1, wt, 0.0))
@@ -314,6 +329,8 @@ class RootSystem:
         # once the taproot has stopped, the collar is no apex: its main
         # laterals share without a bias towards the deeper ones
         lam = np.where(collar, float(p.collar_apical_control), lam)
+        if self._paid():
+            Qm, Ql = self._collar_split(Qm, Ql, float(p.paid.collar_evenness))
         den = lam * Qm + (1 - lam) * Ql
         fm = np.divide(lam * Qm, den, out=np.zeros(n0), where=den > 0)
         vin = np.zeros(n0)
@@ -333,8 +350,11 @@ class RootSystem:
         v_prim = vl[prim]
         thr = np.where(collar[prim], float(p.collar_lateral_threshold), float(p.lateral_threshold))
         g_tip = tips[v_tip >= 1.0]
-        g_prim = prim[v_prim >= thr]
-        self._grow(t, g_tip, v_tip[v_tip >= 1.0], g_prim, v_prim[v_prim >= thr])
+        breaks = v_prim >= thr
+        if waiting is not None:
+            breaks = breaks & ~waiting
+        g_prim = prim[breaks]
+        self._grow(t, g_tip, v_tip[v_tip >= 1.0], g_prim, v_prim[breaks])
 
         # tips that find no water die; unused primordia age and die; the
         # taproot stops where it turns horizontal or is overtaken [L35]
@@ -342,14 +362,18 @@ class RootSystem:
         T.term[it[q_tip[it] < float(p.tip_survival_availability)]] = 0
         tap = np.nonzero((T.term[:T.n] == 1) & (T.death[:T.n] < 0) & (self.kind[T.axis[:T.n]] == 0))[0]
         T.term[tap[-T.pos[tap, 2] > float(p.taproot_max_depth)]] = 0
-        stay = prim[v_prim < thr]
+        if self._paid() and tap.size and self._taproot_room() < 2.0 * float(p.paid.collar_node_m):
+            T.term[tap] = 0     # (a node can be up to twice collar_node_m long)
+        stay = prim[~breaks]
         T.lat_age[stay] += 1
         # the root collar keeps forming main laterals for years; primordia
         # elsewhere die unused
-        life = np.where(collar[stay], int(p.collar_primordium_lifespan), int(p.primordium_lifespan))
+        collar_life = int(p.paid.collar_primordium_lifespan) if self._paid() else int(p.collar_primordium_lifespan)
+        life = np.where(collar[stay], collar_life, int(p.primordium_lifespan))
         T.lat[stay[T.lat_age[stay] > life]] = LAT_DEAD
         self.diag = {"tips": int(tips.size), "grown_tips": int(g_tip.size), "new_laterals": int(g_prim.size), "shed": int(shed.size)}
-        if bool(getattr(p, "trim_taproot", False)):
+        # (roots.paid: the primordia waiting for room on the taproot keep it, and it's the stump's core)
+        if bool(getattr(p, "trim_taproot", False)) and not self._paid():
             self._trim_taproot(t)
 
     def _trim_taproot(self, t: int):
@@ -459,6 +483,18 @@ class RootSystem:
         vc = np.minimum(v, nmax)
         nmet = np.floor(vc).astype(np.int64)
         seg_len = l0 * vc / nmet
+        paid = self._paid()
+        if paid:
+            # the collar's nodes are closer than a root's: each carries one root, and a mature birch has
+            # about 25 at the collar [Kalliokoski 2008]
+            tap = ~is_lat & (self.kind[T.axis[starts]] == 0)
+            finer = max(int(round(l0 / float(p.paid.collar_node_m))), 1)
+            nmet = np.where(tap, nmet * finer, nmet)
+            seg_len = np.where(tap, seg_len / finer, seg_len)
+            if tap.any():
+                # ... and no more of them than the taproot's length allows, whichever way stones have turned it
+                room = self._taproot_room() / seg_len
+                nmet = np.where(tap, np.minimum(nmet, np.maximum(np.floor(room), 0.0).astype(np.int64)), nmet)
         D = _normalize(np.where(is_lat[:, None], T.lat_dir[starts], T.term_dir[starts]))
         axis = T.axis[starts].astype(np.int64)
         order = T.order[starts].astype(np.int64) + is_lat
@@ -497,8 +533,15 @@ class RootSystem:
             a = np.where(cosang > 0.0, a, -np.inf)
             best = self.probe[np.argmax(a, axis=1)]
             target = setpoint_directions(Dk, gsa[act])
-            Dn = _normalize(Dk + (xi * L)[:, None] * best + (eta[act] * L)[:, None] * target
-                            + (noise * np.sqrt(L))[:, None] * rng.standard_normal((m, 3)))
+            if paid:
+                # the taproot's upper part becomes the base of the stump between the roots' bases [L35]:
+                # it goes down, and doesn't lean off after water
+                free = (self.kind[axis[act]] != 0)[:, None]
+                Dn = _normalize(Dk + (eta[act] * L)[:, None] * target
+                                + free * ((xi * L)[:, None] * best + (noise * np.sqrt(L))[:, None] * rng.standard_normal((m, 3))))
+            else:
+                Dn = _normalize(Dk + (xi * L)[:, None] * best + (eta[act] * L)[:, None] * target
+                                + (noise * np.sqrt(L))[:, None] * rng.standard_normal((m, 3)))
             if av is not None:
                 # a lateral started this season still has its parent's axis
                 # at its base; a continuing tip's parent axis is looked up
@@ -530,7 +573,12 @@ class RootSystem:
                             break
                         phi = phase + j * np.pi / 4.0
                         alt = math.cos(ang) * Db + math.sin(ang) * (np.cos(phi)[:, None] * e1 + np.sin(phi)[:, None] * e2)
-                        alt = _clamp_z(alt, (zbot[bi] - P[bi, 2]) / L[bi], (ztop - P[bi, 2]) / L[bi])
+                        top_slope = (ztop - P[bi, 2]) / L[bi]
+                        if paid:
+                            # a collar node's short step, still above min_depth, would be forced straight down onto the
+                            # stone: it may turn as far as a full segment could, so the radicle goes round it
+                            top_slope = np.maximum(top_slope, -float(p.min_depth) / l0)
+                        alt = _clamp_z(alt, (zbot[bi] - P[bi, 2]) / L[bi], top_slope)
                         ok = still & ~self._stone_at(P[bi] + L[bi, None] * alt)
                         Dn[bi[ok]] = alt[ok]
                         blocked[bi[ok]] = False
@@ -575,7 +623,14 @@ class RootSystem:
             th = math.radians(float(p.branch_angle_deg))
             T.lat[new] = LAT_DORMANT
             T.lat_age[new] = 0
-            T.lat_dir[new] = _normalize(math.cos(th) * Dn + math.sin(th) * u)
+            if paid:
+                # a collar root leaves the stump near level at the top, and slanting further down [L35]
+                top, low = float(p.paid.collar_angle_top_deg), float(p.paid.collar_angle_bottom_deg)
+                frac = np.clip(-T.pos[new, 2] / max(float(p.taproot_max_depth), 1e-6), 0.0, 1.0)
+                th_n = np.where(on_tap, np.radians(top + (low - top) * frac), th)[:, None]
+                T.lat_dir[new] = _normalize(np.cos(th_n) * Dn + np.sin(th_n) * u)
+            else:
+                T.lat_dir[new] = _normalize(math.cos(th) * Dn + math.sin(th) * u)
             T.term[new] = 0
             cur[act] = new
             D[act] = Dn
@@ -615,6 +670,118 @@ class RootSystem:
             self.path_dist = d
         self.zrt_length = float(zrt_length)
         T.radius[:n] = np.where(alive, r, T.radius[:n])
+        if not getattr(self, "lean", False):
+            self.radius_history.append(T.radius[:n].astype(np.float16))
+
+    def _paid(self) -> bool:
+        return bool(getattr(getattr(self.p, "paid", None), "enabled", False))
+
+    def _taproot_room(self) -> float:
+        """roots.paid: how much longer the taproot may grow (m).  Its length is limited, not only its depth: a tip that stones
+        keep turning aside never gets below taproot_max_depth, and ran on sideways as a stump 1.5 m long and 88 kg [seed 16]."""
+        T = self.tree
+        length, node = 0.0, 0
+        while T.main_child[node] >= 0 and T.death[T.main_child[node]] < 0:
+            node = int(T.main_child[node])
+            length += float(T.length[node])
+        return float(self.p.paid.taproot_length_per_depth) * float(self.p.taproot_max_depth) - length
+
+    def _collar_split(self, Qm: np.ndarray, Ql: np.ndarray, power: float) -> tuple:
+        """roots.paid: at the collar a root's pull grows slower than its size (its pull to the power ``power``),
+        so that no one root runs away with the budget and the rest stay thin [Laitakari 1934: 7-12 dominant roots]."""
+        T = self.tree
+        chain = [0]
+        while T.main_child[chain[-1]] >= 0 and T.death[T.main_child[chain[-1]]] < 0:
+            chain.append(int(T.main_child[chain[-1]]))
+        qm, ql = Qm.copy(), Ql.copy()
+        below = float(Qm[chain[-1]]) ** power if Qm[chain[-1]] > 0.0 else 0.0
+        for i in reversed(chain):
+            qm[i] = below
+            ql[i] = float(Ql[i]) ** power if Ql[i] > 0.0 else 0.0
+            below += ql[i]
+        return qm, ql
+
+    def _collar_waiting(self, prim: np.ndarray, q: np.ndarray, collar: np.ndarray) -> np.ndarray:
+        """roots.paid: a new root starts at the collar only while there is room round the stump: the number
+        of roots at the collar grows with its girth [Kalliokoski 2008, Table 3].  The primordia in the wettest
+        soil go first; the rest wait, and draw nothing from the split while they wait."""
+        T = self.tree
+        out = np.zeros(prim.size, bool)
+        on = np.nonzero(collar[prim])[0]
+        if on.size == 0:
+            return out
+        n = T.n
+        lc = T.lat_child[:n]
+        have = int(np.count_nonzero(collar[:n] & (lc >= 0) & (T.death[np.maximum(lc, 0)] < 0)))
+        room = max(int(math.pi * max(self.stump_d_m, 0.01) / float(self.p.paid.collar_spacing_m)) - have, 0)
+        out[on[np.argsort(-q[on], kind="stable")[room:]]] = True
+        return out
+
+    def update_radii_paid(self, t: int, stump_d_m: float, gain_units: float, unit_volume_m3: float, stem_density: float) -> None:
+        """roots.paid: each root's wood is laid on year by year, and paid for.
+
+        What the root system would have now, as cross-section:  beyond the zone of rapid taper a root's diameter
+        goes with the root length beyond it, with Kalliokoski 2008's exponent for birch (Fig. 5C, L = D^1.7734);
+        near the collar each root is widened by the same factor, so that the roots leaving the collar sum to
+        rel_sum_d2 x the stump's cross-section [Table 3]; that widening fades along each root over a length that
+        goes with the stump's diameter [taper, Table 7].  The stump itself is the taproot's top, carrying the
+        sum of the roots still below it, and at least a solid of the stump's diameter down to where the taproot stops.
+
+        Radii only grow: the year's rings are that target less what's there.  They cost their volume at the
+        roots' density, out of ``gain_units``, the carbon left for root wood.  New roots' own wood is paid
+        first.  If the rings cost more than is left they are all thinner in proportion, and the rest of what
+        they wanted is still wanted next year.  What isn't needed isn't spent, and carbon_log says so."""
+        T, p = self.tree, self.p
+        cfg = p.paid
+        n = T.n
+        self.stump_d_m = float(stump_d_m)
+        alive = T.death[:n] < 0
+        levels = T.levels(alive)
+        tips = alive & (T.main_child[:n] < 0) & (np.arange(n) > 0)
+        P = T.basipetal(levels, np.where(tips, 1.0, 0.0))
+        self.P = P
+        a_tip = math.pi * float(p.tip_radius) ** 2
+        area_stump = float(cfg.rel_sum_d2) * math.pi / 4.0 * stump_d_m * stump_d_m
+        fade = max(float(cfg.fade_per_stump_d) * stump_d_m, 1e-3)
+        # distance along each root from where it leaves the collar: the taproot's own chain counts as 0;
+        # and along the taproot itself
+        on_collar = self.kind[T.axis[:n]] == 0
+        d = np.where(alive & ~on_collar, T.length[:n], 0.0)
+        along_stump = np.where(alive & on_collar, T.length[:n], 0.0)
+        for seg, _, _ in levels[1:]:
+            d[seg] += d[T.parent[seg]]
+            along_stump[seg] += along_stump[T.parent[seg]]
+        self.path_dist = d
+        self.zrt_length = fade
+        beyond = T.basipetal(levels, np.where(alive, T.length[:n], 0.0))
+        far = np.maximum(math.pi / 4.0 * (0.01 * float(cfg.far_d_cm_per_m) * np.power(np.maximum(beyond, 0.0), float(cfg.far_d_exponent))) ** 2, a_tip)
+        # the roots leaving the collar, and the same factor on all of them
+        first = alive & T.is_lateral[:n] & on_collar[np.maximum(T.parent[:n], 0)]
+        sum_far = float(far[first].sum()) + float(a_tip)
+        widen = area_stump / max(sum_far, 1e-30)
+        want = far * (1.0 + (widen - 1.0) * np.exp(-d / fade)) if widen >= 1.0 else far * widen
+        # the stump: the taproot's chain carries what leaves it below each point
+        here = np.zeros(n)
+        np.add.at(here, T.parent[:n][first], want[first])
+        here = np.where(tips & on_collar, a_tip, here)
+        carried = T.basipetal(levels, here)
+        # ... and is a stump between their bases, however early they leave it, down to where the taproot stops
+        below = np.clip(along_stump / max(float(p.taproot_max_depth), 1e-6), 0.0, 1.0)
+        block = math.pi / 4.0 * stump_d_m * stump_d_m * (1.0 - below ** float(cfg.stump_fill_power))
+        want = np.where(on_collar, np.maximum(carried, block), want)
+        old = np.where(alive, T.radius[:n], 0.0)
+        area_old = math.pi * old * old
+        new_root = alive & (old <= 0.0)
+        area_old = np.where(new_root, a_tip, area_old)
+        cost_of_area = np.where(alive, T.length[:n], 0.0) * float(cfg.wood_density_kg_m3) / float(stem_density) / float(unit_volume_m3)
+        cost_new = float((cost_of_area * np.where(new_root, a_tip, 0.0)).sum())
+        grow = np.maximum(want, area_old) - area_old
+        cost_rings = float((cost_of_area * grow).sum())
+        left = max(float(gain_units) - cost_new, 0.0)
+        scale = min(left / cost_rings, 1.0) if cost_rings > 0.0 else 1.0
+        area_new = area_old + scale * grow
+        T.radius[:n] = np.where(alive, np.sqrt(area_new / math.pi), T.radius[:n])
+        self.carbon_log.update({"new_root_wood": cost_new, "rings": scale * cost_rings, "rings_wanted": cost_rings})
         if not getattr(self, "lean", False):
             self.radius_history.append(T.radius[:n].astype(np.float16))
 

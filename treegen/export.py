@@ -191,19 +191,33 @@ class GameGLB:
         self.textures.append({"source": len(self.images) - 1, "sampler": self.samplers.index(sampler), "name": name})
         return len(self.textures) - 1
 
+    def add_texture_uri(self, uri: str, wrap_s: int = 10497, wrap_t: int = 10497, name: str = "") -> int:
+        """A texture in a file of its own, named relative to the .gltf (write_gltf)."""
+        self.images.append({"uri": uri, "name": name})
+        sampler = {"magFilter": 9729, "minFilter": 9987, "wrapS": wrap_s, "wrapT": wrap_t}
+        if sampler not in self.samplers:
+            self.samplers.append(sampler)
+        self.textures.append({"source": len(self.images) - 1, "sampler": self.samplers.index(sampler), "name": name})
+        return len(self.textures) - 1
+
     def add_material(self, material: dict) -> int:
         self.materials.append(material)
         self.extensions |= set(material.get("extensions", {}))
         return len(self.materials) - 1
 
-    def add_mesh(self, name: str, material: int, vertices, normals, faces, uv=None, tangents=None, colour=None, attributes=None):
+    def add_mesh(self, name: str, material: int, vertices, normals, faces, uv=None, tangents=None, colour=None, attributes=None,
+                 extra_uv=None, colour_8bit: bool = False):
         """One glTF mesh with one primitive.  ``attributes``: name -> float array per vertex, written
-        with a leading underscore, as glTF has it for application data."""
+        with a leading underscore, as glTF has it for application data.  ``extra_uv``: more UV sets,
+        written as TEXCOORD_1 and on.  ``colour_8bit``: COLOR_0 as 8 bits a channel, not 16."""
         faces = np.asarray(faces)
         if not len(faces):
             return None
         rot = lambda v: np.stack([v[:, 0], v[:, 2], -v[:, 1]], axis=1)  # noqa: E731
-        p = np.ascontiguousarray(rot(np.asarray(vertices)), dtype="<f4")
+        v_out = np.asarray(vertices)
+        if getattr(self, "origin_z", 0.0):
+            v_out = v_out + np.array([0.0, 0.0, self.origin_z])
+        p = np.ascontiguousarray(rot(v_out), dtype="<f4")
         attrs = {"POSITION": self._accessor(p, "VEC3", 5126, 34962, bounds=True)}
         n = np.asarray(normals, np.float64)
         n = n / np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-12)
@@ -214,7 +228,12 @@ class GameGLB:
             attrs["TANGENT"] = self._accessor(np.ascontiguousarray(np.c_[rot(t3), t[:, 3]], dtype="<f4"), "VEC4", 5126, 34962)
         if uv is not None:
             attrs["TEXCOORD_0"] = self._accessor(np.ascontiguousarray(uv, dtype="<f4"), "VEC2", 5126, 34962)
-        if colour is not None:
+        for k, extra in enumerate(extra_uv or []):
+            attrs[f"TEXCOORD_{k + 1}"] = self._accessor(np.ascontiguousarray(extra, dtype="<f4"), "VEC2", 5126, 34962)
+        if colour is not None and colour_8bit:
+            c = (np.clip(np.asarray(colour, np.float64), 0.0, 1.0) * 255.0 + 0.5).astype("u1")
+            attrs["COLOR_0"] = self._accessor(np.ascontiguousarray(c), "VEC4", 5121, 34962, normalized=True)
+        elif colour is not None:
             c = (np.clip(np.asarray(colour, np.float64), 0.0, 1.0) * 65535.0 + 0.5).astype("<u2")
             attrs["COLOR_0"] = self._accessor(np.ascontiguousarray(c), "VEC4", 5123, 34962, normalized=True)
         for key, val in (attributes or {}).items():
@@ -226,7 +245,23 @@ class GameGLB:
         self.vertices += len(p)
         return len(self.meshes) - 1
 
-    def write(self) -> dict:
+    def write_gltf(self) -> dict:
+        """As a .gltf and a .bin beside it, with images in files of their own (add_texture_uri)."""
+        bin_path = self.path.with_suffix(".bin")
+        doc = self._document()
+        # Unreal's import reads extras as text, and logs an error for anything nested
+        plain = lambda e: {k: v if isinstance(v, (str, int, float, bool)) else json.dumps(v, separators=(",", ":")) for k, v in e.items()}  # noqa: E731
+        doc["asset"] = {**doc["asset"], "extras": plain(doc["asset"]["extras"])}
+        doc["materials"] = [{**m, "extras": plain(m["extras"])} if "extras" in m else m for m in doc["materials"]]
+        doc["buffers"] = [{"byteLength": len(self.blob), "uri": bin_path.name}]
+        self.blob.extend(b"\0" * (-len(self.blob) % 4))
+        doc["buffers"][0]["byteLength"] = len(self.blob)
+        bin_path.write_bytes(self.blob)
+        self.path.write_text(json.dumps(doc, separators=(",", ":")), encoding="utf-8")
+        size = self.path.stat().st_size + bin_path.stat().st_size
+        return {"triangles": int(self.triangles), "vertices": int(self.vertices), "file_mb": round(size / 2**20, 2)}
+
+    def _document(self) -> dict:
         doc = {
             "asset": {"version": "2.0", "generator": "treegen game export", "extras": self.metadata},
             "scene": 0,
@@ -242,6 +277,10 @@ class GameGLB:
             doc.update(images=self.images, textures=self.textures, samplers=self.samplers)
         if self.extensions:
             doc["extensionsUsed"] = sorted(self.extensions)    # none required: they fall back to plain PBR
+        return doc
+
+    def write(self) -> dict:
+        doc = self._document()
         js = json.dumps(doc, separators=(",", ":")).encode("utf-8")
         js += b" " * (-len(js) % 4)
         self.blob.extend(b"\0" * (-len(self.blob) % 4))
@@ -259,7 +298,16 @@ _TYPE_SIZES = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4, "MAT4": 16}
 
 
 def read_glb(path) -> tuple:
-    """(json document, binary chunk) of a .glb, checking its header and chunks."""
+    """(json document, binary chunk) of a .glb, checking its header and chunks; or of a .gltf and its .bin."""
+    if Path(path).suffix.lower() == ".gltf":
+        doc = json.loads(Path(path).read_text(encoding="utf-8"))
+        uri = doc["buffers"][0].get("uri")
+        if not uri:
+            raise ValueError(f"{path}: its buffer names no file")
+        blob = (Path(path).parent / uri).read_bytes()
+        if len(blob) < doc["buffers"][0]["byteLength"]:
+            raise ValueError(f"{path}: {uri} is shorter than the buffer says")
+        return doc, blob
     with open(path, "rb") as f:
         data = f.read()
     if len(data) < 28:
@@ -318,6 +366,18 @@ def validate_glb(path) -> dict:
         if t["source"] >= len(doc["images"]) or t.get("sampler", 0) >= len(doc.get("samplers", [{}])):
             errs.append("a texture points at a missing image or sampler")
     for img in doc.get("images", []):
+        if "uri" in img:
+            image_file = Path(path).parent / img["uri"]
+            if not image_file.is_file():
+                errs.append(f"image {img['uri']} isn't there")
+                continue
+            with open(image_file, "rb") as f:
+                header = f.read(25)
+            if header[:4] != b"\x89PNG" and header[:2] != b"\xff\xd8":
+                errs.append(f"image {img['uri']} is neither PNG nor JPEG")
+            if header[:4] == b"\x89PNG" and header[24] != 8:
+                errs.append(f"image {img['uri']} is {header[24]}-bit: Interchange imports 16-bit PNGs blank")
+            continue
         v = doc["bufferViews"][img["bufferView"]]
         head = blob[v.get("byteOffset", 0):v.get("byteOffset", 0) + 4]
         good = {"image/png": head[:4] == b"\x89PNG", "image/jpeg": head[:2] == b"\xff\xd8"}.get(img.get("mimeType"), False)
@@ -738,6 +798,7 @@ def write_stats(path: Path, model, metadata: dict, reference: dict, anchorage: d
     doc = {
         "format": "treegen.stats/1",
         **metadata,
+        **({"damage_log": model.damage_log} if getattr(model, "damage_log", None) else {}),
         "units": {"height": "m", "dbh": "cm (diameter at 1.3 m)", "crown_width": "m"},
         "definitions": {
             "crown_width_m": "mean of the east-west and north-south extents of living wood",

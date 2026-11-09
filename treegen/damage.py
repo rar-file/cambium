@@ -24,11 +24,11 @@ What each part rests on (full sources and labels: reference/<species>/labels.yam
 * Where it snaps.  Kitenberga Table 3 for the mean, her Fig. 4 for the spread.  A
   stem broken below the living crown dies; broken within it, it lives on with a
   new leader (Nykanen p. 195).
-* Snow.  The load sits on the crown's projected area; the stem's Rayleigh buckling
-  factor (as tools/snow_buckling.py) amplifies the off-centre moment, compared
-  with the stem's strength.  Slender stems and off-centre crowns fail first
-  (Nykanen pp. 201-202); no birch of 12 m at 1:120 taper breaks at 60 kg/m2
-  (Nykanen Fig. 2, from Peltola et al. 1997).
+* Snow.  The load sits on the crown's projected area, at most the tree's share of the
+  ground; the real stem's Rayleigh buckling factor (as tools/snow_buckling.py) amplifies
+  the off-centre moment, compared with the stem's strength.  Slender stems and off-centre
+  crowns go first (Nykanen pp. 201-202).  An overloaded stem mostly bends: 93.7 % of
+  damaged birches did in Donis et al. 2024.
 * Pit and mound.  The plate from RootSystem.anchorage tips over about its leeward
   edge.  The mound holds the soil the pit lost.
 
@@ -45,6 +45,7 @@ import numpy as np
 G = 9.81
 # one stream per tree or plot, apart from the model's others
 RNG_TAG = 86011
+WEATHER_TAG = 86012
 
 
 # -- the year's weather --------------------------------------------------------
@@ -85,6 +86,9 @@ class TreeState:
     anchorage: dict | None = None       # RootSystem.anchorage's numbers, when known
     x_m: float = 0.0                    # stem base, in plot coordinates
     y_m: float = 0.0
+    storm_exposure: float = 1.0         # this tree's share of a storm's damage, against the stand's mean of 1
+    stem_z: np.ndarray | None = None    # the real stem, when known: heights
+    stem_r: np.ndarray | None = None    # and radii
 
 
 @dataclass
@@ -94,6 +98,8 @@ class Event:
     snap_height_m: float | None = None
     fall_azimuth_deg: float | None = None
     plate: dict | None = None           # root plate, pit and mound (uprooting only)
+    root_moment_knm: float | None = None    # for a tree that failed: what held it at the roots
+    stem_moment_knm: float | None = None    # and at the stem
 
     def as_dict(self) -> dict:
         return {k: (round(v, 3) if isinstance(v, float) else v) for k, v in asdict(self).items() if v is not None}
@@ -153,7 +159,7 @@ def storm_hit_probability(state: TreeState, dp) -> float:
     of it falling in the storm years."""
     w = dp.wind
     per_year = 1.0 - (1.0 - wind_damage_probability(state, dp)) ** (1.0 / float(w.period_years))
-    return min(1.0, per_year * float(w.storm_return_years))
+    return min(1.0, per_year * float(w.storm_return_years) * float(state.storm_exposure))
 
 
 def stem_breaking_moment_knm(dbh_cm: float, mor_mpa: float) -> float:
@@ -194,28 +200,41 @@ def snap_height_m(state: TreeState, dp, rng) -> float:
 
 
 # -- snow ----------------------------------------------------------------------
-def snow_loading(state: TreeState, load_kg_m2: float, sp) -> tuple[float, float]:
-    """(moment over the stem's strength at breast height, Rayleigh buckling factor) under
-    this snow load.  The stem's radius falls as (H - z)^p from its DBH to nothing at its
-    top, with p from the stem form factor f (volume = f pi/4 DBH^2 H gives p = (1/f - 1)/2).
-    Below a buckling factor of 1 the stem can't stand the load at all."""
-    dp, mp = sp.damage, sp.mechanics
-    H, d = float(state.height_m), float(state.dbh_cm) / 100.0
-    cb = float(state.crown_base_m if state.crown_base_m is not None else 0.5 * H)
-    cb = min(cb, 0.95 * H)
-    m_load = load_kg_m2 * float(dp.snow.crown_catch_fraction) * math.pi / 4.0 * float(state.crown_width_m) ** 2 + float(state.crown_wood_kg)
-    z = np.linspace(0.0, H, 121)
-    p = (1.0 / float(dp.stem_form_factor) - 1.0) / 2.0
-    r = 0.5 * d * (np.maximum(H - z, 0.0) / max(H - 1.3, 0.1)) ** p
+def rayleigh_terms(z: np.ndarray, r: np.ndarray, height: float, crown_base, mp) -> tuple[float, float, float]:
+    """The buckling factor's sum for a stem of radius r at heights z, as tools/snow_buckling.py: the factor is
+    stiffness / (stem's weight term + crown load in kg x load's term per kg).  The load is spread evenly over the crown."""
+    H = float(height)
+    cb = min(float(crown_base if crown_base is not None else 0.5 * H), 0.95 * H)
     dz = z[1] - z[0]
-    # mass above each height: the stem, and the load spread evenly over the crown
     stem = float(mp.wood_density) * np.pi * r * r * dz
     above = np.cumsum(stem[::-1])[::-1]
-    above += m_load * np.clip((H - np.maximum(z, cb)) / max(H - cb, 1e-6), 0.0, 1.0)
+    share = np.clip((H - np.maximum(z, cb)) / max(H - cb, 1e-6), 0.0, 1.0)
     w1 = math.pi / (2.0 * H) * np.sin(math.pi * z / (2.0 * H))
     w2 = (math.pi / (2.0 * H)) ** 2 * np.cos(math.pi * z / (2.0 * H))
     ei = float(mp.youngs_modulus_wood) * np.pi * r ** 4 / 4.0
-    buckling = float(np.trapezoid(ei * w2 * w2, z) / max(np.trapezoid(G * above * w1 * w1, z), 1e-30))
+    return float(np.trapezoid(ei * w2 * w2, z)), float(np.trapezoid(G * above * w1 * w1, z)), float(np.trapezoid(G * share * w1 * w1, z))
+
+
+def snow_loading(state: TreeState, load_kg_m2: float, sp) -> tuple[float, float]:
+    """(moment over the stem's strength at breast height, Rayleigh buckling factor) under this
+    snow load, on the tree's real stem.  Without one its radius falls as (H - z)^p from its DBH
+    to nothing at its top, with p from the stem form factor f (volume = f pi/4 DBH^2 H gives
+    p = (1/f - 1)/2); under its own weight that's 1.3 to 2.2 times weaker than the grown stems of
+    logged plots.  Below a buckling factor of 1 the stem can't stand the load at all."""
+    dp = sp.damage
+    H = float(state.height_m)
+    area = math.pi / 4.0 * float(state.crown_width_m) ** 2
+    if state.stems_per_ha > 0.0:
+        area = min(area, 1e4 / float(state.stems_per_ha))      # no tree holds more snow than falls on its share of the ground
+    m_load = load_kg_m2 * float(dp.snow.crown_catch_fraction) * area + float(state.crown_wood_kg)
+    z = np.linspace(0.0, H, 121)
+    if state.stem_z is not None:
+        r = np.interp(z, state.stem_z, state.stem_r, right=0.0)
+    else:
+        p = (1.0 / float(dp.stem_form_factor) - 1.0) / 2.0
+        r = 0.5 * float(state.dbh_cm) / 100.0 * (np.maximum(H - z, 0.0) / max(H - 1.3, 0.1)) ** p
+    stiff, stem_weight, load_weight = rayleigh_terms(z, r, H, state.crown_base_m, sp.mechanics)
+    buckling = float(stiff / max(stem_weight + m_load * load_weight, 1e-30))
     if buckling <= 1.0:
         return math.inf, buckling
     lever = float(state.crown_offset_m) + float(dp.snow.lever_fraction) * H
@@ -223,12 +242,11 @@ def snow_loading(state: TreeState, load_kg_m2: float, sp) -> tuple[float, float]
     return moment_knm / stem_breaking_moment_knm(state.dbh_cm, dp.failure.mor_green_mpa), buckling
 
 
-def snow_failure_probability(state: TreeState, load_kg_m2: float, sp) -> tuple[float, float]:
-    """(chance the snow breaks or uproots this tree, its buckling factor under the load)."""
-    ratio, buckling = snow_loading(state, load_kg_m2, sp)
-    if ratio == math.inf:
-        return 1.0, buckling
-    return _logistic(math.log(max(ratio, 1e-12)) / float(sp.damage.snow.spread)), buckling
+def snow_overload_probability(state: TreeState, load_kg_m2: float, sp) -> float:
+    """Chance that this load overloads this stem: its moment reaches the stem's strength, or the stem buckles.
+    Overloaded isn't broken: see assess_year."""
+    ratio = snow_loading(state, load_kg_m2, sp)[0]
+    return 1.0 if ratio == math.inf else _logistic(math.log(max(ratio, 1e-12)) / float(sp.damage.snow.spread))
 
 
 # -- pit and mound -------------------------------------------------------------
@@ -287,20 +305,31 @@ def expose_mineral_soil(regen, plate: dict) -> None:
 
 
 # -- the year's verdict --------------------------------------------------------
-def _failure(state: TreeState, weather: Weather, sp, rng, kind: str) -> Event:
+def leaf_share_above(state: TreeState, z: float) -> float:
+    """Without the tree itself: its leaves spread evenly over its crown."""
+    H = float(state.height_m)
+    cb = float(state.crown_base_m if state.crown_base_m is not None else 0.5 * H)
+    return min(max((H - z) / max(H - cb, 1e-6), 0.0), 1.0)
+
+
+def _failure(state: TreeState, weather: Weather, sp, rng, kind: str, share_above=None) -> Event:
     dp = sp.damage
     fall = (weather.wind_from_deg + 180.0) % 360.0
+    roots = uprooting_moment_knm(state, weather.wind_from_deg, sp)
+    stem = stem_breaking_moment_knm(state.dbh_cm, dp.failure.mor_green_mpa)
     if rng.random() < uproot_probability(state, weather.wind_from_deg, sp):
-        return Event(f"{kind} uproot", True, None, fall, root_plate(state, fall, sp))
+        return Event(f"{kind} uproot", True, None, fall, root_plate(state, fall, sp), roots, stem)
     z = snap_height_m(state, dp, rng)
+    taken = share_above(z) if share_above is not None else leaf_share_above(state, z)
     below_crown = state.crown_base_m is None or z < float(state.crown_base_m)
-    return Event(f"{kind} snap", below_crown, z, fall)
+    return Event(f"{kind} snap", below_crown or 1.0 - taken < float(dp.snap.min_leaves_left), z, fall, None, roots, stem)
 
 
-def assess_year(state: TreeState, weather: Weather, sp, rng, load_anchorage=None) -> Event | None:
+def assess_year(state: TreeState, weather: Weather, sp, rng, load_anchorage=None, share_above=None) -> Event | None:
     """What happens to this tree this year, or None.  Winter's snow first, then the storm,
     then age; a tree takes at most one blow a year.  load_anchorage: called for the root
-    numbers only when a tree fails, because working them out takes time."""
+    numbers only when a tree fails, because working them out takes time.  share_above: the
+    share of the tree's leaves a break at a height would take, when the tree itself is at hand."""
     dp = sp.damage
     if not bool(dp.enabled):
         return None
@@ -308,15 +337,13 @@ def assess_year(state: TreeState, weather: Weather, sp, rng, load_anchorage=None
     def fail(kind):
         if state.anchorage is None and load_anchorage is not None:
             state.anchorage = load_anchorage()
-        return _failure(state, weather, sp, rng, kind)
+        return _failure(state, weather, sp, rng, kind, share_above)
 
-    if state.dbh_cm and weather.snow_load_kg_m2 > 0.0:
-        p, buckling = snow_failure_probability(state, weather.snow_load_kg_m2, sp)
-        # the thinnest stems bend whatever the load (Nykanen p. 195)
-        if float(state.dbh_cm) >= float(dp.snow.min_break_dbh_cm) and rng.random() < p:
-            return fail("snow")
-        if buckling < float(dp.snow.bend_buckling_factor) and float(state.dbh_cm) < float(dp.snow.bend_max_dbh_cm):
+    if state.dbh_cm and weather.snow_load_kg_m2 > 0.0 and rng.random() < snow_overload_probability(state, weather.snow_load_kg_m2, sp):
+        # an overloaded stem bends and few break: 93.7 % of damaged birches bent in Donis 2024
+        if rng.random() >= float(dp.snow.break_share):
             return Event("snow bend", False)
+        return fail("snow")
     if weather.storm and state.dbh_cm and rng.random() < storm_hit_probability(state, dp):
         return fail("wind")
     if bool(dp.old_age.enabled) and rng.random() < old_age_hazard(state.age, dp.old_age):
@@ -363,30 +390,57 @@ def state_from_model(model, stems_per_ha: float | None = None, basal_area_m2_ha:
     if basal_area_m2_ha is None:
         over_bark = float(dbh or 0.0) * float(model.sp.damage.dbh_over_bark_factor)
         basal_area_m2_ha = stems_per_ha * math.pi / 4.0 * (over_bark / 100.0) ** 2
+    z, r = T.pos[trunk, 2].astype(float), T.radius[trunk].astype(float)
+    o = np.argsort(z, kind="stable")
     return TreeState(int(model.year), h, dbh, s.get("crown_base_height_m"), float(s.get("crown_width_m") or 0.0),
                      float(stems_per_ha), float(basal_area_m2_ha), bool(prior_damage), offset, wood,
-                     x_m=float(xy[0]), y_m=float(xy[1]))
+                     x_m=float(xy[0]), y_m=float(xy[1]), stem_z=z[o], stem_r=r[o])
 
 
-def apply_top_break(model, z_break: float, t: int) -> bool:
+def _top_above(model, z_break: float):
+    """(first node off, the node below it, everything that goes), or None if the break misses the living stem."""
+    T = model.tree
+    n = T.n
+    trunk = T.trunk_chain(model.leader_axes)
+    above = np.nonzero(T.pos[trunk, 2] >= z_break)[0]
+    if not above.size or above[0] < 2:
+        return None
+    k, base = int(trunk[above[0]]), int(trunk[above[0] - 1])
+    kill = np.zeros(n, bool)
+    kill[k] = True
+    for seg, _, _ in T.levels(T.death[:n] < 0)[1:]:
+        kill[seg] |= kill[T.parent[seg]]
+    return k, base, kill
+
+
+def top_break_share(model, z_break: float) -> float:
+    """The share of this tree's leaves a break at this height would take."""
+    cut = _top_above(model, z_break)
+    if cut is None:
+        return 1.0 if z_break < float(model.stats[-1]["height_m"]) else 0.0
+    T = model.tree
+    leaves = np.where(T.death[:T.n] < 0, T.leaves[:T.n], 0.0).astype(float)
+    return float(leaves[cut[2]].sum() / max(leaves.sum(), 1e-9))
+
+
+def apply_top_break(model, z_break: float, t: int):
     """Take the stem off above z_break: everything above is dead from season t, and the
     uppermost living lateral buds or limbs below the wound become leaders, as after
-    browsing (GrowthModel._leader_damage).  False if the break misses the living stem."""
+    browsing (GrowthModel._leader_damage).  False if the break misses the living stem;
+    otherwise what it took: the share of the tree's leaves, and the height left."""
     from .growth import LAT_DEAD, LAT_DORMANT, LAT_SPUR
 
     T = model.tree
     n = T.n
     alive = T.death[:n] < 0
-    trunk = T.trunk_chain(model.leader_axes)
-    above = np.nonzero(T.pos[trunk, 2] >= z_break)[0]
-    if not above.size or above[0] < 2:
+    cut = _top_above(model, z_break)
+    if cut is None:
         return False
-    k, base = int(trunk[above[0]]), int(trunk[above[0] - 1])
-    kill = np.zeros(n, bool)
-    kill[k] = True
-    for seg, _, _ in T.levels(alive)[1:]:
-        kill[seg] |= kill[T.parent[seg]]
+    k, base, kill = cut
     dead = np.nonzero(kill)[0]
+    leaves = np.where(alive, T.leaves[:n], 0.0).astype(float)
+    took = {"leaf_share": round(float(leaves[kill].sum() / max(leaves.sum(), 1e-9)), 4),
+            "height_left_m": round(float(T.pos[:n][alive & ~kill, 2].max()), 3)}
     T.death[dead] = t
     T.term[dead] = 0
     for nd in dead[T.lat[dead] == LAT_SPUR].tolist():
@@ -416,7 +470,7 @@ def apply_top_break(model, z_break: float, t: int) -> bool:
             T.lat[c] = LAT_DORMANT
             T.lat_age[c] = 0
             model._relay_buds[c] = base
-    return True
+    return took
 
 
 def _rng(holder, seed: int):
@@ -425,9 +479,49 @@ def _rng(holder, seed: int):
     return holder._damage_rng
 
 
+def _weather_rng(holder, seed: int):
+    """The years' weather has its own stream, so a seed has the same storms and snowfalls however
+    many trees stand or fall: two runs on one seed can be compared, storm for storm."""
+    if getattr(holder, "_weather_rng_state", None) is None:
+        holder._weather_rng_state = np.random.default_rng([int(seed), WEATHER_TAG])
+    return holder._weather_rng_state
+
+
 def _is_on(sp) -> bool:
     dp = getattr(sp, "damage", None)
     return dp is not None and bool(dp.enabled)
+
+
+def _number(x, digits: int = 4):
+    return None if x is None else float(f"{float(x):.{digits}g}")
+
+
+def _record(year: int, k, event: Event, state: TreeState, factor: float) -> dict:
+    """One line of the log: what happened, to what size of tree."""
+    d = float(state.dbh_cm or 0.0)
+    row = {"year": year, "cause": event.cause, "fatal": event.fatal, "uprooted": event.plate is not None,
+           "age": state.age, "height_m": _number(state.height_m), "dbh_cm": _number(d),
+           "hd_over_bark": _number(state.height_m / (d * factor)) if d > 0.0 else None,
+           "crown_base_m": _number(state.crown_base_m), "stems_per_ha": _number(state.stems_per_ha),
+           "basal_area_m2_ha": _number(state.basal_area_m2_ha), "prior_damage": state.prior_damage,
+           "snap_height_m": _number(event.snap_height_m), "fall_azimuth_deg": _number(event.fall_azimuth_deg),
+           "root_moment_knm": _number(event.root_moment_knm), "stem_moment_knm": _number(event.stem_moment_knm)}
+    if k is not None:
+        row["tree"] = k
+    if event.plate is not None:
+        row["plate"] = event.plate
+    return row
+
+
+def _snow_tree_row(k, state: TreeState, event, sp) -> list:
+    """For retuning the snow without a new run: the size of this tree in a snow year, and the parts of its buckling sum."""
+    H = float(state.height_m)
+    grid = np.linspace(0.0, H, 121)
+    real = np.interp(grid, state.stem_z, state.stem_r, right=0.0)
+    return [k, state.age, _number(H), _number(state.dbh_cm), _number(state.crown_base_m), _number(state.crown_width_m),
+            _number(state.crown_offset_m), _number(state.crown_wood_kg),
+            *[_number(x) for x in rayleigh_terms(grid, real, H, state.crown_base_m, sp.mechanics)],
+            event.cause if event is not None else None]
 
 
 def tree_year(model, t: int) -> Event | None:
@@ -437,48 +531,115 @@ def tree_year(model, t: int) -> Event | None:
     if not _is_on(model.sp) or hasattr(model, "_plot_spacing") or not model.stats:
         return None
     rng = _rng(model, model.seed)
-    weather = draw_weather(rng, model.sp.damage)
+    weather = draw_weather(_weather_rng(model, model.seed), model.sp.damage)
     log = model.__dict__.setdefault("damage_log", [])
-    state = state_from_model(model, prior_damage=any(e.get("cause") != "old age" for e in log))
-    event = assess_year(state, weather, model.sp, rng, load_anchorage=lambda: anchorage_of(model))
+    any_blow = weather.storm or weather.snow_load_kg_m2 > 0.0
+    if any_blow:
+        state = state_from_model(model, prior_damage=any(e.get("took") for e in log))
+    else:
+        state = TreeState(int(model.year), float(model.stats[-1]["height_m"]), model.stats[-1]["dbh_cm"])   # only age can act
+    event = assess_year(state, weather, model.sp, rng, load_anchorage=lambda: anchorage_of(model),
+                        share_above=lambda z: top_break_share(model, z))
     if event is not None:
+        row = _record(t, None, event, state, float(model.sp.damage.dbh_over_bark_factor))
         if event.snap_height_m is not None and not event.fatal:
-            apply_top_break(model, event.snap_height_m, t)
-        log.append({"year": t, **event.as_dict()})
+            row["took"] = apply_top_break(model, event.snap_height_m, t)
+        log.append(row)
     return event
+
+
+def storm_exposure(plot, trees: list, rng, dp, factor: float) -> dict:
+    """Where a storm falls in a plot: most of its damage in a few round patches, so it opens gaps instead of
+    picking single trees all over.  Tree -> how much more or less than the stand's mean it's exposed.  The stand's
+    expected damage is unchanged: exposure averages 1 over the trees wind can take."""
+    w = dp.wind
+    radius, area_share, damage_share = float(w.gap_radius_m), float(w.gap_area_share), float(w.gap_damage_share)
+    lx, ly = plot._sides() if hasattr(plot, "_sides") else (math.sqrt(plot.area), math.sqrt(plot.area))
+    n = max(1, int(round(area_share * lx * ly / (math.pi * radius * radius))))
+    cx = rng.uniform(-0.5 * lx, 0.5 * lx, n)
+    cy = rng.uniform(-0.5 * ly, 0.5 * ly, n)
+    at_risk = [k for k in trees if float(plot.trees[k].stats[-1]["dbh_cm"] or 0.0) * factor >= float(w.min_dbh_cm)]
+    inside = set()
+    for k in at_risk:
+        dx, dy = np.abs(plot.info[k]["x"] - cx), np.abs(plot.info[k]["y"] - cy)
+        if (np.hypot(np.minimum(dx, lx - dx), np.minimum(dy, ly - dy)) <= radius).any():
+            inside.add(k)
+    out = {"centres": [[round(float(x), 2), round(float(y), 2)] for x, y in zip(cx, cy)]}
+    if not at_risk or not inside or len(inside) == len(at_risk):
+        return out
+    share = len(inside) / len(at_risk)
+    for k in at_risk:
+        out[k] = damage_share / share if k in inside else (1.0 - damage_share) / (1.0 - share)
+    return out
 
 
 def plot_year(plot, active: list) -> list:
     """One year of damage in a plot, after the trees have grown.  Stems killed go through
     Plot._finish with the cause; a broken top is taken off the tree; a root plate bares the
-    seedbed.  What happened is kept in plot.info[k]["damage"], which plot.json saves."""
+    seedbed.  plot.damage_log, which plot.json saves, holds every year's weather and every
+    event; a tree's own part also goes in plot.info[k]["damage"]."""
     if not _is_on(plot.species):
         return []
+    dp = plot.species.damage
     rng = _rng(plot, plot.seed)
-    weather = draw_weather(rng, plot.species.damage)
-    factor = float(plot.species.damage.dbh_over_bark_factor)
+    weather = draw_weather(_weather_rng(plot, plot.seed), dp)
+    factor = float(dp.dbh_over_bark_factor)
     ha = plot.area / 1e4
-    # the overstorey, as in Kitenberga's data: seedlings under the canopy don't shelter it
-    d_ob = np.array([float(plot.trees[k].stats[-1]["dbh_cm"] or 0.0) * factor for k in plot.alive])
-    over = d_ob[d_ob >= float(plot.species.damage.wind.min_dbh_cm)] / 100.0
-    stems, basal = len(over) / ha, float((np.pi / 4.0 * over * over).sum()) / ha
+    log = plot.__dict__.setdefault("damage_log", {"years": [], "events": [], "snow_trees": {}})
+    # the canopy layer, as her 'overstory': her densities run up to 11,520 stems/ha, so small trees count,
+    # but seedlings under the canopy don't shelter it
+    rows = [plot.trees[k].stats[-1] for k in plot.alive]
+    tall = max((float(r["height_m"]) for r in rows), default=0.0)
+    d_ob = np.array([float(r["dbh_cm"] or 0.0) * factor for r in rows if float(r["height_m"]) >= float(dp.wind.canopy_height_share) * tall]) / 100.0
+    stems, basal = len(d_ob) / ha, float((np.pi / 4.0 * d_ob * d_ob).sum()) / ha
     events = []
-    for k in [k for k in active if k in plot.alive]:
+    trees = [k for k in active if k in plot.alive]
+    year = {"year": plot.year, "storm": weather.storm, "wind_from_deg": _number(weather.wind_from_deg), "snow_load_kg_m2": _number(weather.snow_load_kg_m2),
+            "trees": len(trees), "stems_per_ha": _number(stems), "basal_area_m2_ha": _number(basal), "wind_at_risk": 0, "wind_expected": 0.0,
+            "stems_over_min": sum(float(plot.trees[k].stats[-1]["dbh_cm"] or 0.0) * factor >= float(dp.wind.min_dbh_cm) for k in trees),
+            "snow_at_risk": 0, "snow_expected": 0.0, "events": 0, "fatal": 0}
+    detail = bool(getattr(dp, "log_snow_trees", False)) and weather.snow_load_kg_m2 > 0.0
+    any_blow = weather.storm or weather.snow_load_kg_m2 > 0.0
+    exposure = storm_exposure(plot, trees, rng, dp, factor) if weather.storm else {}
+    if exposure:
+        year["gap_centres"] = exposure.pop("centres")
+    for k in trees:
         m = plot.trees[k]
         xy = (plot.info[k]["x"], plot.info[k]["y"])
-        state = state_from_model(m, stems, basal, bool(plot.info[k].get("prior_damage")), xy)
-        event = assess_year(state, weather, m.sp, rng, load_anchorage=lambda: anchorage_of(m))
+        if any_blow:
+            state = state_from_model(m, stems, basal, bool(plot.info[k].get("prior_damage")), xy)
+            state.storm_exposure = exposure.get(k, 1.0)
+        else:
+            state = TreeState(int(m.year), float(m.stats[-1]["height_m"]), m.stats[-1]["dbh_cm"])    # only age can act
+        if weather.storm and state.dbh_cm:
+            p = storm_hit_probability(state, dp)
+            year["wind_at_risk"] += p > 0.0
+            year["wind_expected"] += p
+        if weather.snow_load_kg_m2 > 0.0 and state.dbh_cm:
+            year["snow_at_risk"] += 1
+            year["snow_expected"] += snow_overload_probability(state, weather.snow_load_kg_m2, m.sp)
+        event = assess_year(state, weather, m.sp, rng, load_anchorage=lambda: anchorage_of(m),
+                            share_above=lambda z: top_break_share(m, z))
+        if detail and state.dbh_cm:
+            log["snow_trees"].setdefault(str(plot.year), []).append(_snow_tree_row(k, state, event, m.sp))
         if event is None:
             continue
-        record = {"year": plot.year, **event.as_dict()}
-        plot.info[k].setdefault("damage", []).append(record)
-        events.append((k, record))
+        record = _record(plot.year, k, event, state, factor)
+        year["events"] += 1
+        year["fatal"] += bool(event.fatal)
         if event.plate is not None:
             expose_mineral_soil(getattr(plot, "regen", None), event.plate)
         if event.fatal:
+            record["took"] = {"leaf_share": 1.0, "leaf_area_m2": m.stats[-1].get("leaf_area_m2")}
             plot._finish(k, event.cause)
-        else:
+        elif event.snap_height_m is not None:
+            # a broken stem is what her 'prior damage' means; a bent one that recovers isn't
             plot.info[k]["prior_damage"] = True
-            if event.snap_height_m is not None:
-                apply_top_break(m, event.snap_height_m, plot.year + 1)
+            record["took"] = apply_top_break(m, event.snap_height_m, plot.year + 1)
+        plot.info[k].setdefault("damage", []).append(record)
+        log["events"].append(record)
+        events.append((k, record))
+    year["wind_expected"], year["snow_expected"] = _number(year["wind_expected"]), _number(year["snow_expected"])
+    year["wind_at_risk"] = int(year["wind_at_risk"])
+    log["years"].append(year)
     return events

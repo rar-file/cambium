@@ -323,6 +323,8 @@ geometry:
   root_flare_extra: 0.35
   # its decay height; 0.01 to 20 m
   root_flare_height: 0.45
+  # only roots this share of the thickest raise a ridge, and ridges don't pile up; 0 = all, added up; 0 to 1
+  root_flare_min_share: 0.0
   # junction fillet, per child radius; 0 to 10
   junction_blend: 0.6
   # branch collar's extra radius; 0 to 10
@@ -370,6 +372,8 @@ leader_damage:
 damage:
   # old age, wind and snow can act (treegen/damage.py)
   enabled: false
+  # keep every tree's size and buckling sum in each snow year, in plot.json; for tuning
+  log_snow_trees: false
   # over-bark DBH per wood DBH; 1 to 2 cm/cm
   dbh_over_bark_factor: 1.098
   # stem volume over pi/4 DBH^2 H; 0.2 to 1
@@ -407,7 +411,15 @@ damage:
     # brings the mean tree to the observed damage; -10 to 10 logit
     population_offset: 1.23
     # years between storms; 1 to 1000 years
-    storm_return_years: 5
+    storm_return_years: 20
+    # a storm's patches: radius; 0.5 to 500 m
+    gap_radius_m: 7.0
+    # share of the ground in patches; 0 to 1
+    gap_area_share: 0.15
+    # share of a storm's damage in them; 0 to 1
+    gap_damage_share: 0.9
+    # the canopy layer: at least this share of the tallest tree's height; 0 to 1
+    canopy_height_share: 0.5
     # where storms come from; 0 to 360 deg
     wind_from_deg: 240.0
     # scatter of that; 0 to 180 deg
@@ -454,7 +466,7 @@ damage:
     # stem strength under short loads; 1 to 300 MPa
     mor_green_mpa: 44.0
     # ln(root moment / stem moment) at even odds of uprooting; -10 to 10
-    even_odds_log_ratio: -0.46
+    even_odds_log_ratio: -0.24
     # width of that choice; 0.01 to 10
     spread: 0.5
   snap:
@@ -466,6 +478,8 @@ damage:
     prior_damage: -0.09
     # spread of the snapping height; 0.1 to 1000
     beta_concentration: 3.2
+    # a stem left with less than this share of its leaves dies; 0 to 1
+    min_leaves_left: 0.5
   snow:
     # wet snow can break and bend
     enabled: false
@@ -477,14 +491,10 @@ damage:
     crown_catch_fraction: 0.1
     # the load's offset from the stem, per height; 0 to 1
     lever_fraction: 0.02
-    # width of the break; 0.01 to 10
-    spread: 0.5
-    # stems below this buckling factor bend; 0 to 1000
-    bend_buckling_factor: 6.0
-    # only stems under this DBH bend; 0 to 500 cm
-    bend_max_dbh_cm: 10.0
-    # stems under this DBH bend and don't break; 0 to 500 cm
-    min_break_dbh_cm: 2.0
+    # width of the line between overloaded and not; 0.01 to 10
+    spread: 0.25
+    # share of overloaded stems that break or uproot; the rest bend; 0 to 1
+    break_share: 0.063
   uproot:
     # mound radius per plate radius; 0.1 to 10
     mound_radius_factor: 1.0
@@ -500,6 +510,7 @@ plot:
   germination_weights: [0.4, 0.3, 0.2, 0.1]
   # heritable spread of carbon gain, lognormal SD; 0 to 2
   vigour_sd: 0.06
+  natural_start:
 
 regeneration:
   # seeds of a tree of dbh_ref_m; 0 to 1e+09 seeds/year
@@ -524,6 +535,13 @@ regeneration:
   mineral_new_per_year: 0.005
   # half-life of bare soil; 0.01 to 1000 years
   mineral_half_life_years: 5.0
+  spread:
+
+mortality:
+  size_weight:
+  vigour:
+  background:
+  old_age:
 
 stand:
   # trees across the light grid's cell; 1 to 50 trees
@@ -671,6 +689,41 @@ roots:
   max_turn_deg_per_segment: 30
   # the taproot decays below the deepest main lateral
   trim_taproot: true
+  paid:
+    # root wood and fine roots cost carbon
+    enabled: false
+    # stump diameter at no stem diameter; 0 to 50 cm
+    stump_d_intercept_cm: 2.0
+    # stump diameter per stem diameter; 0.5 to 3 cm/cm
+    stump_d_per_dbh: 1.25
+    # roots' squared base diameters over the stump's; 0.1 to 5
+    rel_sum_d2: 1.16
+    # the taproot stops at this length, per taproot_max_depth; 1 to 10
+    taproot_length_per_depth: 1.25
+    # how full the stump is down to where the taproot stops; 0.5 to 50
+    stump_fill_power: 8.0
+    # diameter beyond the rapid taper, at 1 m of root beyond it; 0.01 to 10 cm
+    far_d_cm_per_m: 0.35
+    # and how it goes with the length; 0.1 to 2
+    far_d_exponent: 0.564
+    # a collar root's pull goes as its size to this power; 0 to 1
+    collar_evenness: 0.9
+    # a root's near-collar widening fades over this, per stump diameter; 0.01 to 50 m/m
+    fade_per_stump_d: 1.3
+    # root density with bark; 100 to 1200 kg/m3
+    wood_density_kg_m3: 410.0
+    # fine roots made per fine root standing; 0 to 10 1/year
+    fine_root_turnover_per_year: 0.66
+    # spacing of the collar's nodes; 0.002 to 1 m
+    collar_node_m: 0.01
+    # stump girth per root at the collar; 0.001 to 1 m
+    collar_spacing_m: 0.035
+    # a collar primordium lasts this long unused; 0 to 5000 years
+    collar_primordium_lifespan: 200
+    # a collar root's angle from the taproot, at the top; 0 to 180 deg
+    collar_angle_top_deg: 85.0
+    # the same at the bottom; 0 to 180 deg
+    collar_angle_bottom_deg: 55.0
 
 anchorage:
   # a main root counts up to where it thins below this; 0.001 to 1 m
@@ -701,6 +754,10 @@ anchorage:
   depth_factor_max: 1.2
   # share of the moment from windward roots; 0 to 1
   root_tension_share: 0.5
+
+height_driver:
+
+crown_frame:
 
 field_layer_competition:
   # clear-cut field layer competes for light
@@ -753,3 +810,59 @@ soil_water_balance:
   dry_year_precipitation_mm: [6.8, 26.5, 89.1, 105.1, 44.6]
   # use the drought year's rain
   drought_scenario: false
+
+appearance:
+  provenance:
+  bark:
+    thickness:
+    stage_ramps:
+      papery:
+      rhytidome:
+        climbs:
+    uneven_top:
+    peel:
+    marks:
+  leaves:
+    yellow_lift:
+    season:
+      days:
+    light_effect:
+    shape:
+  game:
+    full_mesh:
+    reduced_mesh:
+    leaf_card:
+    unreal:
+      roots:
+      stem_relief:
+        plates:
+      leaf:
+        shape:
+      days:
+      bark_mean_y:
+
+speed:
+  # carbon solve compiled; same bits
+  compiled_carbon: false
+  # bending compiled; same bits
+  compiled_mechanics: false
+  # light grids held layer first; same bits
+  light_layers: false
+  # soil grids kept between years; same bits
+  keep_soil_grids: false
+  # carbon solve in fewer evaluations; same bits on the runs tested
+  quick_solve: false
+  # the order of passes from a compiled count; same bits
+  quick_levels: false
+  # light by frequency rows, scipy's ffts; new rounding
+  light_rows: false
+  # lean runs drop dead nodes; same yearly stats on the runs tested
+  drop_dead: false
+  # years one light field lasts; lossy; 1 to 10 years
+  light_every: 1
+  # fewer sky directions; lossy; 0 to 90 deg
+  sky_elevations_deg: null
+  # fewer sky directions; lossy; 1 to 64
+  sky_azimuth_count: null
+  # fewer sun directions; lossy; 0.25 to 6 h
+  sun_hour_step: null

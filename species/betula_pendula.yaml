@@ -33,8 +33,9 @@
 #          L-systems. Plant Biomechanics 2000, 615-624.
 #   [AF09] Almeras T., Fournier M. 2009. Biomechanical design and long-term
 #          stability of trees. J. Theor. Biol. 256:370-381.
-#   [L35]  Laitakari E. 1935. The root system of birch (Betula verrucosa and
-#          odorata). Acta Forestalia Fennica 41.
+#   [L35]  Laitakari E. 1934 (often cited as 1935). The root system of birch
+#          (Betula pubescens and B. verrucosa). Acta Forestalia Fennica 41(2),
+#          doi:10.14214/aff.7315; English part from about p. 158.
 #   [K04]  Koch G.W., Sillett S.C., Jennings G.M., Davis S.D. 2004. The limits
 #          to tree height. Nature 428:851-854.
 #   [P00]  Peltola H., Kellomaki S., Hassinen A., Granander M. 2000. Mechanical
@@ -190,7 +191,9 @@ resource:
     min_relative_vigour: 0.3
     interval_years: 5
     rejuvenation: 0.5
-    setpoint_angle_deg: 0
+    # TUNED, against the look: a reiterated limb rises as a second top beside the stem; at 20 it stood out to one
+    # side (cases/crown2.txt, commit 439ae41).  12 since birch v1 (2026-11-08); 0 before.
+    setpoint_angle_deg: 12
   # Maintenance cost of one living internode, in metamer units per year,
   # charged as resource flows acropetally (LIGNUM carbon balance,
   # Perttunen et al. 1996, Ann. Bot. 77:87).  Branches that cannot pay
@@ -283,8 +286,9 @@ bud_fate:
   # made 12x as many 1-2-node third-order shoots, doubled the local leaf
   # density around twig buds (3.8 -> 7.3 m2/m3 within 0.25 m) and halved the
   # survival of second-order shoots (99 -> 53 % after 5-8 years), seed 1 at
-  # 25 years (phase 15). VERIFY (the value 3)
-  long_shoot_threshold: 3.0
+  # 25 years (phase 15).  TUNED (5, since birch v1 (2026-11-08)): against crown flips and branch count
+  # (the Tree agent's test A, reports/tree_handover.md).  The old 3 was VERIFY.
+  long_shoot_threshold: 5
   # Axis tips extend continuously: shoot length is l0 * v, and a tip that
   # can afford less than one metamer still makes one shorter internode (it
   # used to stop: seedlings in the field layer, at ~38 % light, could afford
@@ -301,25 +305,32 @@ bud_fate:
   # increment, weak tips stacked buds and short shoots at a few mm
   # (phase 26).
   axillary_buds_below_one_metamer: false
-  # VERIFY.  Exploring only (M3a), off: Sievanen et al. 2018 Eq. 11's density term.  Its fitted values aren't
-  # printed.  These two bracket birch crown leaf density, shade 0.3 and sun 3.2 m2/m3, Hagemeier &
-  # Leuschner 2019 Table 5, as a test, not a claim.  The 0.5 m cell stands in for their 0.5 m cone.
+  # Sievanen et al. 2018 Eq. 11's density term, on since birch v1 (2026-11-08) (the Tree agent's lead, against crown flips).  Its
+  # fitted values aren't printed.  af_full 0.3 is birch's shade-crown leaf density, Hagemeier & Leuschner 2019
+  # Table 5, a test bound, VERIFY.  af_zero 1.7 is TUNED, against crown length and fill (the Crown agent); it was
+  # 3.2, the sun crown's density in the same table, as a test, not a claim.  The 0.5 m cell stands in for their
+  # 0.5 m cone.
   density_control:
-    enabled: false
+    enabled: true
     af_full: 0.3
-    af_zero: 3.2
+    af_zero: 1.7
     cell_m: 0.5
-    after_growth: false
+    after_growth: true
   # Short shoots are cheap and self-financing, so their fate is local and
   # driven by light, not by BH resource: a lateral bud that does not extend
   # forms a short shoot (spur) if its exposure Q reaches short_shoot_light;
   # most lateral buds of a birch long shoot become short shoots [M82].
-  # A non-extending shoot tip also lives on as a short shoot while lit. VERIFY
-  short_shoot_light: 0.30
-  # A spur dies when its exposure falls below this: the lowermost shade
-  # leaves of Betula pendula stands sit at 21 % relative light (median of
-  # 120-150 measurements; Hagemeier & Leuschner 2019, Forests 10:925).
-  short_shoot_survival_light: 0.21
+  # A non-extending shoot tip also lives on as a short shoot while lit.  TUNED
+  # (0.15, since birch v1 (2026-11-08)): against light under the canopy, set to the spur death line
+  # below, so a bud that doesn't grow stays a short shoot down to it (0.30 before).
+  short_shoot_light: 0.15
+  # A spur dies when its exposure falls below this.  TUNED (0.15, since birch v1 (2026-11-08)):
+  # against light under the canopy (target 6.4-19.8 %).  It no longer matches
+  # its source: the lowermost shade leaves of Betula pendula stands sit at 21 %
+  # relative light (median of 120-150 measurements; Hagemeier & Leuschner 2019,
+  # Forests 10:925), which the old 0.21 followed.  0.15 is under that, and under
+  # the paper's Fig. 6 lowest reading of about 18.7 %, read by eye.
+  short_shoot_survival_light: 0.15
   # A spur releases a long shoot only with clearly more resource than a fresh
   # bud; release of short shoots into long shoots is uncommon [M82]. VERIFY
   spur_release_threshold: 6.0
@@ -454,10 +465,16 @@ shedding:
   # healthy limbs pushed Q/N to within 20% of any fixed threshold, so limbs
   # were shed in waves.  Branches die when their own foliage falls below
   # compensation (Sprugel, Hinckley & Schaap 1991).  Set to the light at
-  # which short shoots die. VERIFY
-  light_per_leaf_threshold: 0.21
+  # which short shoots die (bud_fate.short_shoot_survival_light): TUNED (0.15,
+  # since birch v1 (2026-11-08)), against light under the canopy; 0.21 before.
+  light_per_leaf_threshold: 0.15
   # Branches younger than this are never shed. VERIFY
   min_branch_age: 2
+  # How a branch, a short shoot or a resting tip falls under its light or carbon line.  null (the default before birch v1): all
+  # of them, the first year.  Set: a chance a year, from 0 at the line to 1 at (1 - this) of it.  Without it a crown
+  # whose neighbours are copies of it all crosses the line at once: leaf area 94 m2, then 11 m2 the next year (seed 4 at 50-51).
+  # TUNED, against leaf area and light, and year-to-year steadiness.  Test A: 0.5.
+  shade_softness: 0.5
   # A branch also dies when the carbon its own leaves fix (alpha x light x
   # stomatal opening, after the root share) no longer pays the upkeep of its
   # wood (maintenance_per_internode per internode; Sprugel, Hinckley &
@@ -568,9 +585,14 @@ mechanics:
   # The pendulous trait of silver birch [A92]: shoots thinner than this
   # radius (m) are soft and cannot correct their posture, so long thin
   # shoots hang under their own weight and the load they carry.  Stiffness
-  # and correction are scaled by s(r) = (r/r_p)^p / (1 + (r/r_p)^p). VERIFY
-  pendulous_radius: 0.006
+  # and correction are scaled by s(r) = (r/r_p)^p / (1 + (r/r_p)^p).  TUNED
+  # (0.012, since birch v1 (2026-11-08)), against the look: twigs thinner than about this hang; 0.006
+  # sprayed outward, and hung only at their ends.
+  pendulous_radius: 0.012
   pendulous_sharpness: 4.0
+  # Set: limbs (side axes on the stem) have this radius instead, so limbs ascend and only their thin ends arch over,
+  # and the hanging is the twigs'.  null (the default before birch v1): one radius for all.  TUNED, by eye only; not in test A.  0.0025 with crown_frame.
+  pendulous_radius_limb: 0.0025
   # The year's load increment is applied in sub-steps on the updated shape;
   # no internode turns more than this per sub-step (rad). Model guard.
   substeps: 4
@@ -615,6 +637,11 @@ pipe_model:
   # Tree Physiol. 28:1821, Table 1), so 0.014 (0.011-0.025).  No birch
   # count found: VERIFY (birch).  LIGNUM's Scots pine value is 0.07.
   sapwood_senescence_per_year: 0.014
+  # TUNED, against Repola's branch wood: the same for side axes alone.  null (the default before birch v1): one figure for the whole tree.
+  # Test A: 0.30 (branches 38.5, 52.6 kg at 50, 60 against 46.1, 59.2).  It lays about 0.75 mm a year on a 5 mm limb (my sum; no birch ring width read).
+  branch_sapwood_senescence: 0.30
+  # TUNED, against branch wood in the open: above this radius (m) a limb's sapwood turns over more slowly, in proportion to its radius.  null: one rate.
+  branch_sapwood_thick_m: 0.02
   # true: the requirement is on the conducting wood, with
   # sapwood_senescence_per_year; false: on the whole wood, no turnover.
   sapwood: true
@@ -624,6 +651,10 @@ pipe_model:
   # converted to heartwood, eliminating the need to lay down replacement
   # rings for retired crown layers.
   crown_rise_heartwood: false
+  # true: below the crown base each internode keeps the sapwood its own foliage beyond needs.  false (the default
+  # before birch v1): all of them keep the crown base's figure, on one side of a fork, so on a forked stem the other side
+  # loses sapwood every year and rebuilds it.
+  heartwood_by_own_foliage: true
   # Count the rings that keep this season's foliage supplied (replacing
   # sapwood that stopped conducting, plus the foliage added) as upkeep in
   # the natural-mode death test, like rebuilding the leaves.  In the pipe
@@ -736,7 +767,7 @@ pipe_model:
     streamlining_min_wind_m_s: 10.0
     streamlining_max_wind_m_s: 20.0
     deflection_loading_factor: 1.136
-  # Stem theory (phase 37), off by default (stage 0).
+  # Stem theory (phase 37): stage 2 by default; stage 0 turns it off.
   # stage 1 ("a"): plain pipe model - huber_path_exponent and
   # huber_radius_exponent are not used (c = 0); below the live crown base the
   # conducting sapwood is that of the crown base, A_s(z) = A_s(H_c)
@@ -746,7 +777,9 @@ pipe_model:
   # stage 2 ("b"): stage 1 plus the wind envelope (wind_load above, with its
   # strength parameters: target stress = wood_mor_green_mpa x knot_factor /
   # safety_factor = 18 MPa, VERIFY as noted there) at wind_speed_m_s at the
-  # canopy top.  12 m/s was set in the phase-37 brief, not fitted: VERIFY.
+  # canopy top.  TUNED (8 m/s, since birch v1 (2026-11-08)), against Dg, stems/ha and LAI on plots:
+  # the 12 m/s of the phase-37 brief, not fitted, gave Dg 25.1, 29.7 cm and 490,
+  # 352 stems/ha at 50, 60 (commit 74d162d).
   # Below a taller canopy top (plot mode: the tallest living tree) the wind
   # at the tree's own height follows the exponential within-canopy profile
   # u(z) = u_h exp(a (z / h_c - 1)) (Inoue 1963, J. Meteorol. Soc. Jpn.
@@ -756,7 +789,7 @@ pipe_model:
   # change it.
   stem_theory:
     stage: 2
-    wind_speed_m_s: 12.0
+    wind_speed_m_s: 8
     canopy_wind_attenuation: 2.0
 
 geometry:
@@ -773,6 +806,9 @@ geometry:
   root_collar_height_coef: [0.4862, 0.4979]
   root_flare_extra: 0.35
   root_flare_height: 0.45
+  # A tree with many roots at its collar (roots.paid): only roots at least this share of the thickest's radius raise a
+  # ridge on the stem, and ridges side by side don't pile up.  0 = every root, added up.  TUNED by eye.
+  root_flare_min_share: 0.5
   # Junction fillet radius as a fraction of the child radius. VERIFY
   junction_blend: 0.6
   # Branch collar: extra radius of a lateral where it leaves its parent and
@@ -803,7 +839,9 @@ reference:
   dbh:
     # Open-grown / crown-released silver birch reaches 40-50 cm in 60 years
     # (target trees, Forests 12(5):599, 2021); stand-grown trees at rotation
-    # (50-60 yr) are ~25-30 cm [H10].  VERIFY
+    # (50-60 yr) are ~25-30 cm [H10].  VERIFY, and not a target: Dubois, Claessens
+    # & Ligot 2021 was read as an abstract only, and its figure is a potential,
+    # not a band.
     open_grown_band_cm: [30, 50]
     band_age: 60
 
@@ -839,17 +877,19 @@ leader_damage:
       probability_per_year: 0.168
 
 damage:
-  # Old age, wind and snow (treegen/damage.py).  Off by default.  Labels and
+  # Old age, wind and snow (treegen/damage.py).  On by default since birch v1 (2026-11-08).  Labels and
   # sources for every value: reference/betula_pendula/labels.yaml.
-  enabled: false
-  # Over-bark DBH per wood DBH, from Hansen et al. 2023 as in tools/bark.py
-  # (the small intercept dropped); the wind data are over bark.
+  enabled: true
+  # For tuning: keep every tree's size and buckling sum in each snow year, in plot.json.
+  log_snow_trees: false
+  # DERIVED: over-bark DBH per wood DBH, worked out from Hansen et al. 2023 as in
+  # tools/bark.py, with its small intercept dropped; the wind data are over bark.
   dbh_over_bark_factor: 1.098
-  # Stem volume / (pi/4 DBH^2 H): 0.45 at both sites of Krisans et al. 2022,
-  # Tables 1-2 (site means).
+  # DERIVED: stem volume / (pi/4 DBH^2 H), computed from the two site means of
+  # Krisans et al. 2022 Tables 1-2: 0.45 at both.
   stem_form_factor: 0.45
   old_age:
-    enabled: false
+    enabled: true
     # Elfving 2010 p. 67 Table 3 and Eq. F1, birch, from 4,040 Swedish sample
     # trees (both birches, oldest 240 rings at breast height):
     # ln AMAX = b0 + b1 SIS + b2 ln n, read at n = 10,000 as the report does.
@@ -859,17 +899,20 @@ damage:
     amax_n: 10000
     # Site index on the top-height-at-100 scale.  SI 20 and SI 26 of the height
     # target are 25.08 and 29.93 m on it (targets.yaml); this is about SI 23.
+    # The mortality block's old age reads this AMAX too, so there is one.
     site_index_sis_m: 27.5
     # Elfving p. 68, p = 1 / (1 + exp(a - b A / AMAX)) (from MELA, Hynynen 2002).
     ageing_a: 10.0
     ageing_b: 12.0
-    # A counts rings at breast height.  T13 = 150 / SIS (Elfving p. 56).
+    # A counts rings at breast height.  DERIVED: T13 = 150 / SIS (Elfving p. 56),
+    # 150 / 27.5, and 27.5 is a choice of site (VERIFY).
     years_to_breast_height: 5.5
   wind:
-    enabled: false
+    enabled: true
     # Kitenberga et al. 2021 Table 1: logit of being snapped or uprooted within
-    # a 5-year period, 14,749 birches (both species) in Latvia; per SD about the
-    # mean (Table 2), which her Figs. 1 and 2 confirm.  At dry mineral soil, no
+    # a 5-year period, 14,749 birches (both species) in Latvia; read as per SD about
+    # the mean (Table 2): the text doesn't say so, it's inferred from her Figs. 1
+    # and 2.  At dry mineral soil, no
     # prior damage.  Other soils: peat 0.75, drained peat 0.94, drained mineral
     # 0.32, wet mineral 0.00.
     intercept: -5.03
@@ -880,9 +923,18 @@ damage:
     # fixed effects give about 0.9 % on the mean tree and soil mix, because the
     # plot's and tree's random effects carry the rest.  logit(3.15 %) - logit(0.94 %).
     population_offset: 1.23
-    # TUNED, no target: a storm year in five, all the period's damage in it, so
+    # TUNED, no target: a storm year in twenty, all the period's damage in it, so
     # trees go in groups in the same direction instead of one by one.
-    storm_return_years: 5
+    storm_return_years: 20
+    # TUNED against a gap that shows: most of a storm's damage falls in round patches:
+    # patches of this radius (m), on this share of the ground, taking this share of
+    # the damage.  What a stand loses doesn't change with these.
+    gap_radius_m: 7.0
+    gap_area_share: 0.15
+    gap_damage_share: 0.9
+    # TUNED, no target: who counts in stems/ha and basal area, her 'overstory': trees
+    # at least this share of the tallest tree's height.
+    canopy_height_share: 0.5
     # TUNED, no target, looks only: where storms come from, and the scatter.
     wind_from_deg: 240.0
     wind_from_sd_deg: 40.0
@@ -915,10 +967,10 @@ damage:
     mor_green_mpa: 44.0
     # TUNED against 31-35 % of damaged birches uprooted (Kitenberga p. 6): the
     # log of (critical turning moment / stem breaking moment) at which a failing
-    # tree is as likely to uproot as to snap, and the width of that choice.  Her
-    # mean tree (17.6 m, 17.6 cm over bark, so 16 cm of wood) has a ratio of 0.90,
-    # and this gives it 33 %.
-    even_odds_log_ratio: -0.46
+    # tree is as likely to uproot as to snap, and the width of that choice.  The trees
+    # wind took on plots with paid roots (node_dmg_fix2, 42 trees) have a median
+    # ratio of 1.12, and this gives that 33 %.
+    even_odds_log_ratio: -0.24
     spread: 0.5
   snap:
     # Relative height of the break = intercept + slenderness x H/D + prior
@@ -926,31 +978,34 @@ damage:
     intercept: 0.532
     slenderness: -0.097
     prior_damage: -0.090
-    # Spread of a beta distribution, read from her Fig. 4 (SD 24 % of height).
+    # Spread of a beta distribution: a reading by eye of her Fig. 4, a bar chart that
+    # prints no SD; 3.2-3.5 fits it by eye.
     beta_concentration: 3.2
+    # TUNED against mean height staying near the undamaged plots': a stem left with less
+    # than this share of its leaves dies.  Trees losing over half their crown are likely
+    # to be attacked by insects (Juutinen 1953, in Nykanen p. 196, pine and spruce).
+    min_leaves_left: 0.5
   snow:
-    enabled: false
+    enabled: true
     # Years between damaging snowfalls: every 5 in southern Finland, 3 in the
-    # north-east, 8-17 elsewhere (Solantie 1994, in Nykanen p. 201).
+    # north-east, 8-17 elsewhere (Solantie 1994, second-hand from Nykanen p. 201).
+    # Southern Finland's figure, used for Uppland: VERIFY.
     return_years: 5
     # Wet snow on the crown, kg/m2 of crown area: 20-40 with little wind raises
     # breakage (Zubizarreta-Gerendiain et al. 2012 p. 192), 60 mm of water is
     # severe (Solantie, in Nykanen Fig. 1).  Evenly spread within that, a choice.
     load_range_kg_m2: [20.0, 60.0]
-    # TUNED against three things together, on the saved plots' trees (base_plots):
-    # a 12 m birch of taper 1:120 stands 60 kg/m2 (Nykanen Fig. 2, Peltola 1997);
-    # one severe event breaks or uproots about 2 % of a young stand (Donis et al.
-    # 2024, in KNOWN_ISSUES; here 1-4 % at ages 8-15) and bends about 29 % (here
-    # 18-39 %).  Share of the crown's projected area that holds the load, the
-    # stem's lean under it as a share of height, the width of the break, and the
-    # stems that bend instead: buckling factor under this, DBH under this.  Stems
-    # under min_break_dbh_cm only bend.
+    # TUNED against about 31 % of a young stand damaged in a severe event (Donis et
+    # al. 2024, in KNOWN_ISSUES.md; publisher 403, not reopened), on real stems of
+    # logged plots (27 % overloaded at 8-15, at the loads drawn): share of the crown's
+    # projected area that holds the load, the stem's lean under it as a share of
+    # height, and the width of the line between overloaded and not.
     crown_catch_fraction: 0.10
     lever_fraction: 0.02
-    spread: 0.5
-    bend_buckling_factor: 6.0
-    bend_max_dbh_cm: 10.0
-    min_break_dbh_cm: 2.0
+    spread: 0.25
+    # Share of overloaded stems that break or uproot; the rest bend: 93.7 % of damaged
+    # trees were bent (Donis et al. 2024, as above).
+    break_share: 0.063
   uproot:
     # TUNED, no target, looks only: mound radius per plate radius, the mound's
     # distance past the hinge per plate radius, and how fast the relief fades.
@@ -967,6 +1022,37 @@ plot:
   germination_years: [0, 1, 2, 3]
   germination_weights: [0.4, 0.3, 0.2, 0.1]
   vigour_sd: 0.06
+  # On by default since birch v1 (2026-11-08): a site-index curve is a top height (Elfving 2010 p. 58: "the height according
+  # to the height curve at the mean diameter of the 100 by diameter largest trees per hectare";
+  # here the 100 thickest stand for it), so in a plot each tree's height limit is the curve times
+  # its vigour over the mean
+  # vigour of that year's dominants, not over 1 (treegen/plot.py, Plot._height_reference).  The
+  # dominants then follow the curve, and a single tree of vigour 1 is unchanged.
+  height_follows_dominants: true
+  # Output only, off by default: basal area over bark, top height, gap fraction
+  # and new trees in the plot's yearly stats (tools/stand_table.py).  A gap: no
+  # leaf above gap_above_m over a ground cell of gap_cell_m (Brokaw's hole in the
+  # canopy down to 2 m; the cell is my choice, about a crown's half-width).
+  stand_measures: false
+  gap_cell_m: 2.0
+  gap_above_m: 2.0
+  # A natural start (tools/forest.py), off by default: this density from the
+  # first years, not the 1800/ha of the thinning programme.  Aosaar et al. 2016
+  # Table 3: 11,633 stems/ha at age 8 on an unmanaged stand on abandoned farmland.
+  # TUNED (stems_per_ha): against that 11,633 at age 8, with the mortality block on
+  # and alpha 3.0 standing in for slower young growth (one 400 m2 plot: 10,150 at 8,
+  # 8,575 at 10 against 10,200).  At today's alpha 4.8 young trees outrun it: about
+  # 3,800 at 8, whatever the start.  Real starts go far denser (Dahlgren Lidman et
+  # al. 2024 Table 2: 3.3-17.6 seedlings per m2 at year 3 on scarified mesic soil).
+  # side_x_m, side_y_m: a rectangle of ground instead of area_m2 (a strip of
+  # forest edge); patch_x_m: only the first metres of x hold trees at the start.
+  natural_start:
+    enabled: false
+    stems_per_ha: 16000
+    area_m2: 1000
+    side_x_m: null
+    side_y_m: null
+    patch_x_m: null
 
 regeneration:
   # Natural regeneration in a plot (treegen/regeneration.py; tools/plot.py
@@ -1009,6 +1095,179 @@ regeneration:
   mineral_initial: 0.3
   mineral_new_per_year: 0.005
   mineral_half_life_years: 5.0
+  # A forest that spreads over open ground (treegen/regeneration.py,
+  # SpreadRegeneration), off by default.
+  spread:
+    enabled: false
+    # exponential_mix: seed lands on a negative exponential in distance (Tiebel et al.
+    # 2020, Eur. J. For. Res. 139:731, Eq. 1, open access: most seed nearest the tree,
+    # no peak at a distance, and a lognormal fitted no better), the near part at Liu &
+    # Evans's means below, and far_share on a kernel of far_mean_m.  lognormal: Liu &
+    # Evans's own shape, which leaves few seeds near a tree and almost none past 400 m.
+    kernel: exponential_mix
+    # Tiebel et al. 2020, Table 3 and text: 367-380 m mean distance from a seed stand
+    # above a large opening, their long case (86-97 m in their short case).
+    far_mean_m: 370.0
+    # TUNED against Fedorov et al. 2024, Forests 15:34, Table 2 and pp. 6-8: four abandoned
+    # fields whose far edge, 391-776 m from a birch seed stand, holds 256-740 stems/ha at
+    # 21-24 years, only 0-4 years younger than near it, with under 5 % cover at 200-600 m
+    # at 8-9 years.  Point estimate from a grown edge (tools/spread_estimate.py --patch-age):
+    # 0.002 gives 190-280 stems/ha at 700 m at year 22, 0.005 375-610, 0.01 680-810, and
+    # 0.01 already holds 540-1,210 at 200-600 m by year 9.  Then on whole trees, 600 m
+    # strips on the server, 18 years after the first seed (two strips each): 0.005 holds
+    # 1,050-1,130 at 400-500 m and 830-880 at 500-600 m, over the band; this 650-1,050 and
+    # 330-500 (node_f3_strip, node_f3_strip2).
+    far_share: 0.003
+    # Tiebel et al. 2020 mapped as seed trees those of DBH at least 12 cm over bark (after
+    # Popadyuk et al. 1995, Roloff & Pietzarka 2010, not opened).  DERIVED: 11 cm of wood
+    # here, the 12 cm converted through the model's bark.
+    seed_min_dbh_wood_cm: 11.0
+    # Good seed years about every 3 years (Sarvas 1948, second-hand from Tiebel et al. 2020
+    # p. 740; Sarvas not opened), read as one chance in three each year, the same for every
+    # tree (masting is shared across hundreds of km).  DERIVED, a ratio worked out: crop
+    # against a poor year's, 1,500,000 / 350,000 seeds at DBH 20 cm (Tiebel et al. 2020,
+    # 2016 against 2015), which they call a medium year or a mast year, so this may be low;
+    # their Table 3's own ratios are 5.1 and 3.9.  seeds_ref stands for a poor year.
+    mast_share: 0.333
+    mast_factor: 4.3
+    # Liu & Evans 2021, Forests 12:929 (publisher's PDF), best model, Table 1 and
+    # Eqs 2, 5, 6: mean distance exp(u0 + ut T) and shape exp(p0 + pt T), T the trees
+    # of DBH over 15 cm in the source's 10 m cell; 65 m in the open, 38 m at 3 trees a
+    # cell; both birches, Wytham Woods, one year (2015).  The shape (ln_shape) is used
+    # only by the lognormal.  Their Eq. 2 prints "- p^2/2" after ln u, which would make
+    # the mean 1.19 u; their text calls u the mean, and that is what's used. VERIFY (sign)
+    ln_mean_m: 4.18
+    ln_mean_per_tree: -0.18
+    ln_shape: -0.86
+    ln_shape_per_tree: -0.04
+    density_cell_m: 10.0
+    tree_dbh_cm: 15.0
+    # Their Figure 2 stops at 5 trees a cell (0.05 trees/m2); no further here.
+    max_trees_counted: 5
+    # Seed past the two ends of x is lost, and the sides repeat; true: x repeats too,
+    # for a plot in the middle of a forest.
+    repeat_ends: false
+    # How far the kernel's table runs: 4 far means.
+    kernel_reach_m: 1500.0
+    # TUNED: the share of germinants living through the first season rises from 0
+    # at the first light to 1 at the second (relative, at 0.1 m, canopy only: the
+    # organic layer's rate already holds its field layer's shade).  Set so that a storm
+    # gap takes: a 14 m gap under a 24 m canopy sees about 25 % of the sky (my arithmetic),
+    # and birch does come up in openings of 78-314 m2 (Hokka et al. 2012, Silva Fennica
+    # 46(5) id 920: 3,010 birch/ha after five seasons, pp. 696, 702; 15,500 new seedlings/ha at 22 %
+    # birch, a spruce mire, mainly downy birch).  At the older 0.30-0.60 no seedling came
+    # up in 4 plots to age 60, with damage on and the ground at 19-21 % light.
+    # This is taking, not living: in steady shade a seedling on mineral soil needs 25 %
+    # to live 12 years under the field layer, 20 % with none (tools/shade_trial.py,
+    # node_f3_shade), so most that take in a small storm patch die at about 5 years.
+    # Huth & Wagner 2006 (For. Ecol. Manage. 229:314; abstract only) found most birch
+    # seedlings in spruce gaps 2-4 years old.
+    establishment_light: [0.15, 0.40]
+    # TUNED: and none takes where the leaf area above 2 m, read over a Gaussian of
+    # canopy_radius_m (a crown's width), is over this many m2 per m2 of ground: against
+    # the closed canopy's 3.6-5.4 (Hagemeier & Leuschner 2019b) and the storm patches of
+    # node_f2_regen, whose leaf area this keeps.  A rule on leaf area, because a rule on
+    # any leaf overhead read 2 m cells as closed with a few crowns left.
+    canopy_lai_max: 2.0
+    canopy_radius_m: 3.0
+    # Share of a windthrow gap's ground bared by uprooting (Plot.open_gap).  Pit-mound
+    # microrelief covers 7-12 % of the ground in all-aged boreal forests [Samonil et
+    # al. 2010, as above]; the top of that, for a fresh gap. VERIFY
+    windthrow_mineral: 0.12
+    # TUNED (memory, not biology): at most one recruit per cell a year, so this
+    # sets the densest a young stand can be: 2 m is 2500 stems/ha.  The plain class
+    # has 1 m.  Set lower where the machine allows.
+    cell_m: 2.0
+    # A limit on memory, not a model value: null is no limit.
+    max_recruits_per_year: null
+
+mortality:
+  # Mortality that answers to crowding and to a tree's vigour, in natural plots
+  # (treegen/thinning.py), off by default.  On top of the carbon rule, which
+  # leaves a suppressed tree alive for decades on a metre of leaf.
+  enabled: false
+  # --- Self-thinning: RD = SDI / sdi_max, SDI = sum of (DBH over bark / 25 cm) ^
+  # slope a hectare (Reineke's stand density index, summed tree by tree).
+  # Lee, Siipilehto & Hynynen 2025, For. Ecol. Manage. 575:122374 (abstract read, on
+  # research.fi and the Luke repository; full text not opened): -1.5848 fitted for silver
+  # birch plantations in Finland, against Reineke's -1.605.  Hynynen 1993 is paywalled.
+  self_thinning_slope: 1.5848
+  # TUNED (sdi_max): a high SDI of unmanaged natural stands on rich soils, at this slope:
+  # Aosaar et al. 2016 Table 3, 763 at age 14; Martinik et al. 2018 Table 1, Silva Fennica
+  # id 9985, 731 at 17 and 743 at 22, and 766 in its age-18 row, so 763 isn't the highest.
+  # Lee et al.'s own line could replace this: its full text is open (Jukuri, CC BY), and the
+  # final check (a) of 2026-11-08 read k1 11.9013, Nmax 898 at Dq 25 cm, for plantations;
+  # whether it should is a question for the maintainer.  The intercept
+  # varies with site index (Hynynen 1993, abstract).  Under it, not fitted: Hagemeier &
+  # Leuschner 2019b at 574 and 543, with their printed basal areas.
+  sdi_max: 763.0
+  # stems lost per stem and year = rate_at_max * ((RD - onset) / (1 - onset)) ^ shape.
+  # onset: the lower edge of the self-thinning zone, RD 0.7 for silver birch at quadratic
+  # mean diameter up to 18.65 cm (Lee et al. 2025, abstract).
+  onset: 0.70
+  # TUNED (rate_at_max, shape): least squares to Aosaar Table 3's nine yearly losses at
+  # their own RD and Martinik's "17 to 22", which are two different stands, not one stand
+  # remeasured (each stand's own recount shows no loss), which the data can't separate
+  # (rmse 0.099-0.107 over all shapes and onsets tried).  This shape holds a mature
+  # stand losing 3 % a year at RD about 0.74, where Hagemeier's two stands sit (0.75, 0.71).
+  # Given Table 3's RD it takes 11,633 stems/ha at 8 to 3,248 at 17 (Table 3: 2,733).
+  rate_at_max: 0.247
+  shape: 1.0
+  # TUNED: the most a neighbourhood loses in a year, at RD far over 1.  Aosaar's
+  # worst year lost 35.5 % of stems, hazard 0.44.
+  rate_cap: 0.5
+  # TUNED: crowding is read over a Gaussian neighbourhood of this SD, a crown or
+  # two away.  Small enough for a gap and a thicket to differ.
+  neighbourhood_sigma_m: 5.0
+  grid_m: 1.0
+  # Over-bark DBH from the model's wood DBH, as tools/bark.py: Hansen et al. 2023
+  # double bark thickness (mm) = b0 + b1 DBH + b2 d, as coded in taperNOR 0.2.1.
+  bark_double_mm: [-0.48552367, 0.04957885, 0.84676248]
+  # Who goes: Fridman & Stahl 2001, birch, 5-year probability against DBH over
+  # bark, digitised from Elfving 2010 p. 65 (the knowledge base, 05-F), used as
+  # Heureka does, to share out a stand's mortality.  Below 10 cm it's extrapolated
+  # (no trees under 10 cm in their data); beyond the table, a line in ln p.
+  size_weight:
+    dbh_cm: [5, 10, 15, 20, 25, 30]
+    p5: [0.33, 0.21, 0.14, 0.09, 0.06, 0.04]
+  vigour:
+    # Vigour: mean ring width over these years (wood DBH); low-growth mortality is
+    # the common form (e.g. Pacala et al. 1996, Bigler & Bugmann 2003; neither
+    # opened and neither birch).  Weight = floor + (1 - floor) exp(-ring / scale).
+    # TUNED (all four): against the base plots' trees that stand still for decades.
+    window_years: 5
+    ring_scale_mm: 0.5
+    floor: 0.02
+    # A tree laying no wood dies at this hazard a year wherever it stands.
+    suppressed_hazard: 0.10
+    # On since birch v1 (2026-11-08); null turns it off.  Above the stand's quadratic mean diameter (stems past 1.3 m), the
+    # hazard above falls as exp(-slope (d_rel - relative_size_from)), d_rel = DBH over that mean,
+    # so a slow-ringed dominant isn't taken for a suppressed tree.  3.263 is the d_rel coefficient
+    # of Maleki & Kiviste 2016 (iForest 9:643, Table 3, best model: logit of dying in 5 years,
+    # 6,009 silver birches on 348 Estonian research plots, mostly managed, few old stands): -3.263
+    # for d_rel on the logit, read by the final check (a) of 2026-11-08, used here as an odds
+    # factor on the hazard.  Sims et al. 2009 (Ann. Bot. Fenn. 46:336; abstract only) found relative
+    # height the strongest predictor of survival in Estonia, and the only tree variable in mature
+    # and overmature stands.
+    relative_size_slope: 3.263
+    # One-sided, from the mean up, so the hazard holds as tuned for the slow small trees it was
+    # tuned on: TUNED.
+    relative_size_from: 1.0
+  # Bengtsson 1978's deciduous function for southern Sweden, % of volume a year, as
+  # printed in Elfving 2010 p. 64; D 7-30 cm, age 30-120, the closest limit beyond;
+  # "reduced with ... 25 % in southern Sweden".  Applied to stems (no volume here).
+  background:
+    intercept: 0.46
+    per_d: -0.02
+    per_age: 0.0046
+    reduced_to: 0.75
+    d_range_cm: [7.0, 30.0]
+    age_range_years: [30.0, 120.0]
+  # Old age has no values of its own here: it reads damage.old_age's, one AMAX for both paths (SIS 27.5
+  # there, about 278 years).  Elfving 2010 pp. 67-68: p = 1 / (1 + exp(10 - 12 A / AMAX)) is the share
+  # dead of ageing by breast-height age A, not a yearly rate, so the yearly hazard is
+  # [p(A + 1) - p(A)] / [1 - p(A)] (treegen/damage.py old_age_hazard).  It counts here only while
+  # damage.old_age is off; with it on, trees die of age in treegen/damage.py instead.
 
 stand:
   # --stand: neighbour trees as shadow volumes.  The light grid is one
@@ -1055,6 +1314,9 @@ stats:
   # A first-order limb counts towards the crown base only if its subtree
   # carries at least this share of the tree's leaves.
   crown_base_min_leaf_share: 0.005
+  # true: a limb is a side axis on the stem or on a leader that replaced it.  false (the default before birch v1): order == 1,
+  # which counts a replacement leader as a limb attached low, and doesn't count the limbs on it.
+  limbs_on_leader: true
   # Hanging runs shorter than this (m) are not counted as hanging twigs.
   hanging_twig_min_length: 0.2
 
@@ -1138,9 +1400,11 @@ roots:
   # 20-30 cm in a Swedish B. pendula plantation). VERIFY
   taproot_setpoint_deg: 180
   taproot_gravitropism_per_m: 3.0
-  lateral_setpoint_deg: 97
+  # TUNED (92 and lateral_gravitropism_per_m 3.0, since birch v1 (2026-11-08); 97 and 1.5 before): against
+  # Laitakari 1934 p. 198, the horizontal root system a mean 13-15 cm deep from 5 cm DBH up.
+  lateral_setpoint_deg: 92
   lateral_setpoint_spread_deg: 4
-  lateral_gravitropism_per_m: 1.5
+  lateral_gravitropism_per_m: 3.0
   # Sinker roots drop from main laterals near the stem to the compact
   # subsoil; birch root plates are ~0.9 m deep at the centre (31 trees,
   # Finnish re-measurement of [L35]). VERIFY
@@ -1238,6 +1502,62 @@ roots:
   # The seedling taproot decays below the deepest living main lateral once
   # it has stopped [L35]. VERIFY
   trim_taproot: true
+  # Roots that cost carbon, on by default since birch v1 (2026-11-08).  With it off, root radii are copied from the stem base for free and
+  # most of the root share is lost.  With it on (RootSystem.update_radii_paid, GrowthModel._pay_roots) the share
+  # pays for fine roots, then root wood, ring by ring each year; what's left is logged as unresolved (woody-root
+  # respiration, exudates, mycorrhiza), and goes to nothing else.  It goes with lateral_setpoint_deg 92 and
+  # lateral_gravitropism_per_m 3.0 above, TUNED against Laitakari 1934 p. 198, horizontal roots a mean 13-15 cm deep,
+  # and with geometry.root_flare_min_share 0.5: all four are the defaults since birch v1.
+  paid:
+    enabled: true
+    # Over-bark stump diameter from over-bark DBH: dS = 2 + 1.25 d, cm.  VERIFY: Repola 2008, Silva Fennica 42:605,
+    # p. 611, 127 Finnish birches, calls this d_s "a transformation rather than an estimate of stump diameter", so its
+    # use as the stump's diameter is a choice.  Under 5 cm DBH, where he warns against it, the 2 cm fades (my choice).
+    stump_d_intercept_cm: 2.0
+    stump_d_per_dbh: 1.25
+    # Sum of the roots' squared base diameters over the stump's.  DERIVED: Kalliokoski, Nygren & Sievanen 2008,
+    # Silva Fennica 42:189, Table 3, B. pendula, mean of the five stands: 0.86, 1.02, 0.88 (MT), 1.75 (OMT), 1.29 (VT).
+    rel_sum_d2: 1.16
+    # The taproot stops at this length, per taproot_max_depth, however stones have turned it.  TUNED: long enough to go round
+    # a stone, short enough that a deflected taproot doesn't run on as a thick sideways log (seen on 8 of 20 server seeds).
+    taproot_length_per_depth: 1.25
+    # The stump below ground: the stump's cross-section x (1 - (length along the taproot / taproot_max_depth) ^ this).  High is nearly a
+    # cylinder.  TUNED against Repola 2008 Eq. 13, stump 26 kg at 30 cm DBH, 16 cm of it above ground and in the stem here.
+    stump_fill_power: 8.0
+    # Beyond the widening a root's diameter (cm) = far_d_cm_per_m x (root length beyond it, m) ^ far_d_exponent.
+    # Exponent, DERIVED: Kalliokoski Fig. 5C, birch, L = D^1.7734 over all a root's axes, so 1 / 1.7734.
+    # Coefficient, TUNED against Kalliokoski Table 7 at 2-10 m and Varik 2014's 5-10 mm share; Table 7 prints Eq. 2's
+    # parameters, not measured tapers, and those fits reach zero at 6.6 and 8.5 m.  Fig. 5C itself is the
+    # whole root at its base, with the widening, and gives 1.0 there.
+    far_d_cm_per_m: 0.35
+    far_d_exponent: 0.564
+    # At the collar a root's pull in the Borchert-Honda split goes as its size to this power, so no root runs away.
+    # TUNED against Laitakari 1934: 7-12 dominant roots (p. 182); the thickest 68-87 % of DBH, means for strong- and
+    # weak-rooted trees, its base diameter measured the horizontal (narrow) way (p. 185);
+    # Kalliokoski Table 3: mean 5.0, SD 2.9 cm at a 30 cm stump.
+    collar_evenness: 0.9
+    # Length over which a root's near-collar widening fades, per stump diameter.  TUNED against Kalliokoski Table 7's
+    # taper on main axes, at 0.5, 1, 2 and 5 m (Eq. 2's fitted parameters, not measured tapers; the fits reach zero
+    # at 6.6 and 8.5 m).
+    fade_per_stump_d: 1.3
+    # Root density with bark, kg/m3.  DERIVED: Kalliokoski Table 6, B. pendula, mean of five stands (0.385-0.449).
+    wood_density_kg_m3: 410.0
+    # Fine roots made per year per fine root standing.  DERIVED: Aosaar et al. 2016, Silva Fennica 50(4):1628, Table 4,
+    # age 10, 0.89 over 1.35 Mg/ha.  (Varik 2014's 32-year stand: about 0.6.)
+    fine_root_turnover_per_year: 0.66
+    # Spacing of the taproot's nodes (m), one possible root each.  TUNED: 40 down to taproot_max_depth, more than the
+    # 11-28 roots at the collar in Kalliokoski Table 3, so room round the stump decides how many start, not this.
+    collar_node_m: 0.01
+    # A new root starts at the collar only while there are fewer than the stump's girth over this (m).  TUNED against
+    # Kalliokoski Table 3: 11, 20, 25, 28, 16 roots, at stumps of 8.1, 16.1, 30.0, 26.4, 19.1 cm (Table 1): 2.3-3.8 cm of girth per root.
+    collar_spacing_m: 0.035
+    # A collar root's primordium lasts this long unused (years): roots keep starting as the stump grows.  VERIFY: a
+    # guess, set against nothing.
+    collar_primordium_lifespan: 200
+    # Angle from the taproot's axis at which a collar root leaves it: near level at the top, slanting at the bottom
+    # (deg).  TUNED: Kalliokoski, mean inclination 26 deg, 28 % steeper than 45 deg; Laitakari 1934, p. 202.
+    collar_angle_top_deg: 85.0
+    collar_angle_bottom_deg: 55.0
 
 anchorage:
   # Root-soil plate and root strength for later storm modelling (numbers
@@ -1287,6 +1607,211 @@ anchorage:
   depth_factor_max: 1.2
   root_tension_share: 0.5
 
+
+# The height limit, on by default since birch v1 (2026-11-08): the approved site-index curve limits how much the leader may grow in a
+# year, instead of height emerging from the carbon split.  It's a limit, not a script: the leader still makes
+# real nodes that cost carbon, paid first from the year's pool, and it falls short of the curve when its light,
+# the crown's water or the pool run short (growth.py, _height_limit_plan).  No height is set and no node is moved.
+# Curve: Eriksson et al. 1997 as in Elfving 2010, Appendix 9, with reference.height's asi, beta and b2.
+height_driver:
+  enabled: true
+  # Site index, H at breast-height age 50 (m).  20-26 spans the target's Swedish range; 23 is its middle.
+  site_index: 23.0
+  reference_age_years: 50.0
+  # T13 = 150 / SIS, SIS the curve's own height at total age 100 (Elfving 2010, Appendix 7, p. 56).
+  t13_numerator: 150.0
+  sis_total_age_years: 100.0
+  # TUNED, against the model, not a measurement: canopy light at the leader (relative) from which light no longer limits it.
+  # Set so a stand tree's leader isn't limited (light factor 1.000 in 20 seeds of test A); never tested on plots by me.
+  light_full: 0.6
+  light_exponent: 1.0
+  # TUNED, against the model, not a measurement: crown's stomatal opening from which water no longer limits the leader.
+  # Set so a well-watered tree isn't limited (water factor 1.000 in 20 seeds of test A).
+  water_full: 0.8
+  # TUNED, against height reading one site index from 15 on after browsing: after a loss, the leader may grow this many
+  # times the curve's increment until it's back.  Lost height doesn't come back this way in a real tree: a departure.
+  catch_up: 1.25
+  # Heritable growth factor: a plot tree's alpha over this scales its limit.  4.8 is alpha's default.
+  reference_alpha: 4.8
+  # TUNED, against the crash it prevents, and only roughly against Konopka 2023 (leaf area still 2.4 x hers at age 10, 4.5 x at 15;
+  # 1.0 changed almost nothing at 50 and 60, 20 seeds): the most leaf area the side shoots may add in a year, as a multiple of what the
+  # crown has now.  A sink limit standing in for nutrients and competition, without which a small tree held to the
+  # curve spends its carbon on thousands of shoots and starves on their upkeep.  null = no limit.
+  leaf_growth_max: 1.5
+  # TUNED, against Evo's crown width: no side shoot longer than this share of the leader's shoot this year.  null = no limit.
+  # Test A: 0.6.  Without it crowns are 9.5 m at 60, against 7.3 m with it; Evo about 5.  The cap has a fault: see the floor below.
+  lateral_cap_ratio: null
+  # TUNED, against whole-crown flips: the most of the pool the year's rings may take; sapwood comes first, and only the
+  # wind's thickening waits.  Test A: 0.5.  Without it flips were 116 in 448 seed-years (8 PC seeds); with it, 42, both before density control.  null = no limit.
+  ring_share_max: 0.5
+  # TUNED, against photos of open-grown birches, no measurement read: a tree with no neighbours grows this share of the stand's yearly height.  The curve is for stands.  null: all of it.
+  open_grown_share: 0.8
+  # VERIFY: a guess, set against nothing: never needed, so never tested with the rest; the brief allowed it for flips, and density control did that.
+  # The share of each year's pool that waits for next year (a small carbon store).  null = none.
+  store_fraction: null
+
+# The crown's frame: published data set the main limbs, as the height curve sets the leader; light and carbon decide what
+# they and everything finer do.  Needs height_driver on, and shares its code path.  On by default since birch v1 (2026-11-08).  Limbs are real nodes,
+# paid first from the pool, that grow a shoot a year, and can fall short or die by the usual rules.  Not compatible yet with
+# speed.compiled_carbon: that held until commit 04c9d3b, since when the compiled carbon sum uses the model's own shoots,
+# so the frame's limbs are right with it on.
+#
+# Set at run time (--set) until birch v1 (2026-11-08); the final ones (cases/crown2_with_roots_speed.txt) are now this
+# file's defaults.  What each was set against, first with the frame as it was, then with earned:
+#   height_driver.enabled=true                 The approved curve; the curve held the leader in all 1,200 seed-years measured, so height is close to scripted.
+#   stats.limbs_on_leader=true                 A measure's definition, not a value.
+#   pipe_model.heartwood_by_own_foliage=true   A correction for forked and broken stems (Tree agent).
+#   height_driver.ring_share_max=0.5           TUNED, against crown flips (Tree agent).  Without it on an earlier candidate: stem wood 12-20 % over Repola, 10 flips of 224 (4 PC seeds).
+#   pipe_model.branch_sapwood_senescence=0.30  TUNED, against Repola's branch wood (Tree agent).
+#   resource.apical_dominance=0.75             TUNED, against crown flips (Tree agent).
+#   bud_fate.long_shoot_threshold=5            TUNED, against flips and branch count (Tree agent).
+#   shedding.shade_softness=0.5                TUNED, no source.  Without it on an earlier candidate: light 20.5, 21.4 %, out of the band (4 PC seeds).
+#   shedding.light_per_leaf_threshold=0.18, bud_fate.short_shoot_survival_light=0.18
+#                                              TUNED, against LAI and light.  Some support: Hagemeier & Leuschner 2019b Fig. 6, lowest reading about 18.7 % by eye.
+#   bud_fate.density_control.enabled=true, .after_growth=true   Tree agent's lead, against flips.
+#   bud_fate.density_control.af_zero=1.7       TUNED, against crown length and fill.  This file's 3.2 is Hagemeier & Leuschner 2019 Table 5's sun crown, a test bound.
+#   bud_fate.short_shoot_light=0.18            TUNED, against fill: a bud that doesn't grow stays a short shoot down to the death line.
+#   mechanics.pendulous_radius_limb=0.0025     TUNED, against the look: limbs rise, and only their thin ends arch over.
+#   resource.reiteration.setpoint_angle_deg=20 TUNED, against the look: a fork rises beside the stem, not along it.
+# With crown_frame.earned=true (Crown 2; cases/crown2.txt has the whole list), these differ from the above.  resource.apical_dominance does nothing there and is left out:
+#   crown_frame.earned=true                    The switch; see that block at the end of crown_frame.
+#   pipe_model.stem_theory.wind_speed_m_s=8    TUNED, against Dg, stems and LAI on plots.  12 was set in a brief, not fitted.  12 gave Dg 25.1, 29.7 and 490, 352 stems/ha at 50, 60; rings no longer hit their cap all the time.
+#   shedding.light_per_leaf_threshold=0.15, bud_fate.short_shoot_survival_light=0.15, bud_fate.short_shoot_light=0.15
+#                                              TUNED, against light under the canopy.  Under Hagemeier & Leuschner 2019b Fig. 6's lowest reading of about 18.7 % by eye.
+#   mechanics.pendulous_radius=0.012           TUNED, against the look: twigs thinner than about this hang; 0.006 sprayed outward, and hung only at their ends.
+#   crown_frame.twig_shoot_max_m=0.5           TUNED, against the look and leaf area in the open.
+#   crown_frame.limb_shoot_floor_m=0.2         TUNED, against the outline: 0.3 let an old tree's top limbs go flat; 0.15 left open trees narrow.
+#   crown_frame.crown_lai_max=7                As before: TUNED, a sink limit.  With it the crown sheds old short shoots (full_crown_spur_years).
+#   crown_frame.open_lai_max=5                 TUNED, against the look: sky between the curtains.  7 gave a dark mass.  Bears only on trees with no neighbours.
+#   crown_frame.surplus_to_stem=1.0            All of it, up to stem_cm_per_height_m: a tree in the open was fixing carbon it then lost while its stem, and so its crown, was still small.  Bears only on trees with no neighbours.
+#   crown_frame.limb_sag_deg=45                TUNED, against the look: limbs curve up from a low start.  On stand trees wider crowns, and 0.2 less LAI at 60 (6 PC seeds).
+#   crown_frame.twigs_browsed=0                A choice of place, see below.  0 in the main open tree: fewer guesses, and young open trees come out ahead of stand trees.  0.5 is TUNED, on a DERIVED rate, for a place with moose: a clear foot to the stem, curtains stopping above the ground.  Bears only on trees with no neighbours.
+#   crown_frame.stem_cm_per_height_m=2.4       TUNED, with height_driver.open_grown_share: the same 45 cm cap on a shorter tree.
+#   crown_frame.reach_scatter=0.5              TUNED, against the look: limbs of even length read as a fishbone.  0.2 was against an even outline.  Capped at the published crown.
+#   crown_frame.spacing_overlap=1.15           TUNED, against stand light and width: limbs now carry the width themselves; 1.0 gave 0.25 less LAI.
+#   crown_frame.peak_depth=0.65, .base_share=0.4, .profile_power=0.8
+#                                              TUNED, against the outline in both settings: a crown whose length is all the tree's is widest about a third of the way up, one in a stand about 0.7 of the way up.
+#   crown_frame.full_crown_spur_years=12, .hanging_share=0.35   TUNED: see those values below.
+#   pipe_model.branch_sapwood_thick_m=0.02     TUNED, against the thickest limbs in the open: 23 cm on a 44 cm stem without it, 16 with it.
+#   resource.reiteration.setpoint_angle_deg=12 TUNED, against the look: at 20 a second top stands out to one side.
+#   height_driver.open_grown_share=0.8         TUNED, against photos, no measurement: no open-grown height found in Dubois 2021 or Tallo, and Hemery 2005 is unread.  Bears only on trees with no neighbours.
+crown_frame:
+  enabled: true
+  # -- how many, and at what angle ---------------------------------------------------------------------------------------
+  # Limbs (first-order branches) per 10 % of crown length.  Lintunen 2013, Diss. For. 165, Table 3 p. 23: 5.2 (95 % CI 0.3),
+  # birch next to birch, 73 trees, ages 4-32.  Used here beyond his sizes: a guess.
+  limbs_per_10pct_crown: 5.2
+  # New limbs stand closer than the crown's mean, as the lower ones thin out: the crown's mean density over its density at
+  # the top.  Lintunen 2013 Fig. 5 (a LIGNUM model's output, not a measurement): 6.0 to 13.0 per m, mean about 9.5, so 0.73.
+  birth_share: 0.73
+  # TUNED, against open-grown trees, where nothing thins them: the closest two limbs stand (m), since a young tree's short crown
+  # would otherwise pack them (205 limbs at 60 without it, 124 with it, one seed, PC).  Lintunen's top, 13 per m, is 0.077 m.
+  gap_min_m: 0.15
+  # VERIFY: a guess, set against nothing: scatter on the gap between limbs, as a share of it, so they don't stand in rows.
+  gap_scatter: 0.3
+  # Limb angle at the stem, as drawn for each limb.  Zeltins et al. 2018, Forests 9:52, Table 1: 43.2, SD 10.4, range 15-80,
+  # as read from mdpi.com by the main session.  40-year-old grafted plus-tree clones, 400 trees/ha, 5 x 5 m, central Latvia, so
+  # selected for good branching.  Its Methods say only "mean branch angle" and don't define it, so that it's from vertical and
+  # at the stem is a guess: a guide with a wide range, not a measurement of what tools/tree_table.py reads.
+  angle_mean_deg: 43.2
+  angle_sd_deg: 10.4
+  angle_min_deg: 15.0
+  angle_max_deg: 80.0
+  # The share of trees that fork in the upper crown, drawn once per tree: their reiterated limbs (resource.reiteration) climb as second tops.
+  # Double tops in 34.9 % of trees, 6.0-75.1 by clone: Zeltins et al. 2018 Table 1, as above; not defined there.  Age 40, selected clones.
+  fork_share_of_trees: 0.349
+  # -- how far they reach ------------------------------------------------------------------------------------------------
+  # Crown diameter of an open-grown birch from its stem, m and cm over bark: Hemery et al. 2005 Table 1, as the target file
+  # gives it (paper not opened).  Evo and Tallo stay out of this, so they remain checks.  A stand's crowns fall short of it in
+  # each other's shade: a limb's yearly shoot goes with the light at its tip.
+  crown_a: 0.932
+  crown_b: 0.177
+  # TUNED, against the open-grown band in this file's reference.dbh: 40-50 cm at 60, where the curve's height is 23.7 m, so about 1.9;
+  # 2.4 since birch v1 (2026-11-08), with height_driver.open_grown_share 0.8: the same 45 cm cap on a tree 0.8 as tall (45 / 19.0 m).
+  # That band is not a target: its source (Dubois et al. 2021) was read as an abstract only, and gives a potential, not a band.
+  # The stem that counts towards the crown is no more than this many cm per m of height, or a tree in the open runs away.
+  stem_cm_per_height_m: 2.4
+  # Stem over bark per stem in wood, near enough to tools/bark.py at 10-40 cm (1.09-1.10).
+  over_bark_ratio: 1.1
+  # TUNED (1.15, since birch v1 (2026-11-08)), against stand light and width: with earned, limbs carry the width themselves, and 1.0 gave 0.25 less LAI (commit 23260bb).
+  # Before earned it was 0.85, against Evo's crown width at the same stem (0.9 gave 6.3 m at 60, 0.85 6.2, 0.8 5.6).  In a stand a limb's reach stops at this
+  # share of half the spacing, where it meets the next crown.  Set by the stand's mean density, not by the real neighbour.  No limit in the open.  null: none.
+  spacing_overlap: 1.15
+  # A limb's reach at the top of the crown as a share of the widest: Lintunen 2013 Fig. 5 (model output, as above), chord 0.254 m
+  # at the top and 1.54 m at the base.
+  top_share: 0.165
+  # TUNED, against the outline in both settings (0.65, since birch v1 (2026-11-08); 0.9 before): how far down the crown the frame is widest, as a share of crown
+  # length.  A crown whose length is all the tree's is widest about a third of the way up, one in a stand about 0.7 of the way up (commit 9b73c12).
+  # Hagemeier & Leuschner 2019a (closed stands, widest at about 0.80 of height, crown in the upper half) alone would say 0.4.
+  peak_depth: 0.65
+  # TUNED, against the outline in both settings, with peak_depth (0.4, since birch v1 (2026-11-08); 0.8 before): a limb's reach at the crown base, as a share of the widest.
+  base_share: 0.4
+  # TUNED, against the outline and crown ratio (0.8, since birch v1 (2026-11-08), commit e277a9a; 0.6 before): reach above the widest point goes as depth^this.  Under 1 is a rounder top.
+  profile_power: 0.8
+  # A limb's length over its reach: Lintunen 2013 Fig. 5's chord of 1.54 m (a chord in a LIGNUM model's figure, not a measurement)
+  # over half of Hemery's crown at his tree's 10 cm stem taken as wood, so 11 cm over bark with the 1.1 of over_bark_ratio (1.44 m):
+  # 1.07.  At 10 cm over bark Hemery's half crown is 1.35 m, which would give 1.14.
+  length_per_reach: 1.07
+  # VERIFY: a guess, set against nothing: sine of the steepest angle that still lengthens a limb to reach as far as the others.  0.5 is 30 deg.
+  steep_limit: 0.5
+  # TUNED, against the look (0.5, since birch v1 (2026-11-08); 0.1 before): limbs of even length read as a fishbone (commit 8a5d3ba); capped at the published crown.
+  # Each limb's own share of the reach, log-normal SD.
+  reach_scatter: 0.5
+  # TUNED, against the same: twigs on a limb may go this many times its reach, outward; down and in as they please.
+  twig_overshoot: 1.0
+  # -- how fast, and what with -------------------------------------------------------------------------------------------
+  # VERIFY: a guess, set against nothing: each year a limb goes for this share of what's left to its reach.
+  chase: 0.5
+  # TUNED, against the look: no limb's shoot is longer than the leader's that year (apical control, and no whips at the top), down
+  # to this floor (m), which lets an old leader's limbs still round out the top.  Replaces height_driver.lateral_cap_ratio and its fault.
+  # 0.2 since birch v1 (2026-11-08), against the outline: 0.3 let an old tree's top limbs go flat; 0.15 left open trees narrow (commit 9b73c12).
+  limb_shoot_floor_m: 0.2
+  # TUNED (0.5, since birch v1 (2026-11-08)), against the look and leaf area in the open: the longest shoot of anything finer in a year (m).
+  # The old 0.4 was a guess, set against nothing.
+  twig_shoot_max_m: 0.5
+  # TUNED, against open-grown stem size and the carbon left unused: the most leaf area the crown carries, per m2 of the frame's crown.  A sink limit
+  # standing in for what really stops a tree with light to spare; what it refuses is lost, bar surplus_to_stem.  4 left about 15 % of fixed carbon unused
+  # at 11-50 in stand trees; 7 leaves 18 and 12 % at 11-20, 21-30, then none.  Repola 2008 Eq. 12 at a 45 cm stem (49.5 cm over bark), at this file's
+  # leaf mass per area of 60.8 g/m2, over Hemery's crown would be about 3.6 (not 3.2, as this said before), outside Eq. 12's range.
+  crown_lai_max: 7.0
+  # TUNED, against the look (sky between the curtains), with earned: the same for a tree with no neighbours.  Repola 2008 Eq. 12 would be about 3.6, as above; forest trees, and outside its range.  null: crown_lai_max.
+  open_lai_max: 5
+  # VERIFY, a choice, not fitted (1.0, since birch v1 (2026-11-08), commit e277a9a): all of what a full crown can't use goes on the stem, up to
+  # stem_cm_per_height_m, since a tree in the open was fixing carbon it then lost while its stem, and so its crown, was still small.
+  # The open-grown band (not a target: Dubois et al. 2021, abstract only) now bears on stem_cm_per_height_m, the cap; 0.1-0.4 were tuned
+  # against it before.  The share of what a full crown can't use that goes on the stem; the rest is lost.  With earned, for trees with no
+  # neighbours only.
+  # "Lost" here and in the run logs is photosynthesis turned down because the sinks are full: it's booked as sink_limited, carbon the leaves didn't fix, not carbon fixed and
+  # thrown away.  Young stand trees turn down 30-50 % at ages 8-12 because their limbs and twigs can't grow fast enough to use it (crown_frame's limb and twig rules).
+  surplus_to_stem: 1.0
+  # TUNED, against crown ratio and stem wood: one bud in this many, on limbs and finer, can start a long shoot; the rest stay short shoots.
+  # 13 gave crown ratio 0.48, 0.45 at 50, 60; 7 gave 0.60, 0.59 with stem wood 10-14 % under Repola; 10 gives 0.56, 0.52, 3-8 % under.  Lintunen 2013
+  # Fig. 6C (model output) has 2-4 long shoots per second-order branch.  Even values make all of them fall on one side of a two-ranked shoot.  null: all.
+  twig_bud_every: 10
+  # -- with earned on: limbs and twigs go by what they earn -----------------------------------------------------------------
+  # What changes (Crown 2): limbs reach the published crown themselves, and it's the widest they go (length_per_reach, steep_limit, twig_overshoot, twig_bud_every aren't read), and a twig goes no further than a
+  # year's shoot past its limb's tip.  A bud's share goes with its own light, its limb's standing against its neighbours and its limb's age (_scaffold_vigour), not the split down
+  # the branches (so resource.apical_dominance does nothing); a bud on a shoot that hangs doesn't start a long shoot (gravimorphism).  Only the bud at the end of last
+  # year's shoot can start a long shoot on anything finer than the stem, and on a limb or a fork it's paid first, by its own light.  Thin twigs turn neither up nor to the
+  # light (mechanics.pendulous_radius), so they hang.  A limb's own shoot slows with the leader's; no limb's tip ends above where the leader was three years ago, so the leader stands clear.
+  # One limb on a forking tree (fork_share_of_trees) goes up as a second top.  Off: the frame as it was.
+  earned: true
+  # TUNED, against the look: a twig heading straight down makes this share of a level twig's shoot, so curtains reach a few metres, not the ground.  Gravimorphism's form (Wareing & Nasr 1961); no birch value.
+  hanging_share: 0.35
+  # TUNED, against the look: a limb carrying more than this leaf area (m2) per axis of its own makes another axis, a fork, stiff like the limb and rising like it.  null: none.
+  fork_leaf_area_m2: 1.5
+  # VERIFY: a guess, set against nothing: how many limbs on each side count as a limb's neighbours (_frame_earned): about a metre of stem.
+  limb_rivals: 5
+  # TUNED, against the look: how far a limb's posture target moves with the age of its wood (over resource.branch_aging_years): new wood stands a third of this above the limb's own set-point, old wood settles towards two thirds below it, so limbs leave the stem low and curve up.  null: straight.
+  limb_sag_deg: 45
+  # With earned, for a tree with no neighbours, and a matter of place: a park has no moose.  Limbs and twigs whose thin shoots are within a moose's reach get bitten off, at leader_damage.events' height range and this share of its yearly chance.
+  # DERIVED: the rate is Bergqvist et al. 2014's, measured on leaders of young stands in southern Sweden, not on twigs.  0: none.  1: the rate as measured, which takes half the leaf area of a 20-year-old tree.
+  twigs_browsed: 0
+  # TUNED, against the look: when the crown has all the leaf area it can hold (crown_lai_max), short shoots this old die, so new shoots have room and the foliage moves out.
+  # 8 left 71 % of an open tree's twig length leafless, the dark brooms; 12 leaves about 60 %.  Birch short shoots live several years (Maillette 1982, abstract only).  null: none die of age.
+  full_crown_spur_years: 12
+  # TUNED, against stem size in stands: below the crown, this share of the sapwood last year's new leaves asked for isn't retired and rebuilt each year.  0: all of it is, as heartwood_by_own_foliage has it.
+  sapwood_kept: 0.3
 
 # Field-layer competition on clearcuts (Option A, Nilsson & Örlander 1999).
 # Sourced clear-cut field-layer sward growth and light extinction.
@@ -1390,9 +1915,19 @@ appearance:
     bark.stage_ramps.rhytidome.climbs.time_constant_years: "TUNED: as height_max_m. One anchor comes from a measurement, by proxy: thick bark at the stump and little extra at 1.3 m at age 22 (Vihera-Aarnio & Velling 2017, Table 5), read as where the rough bark is."
     bark.stage_ramps.rhytidome.climbs.band_m: "TUNED: as height_max_m; by eye for the uneven upper edge."
     bark.stage_ramps.rhytidome.diameter_m: "TUNED: by eye; thin parts stay smooth at any age."
+    bark.uneven_top: "TUNED: by eye against reference/brastad_sweden_first_snow.jpg, reference/gullmarsskogen_stand_5.jpg and birch-data/summer_reference (Arnhem-Delhuyzen, Bouleau verruqueux Tronc 1, Hange-Birke Stamm alter Baum 9992): black fissures climb in tongues, further on one side, with hard-edged white plates 5-15 cm wide left between. The height tree to tree has its own sources, under black. No source measures the side of the stem: Jones et al. 2021 took one height per stem. Plates of old bark 3-8 cm across and 10-30 cm long. No measurement of this found. strength is a setting: 0 keeps the plain export's bytes."
+    bark.uneven_top.black.height_m: "DERIVED: the mean of three trials' means. Jones et al. 2021, Forests 12:159, Table 2, and Jones et al. 2023, Forests 14:2031, Table 1 and text (publisher's PDFs). The height at which smooth silver bark dominates, silver birch, means of each trial: 67 cm at DBH 110 mm (Hyssna, age 19, n 1141), 46 cm at 98 mm (Brunsberg, age 19, n 1390), 70 cm at 110 mm (southern Sweden, age 15, n 118). This is the mean of the three. The final check of 2026-11-08 couldn't reopen them (mdpi.com 403)."
+    bark.uneven_top.black.at_dbh_cm: "DERIVED: as height_m: the mean of the three trials' mean DBH."
+    bark.uneven_top.black.size_power: "DERIVED: Jones et al. 2021, Tables 2 and 3: the slope at the mean, r(bark height, DBH at 19) x CV(bark height) / CV(DBH at 19), is 0.53 x 65/25 = 1.38 at Hyssna and 0.51 x 74/28 = 1.35 at Brunsberg. That's between trees of one age. GUESSED: that one tree follows the same line as it thickens. No source follows a tree through time. Support: it gives about 2.2 m at DBH 27.5 cm, against 2-4 m at age 60-80 in birch-data/REPORT.md section 14, which itself has no source, and the three trials' means fit size better than age (70 cm at age 15 and 67 cm at age 19, both at 110 mm; 46 cm at age 19 at 98 mm)."
+    bark.uneven_top.black.tree_parts: "DERIVED: chosen so the spread matches Jones et al. 2021 and 2023: 3 draws give a CV of 58 % for the tree's own share, and 71 % with the size term at a DBH CV of 26 %, inside the 48 % (33/69, 2023), 65 % and 74 % (2021) measured at those ages. GUESSED: that the same proportional spread holds at 50 and 60. Nobody measured it there; by eye, reference/gullmarsskogen_stand_1.jpg and gullmarsskogen_stand_5.jpg show stems of one mature stand from near-white at the foot to dark far up."
+    bark.uneven_top.black.tree_range: "TUNED: the low end, 0.15, is a choice with no target: Jones et al. 2021, Table 2's lowest over mean are 0/67 and 10/46, so 0 and 0.22. The high end is DERIVED: the lower of the two highest over mean, 280/67 and 240/46."
+    bark.uneven_top.black.highest_m: "TUNED: a limit, so a thick tree with a high share doesn't go black up into its crown. No source; the highest measured is 2.8 m, at age 19. Rarely reached."
+    bark.uneven_top.black.highest_top_m: "TUNED: as highest_m, for the highest tongue."
+    bark.uneven_top.limbs: "TUNED: by eye against reference/hallinden_sweden.jpg and reference/oslo_norway.jpg: on a limb the dark goes on in patches longer than they're wide, with no ring. level_step, atlas_px and span_m are settings. No measurement found."
+    bark.uneven_top.stage_ramps: "TUNED: by eye, against reference/meilen_switzerland_solitary.jpg, oslo_norway.jpg and hallinden_sweden.jpg, limb widths judged against the stem's in the same photo: white holds on limbs of about 5 cm and more and goes dark by about 2.5 cm, so the ramp ends at 5 cm (it ran to 7, which left limbs of 3-5 cm and the stem's top mostly red-brown). birch-data/REPORT.md section 14 says branches stay white, with no source; these photos don't bear that out for thin ones. part_age_years: thickness decides, not age, by eye on the same photos, where thick limbs and the upper stem are white and only thin twigs are red-brown, whatever their age. No source found on when birch shoots turn white, by age or by thickness (birch-data; Wiley, Brill and Springer pages blocked or silent; extension pages say only 'brown when young'). No measurement found."
     bark.peel: "TUNED: by eye on the renders; no survey of peeling by age or size was opened. The stem's white bark peels in thin horizontal sheets (birch-data/REPORT.md section 14, no source)."
     bark.marks: "TUNED: by eye; the dark chevrons above branches are a known birch feature, no measurement."
-    leaves.chlorophyll_ramp: "SOURCE: LOPEX93 (Hosgood et al. 1993, EcoSIS, CC0) via tools/leaf_colour_table.py: birch 306-310 at 1.0; linden 86-90 and wild grape 11-15 at 0.5; soybean 321-325 at 0.038, the only yellow leaves in it; log-space mix between (an assumption). Birch itself is measured only at 1.0."
+    leaves.chlorophyll_ramp: "DERIVED: worked out from LOPEX93 (Hosgood et al. 1993, EcoSIS, CC0) via tools/leaf_colour_table.py: birch 306-310 at 1.0; linden 86-90 and wild grape 11-15 at 0.5; soybean 321-325, the only yellow leaves in it, at 0.038 (its own figure is 0.0371); log-space mix between (an assumption). Birch itself is measured only at 1.0."
     leaves.yellow_lift: "TUNED: by eye for the maintainer's autumn yellow: the only yellow leaf measured is a soybean, browner than a birch in autumn. No yellow birch leaf was opened. Takes the top of the ramp from ochre to yellow, with the measured ramp left as it is."
     leaves.summer_chlorophyll_ug_cm2: "SOURCE: LOPEX93 metadata, Betula pendula samples 306-310."
     leaves.summer_carotenoid_ug_cm2: "SOURCE: LOPEX93 metadata, Betula pendula samples 306-310. Kept through senescence: Zhang, Dai & Ge 2020, Sci. Rep. 10:9039, doi:10.1038/s41598-020-65704-8 (other species)."
@@ -1405,10 +1940,66 @@ appearance:
     leaves.interveinal_lead: "TUNED: by eye. Chlorophyll goes first between the veins: a search abstract only (fp24012, Funct. Plant Biol.), not read in full."
     leaves.shape: "TUNED: by eye for a birch's triangular, double-toothed blade; the aspect of 1.4 as tools/render_stand.py had it."
     leaves.inclination_deg: "TUNED: from tools/render_stand.py; steep leaves, as K_PAR 0.37 in Hagemeier & Leuschner 2019 implies."
+    leaves.on_shoots.strength: "TUNED: a setting, not a value: 0 keeps the plain export's bytes."
+    leaves.on_shoots.spur_m_per_year: "DERIVED: Caesar 1983, thesis, Lakehead University (birch-data/M1_downloads/caesar1983.pdf), Betula papyrifera, a related species: short shoots 'fail to elongate more than a few millimetres, rarely exceed 4 cm in length after 10 years'. 3 mm a year stays just under that. Nothing found for B. pendula."
+    leaves.on_shoots.spur_max_m: "SOURCE: Caesar 1983 as spur_m_per_year, B. papyrifera."
+    leaves.on_shoots.divergence_deg: "SOURCE: Caesar 1983: 2/5 phyllotaxy in the buds of both shoot types, B. papyrifera, so 144 degrees from leaf to leaf round a short shoot."
+    leaves.on_shoots.size_cv: "DERIVED: Kovacic & Nikolic 2005, Acta Biol. Cracov. Ser. Bot. 47/2:7, Table 1 (publisher's PDF), Betula pendula, 5000 leaves of 50 trees: lamina length CV 11.6-15.9 %, so about 23-32 % in area, as area goes with length squared. For comparison, measured in area: Konopka & Pajtik 2026, Cent. Eur. For. J. 72:159, B. pendula, 3672 leaves of 204 young trees: 11.89 +- 5.73 cm2 pooled, CV 48 %, which takes in sites and classes; Caesar 1983, B. papyrifera, a related species: 13.2 +- 3.3 cm2, CV 25 %, for short-shoot leaves."
+    leaves.on_shoots.size_limits_sd: "TUNED: so the largest blade is about 8 cm long and the smallest about 4.5 cm, at the model's own mean leaf. Floras give 3-7.5 cm; the model's mean is high, so the top end runs a little past that."
+    leaves.on_shoots.splay_deg: "TUNED: by eye on birch-data/summer_reference/Birkenblaetter_Betula_pendula.jpg (Roletschek): a cluster's stalks leave well out from the shoot's axis. Not measured."
+    game.unreal.leaf.on_shoots: "TUNED: a setting, not a value: this target has each leaf where its shoot has it."
     leaves.petiole_m: "TUNED: from the 1-2 cm petiole in this file's light.leaf_spread comment, which gives no paper."
     leaves.fold_deg: "TUNED: by eye."
     leaves.texture_size_px: "TUNED: game setting."
-    game: "TUNED: game settings, no engine or budget named yet. Every budget and size here is a setting."
+    game: "TUNED: game settings, no budget named yet. Every budget and size here is a setting."
+    game.unreal.alpha_clip: "SOURCE: the game's M_Foliage clip, the game's Tools/Editor/build_materials.py ALPHA_CLIP."
+    game.unreal.bark_wrap_tile_m: "SOURCE: the game's tileable bark repeat, the game's Tools/Assets/split_scans.py BARK_TILE_M."
+    game.unreal.roots.surface_depth_m: "SOURCE: how far the game's own root flare reaches below ground so it meets any slope, the game's Tools/Assets/make_root_flare.py."
+    game.unreal.roots.surface_min_radius_m: "TUNED: a root never this thick, or surface_min_radius_share of the collar, stays in the below-ground mesh."
+    game.unreal.roots.surface_min_radius_share: "TUNED: as above."
+    game.unreal.roots.sink_length_radii: "TUNED: by eye. How fast, in collar radii, a root's height goes from where the model has it at the stem to its depth under the ground line; the game's own flare sinks its roots along their 1-2.3 m."
+    game.unreal.roots.paid_surface_min_radius_share: "TUNED: by eye, with roots.paid only. A root shows if its base is at least this share of the stem foot's radius; Laitakari 1934 p. 182 has 7-12 dominant roots, and the game's own flare 5-7."
+    game.unreal.roots.paid_sink_length_radii: "TUNED: by eye, with roots.paid only. As sink_length_radii, for the thick roots' longer run: a look against the game's own flare (its author's estimate from pine and spruce photos, not birch data) and birch-data/summer_reference/Arnhem-Delhuyzen."
+    game.unreal.roots.paid_bury_per_sink_length: "TUNED: by eye, with roots.paid only. A root goes under gradually, not as a rod lying on the soil; no measurement of this was found."
+    game.unreal.roots.paid_ground_line_radii: "TUNED: by eye, with roots.paid only. As ground_line_radii. The thick roots leave the stump 10-25 cm down in the model, so this decides how many of them break the ground."
+    game.unreal.roots.centre_above_ground_radii: "TUNED: a thick root mostly buried, a low ridge along the ground: its centre this many of its radii above the ground line, so below it. Compared by eye with birch-data/summer_reference/Arnhem-Delhuyzen and Intertwined_roots photos. The model has no ground level at the collar to read this from."
+    game.unreal.roots.moss_side_power: "TUNED: moss on one side of a stem, narrower with this power; seen on birch-data/summer_reference/Hange-Birke (Stamm alter Baum 9992) and reference/gullmarsskogen_stand_5.jpg."
+    game.unreal.roots.moss_elsewhere: "TUNED: as above, its share of the bark on the other side, against the side it favours."
+    game.unreal.roots.moss_cover: "TUNED: by eye against the Brastad and Arnhem foot photos in birch-data/summer_reference: tufts and clumps, not a coat. No measurement found."
+    game.unreal.roots.moss_opacity: "TUNED: as moss_cover."
+    game.unreal.roots.flow_out_radii: "TUNED: by eye against the same photos, where roots run out of swells on the stem. Moves the export's stem surface only; no measurement found."
+    game.unreal.roots.flow_width_radii: "TUNED: as flow_out_radii."
+    game.unreal.roots.flow_up_radii: "TUNED: as flow_out_radii."
+    game.unreal.roots.flow_max_share: "TUNED: as flow_out_radii."
+    game.unreal.roots.flow_min_share: "TUNED: as flow_out_radii."
+    game.unreal.roots.root_rough: "TUNED: by eye against the Brastad and Arnhem foot photos: a root's bark near the stem is the foot's bark, not a separate dark one. No measurement found."
+    game.unreal.roots.root_colour: "TUNED: as root_rough."
+    game.unreal.roots.root_contrast: "TUNED: as root_rough."
+    game.unreal.roots.stain_ground_share: "TUNED: as root_rough."
+    game.unreal.roots.stain_ground_m: "TUNED: as root_rough."
+    game.unreal.roots.stain_opacity: "TUNED: as root_rough."
+    game.unreal.roots.visible_radii: "TUNED: by eye against the same photos. Heights only, in the export: a root keeps the model's path and radius."
+    game.unreal.roots.under_share: "TUNED: as visible_radii."
+    game.unreal.roots.sink_power: "TUNED: as visible_radii. A root goes under while it's still thick, so it cuts the ground in a long rounded tongue, not a spike."
+    game.unreal.stem_relief.relief_on_swell: "TUNED: by eye. A swell's face is slanted, so the map is stretched over it, and full relief folds the surface; the normal map keeps the look."
+    game.unreal.roots.origin_below_lowest_m: "DERIVED: M_Surface's moss at a model's base reads height above the origin and takes up to GroundBlendCm 20 + 6 cm of noise (the game's Tools/Editor/build_materials.py), so an origin this far below the tree keeps that moss, which smears up an upright stem, off."
+    game.unreal.roots.moss_reach_m: "TUNED: by eye on reference/gullmarsskogen_stand_5.jpg: moss to about 30-40 cm on old stems, less on young."
+    game.unreal.roots.moss_colour: "TUNED: by eye against reference/gullmarsskogen_stand_5.jpg; a little under the mean colour of the game's Moss001 at the albedo it holds moss to, 0.085 (the game's build_materials.py GROUND_ALBEDO), and greener, as a moss cushion on a stem."
+    game.unreal.stem_relief: "TUNED: how fine the stem's mesh is where its cracks are deep. Depth itself is not set here: it is the bake's height, from the bark thickness and fissure rules."
+    game.unreal.roots.foot_fade_m: "TUNED: below the ground line, how far the stem's thickness fades into the taproot's."
+    game.unreal.roots.ground_line_radii: "TUNED: the model's own thick roots lie just under its z = 0, so the game's ground meets the tree this many collar radii lower, and at most ground_line_max_m. A setting, not a growth change; 0 puts the ground at the model's z = 0, where almost no root shows."
+    game.unreal.leaf.angle_by_height: "SOURCE: Hagemeier & Leuschner 2019a, Forests 10:265, read in the maintainer's browser (reports/extracts/crown_and_light_papers_2026-11-07.md): crown mean 49 degrees to the horizontal, about 55 at the top, about 30 in the lowest shade crown, 30 or more below 0.5 of tree height. Most hang downward. The paper gives the ends and the mean: the points at 0.5 and 0.8 are DERIVED to bring the crown mean to about 49 at the paper's tree size (22-26 m, here ages 50 and 60)."
+    game.unreal.leaf.angle_spread_deg: "TUNED: by eye; the paper gives means."
+    game.unreal.leaf.shape.half_width_by_length: "DERIVED: traced by eye from the blades in Commons 'Birkenblaetter Betula pendula.jpg' (Roletschek; birch-data/summer_reference, not in the repo). Length over width about 1.25-1.45 there. Agrees in kind with the Burren flora's 'triangular, the end drawn out to a slender tip' and Atkinson & Codling 1986, Watsonia 16:75, which separates B. pendula by its acuminate apex and narrow tip."
+    game.unreal.leaf.shape.main_teeth: "DERIVED: counted on the same photo, about 6-8 side veins a side, each ending in a main tooth. Burren flora: 'every 2nd to 4th tooth much longer than the others', hence minor_per_main 2 or 3."
+    game.unreal.leaf.shape.main_tooth_depth: "TUNED: by eye on the same photo, as a share of leaf length, as minor_tooth_depth."
+    game.unreal.leaf.fold_deg: "TUNED: by eye."
+    game.unreal.leaf.curl: "TUNED: by eye."
+    game.unreal.leaf.stalk_colour: "TUNED: by eye on the same photo: red-brown."
+    game.unreal.ring_tolerance: "TUNED: a ring goes if its surface stays within 10 % of the radius or 1 mm, whichever is more; 1 mm is under 2 pixels at 1 m on a 2560-wide screen at a 60 degree view. Surface area stays within 0.02 %."
+    game.unreal.ring_longest_span: "TUNED: so a long straight twig still bends in the wind, whose flex is per vertex."
+    game.unreal.chlorophyll_by_day: "DERIVED: birch at Siljan from the game's Docs/Research/Wave1/03-trees.md section 2.8 (Nature's Calendar 2008-2021, its source [28], not opened by me): leaf-out starts day 123, autumn colour starts 266, leaf fall starts 279, leafless 286.5; Siljansfors 50 % budburst 22 May is day 142. TUNED: the chlorophyll fraction on each of those days."
+    game.unreal.bark_mean_y: "DERIVED: the game's Docs/Research/Wave2/09-assets.md section 4: silver birch bark Y 0.191 at 1.3 m on the north side, white with dark lenticels and cracks, +0.10 on the south; Juola, Hovi & Rautiainen 2022, doi:10.1002/ece3.8718 (read there, blocked for me) and Juola et al. 2020, Silva Fennica 54(4) 10331 (read: birch BRF 0.22-0.55, darker near the ground, south side 0.12 brighter in the visible). TUNED: white-only stems taken as 0.32, the measured mean with an estimated 40 % of dark bark taken out, plus half the south-side gain."
   bark:
     thickness:
       # double bark (mm) = b0 + b1 DBH + b2 d, over-bark cm; the model's radii are wood
@@ -1436,6 +2027,57 @@ appearance:
       rhytidome:
         diameter_m: [0.05, 0.10]
         climbs: {onset_age: 10.0, height_max_m: 6.0, time_constant_years: 90.0, band_m: 0.7}
+    # The bark's look, on or off.  A climbing stage stops at no one level.  black says how high it goes on one
+    # tree: height_m at at_dbh_cm over bark, by (DBH / at_dbh_cm)^size_power, times the tree's own share for life
+    # (a gamma of mean 1 from tree_parts draws, kept to tree_range), up to highest_m.  That's where half of the
+    # bark round the stem has gone over.  Above and below, at each height a share of the bark has gone over, all
+    # of it below solid_share of the tree's level, none above its top, which moves by side_share and tongue_share
+    # of the level, up to highest_top_m, and falls_off says how fast the share drops between (over 1, soon; under
+    # 1, late).  solid_share and falls_off run from the lightest tree to the darkest.  Which bark goes first is
+    # the field "islands", so what shows is hard-edged black tongues and white plates, whatever the tree.
+    # tongues and islands: turns round the stem, metres up it, weight.
+    # plates: rough bark's, at their real size.  stage_ramps: how thick a limb is before it's white.
+    # strength 0 leaves all of this out, as the plain export has it; the Unreal target has its own switch,
+    # game.unreal.stem_relief.uneven_top.
+    uneven_top:
+      strength: 0.0
+      black:
+        height_m: 0.61
+        at_dbh_cm: 10.6
+        size_power: 1.36
+        tree_parts: 3
+        tree_range: [0.15, 4.2]
+        highest_m: 8.0
+        highest_top_m: 12.0
+      side_share: 0.4
+      tongue_share: 1.0
+      tongue_power: 2.5
+      lowest_share: 0.45
+      solid_share: [0.08, 0.2]
+      falls_off: [0.9, 0.55]
+      tongues: [[0.16, 0.7, 1.0], [0.035, 0.35, 0.8], [0.01, 0.08, 0.3]]
+      islands: [[0.07, 0.4, 1.0], [0.025, 0.14, 0.45], [0.2, 0.9, 0.5]]
+      island_edge: 0.05
+      plates: {size_m: [0.03, 0.16], furrow_width: 0.6, cross_crack: 0.3, lit: [0.75, 1.0]}
+      # the lost leader's last thread: at no more than this share of the replacement's radius, the replacement is the stem
+      stem_stub_share: 0.25
+      stage_ramps:
+        papery:
+          # thickness decides: a part is white once it's thick enough, however young; only a shoot in its first
+          # year is held back.  The plain export's 4-10 years kept a fast, thick young axis red-brown.
+          part_age_years: [0.0, 1.0]
+          diameter_m: [0.025, 0.05]
+      # A limb's white, in the branch atlas.  A column for each level_step of white at each circumference, so a
+      # face reads what its own thickness and age say.  The white of stage goes on in hard-edged patches (edge), the
+      # same ones at every level and circumference: patches is turns round the limb, metres along it, weight.
+      # span_m of limb to the atlas's height, so they don't repeat so soon.  level_step 0: one column to a circumference.
+      limbs:
+        stage: papery
+        level_step: 0.125
+        atlas_px: [4096, 2048]
+        span_m: 1.0
+        patches: [[0.14, 0.2, 1.0], [0.05, 0.06, 0.4]]
+        edge: 0.04
     # Layered in this order, each covering the last through its own pattern as its weight rises.
     stages:
       - name: twig
@@ -1520,6 +2162,19 @@ appearance:
       vein_lightness: 0.18
     inclination_deg: [30.0, 70.0]
     petiole_m: 0.018
+    # Where a leaf leaves its shoot.  strength 0 is the plain export's: all of a node's leaves from one point, on
+    # any side, petiole_m off the bark.  Over 0: on the side the node's bud faces, a short shoot's at the end of
+    # its own axis (spur_m_per_year, up to spur_max_m), a cluster's leaves divergence_deg apart round that axis
+    # and splay_deg out from it.  Only their places change: the same leaves, the same sizes.
+    on_shoots:
+      strength: 0.0
+      spur_m_per_year: 0.003
+      spur_max_m: 0.04
+      divergence_deg: 144.0
+      splay_deg: 60.0
+      # a leaf's own size round the model's, with the tree's total held: its CV, and how far it goes either way, in SDs
+      size_cv: 0.3
+      size_limits_sd: [-2.2, 1.5]
     fold_deg: 24.0
     texture_size_px: 256
   game:
@@ -1536,3 +2191,157 @@ appearance:
     # colour and packed maps as jpeg to keep files small; png wherever alpha is needed
     jpeg_quality: 88
     texture_seed: 4177
+    # tools/game_export.py --target unreal: the game's pipeline, as treegen/game_unreal.py writes for it
+    unreal:
+      # the name the tree goes under in the game's folders; a new name, so its birch stays as it is
+      asset: betula_pendula_grown
+      # the season a variant's name doesn't mention
+      base_season: summer
+      alpha_clip: 0.35
+      # one tile of the game's tileable bark, m
+      bark_wrap_tile_m: 0.4
+      # leave out rings that lie inside the parent, and rings the tube would be the same without; 0 and 0 keep them all
+      ring_tolerance: 0.10
+      ring_tolerance_m: 0.001
+      ring_longest_span: 0.5
+      # the real roots (treegen/roots.py): what goes with the tree, and what's left as its own mesh
+      roots:
+        surface_depth_m: 0.10
+        surface_min_radius_m: 0.006
+        surface_min_radius_share: 0.14
+        ground_line_radii: 1.25
+        ground_line_max_m: 0.25
+        # With roots.paid.  Thick = this share of the stem's foot radius, and how fast a root sinks, in those radii.
+        # TUNED by eye against birch-data/summer_reference (Arnhem-Delhuyzen) and, as a look only, the game's make_root_flare.py.
+        paid_surface_min_radius_share: 0.25
+        paid_sink_length_radii: 15.0
+        # ... and how much deeper its centre lies, in its own radii, at each such length out from the stem.
+        paid_bury_per_sink_length: 1.0
+        # ... and the ground line, in the stem foot's radii: low enough for the thick roots' tops, 10-25 cm down in the model.
+        paid_ground_line_radii: 1.75
+        foot_fade_m: 0.15
+        sink_length_radii: 2.0
+        centre_above_ground_radii: -0.25
+        origin_below_lowest_m: 0.32
+        moss_reach_m: 0.08
+        moss_reach_per_year_m: 0.004
+        moss_reach_max_m: 0.36
+        moss_on_white: 0.3
+        moss_colour: [0.03, 0.04, 0.016]
+        moss_side_power: 3.0
+        moss_elsewhere: 0.04
+        # its share of the bark at the ground, on the side it favours, and how solid a tuft is
+        moss_cover: 0.5
+        moss_opacity: 0.8
+        # a thick root's swell on the stem, in the root's radii: how far out at the ground, how wide, how far
+        # up, at most this share of the foot's radius out, and none for a root under this share of the thickest
+        flow_out_radii: 3.0
+        flow_width_radii: 1.0
+        flow_up_radii: 3.2
+        flow_max_share: 0.85
+        flow_min_share: 0.45
+        # the roots' bark, how far their rough stage has gone, 0 to 1, its colour (linear) and contrast about it;
+        # and the stem's foot staining to it: at the ground all round, as a share of full, and in how many
+        # metres that goes; and how solid it gets
+        root_rough: 0.7
+        root_colour: [0.095, 0.08, 0.062]
+        root_contrast: 0.4
+        stain_ground_share: 0.6
+        stain_ground_m: 0.09
+        stain_opacity: 0.85
+        # a root that shows goes under by this many of its radii along, or at this share of the thickness
+        # that shows; it sinks all the way, faster as it goes by this power
+        visible_radii: 5.0
+        under_share: 0.85
+        sink_power: 1.8
+      # the stem's relief in the mesh; edge_fine_m 0 leaves the stem as a smooth tube with its old low relief
+      stem_relief:
+        edge_fine_m: 0.005
+        edge_coarse_m: 0.03
+        full_at_fissure_m: 0.006
+        along_factor: 1.4
+        rings_under_m: 0.025
+        mesh_blur_px: 2
+        normal_keeps_deep_share: 0.5
+        relief_on_swell: 0.35
+        # bark.uneven_top.strength, in this target
+        uneven_top: 1.0
+        # of the species' geometry.root_flare_extra, as a swell of the stem into the ground
+        swell_share: 1.0
+      # leaf atlas: columns from this chlorophyll fraction to that one; a leaf's level picks its column
+      leaf_levels: 8
+      leaf_level_range: [0.04, 1.0]
+      # the near leaves, in mesh and atlas
+      leaf:
+        texture_px: 512
+        # angle to the horizontal by height in the tree, degrees, and the spread about it
+        angle_by_height: [[0.0, 30.0], [0.3, 30.0], [0.5, 42.0], [0.8, 51.0], [1.0, 55.0]]
+        angle_spread_deg: 14.0
+        roll_rad: 0.6
+        # leaves.on_shoots.strength, in this target
+        on_shoots: 1.0
+        # where the mesh has its points along the blade; the side points past these are the main teeth
+        midrib_at: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+        base_points_at: [0.03, 0.06]
+        # each leaf its own: width, midrib fold (+ edges up), droop to the tip and twist, of its length
+        width_low: 0.9
+        width_high: 1.1
+        fold_deg: [-6.0, 26.0]
+        curl: [0.05, 0.28]
+        twist_rad: 0.3
+        side_bend: 0.06
+        ripple: 0.012
+        stalk_width_m: 0.0011
+        stalk_colour: [0.12, 0.05, 0.035]
+        shape:
+          # half width over length, base to tip
+          half_width_by_length: [[0.0, 0.0], [0.03, 0.07], [0.06, 0.125], [0.12, 0.215], [0.19, 0.31], [0.26, 0.365], [0.32, 0.38], [0.38, 0.372], [0.46, 0.335], [0.56, 0.28], [0.66, 0.215], [0.76, 0.145], [0.86, 0.07], [0.94, 0.025], [1.0, 0.0]]
+          aspect: 1.32
+          widest_at: 0.32
+          teeth: 13
+          variants: 2
+          variant_warp: 0.06
+          main_teeth: 7
+          first_tooth_at: 0.09
+          last_tooth_at: 0.93
+          tooth_spacing_power: 1.0
+          side_offset: 0.3
+          main_tooth_depth: 0.024
+          minor_tooth_depth: 0.011
+          minor_per_main: 2
+          uv_half: 0.49
+          vein_start_share: 0.8
+          vein_lightness: 0.18
+      card_levels: 4
+      strip_opacity_levels: 4
+      chlorophyll_by_day: [[118, 0.1], [123, 0.25], [142, 0.5], [160, 0.85], [175, 1.0], [262, 1.0], [266, 0.92], [276, 0.5], [286.5, 0.05]]
+      days: {spring: 142, summer: 200, early_autumn: 270, autumn: 283}
+      # linear luminance a bark stage's tile is scaled to; a stage not named stays as it is
+      bark_mean_y: {papery: 0.32}
+
+# Ways of running faster, the six lossless ones on by default since birch v1 (2026-11-08).  The lossless ones change no number: tests/test_speed.py and
+# tools/golden.py show it; reports/speed_research.md has the gains.
+speed:
+  # the carbon solve's repeated evaluation, compiled (treegen/fast.py carbon_parts)
+  compiled_carbon: true
+  # bending under load, compiled (fast.bend_steps)
+  compiled_mechanics: true
+  # the light sweep holds its grids layer by layer, each layer's cells together, and the leaves' spread before it is compiled
+  light_layers: true
+  # the soil's stones and rootable depth are kept instead of being laid out again each year
+  keep_soil_grids: true
+  # the carbon solve reaches the same answer in fewer evaluations (fast.quick_bisect)
+  quick_solve: true
+  # the tree's order of passes from a compiled count, and the per-level lists only when something walks them (fast.level_order)
+  quick_levels: true
+  # NOT lossless, needs the maintainer's approval: the same light sums in another order, with scipy's ffts.  The field agrees to float32
+  # rounding (at most 1e-6 in a field of up to 2), so a seed makes a different tree, as it does on another machine
+  light_rows: false
+  # NOT lossless either, the same way: lean runs drop dead nodes (treegen/compact.py)
+  drop_dead: false
+  # LOSSY, each needs the maintainer's approval (reports/speed_research.md).  One light field lasts this many years
+  light_every: 1
+  # Fewer light directions: null keeps the environment's own (sky 44, sun 16)
+  sky_elevations_deg: null
+  sky_azimuth_count: null
+  sun_hour_step: null

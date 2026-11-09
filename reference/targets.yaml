@@ -221,7 +221,7 @@ tree_allometry:
     value: 0.48
     source: "Thomas & Martin (2012)"
     doi: "10.3390/f3020332"
-    citation: "Thomas, S.C., & Martin, A.R. (2012). Carbon content of tree tissues: a synthesis. Forests 3(2):332-345."
+    citation: "Thomas, S.C., & Martin, A.R. (2012). Carbon content of tree tissues: a synthesis. Forests 3(2):332-352."
     page_table: "Table 2 (p. 337)"
     measures: "Carbon concentration in wood dry matter of temperate/boreal angiosperms: 48.8 +/- 0.6 % observed; 48 +/- 2 % is the IPCC value the table reprints."
     scoring: info # a model input, not a model output

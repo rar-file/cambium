@@ -26,8 +26,11 @@ from __future__ import annotations
 import math
 
 import numpy as np
+from scipy import fft as sfft
 from scipy.ndimage import gaussian_filter, map_coordinates
 from scipy.spatial import cKDTree
+
+from . import fast
 
 
 def _fibonacci_sphere(n: int) -> np.ndarray:
@@ -113,7 +116,9 @@ class ShadowPropagation:
         if self._impulse is None:
             h, d, vs = self.OWN_HALF, self.OWN_DOWN, self.vs
             pos = np.array([[0.5 * vs, 0.5 * vs, (d + 1.5) * vs], [0.5 * vs, 0.5 * vs, 0.5 * vs]])
+            self._no_buffers = True     # this year's field may be in those buffers
             f = self.compute(pos, np.array([1.0 / self.a, 0.0]))
+            self._no_buffers = False
             i = np.floor(pos[0] / vs).astype(int) - f.lo
             self._impulse = f.S[i[0] - h:i[0] + h + 1, i[1] - h:i[1] + h + 1, i[2] - d:i[2] + 3].astype(np.float64)
             self._tf_cache = {}
@@ -161,7 +166,11 @@ class ShadowPropagation:
         """
         vs = self.vs
         has_wood = wood_pos is not None and wood_area is not None and len(wood_pos) > 0
-        if has_wood:
+        layers = bool(getattr(self, "fast_layers", False))
+        if has_wood and layers:
+            hi = np.floor(np.maximum(src_pos.max(0), wood_pos.max(0)) / vs).astype(int)
+            lo = np.floor(np.minimum(src_pos.min(0), wood_pos.min(0)) / vs).astype(int)
+        elif has_wood:
             all_pts = np.concatenate([src_pos, wood_pos])
             hi = np.floor(all_pts.max(0) / vs).astype(int)
             lo = np.floor(all_pts.min(0) / vs).astype(int)
@@ -182,16 +191,29 @@ class ShadowPropagation:
             lo[0] = int(round(x0 / vs))
             lo[1] = int(round(y0 / vs))
             nz = int(hi[2] - lo[2] + 1)
-            idx = np.floor(src_pos / vs).astype(int) - lo
-            idx[:, 0] %= nx
-            idx[:, 1] %= ny
+            if not layers:
+                idx = np.floor(src_pos / vs).astype(int) - lo
+                idx[:, 0] %= nx
+                idx[:, 1] %= ny
         else:
             m = int(math.ceil(self.margin / vs))
             lo[:2] -= m
             hi[:2] += m
             nx, ny, nz = (int(v) for v in (hi - lo + 1))
-            idx = np.floor(src_pos / vs).astype(int) - lo
+            if not layers:
+                idx = np.floor(src_pos / vs).astype(int) - lo
         shape = (int(nx), int(ny), int(nz))
+        if layers:
+            nx, ny, nz = shape
+            D = self._buffer("D", (nz, nx, ny), np.float32)    # layer first: see _sweep_layers
+            fast.deposit(D, np.ascontiguousarray(src_pos), (self.a * src_w).astype(np.float32), vs, lo, periodic is not None, False)
+            if has_wood:
+                fast.deposit(D, np.ascontiguousarray(wood_pos), (float(k_wood) * wood_area / (vs ** 2)).astype(np.float32), vs, lo, periodic is not None, True)
+            field = self._sweep_layers(D, lo, nx, ny, nz, region, read_low, periodic is not None, diffuse_heights)
+            # only the field's own grid stays between years: the rest would cost more memory than its reuse saves in time
+            for name in ("D", "blurred", "B", "H"):
+                self.__dict__.get("_buffers", {}).pop(name, None)
+            return field
         D = np.zeros(shape, dtype=np.float32)
         np.add.at(D, (idx[:, 0], idx[:, 1], idx[:, 2]), (self.a * src_w).astype(np.float32))
         if has_wood:
@@ -241,12 +263,108 @@ class ShadowPropagation:
         field.diffuse_layers = diffuse
         return field
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state.pop("_buffers", None)
+        return state
+
+    def _buffer(self, name: str, shape: tuple, dtype) -> np.ndarray:
+        """A grid of zeros, the same memory each year when the size hasn't changed (speed.light_layers)."""
+        if getattr(self, "_no_buffers", False):
+            return np.zeros(shape, dtype=dtype)
+        pool = self.__dict__.setdefault("_buffers", {})
+        a = pool.get(name)
+        if a is None or a.shape != shape:
+            a = pool[name] = np.zeros(shape, dtype=dtype)
+        else:
+            a.fill(0)
+        return a
+
+    def _sweep_rows(self, D, S, has, top, bottom, nx, ny, wk, diffuse, wd) -> None:
+        """The sweep frequency row by frequency row (speed.light_rows): the same sums in another order, so the same field to
+        float32 rounding (largest difference 1e-6, against a field of up to 2).  Each row's state for all directions fits in the
+        processor's cache, where going layer by layer carries every direction's whole spectrum through memory once a layer."""
+        key = (nx, ny)
+        split = self.__dict__.get("_tf_split")
+        if split is None or split[0] != key:
+            tf = self._transfer(nx, ny)
+            split = self._tf_split = (key, np.ascontiguousarray(np.transpose(tf.real, (1, 0, 2))), np.ascontiguousarray(np.transpose(tf.imag, (1, 0, 2))))
+            self._tf_cache = {}
+        nyf = ny // 2 + 1
+        H = self._buffer("H", (D.shape[0], nx, nyf), np.complex64)
+        for z in range(top + 1):
+            if has[z]:
+                H[z] = sfft.rfft2(D[z])
+        dz = np.array(sorted(diffuse) if diffuse is not None else [], dtype=np.int64)
+        fr = np.zeros((len(dz), nx, nyf), np.float32)
+        fi = np.zeros((len(dz), nx, nyf), np.float32)
+        fast.sweep_rows(H, has, top, bottom, split[1], split[2], wk, dz, wd, fr, fi)
+        for z in range(top, bottom - 1, -1):
+            S[z] = sfft.irfft2(H[z], s=(nx, ny))
+        for i, z in enumerate(dz):
+            diffuse[int(z)] = np.maximum(sfft.irfft2(fr[i] + 1j * fi[i], s=(nx, ny)), 0.0) if z >= bottom and z <= top else None
+
+    def _sweep_layers(self, D, lo, nx, ny, nz, region, read_low, periodic: bool, diffuse_heights) -> "LightField":
+        """compute's sweep, the same numbers, with its grids held layer first (z, x, y) so that each layer's cells lie together:
+        reading or writing a layer of an (x, y, z) grid touches a separate stretch of memory for every column.  The returned
+        field's S is that grid seen as (x, y, z); next year's compute overwrites it."""
+        vs = self.vs
+        if self.leaf_sigma > 0:
+            blurred = self._buffer("blurred", D.shape, np.float32)
+            w = self.__dict__.get("_blur_w")
+            if w is None:
+                w = self._blur_w = fast.gaussian_weights(self.leaf_sigma)
+            has = fast.blur_layers(D, blurred, w, periodic)
+            D = blurred
+        else:
+            has = D.any(axis=(1, 2))
+        S = self._buffer("S", D.shape, np.float32)
+        rows = bool(getattr(self, "fast_rows", False))
+        tf = None if rows else self._transfer(nx, ny)
+        occupied = np.nonzero(has)[0]
+        if len(occupied) == 0:
+            return LightField(self, S.transpose(1, 2, 0), lo, periodic)
+        wk = self.light_w.astype(np.float32)
+        top = int(occupied.max())
+        bottom = 0 if region is None else max(0, int(math.floor(region[0, 2] / vs)) - lo[2] - 1)
+        if read_low is not None:
+            bottom = min(bottom, max(0, read_low - lo[2]))
+        diffuse_w = getattr(self, "diffuse_w", None)
+        diffuse: dict | None = None
+        if diffuse_heights is not None and periodic and diffuse_w is not None:
+            diffuse = {}
+            for h in diffuse_heights:
+                z0 = int(math.floor(h / vs - lo[2] - 0.5))
+                diffuse.update({z: None for z in (z0, z0 + 1)})
+            wd = diffuse_w.astype(np.float32)
+        if rows:
+            self._sweep_rows(D, S, has, top, bottom, nx, ny, wk, diffuse, wd if diffuse is not None else wk)
+            np.maximum(S, 0.0, out=S)
+            field = LightField(self, S.transpose(1, 2, 0), lo, periodic)
+            field.diffuse_layers = diffuse
+            field.S_layers = S
+            return field
+        B = self._buffer("B", tf.shape, np.complex64)
+        for z in range(top, bottom - 1, -1):
+            B *= tf
+            if has[z]:
+                B += np.fft.rfft2(D[z])[None]
+            S[z] = np.fft.irfft2(np.tensordot(wk, B, axes=1), s=(nx, ny))
+            if diffuse is not None and z in diffuse:
+                diffuse[z] = np.maximum(np.fft.irfft2(np.tensordot(wd, B, axes=1), s=(nx, ny)), 0.0)
+        np.maximum(S, 0.0, out=S)
+        field = LightField(self, S.transpose(1, 2, 0), lo, periodic)
+        field.diffuse_layers = diffuse
+        field.S_layers = S
+        return field
+
 
 # Heights (m) at which the light under the canopy is read for the output
-# (stats per_year / plot stats "subcanopy_light_pct"): the 1.0-2.0 m of the
-# light target in reference/targets.yaml (stand_canopy.subcanopy_light_
-# transmittance, Hagemeier & Leuschner 2019b).  Output only; growth never
-# reads it.
+# (stats per_year / plot stats "subcanopy_light_pct"), for the light target in
+# reference/targets.yaml (stand_canopy.subcanopy_light_transmittance,
+# Hagemeier & Leuschner 2019b).  The model reads at 1.0-2.0 m; the target
+# doesn't state its sensor's height ("on a 2 m pole, its height above the
+# ground not stated").  Output only; growth never reads it.
 SUBCANOPY_LIGHT_HEIGHTS_M = (1.0, 1.5, 2.0)
 
 
@@ -290,7 +408,12 @@ class LightField:
             # wrap horizontally; above or below the grid there is no shade
             c[:, 0] %= self.S.shape[0]
             c[:, 1] %= self.S.shape[1]
-            out = map_coordinates(self.S, c.T, order=1, mode="grid-wrap")
+            s_layers = self.__dict__.get("S_layers")
+            if s_layers is not None:
+                out = np.empty(len(c), np.float32)
+                fast.sample_wrap(s_layers, np.ascontiguousarray(c), out)
+            else:
+                out = map_coordinates(self.S, c.T, order=1, mode="grid-wrap")
             return np.where((c[:, 2] < -0.5) | (c[:, 2] > self.S.shape[2] - 0.5), 0.0, out)
         return map_coordinates(self.S, c.T, order=1, mode="constant", cval=0.0)
 

@@ -89,7 +89,9 @@ def export_ages(seed: int, ages: list, out: Path, check: Path | None, species: s
         s = model.stats[age]
         summary["ages"][str(age)] = {"height_m": s["height_m"], "dbh_cm": s["dbh_cm"], "leaf_area_m2": s.get("leaf_area_m2"), "crown": crown_info, "roots": root_info,
                                      "crown_sha256": sha256(out / f"tree_age{age:02d}.glb"), "roots_sha256": sha256(out / f"roots_age{age:02d}.glb")}
-        print(f"age {age}: height {s['height_m']:.2f} m, DBH {s['dbh_cm']:.1f} cm, crown {crown_info}, peak {cli.peak_memory_mb():.0f} MB", flush=True)
+        # a tree under 1.3 m has no DBH (None): on the height curve that's the first 5-6 years
+        dbh = "none yet" if s["dbh_cm"] is None else f"{s['dbh_cm']:.1f} cm"
+        print(f"age {age}: height {s['height_m']:.2f} m, DBH {dbh}, crown {crown_info}, peak {cli.peak_memory_mb():.0f} MB", flush=True)
     (out / "example.json").write_text(json.dumps(summary, indent=1), encoding="utf-8")
 
 
@@ -140,7 +142,8 @@ def render(folder: Path, png: Path, res_h: int) -> None:
     for img, age in panels:
         s = info["ages"][str(age)]
         sheet.paste(img, (x, band))
-        draw.text((x + 20, 25), f"age {age}: {s['height_m']:.1f} m tall, DBH {float(bark.dbh_over_bark(s['dbh_cm'])):.1f} cm over bark",
+        dbh = "under 1.3 m, no DBH" if s["dbh_cm"] is None else f"DBH {float(bark.dbh_over_bark(s['dbh_cm'])):.1f} cm over bark"
+        draw.text((x + 20, 25), f"age {age}: {s['height_m']:.1f} m tall, {dbh}",
                   fill=(11, 11, 11), font=font)
         x += img.width + gap
     png.parent.mkdir(parents=True, exist_ok=True)
