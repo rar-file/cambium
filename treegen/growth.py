@@ -1121,7 +1121,8 @@ class GrowthModel:
             if getattr(sh, "log_limbs", False):
                 # A DIAGNOSIS, off by default: each limb's own carbon and its upkeep, as the carbon test reads them
                 lb = np.isin(T.axis[:n0], np.fromiter(self.leader_axes, np.int64))[np.maximum(T.parent[br], 0)]
-                self._limb_carbon = {"node": br[lb].copy(), "own": own_c[br][lb].copy(), "upkeep": upkeep_c[br][lb].copy()}
+                self._limb_carbon = {"node": br[lb].copy(), "z": T.pos[T.parent[br[lb]], 2].copy(), "own": own_c[br][lb].copy(),
+                                     "upkeep": upkeep_c[br][lb].copy()}
         def flow(fm):
             vin = np.zeros(n0)
             vm = np.zeros(n0)
