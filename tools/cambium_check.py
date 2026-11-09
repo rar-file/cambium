@@ -9,6 +9,8 @@
         `cambium` command from outside the checkout: version, species, a short tree against cli.py,
         and both exports.  Also compiles the shipped code with the oldest Python claimed (3.12), if
         that interpreter is on the machine.
+    python tools/cambium_check.py docs --label node_prod_docs
+        Builds the docs site with `mkdocs build --strict`, as .github/workflows/docs.yml does.
 
 Each case runs in its own process.  Results go to out/bench/ensemble/<label>/report.json.
 """
@@ -188,6 +190,23 @@ def cmd_wheel(a) -> list:
     return rows
 
 
+def cmd_docs(a) -> list:
+    """The docs site built as its workflow builds it, in a venv of its own (nothing shared)."""
+    with tempfile.TemporaryDirectory(prefix="cambium_docs_") as tmp:
+        tmp = Path(tmp)
+        run([sys.executable, "-m", "venv", tmp / "venv"])
+        py = tmp / "venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        run([py, "-m", "pip", "install", "--quiet", "mkdocs-material>=9.5,<10"])
+        p = subprocess.run([str(py), "-m", "mkdocs", "build", "--strict", "-f", str(ROOT / "mkdocs.yml"), "-d", str(tmp / "site")],
+                           cwd=str(ROOT), capture_output=True, text=True)
+        log = (p.stdout + p.stderr).strip()
+        pages = sorted(str(f.relative_to(tmp / "site")) for f in (tmp / "site").rglob("index.html")) if p.returncode == 0 else []
+        row = {"case": "mkdocs build --strict", "identical": p.returncode == 0, "pages": pages, "log": log[-4000:]}
+        print(log[-4000:], flush=True)
+        print(f"docs: {'OK' if p.returncode == 0 else 'FAILED'}, {len(pages)} pages", flush=True)
+    return [row]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="what", required=True)
@@ -201,9 +220,11 @@ def main() -> int:
     w = sub.add_parser("wheel")
     w.add_argument("--years", type=int, default=6)
     w.add_argument("--label", required=True)
+    d = sub.add_parser("docs")
+    d.add_argument("--label", required=True)
     a = ap.parse_args()
     t0 = time.time()
-    rows = cmd_same(a) if a.what == "same" else cmd_wheel(a)
+    rows = {"same": cmd_same, "wheel": cmd_wheel, "docs": cmd_docs}[a.what](a)
     out = OUT / a.label
     out.mkdir(parents=True, exist_ok=True)
     ok = all(r.get("identical") is not False for r in rows)
