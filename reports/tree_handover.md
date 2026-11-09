@@ -76,7 +76,7 @@ Open-grown data barely enters this: only one open-grown tree was grown (L6, one 
 | 50 | 6.7 | 33 | 1161 | 9.6 (5.8-12.8) | 9.3 | 0.56 (0.41-0.73) |
 | 60 | 2.9 | 20 | 649 | 10.8 (5.8-13.6) | 10.6 | 0.54 (0.43-0.75) |
 
-All of it falls by each part's own light and carbon, with no schedule by age. Every seed is inside Repola's band at every age. Hynynen's managed floor of 0.50 is met by 13/20 at 50 and 9/20 at 60; it's a recommendation, not a target. As a cross-check, at about 14 m tall the lowest live branch is 5.2 m (3.8-6.4), with 13/20 inside Hynynen & Niemisto's 5-7 m (planted stands, as `reports/birch_knowledge_base.md` C1 has it).
+All of it falls by each part's own light and carbon, with no schedule by age. Every seed is inside Repola's band at every age. Hynynen's managed floor of 0.50 is met by 13/20 at 50 and 9/20 at 60; it's a recommendation, not a target. As a cross-check, at about 14 m tall the lowest live branch is 5.2 m (3.8-6.4), with 13/20 inside Hynynen & Niemisto's 5-7 m (planted stands, as `reports/birch_knowledge_base.md` C1 has it). **Superseded (2026-11-09):** that was the Tree agent's crown, before Crown 2. The final crown (birch v1, node_v1_treesR) has the lowest live branch at 0.8 m (0.2-1.8) at 13.5 m tall, 0 of 20 in 5-7 m; see `reports/birch_v1_final.md`.
 
 Plots, ages 11-22, 0.30-0.45: I ran no plots. Stand trees read about 0.59 at 20, which is above that band, but a stand tree thins to 1,000 stems/ha by 11 m and isn't that case.
 
