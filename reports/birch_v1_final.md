@@ -2,36 +2,37 @@
 
 2026-11-09. Branch `reset-integration`.
 - The final settings became the species defaults at d5f0ea3.
-- The runs below were on the server at 359bea4, a0f4880 and 8c2c496. These grow the same trees: section 7 has the proof.
+- Forests also rely on `tools/forest.py` switching on self-thinning (`mortality.enabled` is false in the species file), the natural start and regeneration.
+- The runs below were on the server at 359bea4, a0f4880 and 8c2c496. These grow the same trees: section 9 has the proof.
+- Hand-worked numbers are recomputed by `tools/v1_workings.py`. Its output is in `reports/birch_v1_workings.txt`.
 
-This report is the reset's one full check (PROTOCOL section 10, `reports/reset_brief.md`). The reviews and the maintainer's open questions are on master:
-- Checker (a), sources and targets: `reports/reviews/2026-11-08_final_check_a_sources.md`. Its FIX items are fixed.
-- Checker (b), numbers and consistency: `reports/reviews/2026-11-09_final_check_b_numbers.md`. This version answers its FIX items.
-- QUESTIONS.md Q30-Q37.
+## Summary
 
-## In short
+1. At ages 50 and 60 the birch matches what it was tuned to: light and leaf cover (one linked result). Height follows the published curves by design.
+2. No independent check passes at 50 or 60.
+3. Independent checks fail on young forests:
+   - crowns reach almost to the ground (0.92-0.96 against 0.30-0.45 at 11-22);
+   - leaf cover is outside the Baltic band in 46 of 55 years.
+4. Old forests keep some first-generation trees to 200, longer than the (abstract-only) sources suggest.
+5. Open: young crowns, leaf size, young roots, early deaths, and the game's full ageing (branch fall, cuts, more species). See sections 4 and 6.
 
-- **At ages 50 and 60, no independent target passes.**
-  - Height matches the site-index curve by design.
-  - Light under the canopy and the Hagemeier leaf cover pass, but they're one result, and it was tuned against. Light follows leaf cover at a near-fixed extinction coefficient, k about 0.37-0.40, which is the light paper's own 0.37.
-  - The Baltic leaf-cover band fails at 50 by 0.04, with 40 % of plots inside, and passes at 60. Plot leaf cover at those ages was tuned against too.
-  - Light sits near the top of the real range, 18.5 / 19.0 % against a median of 14.8 %. With this k, the two leaf targets pull against each other. Light at the median needs leaf cover of about 5.1, which would fail the Baltic band. Keeping leaf cover at 4.5 or less means light of at least about 18.7 %.
-- **The independent checks fail clearly.**
-  - Young forests at 11-22 have crowns almost to the ground: crown ratio 0.92-0.96, where real ones are 0.30-0.45.
-  - Plot leaf cover is outside the Baltic band in 46 of the 55 years it covers: under it at 6-14, over it at 18-54.
-- **Old forests:** 30-90 first-generation trees per ha are still standing at 200 years, from 3 plots, which is below the 5 a verdict needs. That's longer than the sources found suggest: stands persisting to 121-150, and a typical maximum age of about 100, sometimes 150.
+The three reviews and the maintainer's open questions are on master:
+- Checker (a), sources and targets: `reports/reviews/2026-11-08_final_check_a_sources.md`;
+- Checker (b), numbers and consistency: `reports/reviews/2026-11-09_final_check_b_numbers.md`;
+- Checker (c), rules and completeness: `reports/reviews/2026-11-09_final_check_c_rules.md`;
+- QUESTIONS.md Q30-Q38.
 
 ## 1. What's in the model
 
 | Part | What it does | Status |
 |---|---|---|
-| Height | The leader grows up to the Eriksson 1997 site-index curve (SI 23), less when short of light, water or carbon | By design |
+| Height | The leader grows up to the Eriksson 1997 site-index curve (SI 23). The code can hold it back when light, water or carbon run short. But in the 20 final stand trees the curve set the leader's growth in every one of 1,200 seed-years, so height is close to scripted | By design |
 | Crown | Limbs earn their reach and place (crown_frame, earned); twigs, short shoots and leaves follow bud rules | Mostly VERIFY or TUNED (section 5) |
 | Stem | Pipe-model sapwood, heartwood by own foliage, wind-load stem theory | Mixed |
 | Roots | Roots that cost carbon, lateral set-points | Mixed |
-| Damage | Old age (Elfving 2010), wind (Kitenberga 2021), snow | Sourced shapes; some readings DERIVED |
+| Damage | Old age (Elfving 2010), wind (Kitenberga 2021), snow, and moose browsing of the leader (leader_damage, on) | Sourced shapes; some readings DERIVED |
 | Forest | Self-thinning (Lee 2025 slope; sdi_max 763 TUNED), vigour and size mortality, seed rain, regeneration | Mixed |
-| Look | Bark colour by age, black base by tree, leaves on shoots, limb atlas | Look block: 9 sourced, 15 DERIVED, 181 TUNED |
+| Look | Bark colour and black base by age and tree, fissures, peeling, lenticels, autumn colour, leaves on shoots, limb atlas | Look block: 9 sourced, 15 DERIVED, 181 TUNED. About half the look's tuned lines say they were set by eye on renders, and a few to the maintainer's taste (leaves.yellow_lift). Most of the look is not checked against data |
 
 Value counts (`tools/species_report.py`, at 8521164): 417 model values, of which:
 - 90 sourced, 55 of them checked against the page;
@@ -63,7 +64,10 @@ Without roots and damage (node_v1_trees), paired over 20 seeds:
 
 - Stems at 45: 953 per ha, against Hagemeier & Leuschner's 880 (an INFO target).
 - At the same stem size: Dg 19.1 at age 48, with 803 stems and 23.6 m²/ha, against Hagemeier's 880 stems and 25.2 m²/ha at 45. That stand's printed figures don't add up (Q32), and stems and Dg were tuned against (section 3).
-- The two forest fixes, on the same 20 seeds against the settings before them: light at 50 rose 17.64 → 18.47 (+0.83 ± 0.26, 3.3 SE), and at 60 by +0.35 ± 0.28. LAI at 50 went 4.51 → 4.54, which is noise. The fixes were first judged on 3 seeds. They still pass, but light moved further from the median.
+- The two forest fixes, on the same 20 seeds against the settings before them:
+  - light at 50 rose 17.64 → 18.47 (+0.83 ± 0.26, 3.3 SE), and at 60 by +0.35 ± 0.28;
+  - LAI changed by +0.03 ± 0.04, which is noise;
+  - the fixes were first judged on 3 seeds. They still pass, but light moved further from the median.
 
 ### Lone trees: 8 seeds (node_v1_openR, 8c2c496)
 
@@ -72,7 +76,7 @@ Without roots and damage (node_v1_trees), paired over 20 seeds:
 | 50 | 17.77 | 44.5 | 8.65 | 8.81 |
 | 60 | 19.24 | 49.4 | 9.35 | 9.68 |
 
-Width is capped at Hemery's crown by design (growth.py:2196-2205), so this isn't a test. Hemery's coefficients are VERIFY, taken second-hand (Q36).
+This isn't a test. Width is capped at Hemery's crown by design (growth.py:2196-2205), at a stem of at most 2.4 cm per metre of height (2203). Hemery's coefficients are VERIFY and second-hand (Q36).
 
 ### Old forests: 3 plots to 200 years (node_v1_200, 359bea4)
 
@@ -86,7 +90,8 @@ Indicative only: a verdict needs 5 plots.
 | 150 | 2,117 (1,513) | 23.5 | 27.56 | 29.33 | 42.0 | 90-140 |
 | 200 | 1,590 (1,137) | 25.1 | 26.87 | 30.17 | 33.6 | 30-90 |
 
-Before the forest fixes (node_H_plot200), no first-generation tree lived to 150, and top height ran 2.3-2.6 m over the curve.
+- Before the forest fixes (node_H_plot200), no first-generation tree lived to 150, and top height ran 2.3-2.6 m over the curve.
+- The sources for old-stand lifespan were read only as an abstract (Forests 2020) and a guideline page (Vakkari 2009). No checker has re-opened them.
 
 ## 3. Targets
 
@@ -97,21 +102,24 @@ Before the forest fixes (node_H_plot200), no first-generation tree lived to 150,
 
 | Target | Run | Age 50 | Age 60 | Share inside, 50 / 60 | Verdict | Kind |
 |---|---|---|---|---|---|---|
-| Light under the canopy, 6.4-19.8 % (median 14.8) | plots | 18.5 | 19.0 | 75 % / 75 % | PASS | Tuned against (shedding thresholds, death lines) |
-| | stand trees | 16.2 | 16.4 | 80 % / 80 % | PASS | Tuned against |
-| Hagemeier LAI, 3.6-5.4 | plots | 4.54 | 4.36 | 100 % / 100 % | PASS | Tuned against; the same result as light (k) |
-| | stand trees | 4.82 | 4.68 | 80 % / 70 % | PASS | Tuned against (spacing_overlap) |
-| Baltic LAI, 2.5-4.5 at 6-60 | plots | 4.54 | 4.36 | 40 % / 85 % | **FAIL at 50**, PASS at 60 | Tuned against at 50-60 (wind_speed, death lines); independent at young ages, where it fails: inside only at 15-17 and 55-60 |
-| Site-index height, SI 20-26 | plots, top height | 21.35 (18.76-25.12) | 23.14 (20.72-26.73) | | PASS | By design |
-| | stand trees | 21.91 | 23.71 | 100 % / 100 % | PASS | By design |
-| Crown ratio, dense young stands, 0.30-0.45 at 11-22 | plots | 0.92 at 11, 0.96 at 15, 0.94 at 20, 0.93 at 22 | | 0 % | **FAIL**, far off (worked out by hand) | Independent; profile_power was tuned on crown ratio at 50-60, not this band (Q34) |
+| Light under the canopy, 6.4-19.8 % (median 14.8) | plots | 18.5 | 19.0 | 75 % / 75 % | PASS (scorecard) | Tuned against (shedding thresholds, death lines) |
+| | stand trees | 16.2 | 16.4 | 80 % / 80 % | PASS (scorecard) | Tuned against |
+| Hagemeier LAI, 3.6-5.4 | plots | 4.54 | 4.36 | 100 % / 100 % | PASS (scorecard) | Tuned against; the same result as light (k) |
+| | stand trees | 4.82 | 4.68 | 80 % / 70 % | PASS (scorecard) | Tuned against (spacing_overlap) |
+| Baltic LAI, 2.5-4.5 at 6-60 | plots | 4.54 | 4.36 | 40 % / 85 % | **FAIL at 50**, PASS at 60 (scorecard) | Tuned against at 50-60 (wind_speed, death lines). Independent at young ages, where it fails: inside only at 15-17 and 55-60 |
+| Site-index height, SI 20-26 | plots, top height | 21.35 (18.76-25.12) | 23.14 (20.72-26.73) | | PASS (worked by hand) | By design |
+| | stand trees | 21.91 | 23.71 | 100 % / 100 % | PASS (scorecard) | By design |
+| Crown ratio, dense young stands, 0.30-0.45 at 11-22 | plots | 0.92 at 11, 0.96 at 15, 0.94 at 20, 0.93 at 22 | | 1 tree of about 27,000 at 11; none later | **FAIL**, far off (worked by hand) | Independent (Q34): profile_power was tuned on crown ratio at 50-60, not this band |
 | Stand density, 880 at 45 | plots | 953 at 45 | | | INFO | Tuned against (wind_speed, sdi_max, rate_at_max) |
 | Open crown width (Hemery) | lone trees | 8.65 | 9.35 | | INFO | By design |
 | Crown ratio, managed (Repola; Hynynen at least 0.5) | stand trees | 0.53 | 0.45 | 85 % / 15 % at or over 0.5 | INFO | Tuned against (profile_power) |
 
-How some of these were worked out:
-- **Plot top height:** the scorecard doesn't score it, because plot runs keep no per-tree yearly records. I used the scorecard's own `naslund_top_height` on the plots' tree lists (over-bark DBH).
-- **Young crown ratio:** the same way. It's the mean over plots of each plot's mean (height − crown base) / height of live trees. No plot and no tree is at 0.45 or under at any of those ages.
+How the hand-worked ones were done (all in `tools/v1_workings.py`):
+- **Plot top height:** the scorecard doesn't score it, because plot runs keep no per-tree yearly records. It uses the scorecard's own `naslund_top_height` on the plots' tree lists (over-bark DBH).
+- **Young crown ratio:** the scorecard says not applicable for the same reason. The figure is the mean over plots of each plot's mean (height − crown base) / height of live trees.
+- **k:** −ln(light/100)/LAI per plot. It's 0.372 at 50 and 0.381 at 60.
+  - Light at the 14.8 % median would need LAI 5.13 / 5.02.
+  - Light at LAI 4.5 is 18.7 / 18.0 %.
 - **Not scored,** because scorecard.py computes no value for them: bark thickness, wood density, carbon fraction, turning moment, foliage biomass.
 - **Seedling targets** need seedling runs, which weren't part of this check.
 
@@ -119,16 +127,16 @@ How some of these were worked out:
 
 | Miss | Ours | Real | Why, as far as known |
 |---|---|---|---|
-| Young forests' crowns reach the ground | crown ratio 0.92-0.96 at 11-22 (20 plots; mean height 3.3-9.8 m) | 0.30-0.45 (Niemistö 1995, unopened; read through targets.yaml) | My reading, not tested: lower limbs and short shoots stay alive in deep shade, and the death lines were lowered to 0.15 to keep light in the band, which works against this. |
-| Crown starts too low on young trees | at 13.5 m tall: lowest live branch 0.8 m (0.2-1.8), crown base 1.6 m (0.5-2.9); 0 of 20 in 5-7 m | 5-7 m at 13-15 m tall (Hynynen & Niemistö 2009) | The same. Crown 2 reads it as young limbs extending slowly, so the canopy closes late; there's no measured number for that |
-| Leaf cover outside the Baltic band | under 2.5 at 6-14; over 4.5 at 18-54, peak 5.63 at 27 | 2.5-4.5 at 6-60 (its source is in doubt, Q30) | Young crowns hold too much leaf. At 50-60 it's the light trade-off above |
-| Light near the top of the real range | 18.5 / 19.0 % | median 14.8 % | Linked to the line above through k. The forest fixes moved it up by 0.8 points at 50 |
-| Leaves too big | 15.0 cm² per leaf, fixed (growth.py:3116, 0.0015 m²) | 11.9 ± 5.7 cm² (Konôpka & Pajtík 2026, trees aged 4-20) | Leaves per node: smaller leaves at the same count gave 7-9 cm thicker stems. The look mesh draws its own spread around a mean |
+| Young forests' crowns reach the ground | crown ratio 0.92-0.96 at 11-22 (20 plots; mean height 3.3-9.8 m) | 0.30-0.45 (Niemistö 1995, unopened; through targets.yaml) | My reading, not tested: lower limbs and short shoots stay alive in deep shade. The death lines were lowered to 0.15 to keep light in the band, which works against this |
+| Crown starts too low on young trees | at 13.5 m tall: lowest live branch 0.8 m (0.2-1.8), crown base 1.6 m (0.5-2.9); 0 of 20 in 5-7 m | 5-7 m at 13-15 m tall (Hynynen & Niemistö 2009) | The same. Crown 2 reads it as young limbs extending slowly so the canopy closes late; there's no measured number for that |
+| Leaf cover outside the Baltic band | under 2.5 at 6-14; over 4.5 at 18-54, peak 5.63 at 27 | 2.5-4.5 at 6-60 (its source is in doubt, Q30) | Young crowns hold too much leaf. At 50-60 it's the light trade-off in section 3 |
+| Light near the top of the real range | 18.5 / 19.0 % | median 14.8 % | Linked to the line above through k. The forest fixes moved it up 0.8 points at 50 |
+| Leaves too big | Sun and shade leaves are sized by light: 0.0015 × 60.8/LMA, so 10.2-18.1 cm² (growth.py:1414-1426). Earlier look runs measured a mean of 17-17.8 cm². The stats' steady 15.00 cm² is an artefact (growth.py:3116-3117) | 11.9 ± 5.7 cm² (Konôpka & Pajtík 2026, trees aged 4-20) | Leaves per node: smaller leaves at the same count gave 7-9 cm thicker stems |
 | Leaf density near the top | 0.19 / 0.22 | their fit's 1.97 | Untouched |
-| Double tops | 0 of 20 (strict) | 35 % (Zeltins, unopened) | Only an axis's end bud starts long shoots |
+| Double tops | 0 of 20 (strict) | 35 % (Zeltins 2018, read on mdpi.com earlier; couldn't be reopened in this check) | Cause unknown. Second tops are drawn per tree at Zeltins' 0.349 (growth.py:2052-2053) and through reiteration, and still don't last |
 | Lone trees' longest hanging strands | longest 5.2 / 6.1 m; p90 at 60 4.1 m (3.9-4.3) | about 2-4 m in photos, judged by eye | p90 is at the top of the photo range |
-| No early deaths in young dense forests | none of the trees in a 9,000/ha plot die in their first 5 years; mortality only acts on trees past 1.3 m, and the carbon rule kills none | real young stands lose stems at this stage | Trees on the height curve stay under 1.3 m for the first years |
-| Young trees grow almost no roots | a 6-year tree has one root axis, 10 cm long; collar roots at 14 sum to 0.69, under Kalliokoski's lowest stand (0.86) | Laitakari 1934 p. 182: small trees (DBH under 5 cm) "may have only 2-3" main roots | The collar's room for roots is set by spacing tuned on 8-30 cm stumps (roots.py `_collar_waiting`). The fix is after v1 |
+| No early deaths in young dense forests | none of the trees in a 9,000/ha plot die in their first 5 years | real young stands lose stems at this stage | Self-thinning and background death act at any size. But self-thinning can't start until stems past 1.3 m make the stand dense, the "suppressed" hazard needs a stem diameter, and the carbon rule kills none. Trees on the height curve stay under 1.3 m for the first years |
+| Young trees grow almost no roots | a 6-year tree has one root axis, 10 cm long; collar roots at 14 sum to 0.69, under Kalliokoski's lowest stand (0.86) | Laitakari 1934 p. 182: small trees (DBH under 5 cm) "may have only 2-3" main roots | The collar's room for roots is set by spacing tuned on 8-30 cm stumps (roots.py `_collar_waiting`). The fix comes after v1 |
 | Old trees die of carbon shortfall after 120 | crowns lost from below | no source gives a rate | Per-internode upkeep is untested at those ages |
 | Foliage in stands | single strands | clumped sprays | Option J (d278fd4) gave sprays (Q37) |
 
@@ -136,7 +144,7 @@ Unclear rather than missed: stand branch wood is 29 % over Repola at 50 and 23 %
 
 ## 5. Guessed values that matter most
 
-These are TUNED, DERIVED or VERIFY. The full list is in `reference/betula_pendula/labels.yaml`.
+These are TUNED, DERIVED or VERIFY; the full list is in `reference/betula_pendula/labels.yaml`.
 
 | Value | Set to | Label: against what |
 |---|---|---|
@@ -150,42 +158,102 @@ These are TUNED, DERIVED or VERIFY. The full list is in `reference/betula_pendul
 | crown_frame.surplus_to_stem | 1.0 | VERIFY: a choice, not a fit |
 | height_driver.open_grown_share | 0.8 | TUNED: photos of open-grown birches |
 | mortality sdi_max, rate_at_max | 763, 0.247 | TUNED: Aosaar and Martinik stands (Q33) |
+| mortality.vigour.* | | TUNED against model behaviour: base plots whose trees stood still |
 | mortality.vigour.relative_size_slope | 3.263 | DERIVED: Maleki & Kiviste 2016 Table 3, used as an odds factor |
 
-## 6. How this departs from a real tree
+## 6. The rest of the reset: what's there and what isn't
+
+The reset asked for a birch matching real life, forests that spread like real ones, every aspect of ageing in the game, and room for more species.
+
+| Part | State |
+|---|---|
+| Forest spread | Seed strips reach about 575 m by year 45, at the fast end of real rates. far_share 0.003 is TUNED; it was changed from 0.005 after the plots in this report ran. Small storm gaps never refill: 3 of 373 seedlings got past 10 years. A 314 m² windthrow does refill (master log, 19:15). |
+| Bark ageing | Bark colour by age, black base by tree (Jones, via the look), fissures, peeling and lenticels are in the look code. Bark thickness follows Hansen 2023. Most look values were set by eye on renders, and none is scored against data. |
+| Autumn | Autumn leaf colour exists in the look and game export. It's set partly to the maintainer's taste. |
+| Branches falling | Twigs and limbs are shed by light and carbon. Nothing lands on the ground, and hanging dead branches aren't modelled. Both are needed for the game (DECISIONS 91). |
+| Cutting and felling | Not modelled yet: cuts, wounds, hand-over to the game, stump sprouts (`reports/cpp_port_plan.md`). |
+| More species | docs/adding_a_species.md and species/_template.yaml exist. But 427 settings aren't in species_schema.py, and plots hold one species. Pine and spruce dominate the game area. |
+| Game export | Tested in a separate Unreal project. On the v1 defaults, trees 6 years old or younger got no below-ground roots file. The export fix is on final-fixes-b, being reviewed. Real roots do reach the export from age 8. |
+| Live growth in the game | About 38-43 MB per tree in Python, about 140 full trees per GB, against 4,222 birches in reach (estimates in the port plan). The game's own memory hasn't been measured; that needs the game run. |
+
+## 7. How this departs from a real tree
 
 - Stand trees' neighbours are copies of themselves.
-- Every leaf is 15 cm², and leaves come per node: two and a half per short shoot.
-- Only an axis's end bud starts long shoots.
-- Limb curve comes from a set-point that moves with wood age, not from mechanics.
-- Open trees have a leaf cap and put all spare carbon on the stem.
+- Leaves come per node: two and a half per short shoot. Their size is set by light alone.
+- Long shoots: on axes finer than the stem, only the end bud starts them (growth.py:995-1001). The stem's limbs come from buds the crown frame names.
+- Limb curve comes from a set-point that moves with wood age, plus the load bend from mechanics.
+- Open trees: the leaf cap is open_lai_max 5 (stand trees have crown_lai_max 7). Spare carbon goes on the stem only up to 2.4 cm per m of height.
+- In stands, reach also stops at 1.15 × half the spacing.
 - Height follows a curve by design.
-- Browsing is a setting of place, off in the main tree.
-- Cuts, wounds, hanging dead branches and stump sprouts aren't modelled yet. They're next for the game (`reports/cpp_port_plan.md`).
+- Twig browsing is a setting of place, off in the main tree. Moose browsing of the leader is on.
 
-## 7. How this was checked
+## 8. Changes made in this check
+
+- **Checker (a):** labels and comments made honest, with a DERIVED status added, 42 new labels and 7 guesses moved to VERIFY. tree_table saves open runs as open. The mortality block's old age now follows Elfving.
+- **Defaults switch (d5f0ea3):** 48 values. The 12 labels older than their new values were relabelled from the record (final-fixes-b).
+- **Tests:**
+  - 22 tests that assumed the old defaults or the old tree size now set what they need. A separate review is checking that none is loosened.
+  - example_tree handles a tree under 1.3 m.
+  - The damage log keeps small moments (4 significant figures).
+  - The game export always writes a roots file.
+- **Checker (b):** this report rewritten.
+- **Checker (c):**
+  - this report corrected;
+  - the workings script added;
+  - KNOWN_ISSUES.md given a v1 section with the corrections;
+  - DECISIONS rows 93-97 added;
+  - docs/unreal.md and cpp_port_plan.md brought in line with row 91.
+
+## 9. How this was checked
 
 - **Same trees across commits:**
   - Stand trees at 359bea4 (node_v1_trees) are identical to Crown 2's at e10c6a4 (node_c2Hf20s): 1,220 seed-years.
   - The young plots at 8c2c496 match node_v1_plots at 359bea4 in all 440 plot-years to 22.
   - Open trees match between 359bea4 and a0f4880.
 - **Defaults switch (golden proof):**
-  - The four golden runs were recorded with the final settings set by hand on 8c2c496 (node_gold_v1pre), and as defaults on d5f0ea3 (node_gold_v1post).
-  - All 225 output files are identical.
-  - The hashes are in `Cambium-int/out/bench/golden/node_gold_v1pre` and `node_gold_v1post`.
+  - Golden runs recorded with the final settings set by hand on 8c2c496 (node_gold_v1pre), and as defaults on d5f0ea3 (node_gold_v1post).
+  - All 225 output files are identical. Hashes are in `Cambium-int/out/bench/golden/`.
+  - A new golden baseline is recorded after the last merge, since the damage-log and export fixes change some output files.
 - **Speed settings:** all six together give identical trees (2 seeds, stand trees to 30).
 - **Tests:**
-  - 391 tests at 513e81c and 4e503cb, with only the 4 known environment failures (no .git or .python-version on the server copy). They need a real clone.
-  - **On the new defaults (d5f0ea3), 28 fail: the 4 known ones and 24 from the switch.** Most assume the switches are off. Some may be real faults: the game export's KeyError 'lod0', export then render, root pipes, a speed-state check, and four forest tests. They're being fixed. This version isn't final until they pass.
-- **Checker (a)** re-read about 200 numbers against their pages. About 45 couldn't be opened (Q36).
+  - 391 tests. On d5f0ea3, 28 failed: the 4 known environment ones, plus 24 from the switch, now sorted on final-fixes-b.
+  - The 4 environment failures include the approved-targets-tag test and the scorecard test. They last passed on the PC at ae1a2e1. They're being run in a real clone on the server.
+- **The three checkers** ran on three versions: (a) at 359bea4, (b) at 8521164, (c) at 8fd4fdb. Each version after the last checked one changed labels, tests, the export and this report, not growth.
 
-## 8. Tried and dropped
+## 10. Corrections to earlier reports
+
+Also in KNOWN_ISSUES.md:
+- The open-tree width matching Hemery was reported to the maintainer as a check. It holds by design.
+- reports/tree_handover.md's 5.2 m crown base at 14 m was the older crown. v1 has 0.8 m.
+- The old-age hazard was misread as yearly at 03:30 on 2026-11-08. The forest agent corrected it.
+- Q30 said the model sits "near the band anyway". It's outside the Baltic band in 46 of 55 years.
+- Earlier drafts of this report:
+  - said leaves are a fixed 15 cm²;
+  - said mortality acts only past 1.3 m;
+  - said "Zeltins, unopened";
+  - said browsing is off;
+  - said "noise only" for light at 60 between the tree runs.
+- The birch-data PDF filed as Niemistö 1995 is Tuomela & Kanninen 1995. birch-data's catalogue is corrected; the file itself stays.
+
+## 11. Decisions
+
+DECISIONS.md rows 93-97:
+- 93: the defaults switch;
+- 94: the forest fixes, adopted on 3 plots, then confirmed on 20 with light up 0.8 at 50;
+- 95: keeping the current crown over J;
+- 96: server-only work while the PC is the maintainer's;
+- 97: the targets.yaml citation fix without moving the tag.
+
+The maintainer's open questions: Q30-Q38.
+
+## 12. Tried and dropped
 
 - **J, two end buds per shoot (d278fd4).** Paired against the final crown on 10 seeds:
-  - young LAI higher (+0.58 at 20, +0.85 at 22: worse);
-  - crown ratio lower by 0.07 at 30 and 0.02 at 50-60 (towards the young-forest target);
-  - light differences within noise.
-  - Its stand sprays look more like photos.
+  - young LAI is higher (+0.58 at 20, +0.85 at 22), which is worse;
+  - crown ratio is lower by 0.07 at 30 and 0.02 at 50-60, which is towards the young-forest target and Repola's 0.58 at 30;
+  - basal area is a little higher (23.1 / 25.2 against 22.8 / 24.6), closer to Hagemeier's 25.2 / 28.5;
+  - light differences are within noise;
+  - its stand sprays look more like photos.
   - It was dropped on light and young LAI. Light doesn't hold up as a reason, so the choice is closer than first said (Q37).
 - af_zero 3.2.
 - twigs_age.
@@ -194,15 +262,10 @@ These are TUNED, DERIVED or VERIFY. The full list is in `reference/betula_pendul
 - The Evo frame for stand trees.
 - Line 0.19 and branch_aging_years 12.
 
-## 9. For the maintainer
+## Renders
 
-Open questions Q30-Q37 in QUESTIONS.md, about:
-- target sources;
-- the crowding limit;
-- which checks are real tests;
-- papers to open in Chrome;
-- whether J deserves another look.
+Copied into `reports/renders/`:
+- `v1_stand_60.png`: the 60-year forest;
+- `v1_open_30_60.png`: the lone tree at 30 and 60.
 
-Renders:
-- the 60-year forest: `.claude/worktrees/agent-a44ce00ffda54f4a6/out/bench/ensemble/node_c2fL_g/group.png`;
-- the lone tree at 30 and 60: `node_c2FL_o/look_s5.png`.
+Both were made at d9d4ce1. Its crown is the same as v1's; the forest fixes and defaults change no single tree.

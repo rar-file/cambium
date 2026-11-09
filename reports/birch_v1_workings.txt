@@ -1,0 +1,23 @@
+== node_v1_plots: 20 plots
+top height, approved definition, age 30: 15.13 m (14.87-15.39)
+top height, approved definition, age 50: 21.35 m (20.96-21.60)
+top height, approved definition, age 60: 23.14 m (22.77-23.45)
+Baltic band 2.5-4.5 at 6-60: inside in 9 of 55 years: [15, 16, 17, 55, 56, 57, 58, 59, 60]
+  under 2.5: [6, 7, 8, 9, 10, 11, 12, 13, 14]; over 4.5: [18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54]; peak 5.63
+k at 50: 0.372; LAI 4.542; LAI for light at the 14.8 % median: 5.13; light at LAI 4.5: 18.7 %
+k at 60: 0.381; LAI 4.364; LAI for light at the 14.8 % median: 5.02; light at LAI 4.5: 18.0 %
+== node_v1_young: 20 plots
+crown ratio at 11: 0.917 (0.912-0.921); trees at 0.45 or under: 1
+crown ratio at 15: 0.955 (0.953-0.957); trees at 0.45 or under: 0
+crown ratio at 20: 0.937 (0.923-0.946); trees at 0.45 or under: 0
+crown ratio at 22: 0.928 (0.891-0.943); trees at 0.45 or under: 0
+forest fixes, paired by seed, light at 50: +0.832 +/- 0.255 (n 20)
+forest fixes, paired by seed, light at 60: +0.352 +/- 0.282 (n 20)
+forest fixes, paired by seed, LAI at 50: +0.034 +/- 0.036 (n 20)
+forest fixes, paired by seed, LAI at 60: +0.043 +/- 0.040 (n 20)
+== node_v1_treesR minus node_v1_trees, paired by seed
+subcanopy_diffuse_light_pct at 50: -0.205 +/- 0.221 (n 20)
+subcanopy_diffuse_light_pct at 60: -0.732 +/- 0.296 (n 20)
+lai at 50: +0.050 +/- 0.035 (n 20)
+lai at 60: +0.075 +/- 0.047 (n 20)
+== node_v1_treesR: what held the leader, seed-years: {'curve': 1200}
