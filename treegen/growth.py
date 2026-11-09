@@ -813,6 +813,11 @@ class GrowthModel:
         cand = np.nonzero(alive & T.is_lateral[:n0] & ~stem & (T.birth[:n0] <= t - sh.min_branch_age))[0]
         ratio = QWtot[cand] / np.maximum(Wtot[cand], 1e-12)
         shed = cand[(Wtot[cand] <= 0.0) | self._falls(ratio, sh.light_per_leaf_threshold)]
+        if getattr(sh, "log_limbs", False):
+            # A DIAGNOSIS, off by default, changes nothing: each limb's height on the stem, its leaves and their light, as the shedding test reads them
+            lm = stem[np.maximum(T.parent[cand], 0)]
+            self._limb_log = {"year": int(t), "node": cand[lm].copy(), "z": T.pos[T.parent[cand[lm]], 2].copy(), "ratio": ratio[lm].copy(),
+                              "leaves": Wtot[cand][lm].copy(), "line": float(sh.light_per_leaf_threshold)}
         limb_line = getattr(sh, "limb_light_line", None)
         limb_rel = getattr(sh, "limb_relative_light", None)
         if limb_line or limb_rel:
@@ -1113,6 +1118,11 @@ class GrowthModel:
                 limb_br = np.isin(T.axis[:n0], np.fromiter(self.leader_axes, np.int64))[np.maximum(T.parent[br], 0)]
                 line_c = np.where(limb_br, float(margin) * line_c, line_c)
             self._starving = np.union1d(self._starving, br[self._falls(own_c[br], line_c)])
+            if getattr(sh, "log_limbs", False):
+                # A DIAGNOSIS, off by default: each limb's own carbon and its upkeep, as the carbon test reads them
+                lb = np.isin(T.axis[:n0], np.fromiter(self.leader_axes, np.int64))[np.maximum(T.parent[br], 0)]
+                self._limb_carbon = {"node": br[lb].copy(), "z": T.pos[T.parent[br[lb]], 2].copy(), "own": own_c[br][lb].copy(),
+                                     "upkeep": upkeep_c[br][lb].copy()}
         def flow(fm):
             vin = np.zeros(n0)
             vm = np.zeros(n0)

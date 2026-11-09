@@ -485,6 +485,8 @@ shedding:
   limb_light_line: null
   limb_relative_light: null
   limb_carbon_margin: null
+  # A DIAGNOSIS, off by default, that changes nothing: keep each limb's light and carbon as the shedding tests read them (tools/limb_fates.py).
+  log_limbs: false
   # A branch also dies when the carbon its own leaves fix (alpha x light x
   # stomatal opening, after the root share) no longer pays the upkeep of its
   # wood (maintenance_per_internode per internode; Sprugel, Hinckley &
@@ -1790,12 +1792,15 @@ crown_frame:
   # TUNED, against the same: twigs on a limb may go this many times its reach, outward; down and in as they please.
   twig_overshoot: 1.0
   # -- how fast, and what with -------------------------------------------------------------------------------------------
-  # VERIFY: a guess, set against nothing: each year a limb goes for this share of what's left to its reach.
-  chase: 0.5
+  # TUNED (1.0, after birch v1, 2026-11-09, DECISIONS 107), against young leaf area for height (Konopka et al. 2023 Plants 12:1607 Eq. 4):
+  # each year a limb goes for this share of what's left to its reach.  Was 0.5, a guess set against nothing.  With limb_shoot_floor_m 0.5 it takes
+  # young leaf area from 0.70-0.77 to about 0.85-0.98 of Konopka's at 9-10.5 m tall.  Crown ratio by height and the 14 m check stayed independent.
+  chase: 1.0
   # TUNED, against the look: no limb's shoot is longer than the leader's that year (apical control, and no whips at the top), down
   # to this floor (m), which lets an old leader's limbs still round out the top.  Replaces height_driver.lateral_cap_ratio and its fault.
   # 0.2 since birch v1 (2026-11-08), against the outline: 0.3 let an old tree's top limbs go flat; 0.15 left open trees narrow (commit 9b73c12).
-  limb_shoot_floor_m: 0.2
+  # 0.5 since 2026-11-09 (DECISIONS 107), TUNED with chase against young leaf area for height (Konopka 2023 Eq. 4); open-grown tops checked then.
+  limb_shoot_floor_m: 0.5
   # TUNED (0.5, since birch v1 (2026-11-08)), against the look and leaf area in the open: the longest shoot of anything finer in a year (m).
   # The old 0.4 was a guess, set against nothing.
   twig_shoot_max_m: 0.5
