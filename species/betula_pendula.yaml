@@ -485,6 +485,8 @@ shedding:
   limb_light_line: null
   limb_relative_light: null
   limb_carbon_margin: null
+  # A DIAGNOSIS, off by default, that changes nothing: keep each limb's light and carbon as the shedding tests read them (tools/limb_fates.py).
+  log_limbs: false
   # A branch also dies when the carbon its own leaves fix (alpha x light x
   # stomatal opening, after the root share) no longer pays the upkeep of its
   # wood (maintenance_per_internode per internode; Sprugel, Hinckley &
