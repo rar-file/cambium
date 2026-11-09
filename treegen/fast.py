@@ -179,12 +179,14 @@ def _subtree(up, par, acc):
 @njit(cache=True)
 def carbon_parts(v, grow, lead, ahead, caps, full, per_met, early, lma, extra_per_node, starts, z_start,
                  up, alive, par, la_now, hv, keep, L, f_wind, a_wind_coef, laz_now, z_base, wood_keep, ring_cap, has_ring_cap,
-                 tip_area, unit, g_per_unit, g_resp, ring, dla, dlaz, buf_a, buf_b):
+                 tip_area, unit, g_per_unit, g_resp, ring, dla, dlaz, buf_a, buf_b, buf_live):
     """One evaluation of the carbon solve, as GrowthModel._growth_factor's parts(): shoots' wood, leaves, rings and the wind's
     extra.  v, grow: what shoots() says each bud makes; the model's own function, not a copy, so its leader and frame limbs are
     its own.  lead: the height limit is on.  Fills ring; returns (carbon units used, sapwood units, wind units).  buf_a, buf_b: as long as starts; ring, dla, dlaz:
-    as L, zero at dead nodes, and only living nodes are worked on: at a dead node every term of parts() is zero, and the sums
-    still run over all nodes, since where a value sits decides how numpy's sum rounds.  The wind's cube root, the costly step, is
+    as L, zero at dead nodes, and only living nodes are worked on: at a dead node every term of parts() is zero.  The sums run
+    over the living nodes only, gathered in their order into buf_live, as parts() sums (ring * L)[live]: summed over every node,
+    the dead ones' zeros moved where the pairwise sum cut its halves, so dropping dead nodes (speed.drop_dead) changed the last
+    bit.  The wind's cube root, the costly step, is
     taken only where the result could count: a_wind > need exactly when coef^3 m^2 > need^3, and the margin covers rounding."""
     n, m, na = L.shape[0], starts.shape[0], alive.shape[0]
     for q in range(na):
@@ -251,12 +253,12 @@ def carbon_parts(v, grow, lead, ahead, caps, full, per_met, early, lma, extra_pe
         if lead:
             for q in range(na):
                 j = alive[q]
-                dla[j] = ring[j] * L[j]
-            sap_units = np_sum(dla, n) / unit
+                buf_live[q] = ring[j] * L[j]
+            sap_units = np_sum(buf_live, na) / unit
             for q in range(na):
                 j = alive[q]
-                dla[j] = dlaz[j] * L[j]
-            extra_units = np_sum(dla, n) / unit
+                buf_live[q] = dlaz[j] * L[j]
+            extra_units = np_sum(buf_live, na) / unit
             wind_units = extra_units
             if has_ring_cap:
                 room = ring_cap - sap_units
@@ -271,8 +273,8 @@ def carbon_parts(v, grow, lead, ahead, caps, full, per_met, early, lma, extra_pe
                 ring[j] = ring[j] + dlaz[j]
     for q in range(na):
         j = alive[q]
-        dla[j] = ring[j] * L[j]
-    return (shoot_vol + np_sum(dla, n)) / unit + leaf_units, sap_units, wind_units
+        buf_live[q] = ring[j] * L[j]
+    return (shoot_vol + np_sum(buf_live, na)) / unit + leaf_units, sap_units, wind_units
 
 
 @njit(cache=True)
@@ -510,6 +512,7 @@ def parts_function(shoots, hd, lead_at, ahead, caps, full, per_met, early, lma, 
     up = levels.up
     live = np.nonzero(alive)[0]
     ring, dla, dlaz, buf_a, buf_b = np.zeros(n), np.zeros(n), np.zeros(n), np.zeros(m), np.zeros(m)
+    buf_live = np.zeros(len(live))
     has_cap = ring_cap is not None
     cap = 0.0 if ring_cap is None else float(ring_cap)
     f, coef = float(f_wind), float(a_wind_coef)
@@ -519,7 +522,7 @@ def parts_function(shoots, hd, lead_at, ahead, caps, full, per_met, early, lma, 
         total, sap, wind = carbon_parts(np.asarray(v, np.float64), np.asarray(grow, np.bool_), lead, bool(ahead), caps_a, a["full"],
                                         a["per_met"], a["early"], a["lma"], extra_a, starts_a, z_start, up, live, par, a["la_now"], hv_a, a["keep"],
                                         a["L"], f, coef, a["laz_now"], a["z_base"], a["wood_keep"], cap, has_cap, float(tip_area), float(unit),
-                                        float(g_per_unit), float(g_resp), ring, dla, dlaz, buf_a, buf_b)
+                                        float(g_per_unit), float(g_resp), ring, dla, dlaz, buf_a, buf_b, buf_live)
         if lead and f > 0.0:
             hd["sap_units"], hd["wind_units"] = sap, wind
         return total, ring.copy()
