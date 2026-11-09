@@ -454,6 +454,8 @@ All estimates, from the measured costs above.
 
 The pre-built stages from the earlier plan don't suit trees that can be cut. At most they could serve as the shared far look.
 
+> **Superseded by DECISIONS.md row 91 (2026-11-07, on master).** Far away a tree keeps growing as itself in a lighter form, never a shared copy. So pre-built stages can't serve as a shared far look either. The shared far look offered elsewhere in this plan (the open-questions table in section 3, section 3.6's far ring, the table above, step 0 and the note after the steps in section 6) falls under the same row, unless the maintainer changes it.
+
 ## 4. Proving the port is right
 
 **Don't aim for whole runs to match bit for bit.** Parts can match, and most of what I ported did, on one machine with one compiler. A whole run can't match cheaply, for these reasons:
