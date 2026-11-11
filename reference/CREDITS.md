@@ -1,5 +1,7 @@
 # Reference photos
 
+The openly licensed files below were used for comparison while the model was built. Each keeps its own licence (CC BY-SA 4.0, CC BY-SA 3.0 or public domain); credits below.
+
 Leafless *Betula pendula* (silver birch), downloaded from Wikimedia Commons for visual comparison with the generator's
 previews only. They are **never** used in any generator output (meshes, textures, previews in `out/`).
 Each file was checked by eye and against its description for silver-birch features (hanging twigs, white bark

@@ -74,7 +74,7 @@ Since then the bark has real depth and the leaves real outlines (section 8), whi
 
 ## 3. Importing with the game's own scripts
 
-The game's scripts took these files in the test project without being changed. To add them to the game:
+The game's scripts took these files in the test project without being changed. To add them to the game (the variable names below use the prefix `GAME_`; use your own project's prefix, and set `CAMBIUM_GAME_ENV_PREFIX` to it for `tools/unreal_test.py`, which also reads the game's folder from `CAMBIUM_GAME_DIR`):
 
 1. Copy `SourceArt/` from the export over the game's `SourceArt/`.
 2. Import, as `Tools/Assets/import_all.py` does for its trees:

@@ -148,8 +148,10 @@ def static_displacement(cfg):
 
 
 def import_files(files):
-    os.environ["GAME_FILES"] = ";".join(files)
-    os.environ.pop("GAME_FINISH", None)
+    # The game's import script reads <prefix>_FILES and <prefix>_FINISH; set CAMBIUM_GAME_ENV_PREFIX to its prefix.
+    prefix = os.environ.get("CAMBIUM_GAME_ENV_PREFIX", "GAME")
+    os.environ[prefix + "_FILES"] = ";".join(files)
+    os.environ.pop(prefix + "_FINISH", None)
     path = os.path.join(SCRIPTS, "import_world_assets.py")
     exec(compile(open(path, encoding="utf-8").read(), path, "exec"), {"__name__": "game_import_world_assets", "__file__": path})
 
