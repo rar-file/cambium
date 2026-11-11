@@ -226,7 +226,7 @@ def test_a_new_species_carries_its_own_targets_and_they_are_scored(tmp_path, cap
     assert species_report.main(["--species", str(sp), "--reference", str(ref), "--ensemble", str(runs), "--age", "10"]) == 0
     out = capsys.readouterr().out
     line = next(ln for ln in out.splitlines() if ln.startswith("ACCURACY"))
-    assert "testus_arbor: 1 of 2 scored targets pass at ages 10, over 3 runs (targets not approved)" in line
+    assert "testus_arbor: 1 of 2 scored targets inside their band at ages 10, over 3 runs (targets not approved)" in line
     assert "1 tuned" in line
     assert "`growth.height`" in out and "6.83" in out and "`growth.note`" in out
     assert "growth.open_only" in out.split("Not scored")[1]     # another scenario: not scored, not filled in
@@ -239,8 +239,9 @@ def test_the_report_scores_ages_50_and_60_by_default_and_a_target_must_pass_at_b
     (ref / "targets.yaml").write_text(yaml.safe_dump({"g": {"h": {"metric": "height_m", "target_range": [5.5, 8.0], "source": "A", "conditions": {"scenario": ["stand-tree"]}}}}))
     species_report.main(["--species", "betula_pendula", "--reference", str(ref), "--ensemble", str(runs)])
     out = capsys.readouterr().out
-    assert "| At 50 | At 60 |" in out and "FAIL, PASS" in out
-    assert "0 of 1 scored targets pass at ages 50 and 60" in out and "1 of 2 age checks pass" in out
+    assert "| At 50 | At 60 |" in out and "FAIL, inside" in out
+    assert "PASS" not in next(ln for ln in out.splitlines() if ln.startswith("| `g.h`"))
+    assert "0 of 1 scored targets inside their band at ages 50 and 60" in out and "1 of 2 age checks inside the band" in out
 
 
 def test_a_target_scored_on_two_ensembles_counts_for_each(tmp_path):

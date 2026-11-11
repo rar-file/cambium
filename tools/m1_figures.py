@@ -31,7 +31,7 @@ def runs_of(folder):
 def margins(title, runs, ref):
     targets = load_approved_targets(ref)
     print(f"\n## {title}, height rows, targets at {ref}: over the band top, unrounded\n")
-    print("| Age | Mean | SD | SE | Band top | Over | Over / SE | Share inside | Verdict of the mean |")
+    print("| Age | Mean | SD | SE | Band top | Over | Over / SE | Share inside | Band check of the mean (inside is not a pass) |")
     print("|---|---|---|---|---|---|---|---|---|")
     per = [evaluate_targets(targets, [r], ages=list(AGES))[0] for r in runs]
     for age in AGES:
@@ -49,7 +49,7 @@ def margins(title, runs, ref):
         m, s = statistics.fmean(v), statistics.stdev(v)
         se = s / len(v) ** 0.5
         share = sum(lo <= x <= hi for x in v) / len(v)
-        print(f"| {age} | {m:.3f} | {s:.3f} | {se:.3f} | {hi:.4f} | {m - hi:+.4f} | {(m - hi) / se:+.2f} | {100 * share:.0f} % | {'PASS' if lo <= m <= hi else 'FAIL'} |")
+        print(f"| {age} | {m:.3f} | {s:.3f} | {se:.3f} | {hi:.4f} | {m - hi:+.4f} | {(m - hi) / se:+.2f} | {100 * share:.0f} % | {'inside' if lo <= m <= hi else 'FAIL'} |")
 
 
 def plots_heights(runs):

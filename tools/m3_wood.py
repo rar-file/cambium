@@ -40,6 +40,22 @@ def repola(d_cm: float, h: float) -> tuple:
     return stem, branch
 
 
+# Repola 2008's birch sample trees, Table 2 (p. 608): diameters at 1.3 m of 2.5-38.0 cm, and a mean crown ratio of 0.58.  As read at the
+# publisher for reports/design/2026-11-11_branch_wood.md and its challenge; this file's author did not reopen the paper.
+REPOLA_D_RANGE_CM = (2.5, 38.0)
+REPOLA_CROWN_RATIO = 0.58
+
+
+def repola_a3(d_cm: float, h: float, crown_length_m: float) -> float:
+    """Living branches (kg dry mass, bark included) from diameter, height and the length of the living crown: Repola 2008's Eq. A3
+    (Table A1, p. 623), the one he recommends for crown parts (p. 618):
+        ln y = -5.067 + 14.614 dS/(dS + 12) - 5.074 h/(h + 12) + 0.092 cl,   exp((0.01508 + 0.05663)/2)
+    with dS = 2 + 1.25 d as above, cl in m.  Coefficients as read at the publisher for the 2026-11-11 design round, by two models; on
+    the 20 saved stand trees this gives the round's own figures (model over A3: 1.12, 1.47, 1.76 at 30, 50, 60)."""
+    ds = 2.0 + 1.25 * d_cm
+    return math.exp(-5.067 + 14.614 * ds / (ds + 12.0) - 5.074 * h / (h + 12.0) + 0.092 * crown_length_m + (0.01508 + 0.05663) / 2.0)
+
+
 def one(seed: int, sets: list, out: Path) -> int:
     import numpy as np
 

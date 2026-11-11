@@ -47,8 +47,10 @@ def test_scorecard_runs():
     assert lai_res is not None
     assert lai_res["status"] == "PASS"
 
-    # Scorecard text format
+    # Scorecard text format.  The band check above is still PASS; the printed word is the row's kind's
+    # (DECISIONS 110 item 4): one run is never a verdict, and only an independent row can print PASS.
     out = print_scorecard(results, unconditioned)
     assert "| Target |" in out
-    assert "**PASS**" in out
+    assert "**IN BAND" in out
+    assert "**PASS**" not in out
     assert "Targets without conditions" in out

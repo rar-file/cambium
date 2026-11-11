@@ -68,8 +68,10 @@ Birch's targets stay in `reference/targets.yaml`, and `reference/betula_pendula/
    ```
    python tools/species_report.py --species quercus_robur --ensemble out/bench/ensemble/oak_1
    ```
-   The last line is the species' accuracy in a sentence. For birch, today:
-   > `betula_pendula: 0 of 3 scored targets pass at ages 50 and 60, over 20 runs; 0 of 6 age checks pass; 78 of 296 values sourced, 23 tuned, 195 unchecked.`
+   The last line is the species' accuracy in a sentence, of this form (the numbers come from the species' own runs and labels, so none are given here):
+   > `betula_pendula: <n> of <m> scored targets inside their band at ages 50 and 60, over 20 runs; <a> of <b> age checks inside the band (the band check only ...); <s> of <v> values sourced, <d> derived, <t> tuned, <u> unchecked.`
+
+   Inside the band is not a pass: which rows may read PASS is in the Reads column and in `tools/scorecard.py`.
 
 ## Blocks a species can leave out
 

@@ -66,7 +66,7 @@ def main(argv=None) -> int:
         # a "no" depends on the draw only if every line it misses is within its margin
         near = all(missed) if missed else any(close)
         density = r.get("stand_canopy.stand_density (age 45)", {}).get("mean")
-        young.append(f"| {name} | " + " | ".join(f"{r[f'{HEIGHT} (age {age})']['mean']:.2f} +- {r[f'{HEIGHT} (age {age})']['sd']:.2f}, {r[f'{HEIGHT} (age {age})']['status']}" for age in (20, 30, 40)) + " |")
+        young.append(f"| {name} | " + " | ".join(f"{r[f'{HEIGHT} (age {age})']['mean']:.2f} +- {r[f'{HEIGHT} (age {age})']['sd']:.2f}, {r[f'{HEIGHT} (age {age})']['reads']}" for age in (20, 30, 40)) + " |")
         print(f"| {name} | {r['__n']} | {h50['mean']:.2f} +- {h50['sd']:.2f} | {h60['mean']:.2f} +- {h60['sd']:.2f} | {h50['mean'] - top50:+.2f}, {h60['mean'] - top60:+.2f} | "
               f"{l50['mean']:.2f} +- {l50['sd']:.2f} | {l60['mean']:.2f} +- {l60['sd']:.2f} | {q50['mean']:.1f} +- {q50['sd']:.1f} | {q60['mean']:.1f} +- {q60['sd']:.1f} | "
               f"{density:.0f} | {r['__share']:.0f} % | {'yes' if fits else 'no'}{'*' if near else ''} |")

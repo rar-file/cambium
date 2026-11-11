@@ -25,7 +25,10 @@ to crowding and vigour in natural mode (treegen/thinning.py);
 of ground, the first trees optionally on one part of it; ``plot.stand_measures``
 adds basal area, top height, gap fraction and new trees to the yearly stats.
 ``lean=True`` (a way of running, for plots with no tree files) keeps only what
-growth reads back, and shares what trees needn't each hold.
+growth reads back, and shares what trees needn't each hold.  ``log.stand``
+(treegen/logs.py) keeps a row a year and each tree that went, for the reports,
+in ``stand_log`` and ``tree_log``: the yearly stats and the trees are the same
+with it on or off.
 """
 from __future__ import annotations
 
@@ -37,7 +40,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import damage, fast
+from . import damage, fast, logs
 from .growth import GrowthModel
 from .light import SUBCANOPY_LIGHT_HEIGHTS_M
 from .regeneration import Regeneration, SpreadRegeneration
@@ -345,6 +348,9 @@ class Plot:
             if len(src):
                 srcs.append(src + self._offset(k))
                 ws.append(w)
+        log = logs.on(self.species, "stand")
+        # log.stand, only read: the leaf area this year's light is worked out from
+        self._lit_leaf_m2 = sum(float(w.sum()) for w in ws) * float(self.light.leaf_area) if log else None
         woody_cfg = bool(getattr(getattr(self.species.light, "woody_shade", None), "enabled", False))
         k_wood = float(getattr(self.species.light.woody_shade, "k_wood", 0.40)) if woody_cfg else 0.40
         wood_pts, wood_areas = [], []
@@ -404,6 +410,8 @@ class Plot:
             m.step()
             m._plot_view = m._plot_soil = None
         self.year = t
+        if log:
+            self._log_leaders(active)
         self._starve(active)
         damage.plot_year(self, active)
         if self.mode == "natural":
@@ -416,6 +424,8 @@ class Plot:
             spreading = isinstance(self.regen, SpreadRegeneration) and srcs
             self._regenerate(field, np.concatenate(srcs) if spreading else None, np.concatenate(ws) * self.light.leaf_area if spreading else None)
         self.stats.append(self.measure())
+        if log:
+            self._log_year()
 
     def _dbh(self, k):
         d = self.trees[k].dbh_m()
@@ -507,6 +517,8 @@ class Plot:
         return gone
 
     def _finish(self, k, cause):
+        if logs.on(self.species, "stand"):
+            self._log_death(k, cause)
         if getattr(self, "measures", False):
             ob = float(over_bark_cm(self._dbh(k) * 100.0, self.species.mortality.bark_double_mm))
             self._lost_this_year = getattr(self, "_lost_this_year", 0.0) + math.pi / 4.0 * (ob / 100.0) ** 2
@@ -522,6 +534,60 @@ class Plot:
         if self.on_finish is not None:
             self.on_finish(k, cause)
         self.trees[k] = None              # free its memory
+
+    # -- log.stand: a row a year and each tree that went (treegen/logs.py); only reads ------
+    def _log_row(self) -> dict:
+        """This plot year's row of stand_log, made when first asked for."""
+        rows = self.__dict__.setdefault("stand_log", [])
+        if not rows or rows[-1]["year"] != self.year:
+            rows.append({"year": int(self.year), "dead_trees": 0, "dead_stem_m3": 0.0, "dead_stem_m3_ha": 0.0, "dead_stem_m3_by_cause": {},
+                         "trees_grew": 0, "leaders": 0, "light_slowed": 0, "water_slowed": 0, "carbon_cut": 0, "short_of_sapwood": 0})
+        return rows[-1]
+
+    def _log_leaders(self, active):
+        """Of the trees that grew this year, before any is removed: how many had the curve's step cut by light, by water or
+        by carbon, and how many couldn't pay the year's must-haves (GrowthModel._must_log)."""
+        row = self._log_row()
+        for k in active:
+            m = self.trees[k]
+            if not logs.grew_this_year(m):
+                continue
+            row["trees_grew"] += 1
+            row["short_of_sapwood"] += int(m._must_log["paid"] < 1.0)
+            hd = getattr(m, "_hd", None)
+            if hd is None:
+                continue
+            row["leaders"] += 1
+            row["light_slowed"] += int(hd["light"] < 1.0)
+            row["water_slowed"] += int(hd["water"] < 1.0)
+            row["carbon_cut"] += int(hd["carbon_scale"] < 1.0)
+
+    def _log_death(self, k, cause):
+        """A tree as it stood when it went: its record in tree_log, and its stem volume in this year's row."""
+        rec = logs.tree_record(self.trees[k])
+        self.__dict__.setdefault("tree_log", {})[k] = rec
+        row = self._log_row()
+        row["dead_trees"] += 1
+        row["dead_stem_m3"] += rec["stem_m3"]
+        row["dead_stem_m3_ha"] = row["dead_stem_m3"] / self.area * 1e4
+        row["dead_stem_m3_by_cause"][cause] = row["dead_stem_m3_by_cause"].get(cause, 0.0) + rec["stem_m3"]
+
+    def _log_year(self):
+        """The year's row, once the year is done: top height on the approved definition, on the diameters and heights a
+        tree list holds (over bark to 0.01 cm, to 0.001 m), and the leaf area index two ways."""
+        row = self._log_row()
+        bark = getattr(getattr(self.species, "mortality", None), "bark_double_mm", logs.BARK)
+        last = [self.trees[k].stats[-1] for k in self.alive]
+        d = [0.0 if r.get("dbh_cm") is None else round(float(over_bark_cm(r["dbh_cm"], bark)), 2) for r in last]
+        h = [round(float(r["height_m"]), 3) for r in last]
+        top, counted, simple = logs.fitted_top_height(d, h, self.area)
+        la = sum(r["leaf_area_m2"] for r in last)
+        lit = getattr(self, "_lit_leaf_m2", None)
+        row.update({"trees": len(self.alive),
+                    "top_height_approved_m": None if top is None else round(top, 4),
+                    "top_height_trees": round(counted, 3),
+                    "top_height_mean_m": None if simple is None else round(simple, 4),
+                    "lai": round(la / self.area, 4), "lai_lit": None if lit is None else round(lit / self.area, 4)})
 
     # -- checkpoints ------------------------------------------------------
     def checkpoint(self, out_dir) -> None:

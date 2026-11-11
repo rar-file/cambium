@@ -16,6 +16,30 @@
 #   text: the source's own description of where it applies (not checked)
 # scoring: info  ->  information only: the model value is shown next to the
 #   target as INFO, never PASS/FAIL (the source gives no range or spread).
+#
+# Kinds (DECISIONS 110, items 4 and 12; reports/design/2026-11-11_validation.md section 5 with its
+# challenge).  Every target says which kind it is; tools/scorecard.py prints each kind in its own block.
+#   kind: by design      the model follows this figure (a curve it is driven by, a cap, an input), so
+#                        being inside it shows the machinery holds, nothing more
+#         tuned against  a species value was set with this figure on the table (values_set names them)
+#         seen           the figure was watched while a value was chosen, without being the aim
+#         out of sample  the quantity was tuned against other stands; this source is a new stand
+#         independent    no species value was ever set, chosen or kept with this figure, nor with a
+#                        figure tied to it by a formula in the model (tied_to)
+#   kind_reason   why, with the place it is written
+#   values_set    species values set or chosen with this figure in view
+#   tied_to       targets whose figure the model ties to this one by a formula (light and leaf area
+#                 through k; stems, diameter and basal area)
+#   stands        how many stands stand behind the figure
+#   band_basis    what the band rests on: three or more stands | published SD between stands |
+#                 equation's between-stand spread | one or two stands | a guideline | an equation, no
+#                 band | a model input | worked out, not printed | not stated
+#   source_opened where and when the page was read at an allowed place, as text with the date
+#                 (YYYY-MM-DD); false if not opened.  True or text with no date does not meet part 2
+#   matched       true when species, natural or planted, density and site agree with the runs the
+#                 conditions allow; match_note says how they differ
+# Only an independent row can print PASS, and only when the seven-part rule holds (tools/scorecard.py,
+# pass_rule).  The kind fields change no band, number or condition.
 
 stand_canopy:
   lai_baltic_chronosequence:
@@ -26,6 +50,12 @@ stand_canopy:
     citation: "Varik, M., Aosaar, J., & Uri, V. (2009). Biomass production and carbon accumulation in silver birch stands in Oxalis site type. Forestry Studies / Metsanduslikud Uurimused 51:5-16. Also: Uri, V., et al. (2012). Biomass production and carbon sequestration in a fertile silver birch (Betula pendula Roth) forest chronosequence. Forest Ecology and Management 267:117-126, doi:10.1016/j.foreco.2011.11.033 (no LAI printed)."
     page_table: "Varik et al. 2009: abstract (p. 5) and Results, LAI 3.2, 4.4 and 2.5 at 14, 32 and 45 years; Table 1, stand data. Uri et al. 2012: Table 1 (p. 119) & Table 4 (p. 121), stand data and leaf mass only"
     measures: "Leaf area index (LAI, m2 m-2) of three natural silver birch stands on fertile forest land (Oxalis site type), southern Estonia, aged 14, 32 and 45 (1350, 3208 and 941 stems/ha): 3.2, 4.4 and 2.5, from the model trees' leaf area scaled by DBH, August 2008 (Varik et al. 2009). Not abandoned farmland, and not measured at 6-13 or 46-60."
+    kind: "tuned against"
+    kind_reason: "pipe_model.stem_theory.wind_speed_m_s was set against Dg, stems/ha and LAI on plots (labels.yaml; species file at the value); LAI and light are tied through the extinction coefficient"
+    values_set: [pipe_model.stem_theory.wind_speed_m_s]
+    tied_to: [stand_canopy.lai_hagemeier, stand_canopy.subcanopy_light_transmittance]
+    stands: 3
+    band_basis: "three or more stands"
     conditions:
       scenario: [plot]
       mode: [natural]
@@ -43,6 +73,12 @@ stand_canopy:
     page_table: "Section 3.2 (p. 9): 'leaf area index increased from Betula (3.6 and 5.4)'; Figure 7 (p. 11)"
     measures: "Stand leaf area index (LAI, m2 m-2) measured using circular litter collection buckets over two consecutive autumns (1998 and 1999)."
     source_stands: "Two birch stands (Table 3): site 1 aged 45 yr, 880 stems/ha; site 2 aged 67 yr, 420 stems/ha. Lehrer Wald and Lappwald, Helmstedt county, Lower Saxony, Germany (Table 2). Management is not stated in the paper."
+    kind: "tuned against"
+    kind_reason: "pipe_model.stem_theory.wind_speed_m_s was set against LAI on plots; the extinction coefficient 0.37 (light.extinction_coefficient) comes from the same two stands (Forests 10:925 Table 5)"
+    values_set: [pipe_model.stem_theory.wind_speed_m_s]
+    tied_to: [stand_canopy.lai_baltic_chronosequence, stand_canopy.subcanopy_light_transmittance]
+    stands: 2
+    band_basis: "one or two stands"
     conditions:
       scenario: [plot, stand-tree]
       age_years: [45, 67]
@@ -60,6 +96,12 @@ stand_canopy:
     optical_parameters:
       k_par: 0.37 # canopy extinction coefficient for PAR under diffuse light
       foliage_clumping_index: 0.41 # Omega; Results text 0.41, Table 5 0.42
+    kind: "tuned against"
+    kind_reason: "three labelled values (bud_fate.short_shoot_light, bud_fate.short_shoot_survival_light, shedding.light_per_leaf_threshold) say TUNED against light under the canopy; shedding.shade_softness and crown_frame.spacing_overlap say TUNED against light and leaf area in the species file"
+    values_set: [bud_fate.short_shoot_light, bud_fate.short_shoot_survival_light, shedding.light_per_leaf_threshold, shedding.shade_softness, crown_frame.spacing_overlap]
+    tied_to: [stand_canopy.lai_baltic_chronosequence, stand_canopy.lai_hagemeier]
+    stands: 2
+    band_basis: "one or two stands"
     conditions:
       scenario: [plot, stand-tree]
       age_years: [45, 67]
@@ -74,6 +116,12 @@ stand_canopy:
       page_table: "Section 'Thinning and pruning' (p. 109, column 2)"
       measures: "Minimum live crown ratio (LCR = crown length / total height) required for crop trees in commercial birch stands."
       scoring: info # a silvicultural recommendation, not a measurement (the maintainer, 2026-11-02)
+      kind: "seen"
+      kind_reason: "a guideline, not a measurement; crown length was set by eye and against crown ratio (bud_fate.density_control.af_zero, crown_frame.profile_power) with this 0.50 and Repola's 0.58 in the reports. That this row in particular was watched is SUSPECTED, not traced"
+      values_set: [bud_fate.density_control.af_zero, crown_frame.profile_power]
+      tied_to: [stand_canopy.live_crown_ratio.managed_stand_empirical]
+      stands: "none: a guideline"
+      band_basis: "a guideline"
       conditions:
         scenario: [plot, stand-tree]
         mode: [managed]
@@ -89,6 +137,12 @@ stand_canopy:
       # The key's name says "managed", but most of Repola's stands were naturally regenerated and mixed, about a third of the birch B. pubescens (final check (a), 2026-11-08); natural added to mode (Q35, the maintainer, 2026-11-09). The name stays: tools/tree_table.py reads it.
       measures: "Live crown ratio of 127 sample trees from 24 stands across Finland (mean DBH 16.5 cm, mean H 17.1 m), most of them naturally regenerated and mixed with B. pubescens. Unthinned and heavily thinned plots are included (p. 608), and three stands were on peatlands (p. 607)."
       scoring: info # the range is the spread of single sample trees, not of stand means; stand age 11-97 years (Table 1)
+      kind: "seen"
+      kind_reason: "quoted beside crown fix C when it was adopted (DECISIONS 107: crown ratio at 18 m 0.521 against Repola 0.58 +/- 0.14); crown_frame.twig_bud_every was set against crown ratio and stem wood (species file), though today's defaults don't read it"
+      values_set: [crown_frame.chase, crown_frame.limb_shoot_floor_m, crown_frame.twig_bud_every]
+      tied_to: []
+      stands: 24
+      band_basis: "not stated" # the range is the spread of 127 single sample trees, not of stands
       conditions:
         scenario: [plot, stand-tree]
         mode: [natural, managed]
@@ -100,6 +154,15 @@ stand_canopy:
       citation: "Niemistö, P. (1995). Influence of initial spacing and row-to-row distance on the crown and branch properties and taper of silver birch (Betula pendula). Scand. J. For. Res. 10:235-244."
       page_table: "Table 2 (p. 238) & Fig. 1 (p. 239); Repola (2008) Table 2 minimum (0.29)"
       measures: "Observed live crown ratio in dense, self-thinned stands. In Niemistö (1995) dense unthinned planted trials (3,000-5,000 stems/ha, aged 11-22 yr), rapid crown lift reduced LCR to 0.35-0.45, with suppressed trees reaching 0.30. Repola (2008) Table 2: 0.29 is the minimum across all sample trees. Niemistö (1995) has not been opened in this campaign: the numbers here are unchecked."
+      kind: "seen"
+      kind_reason: "candidate values were judged against this band and kept off: four arms (shedding.limb_light_line 0.21 and 0.30, shedding.limb_relative_light 0.6, shedding.limb_carbon_margin 1.5) scored on crown ratio at 11, 15, 20 and 22 against 0.30-0.45, nothing adopted, the switches left off (reports/overnight_log.md, young crowns rounds 1 and 2); option J and a light change judged on crown ratio at 22 against it, J kept off (same log, 06:50). Crown fix C (crown_frame.chase, crown_frame.limb_shoot_floor_m) was tuned against Konopka 2023's young leaf area for height and then compared on crown ratio by stand height (0.58 at 15 m; KNOWN_ISSUES.md, Young crown ratio: tuned after v1). No value in use was set to hit this band, so seen, not tuned; never independent"
+      values_set: [shedding.limb_light_line, shedding.limb_relative_light, shedding.limb_carbon_margin, crown_frame.chase, crown_frame.limb_shoot_floor_m]
+      tied_to: []
+      stands: "not stated: Niemisto's trials, source unopened"
+      band_basis: "not stated"
+      source_opened: false
+      matched: false
+      match_note: "the source's trials were planted at 3,000-5,000 stems/ha; the plots are natural, from 16,000/ha"
       conditions:
         scenario: [plot]
         mode: [natural]
@@ -114,6 +177,12 @@ stand_canopy:
     page_table: "Table 3 (Betula pendula sites 1 and 2)"
     measures: "Stem density of one birch stand at each age. Table 3, B. pendula: site 1, 45 yr, 880 stems/ha (85 % of stems birch, mean height 20 +- 3 m, mean dbh 19 +- 6 cm); site 2, 67 yr, 420 stems/ha (98 %, 25 +- 3 m, 25 +- 3 cm)."
     scoring: info # one stand per age; Table 3 gives no range or spread for stem density
+    kind: "tuned against"
+    kind_reason: "pipe_model.stem_theory.wind_speed_m_s was set against stems/ha on plots; mortality.shape holds a stand losing 3 % a year near Hagemeier (labels.yaml); 846 against 880 at 45 was quoted when crown fix C was adopted (DECISIONS 107)"
+    values_set: [pipe_model.stem_theory.wind_speed_m_s, mortality.shape]
+    tied_to: []
+    stands: "1 per age"
+    band_basis: "one or two stands"
     conditions:
       scenario: [plot]
       text: "Closed-canopy (> 0.9) birch stands on loamy sand, Helmstedt county, Lower Saxony, Germany (Tables 2-3). The paper does not state whether the stands were managed or self-thinned."
@@ -123,9 +192,60 @@ stand_canopy:
     source: "Niemistö (1995, Scand. J. For. Res. 10:245-255); Hynynen et al. (2010, Forestry 83:103)"
     doi: "10.1080/02827589509382890"
     scoring: info # a rule across several runs, not a single value
+    kind: "by design"
+    kind_reason: "the height driver grows the leader to the site-index curve at any density (height_driver.enabled, on by default)"
+    values_set: []
+    tied_to: [tree_allometry.site_index_curves]
+    stands: "a rule"
+    band_basis: "a guideline"
     conditions:
       scenario: [plot]
       text: "Holds across typical plantation and clearcut spacings. Stagnation occurs only in extremely dense unthinned stands (>3,500 stems/ha) after dominant height exceeds 15 m; minor height reduction occurs at very low density (<400 stems/ha) due to heavy branch allocation."
+
+  clear_stem_at_first_thinning:
+    # Q40 as the maintainer answered it (2026-11-11, DECISIONS 110 item 5): INFO until a measured source is opened; the stand
+    # trees' miss is still printed.  The 0.55-0.6 crown ratio worked out from this figure is dropped (it restates it).
+    lowest_live_branch_m: [5.0, 7.0]
+    at_top_height_m: [13.0, 15.0]
+    source: "Hynynen & Niemistö (2009)"
+    citation: "Hynynen, J., & Niemistö, P. (2009). Silviculture of silver birch in Finland. waldwissen.net, the forest knowledge site of the German-speaking forest research institutes."
+    page_table: "web guide, no page; it cites no measurements (reports/birch_knowledge_base.md C1)"
+    measures: "Lowest living branch of the leading trees at the first thinning, dominant height 13-15 m, in planted stands of 1,600 seedlings/ha: self-pruning clears stems to 5-7 m."
+    scoring: info # a guide with no measurements; INFO until a measured source is opened (Q40)
+    kind: "seen"
+    kind_reason: "a candidate value was judged against it and kept off: shedding.limb_relative_light 0.6 was scored on the stand trees' lowest live branch at about 13.5 m (0.8 m base, 1.8 m with it; 0 of 10 seeds in 5-7 m) and left off (reports/overnight_log.md, young crowns round 2). Crown fix C was chosen with the same figure on the plots in view (clear_stem_natural_plots, tied here); whether the stand trees' reading was also quoted then is SUSPECTED, not traced. Seen, never independent"
+    values_set: [shedding.limb_relative_light]
+    tied_to: [stand_canopy.clear_stem_natural_plots]
+    stands: "none: a guide"
+    band_basis: "a guideline"
+    source_opened: "the guide's page at waldwissen.net (reports/birch_knowledge_base.md C1); no measurements behind it"
+    matched: false
+    match_note: "planted at 1,600/ha; stand trees follow the Swedish thinning programme (1,800/ha first), so the density is near but not the source's"
+    conditions:
+      scenario: [stand-tree]
+      mode: [managed]
+      text: "Planted silver birch, 1,600 seedlings/ha, at the first thinning (dominant height 13-15 m). Read on stand trees in the first year their height is 13-15 m (a stand tree's height is the stand's dominant height)."
+
+  clear_stem_natural_plots:
+    # The same figure on natural plots: not the source's conditions, and crown fix C was chosen with it in view, so
+    # reported only, never a pass (reports/design/2026-11-11_validation.md section 3, row A on natural plots).
+    lowest_live_branch_m: [5.0, 7.0]
+    at_top_height_m: [13.0, 15.0]
+    source: "Hynynen & Niemistö (2009)"
+    citation: "Hynynen, J., & Niemistö, P. (2009). Silviculture of silver birch in Finland. waldwissen.net."
+    page_table: "web guide, no page; it cites no measurements (reports/birch_knowledge_base.md C1)"
+    measures: "As clear_stem_at_first_thinning, read on natural plots: the lowest living branch of the 100 thickest trees per ha, in a year whose tree list has top height (the approved definition) at 13-15 m."
+    scoring: info # reported only, never a pass
+    kind: "tuned against"
+    kind_reason: "crown fix C was adopted with the plots' lowest live branch at 13-15 m quoted against 5-7 m (DECISIONS 107: 3.22 to 5.36 m, 62 % inside)"
+    values_set: [crown_frame.chase, crown_frame.limb_shoot_floor_m]
+    tied_to: []
+    stands: "none: a guide"
+    band_basis: "a guideline"
+    conditions:
+      scenario: [plot]
+      mode: [natural]
+      text: "Natural plots from 16,000 stems/ha, not the source's planted 1,600/ha. Read from the plots' tree lists in a year top height is 13-15 m; a run with no such list has no value."
 
 tree_allometry:
   site_index_curves:
@@ -159,6 +279,12 @@ tree_allometry:
     # tree's neighbours are copies of it, so it's never suppressed, and the spread
     # between seeds is chance, not dominance.
     dominant_height_definition: height_curve_at_100_thickest_per_ha
+    kind: "by design"
+    kind_reason: "the height driver grows the leader up to this curve at SI 23 (height_driver.site_index, TUNED to the middle of the band); held in 1,200 of 1,200 stand-tree seed-years (reports/birch_fresh_run_2026-11-09.md)"
+    values_set: [height_driver.site_index]
+    tied_to: []
+    stands: "a curve fitted to Swedish stands"
+    band_basis: "an equation, no band"
     conditions:
       scenario: [plot, stand-tree]
       mode: [natural, managed]
@@ -175,6 +301,12 @@ tree_allometry:
     implementation: "tools/bark.py (taperNOR R package 0.2.1 model)"
     formula: "double bark thickness (mm) = -0.48552367 + 0.04957885 * DBH_ob + 0.84676248 * d_ob"
     scoring: info # a conversion between model (under-bark) and field (over-bark) diameters, not a target
+    kind: "by design"
+    kind_reason: "a model input: the tools convert wood DBH to over-bark DBH with this equation (tools/bark.py); it is not a model output"
+    values_set: []
+    tied_to: []
+    stands: "Norwegian NFI plots"
+    band_basis: "a model input"
     conditions:
       scenario: [plot, stand-tree, single-tree]
       text: "Birch (B. pendula and B. pubescens) in Norwegian NFI plots."
@@ -186,6 +318,12 @@ tree_allometry:
     page_table: "Table 1 (p. 287)"
     formula: "Crown diameter (m) = 0.932 + 0.177 * DBH_over_bark_cm"
     scoring: info # paper paywalled, not opened on 2026-11-02: no range or spread seen, none added
+    kind: "by design"
+    kind_reason: "crown_frame caps a limb's reach at this crown (crown_frame.crown_a, crown_frame.crown_b; KNOWN_ISSUES.md, corrections to earlier reports)"
+    values_set: [crown_frame.crown_a, crown_frame.crown_b]
+    tied_to: []
+    stands: "not stated: paper unopened"
+    band_basis: "an equation, no band"
     conditions:
       scenario: [single-tree]
       mode: [open-grown]
@@ -200,6 +338,15 @@ tree_allometry:
       eq_a6: "ln(foliage_kg) = -20.856 + 22.320 * (d_s / (d_s + 2)) + 2.819 * cr where d_s = 2 + 1.25 * DBH, cr = crown ratio, residual variance 0.044, between-stand variance 0.0108, Table A1 (DBH, H, CR model)"
     page_table: "Eq. 12 (p. 612), parameters Table 4 (p. 613), valid only for DBH 11-26 cm, N = 21 (p. 617); Eq. A6 (p. 621), parameters Table A1 (p. 623)"
     scoring: info # an equation; no pass range written
+    kind: "seen"
+    kind_reason: "pipe_model.huber_radius_exponent and pipe_model.huber_path_exponent are TUNED against cross-section per leaf area at breast height from Konopka 2023 and Repola 2008 Eq. 12 (labels.yaml; tools/fit_huber_exponent.py, tools/foliage_check.py), and KNOWN_ISSUES.md Phase 24 records that the trees' leaf area for their DBH then matched Eq. 12. Neither is in use at stem_theory stage 2, so seen, as stem wood is (DECISIONS 110 item 12). Tied to stand LAI: on the fresh run each plot tree's leaf dry mass over its leaf area is 51.5 g/m2 (spread 1.3 %, 1,334 trees) at 50 and 52.4 g/m2 (1.8 %, 948 trees) at 60 (the independent check of V1, 2026-11-11), so foliage is leaf area times a near-constant, and stand LAI is tuned (pipe_model.stem_theory.wind_speed_m_s)"
+    values_set: [pipe_model.huber_radius_exponent, pipe_model.huber_path_exponent]
+    tied_to: [stand_canopy.lai_baltic_chronosequence, stand_canopy.lai_hagemeier]
+    stands: 24
+    band_basis: "an equation, no band"
+    source_opened: "Repola 2008 at the publisher (silvafennica.fi), 2026-11-11, by the validation design"
+    matched: false
+    match_note: "equations from 24 Finnish stands, mostly naturally regenerated and mixed with B. pubescens; valid for DBH 11-26 cm (p. 617)"
     conditions:
       scenario: [plot, stand-tree]
       mode: [natural, managed]
@@ -213,6 +360,12 @@ tree_allometry:
     page_table: "Section 3.1 (p. 7): 'standing stem volume 161 m3 ha-1 (stemwood density 0.53 g cm-3)'; method p. 4"
     measures: "Stemwood density (dry mass / water-displacement volume, g cm-3 or kg m-3) for 17-year-old silver birch stand."
     scoring: info # a single value; also a model input
+    kind: "by design"
+    kind_reason: "a model input: wood is costed at this density (resource.leaf_costs.wood_basic_density_kg_m3)"
+    values_set: [resource.leaf_costs.wood_basic_density_kg_m3]
+    tied_to: []
+    stands: 1
+    band_basis: "a model input"
     conditions:
       scenario: [plot, stand-tree]
       age_years: [17, 17]
@@ -226,6 +379,12 @@ tree_allometry:
     page_table: "Table 2 (p. 337)"
     measures: "Carbon concentration in wood dry matter of temperate/boreal angiosperms: 48.8 +/- 0.6 % observed; 48 +/- 2 % is the IPCC value the table reprints."
     scoring: info # a model input, not a model output
+    kind: "by design"
+    kind_reason: "a model input (resource.leaf_costs.carbon_fraction)"
+    values_set: [resource.leaf_costs.carbon_fraction]
+    tied_to: []
+    stands: "a synthesis"
+    band_basis: "a model input"
     conditions:
       scenario: [plot, stand-tree, single-tree, single-seedling]
       text: "Wood of temperate/boreal angiosperms."
@@ -238,15 +397,72 @@ tree_allometry:
     page_table: "Tables 1-2 (pp. 4-6)"
     measures: "My line through two published averages, not a published regression (Q35): least squares through the origin over the two birch sites' means, stem volume 0.67 and 1.43 m3 (Table 1) against basal bending moment at secondary failure, all by uprooting, 46.9 and 154.3 kN m (Table 2), gives M_crit = 101 kN m per m3 of stem. The paper's own linear mixed model (Table 3) has an intercept and a species term; this line isn't it."
     scoring: info # a regression coefficient; no pass range written
+    kind: "by design"
+    kind_reason: "a model input: the anchorage uses this line (a line through two site means, not a published regression, Q35)"
+    values_set: []
+    tied_to: []
+    stands: 2
+    band_basis: "a model input"
     conditions:
       scenario: [plot, stand-tree, single-tree]
       text: "Silver birch in urban and peri-urban forests, Latvia."
+
+  branch_biomass_repola:
+    # DECISIONS 110 item 6a: the branch row restated against Repola's Eq. A3 at the tree's own crown length, beside
+    # Eq. 9, and labelled tuned against.  The coefficients are Repola's, as read by the branch-wood design at the
+    # publisher (reports/design/2026-11-11_branch_wood.md section 1); coded by the T1 tooling in tools/m3_wood.py
+    # (repola_a3, branch tools-logging), which tools/scorecard.py uses once it is merged.
+    source: "Repola (2008)"
+    doi: "10.14214/sf.236"
+    citation: "Repola, J. (2008). Biomass equations for birch in Finland. Silva Fennica 42(4):605-624."
+    page_table: "Eq. 9, Table 4 (p. 613); Eq. A3, Table A1 (p. 623); A3 recommended for crown parts (p. 618); living branches include bark (p. 608); sample DBH 2.5-38.0 cm (Table 2, p. 608)"
+    models:
+      eq_a3: "ln(branch_kg) = -5.067 + 14.614 * d_s / (d_s + 12) - 5.074 * h / (h + 12) + 0.092 * crown_length_m, bias exp((0.01508 + 0.05663) / 2), d_s = 2 + 1.25 * DBH over bark"
+      eq_9: "ln(branch_kg) = -4.152 + 15.874 * d_s / (d_s + 16) - 4.407 * h / (h + 10), bias exp((0.02733 + 0.07662) / 2)"
+    dbh_range_cm: [2.5, 38.0]
+    measures: "Living branches (wood and bark, no foliage) of the stand tree over Repola's at its own DBH over bark, height and crown length.  The model's branches are wood only, so the true gap is wider than printed."
+    scoring: info # an equation, no pass range written
+    kind: "tuned against"
+    kind_reason: "pipe_model.branch_sapwood_senescence 0.30 says TUNED, against Repola's branch wood (test A, Eq. 9: 38.5, 52.6 kg against 46.1, 59.2 at 50, 60); never retuned after the crown changed"
+    values_set: [pipe_model.branch_sapwood_senescence, pipe_model.branch_sapwood_thick_m]
+    tied_to: []
+    stands: 24
+    band_basis: "equation's between-stand spread"
+    conditions:
+      scenario: [stand-tree]
+      text: "Sample trees from 24 Finnish stands, natural and managed, about a third of the birch B. pubescens. Stand trees only: plot tree lists save no wood."
+
+  stem_biomass_repola:
+    source: "Repola (2008)"
+    doi: "10.14214/sf.236"
+    citation: "Repola, J. (2008). Biomass equations for birch in Finland. Silva Fennica 42(4):605-624."
+    page_table: "Eq. 7, Table 4 (p. 613); stem wood excludes bark"
+    models:
+      eq_7: "ln(stem_kg) = -4.879 + 9.651 * d_s / (d_s + 12) + 1.012 * ln(h), bias exp((0.00263 + 0.00544) / 2), d_s = 2 + 1.25 * DBH over bark"
+    dbh_range_cm: [2.5, 38.0]
+    measures: "Stem wood of the stand tree over Repola's at its own DBH over bark and height."
+    scoring: info # an equation, no pass range written
+    kind: "seen"
+    kind_reason: "crown_frame.twig_bud_every was TUNED against crown ratio and stem wood with this equation on the table (species file); today's defaults don't read it (crown_frame.earned), so the row is seen, not clean (DECISIONS 110 item 12)"
+    values_set: [crown_frame.twig_bud_every]
+    tied_to: []
+    stands: 24
+    band_basis: "equation's between-stand spread"
+    conditions:
+      scenario: [stand-tree]
+      text: "As branch_biomass_repola."
 
 juvenile_establishment:
   natural_clearcut_heights:
     age_2_years_m: [0.15, 0.35]
     age_5_years_m: [1.2, 1.8]
     source: "Johansson (1999); Niemistö (1995); Valkonen et al. (2002); Hynynen et al. (2010)"
+    kind: "by design"
+    kind_reason: "young height follows the height driver's curve (SUSPECTED for ages 2 and 5, below breast height; the validation design, section 1)"
+    values_set: []
+    tied_to: [tree_allometry.site_index_curves]
+    stands: "not stated"
+    band_basis: "not stated"
     conditions:
       scenario: [single-seedling, plot]
       options_required:
@@ -259,6 +475,12 @@ juvenile_establishment:
     lai_range: [0.4, 2.0]
     ground_light_transmittance_pct: [20.0, 40.0]
     source: "Aubin, Beaudet & Messier (2000, Can. J. For. Res. 30:168); SMEAR II Hyytiälä data; Ring & Sikström (2024, Silva Fennica 58:23056)"
+    kind: "by design"
+    kind_reason: "a model input: the herb layer's properties when field_layer_competition is on"
+    values_set: []
+    tied_to: []
+    stands: "not stated"
+    band_basis: "a model input"
     conditions:
       scenario: [single-seedling, plot]
       options_required:
@@ -272,6 +494,15 @@ juvenile_establishment:
     doi: "10.3390/plants12081607"
     # Q31 (the maintainer, 2026-11-09): kept. Konopka et al. 2023 print no root:shoot ratio, no ages 1-3 and no 0.4-1.5 m band; the band is worked out from the paper's biomass equations, and a recomputation falls inside it (final check (a), 2026-11-08).
     measures: "Ratio of belowground root dry mass to aboveground shoot dry mass in juvenile silver birch (height 0.4-1.5 m). Worked out from Konopka et al. 2023's equations, not printed there."
+    kind: "by design"
+    kind_reason: "partly by design, not independent (independent check of V1, 2026-11-11): treegen/growth.py:921 sets the share of carbon sent to the roots to resource.root_share_min + (resource.root_share_max - resource.root_share_min) x water stress, so with no stress 25 % goes below ground, inside this target's root share band of 0.20-0.35; the species file's comment on root_share_min says it was chosen from 'birch allocates about 25-40 % of production below ground'. How much of the dry-mass ratio the input fixes is not tested (no seedling run is saved, and the scorecard computes no value for this row yet: NOT SCORED). It stays by design until a seedling test shows the ratio does not follow the input. Crown fix C was tuned against Konopka 2023's leaf area for height, a different figure from the same paper"
+    values_set: [resource.root_share_min, resource.root_share_max]
+    tied_to: []
+    stands: "not stated"
+    band_basis: "worked out, not printed"
+    source_opened: "Konopka et al. 2023 at the publisher, final check (a), 2026-11-08 (Q31): the band is worked out from its equations, not printed"
+    matched: false
+    match_note: "whether the paper's trees were natural or planted, and their site, isn't recorded here"
     conditions:
       scenario: [single-seedling]
       age_years: [1, 3]

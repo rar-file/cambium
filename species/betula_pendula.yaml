@@ -2389,3 +2389,16 @@ speed:
   sky_elevations_deg: null
   sky_azimuth_count: null
   sun_hour_step: null
+
+# Records for the reports, both off by default (treegen/logs.py).  Each only keeps numbers the model has already worked out, or reads the trees once the
+# year is done, so neither changes what a tree or a plot grows: tests/test_logging.py shows it.  tools/golden.py leaves these two out of its hashes, as
+# it does speed's settings, so a run with a record on can be compared with one without.
+log:
+  # a tree keeps how each year's rings split, in carbon: stem and branches, and for each the sapwood that replaces what stopped conducting, the
+  # sapwood more foliage asks for, and the wind's extra; and each limb's own share.  tools/tree_table.py then writes them out year by year, with
+  # every limb's wood and leaf area (limbs.json)
+  rings: false
+  # a plot keeps a row a year (the stem volume of the trees that went, top height on the approved definition, the leaf area the year's light was
+  # worked out from, how many leaders light, water or carbon held back) and each tree that went as it stood in its last year.  tools/forest.py
+  # then writes stand_log.json, and its tree lists carry the dead trees' wood
+  stand: false

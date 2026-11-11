@@ -50,7 +50,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from . import damage, fast, hydraulics, mechanics
+from . import damage, fast, hydraulics, logs, mechanics
 from .compact import compact
 from .light import SUBCANOPY_LIGHT_HEIGHTS_M, ShadowPropagation
 from .reference import eriksson_1997_height
@@ -727,6 +727,8 @@ class GrowthModel:
 
         # 1. environment -------------------------------------------------
         term_nodes, lat_nodes, w_term, w_lat, src, src_w = self.light_sources()
+        # only read, for the reports (treegen/logs.py): the leaf area this tree's buds carry into the year's light
+        self._lit_leaf_m2 = float(src_w.sum()) * float(self.light.leaf_area)
         fw = sp.light.foliage_weight
         if len(src) == 0:  # no living buds left: the tree only thickens
             self.carbon = {"fixed": 0.0, "shoot": 0.0, "root": 0.0, "mean_bud_light": 0.0, "fixed_per_leaf_area": 0.0,
@@ -1906,8 +1908,35 @@ class GrowthModel:
         if fast.on(sp, "compiled_carbon"):
             parts = fast.parts_function(shoots, hd, lead_at, ahead, caps, full, per_met, early, lma, extra_per_node, starts, z_node, levels, alive, T.parent,
                                         la_now, hv, keep, L, f_wind, a_wind_coef, laz_now, z_base, wood_keep, ring_cap, tip_area, unit, g_per_unit, g_resp)
+        # only read, for the reports (treegen/logs.py).  must: what the year has to pay before any side shoot (the leader's shoot, the frame's limbs and the
+        # foliage's sapwood), the pool it has, and the share of those rings it paid.  With log.rings on, how the year's rings split is kept too
+        log_rings = logs.on(sp, "rings")
+
+        def asked(lam):
+            # the sapwood the foliage beyond each node asks for with this lambda's new shoots, as parts() has it
+            v, grow = shoots(lam)
+            vc = np.minimum(v, caps)
+            leaf_area = np.where(grow, np.maximum(np.floor(vc), 1.0) * per_met + early, 0.0)
+            piped = leaf_area + np.where(grow, np.floor(vc) * extra_per_node, 0.0) if ahead else leaf_area
+            dla = np.zeros(n0)
+            np.add.at(dla, starts, piped)
+            return hv * (la_now + T.basipetal(levels, dla))
+
+        def noted(lam, ring, need=None, share=None):
+            # hands the answer back as it is.  share: the pool didn't cover the must-haves, and paid this share of their rings
+            if share is not None:
+                must["paid"] = float(share)
+                self.sapwood_short_years = int(getattr(self, "sapwood_short_years", 0)) + 1
+            if log_rings:
+                sap = np.where(alive, T.sap_area[:n0], 0.0) if bool(getattr(pm, "sapwood", True)) else keep
+                logs.note_rings(self, must["year"], ring, asked(lam) if need is None else need, keep, sap, L, unit, levels, alive,
+                                1.0 if share is None else float(share))
+            return lam, ring
+
         c0, r0 = parts(0.0)
         self._ring_need = c0
+        must = self._must_log = {"year": int(self.year) + 1, "pool": float(pool), "must": float(c0), "lead": None, "paid": 1.0}
+        need0 = asked(0.0) if log_rings else None
         if lead_at is not None:
             hd["sap_units0"], hd["wind_units0"] = hd.get("sap_units", 0.0), hd.get("wind_units", 0.0)
             # the leader's own shoot and leaves come first; if the pool can't pay them, it builds less
@@ -1916,23 +1945,26 @@ class GrowthModel:
             if g_per_unit > 0.0:
                 lead_units += float((max(math.floor(vl), 1.0) * per_met[lead_at] + early[lead_at]) * lma[lead_at]) / g_per_unit * g_resp
             hd["cost_units"], hd["pool"] = lead_units, pool
+            must["lead"] = float(lead_units)
             if lead_units >= pool:
                 hd["carbon_scale"] = pool / lead_units if lead_units > 0.0 else 0.0
                 hd["v"] *= hd["carbon_scale"]
                 hd["cost_units"] = pool
                 if hd["frame_at"] is not None:
                     hd["frame_v"] = np.zeros_like(hd["frame_v"])   # nothing left for limbs: no shoot is free
-                return 0.0, np.zeros(n0)
+                return noted(0.0, np.zeros(n0), need0, 0.0)
             self._ring_need = c0 - lead_units
             if c0 >= pool:
                 # after the leader, the foliage's sapwood takes what's left: no side shoots
                 if hd["frame_at"] is not None:
                     hd["frame_v"] = np.zeros_like(hd["frame_v"])
-                return 0.0, r0 * ((pool - lead_units) / max(c0 - lead_units, 1e-12))
+                paid = (pool - lead_units) / max(c0 - lead_units, 1e-12)
+                return noted(0.0, r0 * paid, need0, paid)
         if c0 >= pool:
             # the foliage's sapwood alone takes the whole pool: no new shoots,
             # and only that share of the rings
-            return 0.0, r0 * (pool / c0 if c0 > 0.0 else 0.0)
+            paid = pool / c0 if c0 > 0.0 else 0.0
+            return noted(0.0, r0 * paid, need0, paid)
 
         def solve_for(target):
             if fast.on(sp, "quick_solve"):
@@ -2069,7 +2101,7 @@ class GrowthModel:
                 self.carbon["sink_limited"] = idle
                 self.carbon["fixed"] -= idle
                 self.carbon["shoot"] -= idle
-        return lam, ring
+        return noted(lam, ring)
 
     # -- the crown's frame (crown_frame in the species file) -------------
     def _frame_on(self) -> bool:

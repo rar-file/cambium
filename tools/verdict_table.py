@@ -2,7 +2,8 @@
 
     python tools/verdict_table.py out/bench/ensemble/base_trees --refs targets-approved master
 
-For when targets have changed but aren't yet approved: it shows which verdicts depend on them.
+For when targets have changed but aren't yet approved: it shows which verdicts depend on them.  Each cell prints the
+scorecard's 'reads' (its kind and the pass rule), never the band check alone, so a tuned or by-design row never reads PASS.
 """
 from __future__ import annotations
 
@@ -21,7 +22,7 @@ def table(folder: Path, refs: list, ages: list) -> str:
     runs = [load_run_data(str(d)) for d in ensemble_folders(folder)]
     sides = [{r["target"]: r for r in evaluate_ensemble(load_approved_targets(ref), runs, ages)} for ref in refs]
     names = list(sides[-1]) + [t for t in sides[0] if t not in sides[-1]]
-    head = ["Target", "Mean +- SD"] + [f"{ref} ({commit_of(ref)}): band, verdict, share inside" for ref in refs]
+    head = ["Target", "Mean +- SD"] + [f"{ref} ({commit_of(ref)}): band, reads, share inside" for ref in refs]
     lines = [f"**{folder.as_posix()}: {len(runs)} runs**", "", "| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
     for t in names:
         rows = [s.get(t) for s in sides]
@@ -35,9 +36,9 @@ def table(folder: Path, refs: list, ages: list) -> str:
             if r is None:
                 cells.append("not in this version")
             elif r["mean"] is None:
-                cells.append(f"{r['status']}: {r['notes'][:70]}")
+                cells.append(f"{r['reads']}: {r['notes'][:70]}")
             else:
-                cells.append(f"{r['target_range']}, **{r['status']}**, {100 * r['share']:.0f} %" + ("" if len(means) == 1 else f", mean {r['mean']:.3f}"))
+                cells.append(f"{r['target_range']}, **{r['reads']}**, {100 * r['share']:.0f} %" + ("" if len(means) == 1 else f", mean {r['mean']:.3f}"))
         lines.append(f"| `{t}` | {mean} | " + " | ".join(cells) + " |")
     return "\n".join(lines)
 

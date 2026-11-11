@@ -11,7 +11,10 @@ again, and every model output and mesh file must hash the same.
 Run metadata is left out of the hash: manifest.json, logs, checkpoints, and inside
 JSON and GLB files the keys in METADATA_KEYS (git commit, timings, memory figures).
 An option listed as off isn't a result either, so a new option that's off by default leaves the
-hash alone; an option that's on, or has a value, still counts.  'rehash' reworks a recording's
+hash alone; an option that's on, or has a value, still counts, except the ways of running (speed.*)
+and the records kept beside a run (log.*), whose own outputs would differ if they changed a result:
+'record X --set log.rings=true --set log.stand=true' against a plain recording shows they don't.
+'rehash' reworks a recording's
 hashes from its saved folders, keeping the old ones beside them.
 Each run's time and peak memory are recorded next to the hashes, not in them.
 
@@ -63,8 +66,8 @@ def strip_metadata(o):
             if k in METADATA_KEYS:
                 continue
             if k == "options" and isinstance(v, dict):
-                # (speed.*: ways of running.  If one changes a result, the result's own files differ)
-                v = {name: value for name, value in v.items() if value is not False and value is not None and not name.startswith("speed.")}
+                # (speed.*: ways of running; log.*: records kept beside a run, treegen/logs.py.  If one changes a result, the result's own files differ)
+                v = {name: value for name, value in v.items() if value is not False and value is not None and not name.startswith(("speed.", "log."))}
             out[k] = strip_metadata(v)
         return out
     if isinstance(o, list):

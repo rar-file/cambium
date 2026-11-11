@@ -171,7 +171,7 @@ plot.germination_weights:
   value: [0.4, 0.3, 0.2, 0.1]
   note: A plot of independent trees (treegen/plot.py, tools/plot.py). Trees differ by seed, by germination year (natural regeneration on a clear felling establishes over a few years; VERIFY) and by a heritabl
 plot.vigour_sd: {status: VERIFY, value: 0.06, note: 'A plot of independent trees (treegen/plot.py, tools/plot.py). Trees differ by seed, by germination year (natural regeneration on a clear felling establishes over a few years; VERIFY) and by a heritabl'}
-plot.height_follows_dominants: {status: sourced, value: false, source: 'Elfving 2010 p. 58: "Top height is defined as the height according to the height curve at the mean diameter of the 100 by diameter largest trees per hectare"; the model takes the 100 thickest a hectare; on by default since birch v1', checked: page}
+plot.height_follows_dominants: {status: DERIVED, value: true, source: 'Elfving 2010 p. 58: "Top height is defined as the height according to the height curve at the mean diameter of the 100 by diameter largest trees per hectare"; the definition is sourced, making the dominants follow the curve is the model''s step (by design); on by default since birch v1 (this label said false until 2026-11-11, DECISIONS 110 item 12)', checked: page}
 regeneration.seeds_ref: {status: sourced, value: 137000, source: 'Liu & Evans 2021, Forests 12:929: both birches, UK', checked: page}
 regeneration.dbh_ref_m: {status: sourced, value: 0.2, source: 'Natural regeneration in a plot (treegen/regeneration.py; tools/plot.py --regeneration). Seeds shed in a year by a tree of 20 cm DBH: ~137,000 (Wytham Woods, UK, 2015, inverse modelling of seed traps) '}
 regeneration.fecundity_exponent: {status: VERIFY, value: 2.0, note: Seed output in proportion to basal area (DBH^2). VERIFY}
@@ -459,3 +459,63 @@ crown_frame.limb_rivals: {status: VERIFY, value: 5, note: 'a guess, set against 
 crown_frame.surplus_to_stem: {status: VERIFY, value: 1.0, note: 'a choice, not fitted: all of what a full crown cannot use goes on the stem, up to stem_cm_per_height_m, so a tree in the open doesn''t lose carbon it fixed while small (commit e277a9a); since birch v1. 0.1-0.4 were tuned against the open DBH band, which is not a target'}
 roots.paid.collar_roots_min: {status: sourced, value: 2, source: 'on since v1-young-roots2: Laitakari 1934, Acta For. Fenn. 41(2), p. 182: "Small trees (d1.3 < 5 cm) may have only 2-3 such roots" (dominant main roots); the low end, as a floor on room at the collar', checked: page}
 crown_frame.twigs_browsed: {status: VERIFY, value: 0, note: 'a choice of place, not a model value: 0 is no browsing (a park); 1 is Bergqvist et al. 2014''s rate on leaders, used for twigs (DERIVED)'}
+# 2026-11-11, V1 (DECISIONS 110 items 4 and 12): the 58 model values that had no label, each from the species file's own
+# comment at the value. TUNED says what it was tuned against; sourced only with a named source and page.
+anchorage.plate_radius_rule: {status: VERIFY, value: 'taper_zone_end', note: 'a choice among three plate-radius rules; the species file marks it VERIFY and no source picks one'}
+crown_frame.base_share: {status: TUNED, value: 0.4, against: 'the crown outline in stand and open, with crown_frame.peak_depth (0.8 before birch v1)'}
+crown_frame.crown_lai_max: {status: TUNED, value: 7.0, against: 'open-grown stem size and the carbon left unused (4 left about 15 % of fixed carbon unused at 11-50 in stand trees; 7 leaves 18 and 12 % at 11-20, 21-30, then none); a sink limit, not a measurement'}
+crown_frame.fork_leaf_area_m2: {status: TUNED, value: 1.5, against: 'the look, by eye; no measurement'}
+crown_frame.full_crown_spur_years: {status: TUNED, value: 12, against: 'the look: leafless twig length on an open tree (8 left 71 %, 12 about 60 %); Maillette 1982 read as an abstract only'}
+crown_frame.gap_min_m: {status: TUNED, value: 0.15, against: 'limb count on open-grown trees, where nothing thins them (205 limbs at 60 without it, 124 with it, one seed, PC); Lintunen 2013''s densest, 13 per m, would be 0.077 m, a LIGNUM model''s output (Fig. 5), not a measurement, as the species file says at crown_frame.birth_share'}
+crown_frame.hanging_share: {status: TUNED, value: 0.35, against: 'the look: curtains reach a few metres, not the ground; gravimorphism''s form (Wareing & Nasr 1961), no birch value'}
+crown_frame.limb_sag_deg: {status: TUNED, value: 45, against: 'the look: limbs leave the stem low and curve up'}
+crown_frame.open_lai_max: {status: TUNED, value: 5, against: 'the look (sky between the curtains), with crown_frame.earned; Repola 2008 Eq. 12 would give about 3.6, outside its range'}
+crown_frame.peak_depth: {status: TUNED, value: 0.65, against: 'the crown outline in stand and open (0.9 before birch v1); Hagemeier & Leuschner 2019a alone would say 0.4'}
+crown_frame.profile_power: {status: TUNED, value: 0.8, against: 'the crown outline and crown ratio (commit e277a9a; 0.6 before birch v1)'}
+crown_frame.reach_scatter: {status: TUNED, value: 0.5, against: 'the look: limbs of even length read as a fishbone (commit 8a5d3ba; 0.1 before birch v1)'}
+crown_frame.sapwood_kept: {status: TUNED, value: 0.3, against: 'stem size in stands'}
+crown_frame.spacing_overlap: {status: TUNED, value: 1.15, against: 'light under the canopy and crown width in stands (1.0 gave 0.25 less LAI, commit 23260bb); light is a scored target, so tuned against it'}
+crown_frame.stem_cm_per_height_m: {status: TUNED, value: 2.4, against: 'the open-grown DBH band 40-50 cm at 60 in the species file''s reference.dbh, with height_driver.open_grown_share 0.8; that band is not a target (Dubois et al. 2021, read as an abstract only)'}
+crown_frame.twig_bud_every: {status: TUNED, value: 10, against: 'crown ratio and stem wood against Repola 2008 Eq. 7 (13 gave crown ratio 0.48, 0.45 at 50, 60; 10 gives 0.56, 0.52 and stem wood 3-8 % under); not read with crown_frame.earned on, today''s default, so the stem wood row is seen, not independent'}
+crown_frame.twig_end_buds: {status: VERIFY, value: 1, note: 'a model choice: one bud at the end of last year''s shoot may start a long shoot, so curtains are single strands; option J (d278fd4, off) sets 2; Lintunen 2013 Fig. 6C is model output, not a measurement'}
+crown_frame.twig_overshoot: {status: TUNED, value: 1.0, against: 'the look, as crown_frame.reach_scatter; not read with crown_frame.earned on'}
+geometry.root_flare_min_share: {status: TUNED, value: 0.5, against: 'the look of the stem foot''s ridges, by eye'}
+geometry.root_flare_mode: {status: VERIFY, value: 'buttress', note: 'a mesh choice; the root collar height is Laasasenaho 1982 as coded in the forester R package (relative SE 44 %); ridge width and height are geometric assumptions (VERIFY in the species file)'}
+height_driver.catch_up: {status: TUNED, value: 1.25, against: 'height reading one site index from 15 on after browsing; a departure: lost height does not come back this way in a real tree'}
+height_driver.lateral_cap_ratio: {status: VERIFY, value: null, note: 'off by default (null, no cap), so nothing in use was tuned; tried at 0.6 in test A against Evo''s crown width (without the cap crowns were 9.5 m at 60, with it 7.3 m; Evo about 5), and replaced by crown_frame''s floor (the species file''s comment there)'}
+height_driver.leaf_growth_max: {status: TUNED, value: 1.5, against: 'the crash it prevents (a small tree held to the curve spending its carbon on shoots it can''t keep up), and only roughly Konopka 2023 (leaf area still 2.4 x hers at 10, 4.5 x at 15)'}
+height_driver.light_full: {status: TUNED, value: 0.6, against: 'the model, not a measurement: set so a stand tree''s leader isn''t light-limited (light factor 1.000 in 20 seeds of test A); never tested on plots'}
+height_driver.open_grown_share: {status: TUNED, value: 0.8, against: 'photos of open-grown birches; no measurement read'}
+height_driver.ring_share_max: {status: TUNED, value: 0.5, against: 'whole-crown flips (116 in 448 seed-years without it, 42 with it, 8 PC seeds, before density control)'}
+height_driver.water_full: {status: TUNED, value: 0.8, against: 'the model, not a measurement: set so a well-watered tree''s leader isn''t water-limited (water factor 1.000 in 20 seeds of test A)'}
+hydraulics.expansion_water_potential: {status: VERIFY, value: 'predawn', note: 'a choice of which water potential drives expansion (pre-dawn: shoots expand mostly at night, after the tree rehydrates); no source named'}
+mechanics.pendulous_radius_limb: {status: TUNED, value: 0.0025, against: 'the look, by eye only; not in test A'}
+pipe_model.branch_sapwood_senescence: {status: TUNED, value: 0.3, against: 'Repola 2008 Eq. 9 living branches on stand trees, test A (branches 38.5, 52.6 kg at 50, 60 against 46.1, 59.2); never retuned after the crown changed. So the branch-wood row is tuned against, restated on Eq. A3 (DECISIONS 110 item 6a)'}
+pipe_model.branch_sapwood_thick_m: {status: TUNED, value: 0.02, against: 'branch wood in the open'}
+pipe_model.growth: {status: VERIFY, value: 'lignum', note: 'a choice of growth mode: one carbon pool a year for shoots and rings, after LIGNUM (Perttunen et al. 1996, Ann. Bot. 77:87), a model; the paper not opened here'}
+pipe_model.stem_theory.stage: {status: VERIFY, value: 2, note: 'a choice of stem theory: stage 2 is the pipe model with the wind envelope (Shinozaki et al. 1964; Makela 1997; wind_load''s strength values, VERIFY); no source picks the stage'}
+plot.natural_start.patch_x_m: {status: VERIFY, value: null, note: 'a setting of the plot''s shape (tools/forest.py), not a model value; null: trees over the whole plot'}
+plot.natural_start.side_x_m: {status: VERIFY, value: null, note: 'a setting of the plot''s shape (a strip of forest edge), not a model value; null: a square of area_m2'}
+plot.natural_start.side_y_m: {status: VERIFY, value: null, note: 'as plot.natural_start.side_x_m'}
+plot.spacing_min_height_share: {status: VERIFY, value: null, note: 'a test, off by default (null), no source (review 2026-11-09, finding 6)'}
+regeneration.spread.kernel: {status: DERIVED, value: 'exponential_mix', source: 'the form of Tiebel et al. 2020, Eur. J. For. Res. 139:731, Eq. 1 (a negative exponential in distance; a lognormal fitted no better), its near part at Liu & Evans 2021''s means and a far part at far_share and far_mean_m; the mix is the model''s step'}
+regeneration.spread.max_recruits_per_year: {status: VERIFY, value: null, note: 'a limit on memory, not a model value; null: no limit'}
+roots.paid.collar_angle_top_deg: {status: TUNED, value: 85.0, against: 'Kalliokoski et al. 2008, mean inclination 26 deg, 28 % steeper than 45 deg; Laitakari 1934 p. 202'}
+roots.paid.collar_evenness: {status: TUNED, value: 0.9, against: 'Laitakari 1934: 7-12 dominant roots (p. 182), the thickest 68-87 % of DBH (p. 185); Kalliokoski et al. 2008 Table 3: mean 5.0, SD 2.9 cm at a 30 cm stump'}
+roots.paid.collar_node_m: {status: TUNED, value: 0.01, against: 'more nodes (40 down to taproot_max_depth) than the 11-28 collar roots in Kalliokoski et al. 2008 Table 3, so room round the stump decides how many start'}
+roots.paid.collar_spacing_m: {status: TUNED, value: 0.035, against: 'Kalliokoski et al. 2008 Table 3: 11, 20, 25, 28, 16 roots at stumps of 8.1, 16.1, 30.0, 26.4, 19.1 cm (Table 1), 2.3-3.8 cm of girth per root'}
+roots.paid.fade_per_stump_d: {status: TUNED, value: 1.3, against: 'Kalliokoski et al. 2008 Table 7''s taper on main axes at 0.5, 1, 2 and 5 m (Eq. 2''s fitted parameters, not measured tapers)'}
+roots.paid.far_d_cm_per_m: {status: TUNED, value: 0.35, against: 'Kalliokoski et al. 2008 Table 7 at 2-10 m (fitted parameters, not measured tapers) and Varik 2014''s 5-10 mm share'}
+roots.paid.stump_fill_power: {status: TUNED, value: 8.0, against: 'Repola 2008 Eq. 13: stump 26 kg at 30 cm DBH, 16 cm of it above ground and in the stem here'}
+roots.paid.taproot_length_per_depth: {status: TUNED, value: 1.25, against: 'the look: a deflected taproot running on as a thick sideways log (seen on 8 of 20 server seeds)'}
+shedding.limb_carbon_margin: {status: VERIFY, value: null, note: 'a test for young crowns, off by default (null); no source'}
+shedding.limb_light_line: {status: VERIFY, value: null, note: 'a test for young crowns, off by default (null); if set, 0.21 would be Hagemeier & Leuschner 2019b''s lowest shade leaves'}
+shedding.limb_relative_light: {status: VERIFY, value: null, note: 'a test for young crowns, off by default (null); no source'}
+shedding.shade_softness: {status: TUNED, value: 0.5, against: 'leaf area, light under the canopy and year-to-year steadiness (test A: 0.5); light is a scored target'}
+species.common_name: {status: VERIFY, value: 'silver birch', note: 'a name, not a model value: nothing to source or tune'}
+species.scientific_name: {status: VERIFY, value: 'Betula pendula Roth', note: 'a name, not a model value: nothing to source or tune'}
+speed.light_every: {status: VERIFY, value: 1, note: 'a speed setting, not a model value: 1 is exact (a light field every year); more is lossy and needs the maintainer''s approval (reports/speed_research.md)'}
+speed.sky_azimuth_count: {status: VERIFY, value: null, note: 'a speed setting, not a model value: null keeps the environment''s own light directions (exact)'}
+speed.sky_elevations_deg: {status: VERIFY, value: null, note: 'a speed setting, not a model value: null keeps the environment''s own light directions (sky 44, sun 16)'}
+speed.sun_hour_step: {status: VERIFY, value: null, note: 'a speed setting, not a model value: null keeps the environment''s own sun steps (exact)'}
+stand.layout: {status: VERIFY, value: 'random', note: 'a choice of neighbour layout for stand trees (random positions, no two closer than stand.min_distance); its spacing and size spread are VERIFY in their own labels'}

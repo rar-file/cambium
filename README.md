@@ -30,7 +30,7 @@ https://github.com/user-attachments/assets/92d34dc3-25dd-46fa-9fc0-2855a6793458
 
 Cambium grows a tree from a seed, one year at a time. Height follows a published growth curve for the site. Around
 that, buds compete for light, shaded branches die back, and wood, leaves and roots are built from the carbon the
-tree fixes. Put many together and they shade each other, thin each other out and become a forest.
+tree fixes. Put many together and they shade each other, and a crowding rule fitted to two measured stands thins them.
 
 No two seeds give the same tree, and the same seed gives the same tree again on the same machine and library
 versions. The first species is the silver birch.
@@ -54,7 +54,7 @@ https://github.com/user-attachments/assets/e2807019-4082-4453-aa3e-8a605fc22181
     <td width="50%" valign="top">
       <img src="docs/media/twigs2.webp" alt="Close-up of a 60-year birch's hanging twigs and leaves, front-lit">
       <h3>Grown, not modelled</h3>
-      Every branch is there because the tree grew it. Shape comes from light, carbon and mechanics, not presets.
+      Every branch is there because the tree grew it. Height and the main limbs' number and angle follow published measurements; their reach follows a published equation taken second-hand, its paper not yet opened. Light, carbon and mechanics decide the rest.
     </td>
     <td width="50%" valign="top">
       <img src="docs/media/autumn.webp" alt="The 60-year birch and the forest edge in autumn yellow, path-traced in Unreal">
@@ -66,12 +66,12 @@ https://github.com/user-attachments/assets/e2807019-4082-4453-aa3e-8a605fc22181
     <td width="50%" valign="top">
       <img src="docs/media/root_flare_60.webp" alt="The root flare of a 60-year birch, path-traced in Unreal">
       <h3>Roots too</h3>
-      A full root system that anchors the tree against wind, and comes up with it when it falls.
+      A full root system, with an anchorage figure from pulling tests at two sites, that comes up with the tree when it falls.
     </td>
     <td width="50%" valign="top">
       <img src="reports/renders/look_unreal_ages_whole.png" alt="A forest birch at 15, 50 and 60 years as exported game meshes">
       <h3>Made for games</h3>
-      Exports GLB and USD meshes with detail levels and the tree's whole growth history. Built for a game in Unreal.
+      Exports GLB and USD meshes with detail levels and its growth history: births, deaths and thickness by year, positions every 5 years. Built for a game in Unreal.
     </td>
   </tr>
 </table>
@@ -114,9 +114,9 @@ and a website with a 3D viewer.
 
 ## Grounded in real forests
 
-Cambium is built from published forestry science. Every setting in the birch is labelled: taken from a published
-source, derived from one, tuned (with what it was tuned against), or still unchecked. About a fifth are sourced.
-Grown forests are compared with measured Nordic and Baltic birch stands.
+Cambium is built from published forestry science. Every model value in the birch, apart from 61 on/off switches, is labelled: taken from a published
+source, derived from one, tuned (with what it was tuned against), or still an estimate. Of 439, 91 are sourced (56 checked against the page), 23 derived, 91 tuned and 234 estimates.
+Grown forests are compared with measured stands in Germany, Estonia, Finland and Sweden, and every target says whether the model follows it, was tuned against it or is an independent test.
 
 **Where it stands at 50 and 60 years** (20 forests, fresh run of 2026-11-09):
 
@@ -125,14 +125,14 @@ Grown forests are compared with measured Nordic and Baltic birch stands.
 | Top height | 21.4 m | 23.1 m | 21.95 / 23.75 m (site curve) | by design, not a test |
 | Light under the canopy | 18.2 % | 19.5 % | 6.4-19.8 % | tuned against |
 | Leaf area index | 4.51 | 4.29 | at most 4.5 (Baltic stands) | tuned against; misses by 0.01 at 50 |
-| Branch wood over Repola's equation | 1.47 | 1.76 | 1.00 | tuned against; a miss |
-| Spread of stem diameters | 0.15 | 0.15 | 0.32 at 45 years | untuned; a miss |
+| Branch wood over Repola's equation for crown parts (A3), stand trees | 1.48 | 1.78 | 1.00, his branches with bark | tuned against; a miss |
+| Spread of stem diameters | 0.15 | 0.15 | 0.32 at 45 years, 0.12 at 67 (one stand each) | untuned; a miss at 45, not shown at 60 |
 
-No independent test at 50 or 60 years has been passed yet: the checks above were either built in or tuned to.
+No independent test applies at 50 or 60 years yet, so none has been passed: the scored checks are built in or tuned to, and the untuned spread rests on one stand per age.
 An independent review, a full audit and the fresh run are in [`reports/`](reports/).
 
 **Known faults:** the twigs hang far more than a wild silver birch's do; the forest is too even (trees too alike
-in size); branches carry too much wood; young forests are leafier than Baltic measurements; old forests past 100
+in size); branches carry too much wood; young crowns are too long for their age (crown ratio 0.82-0.97 at 11-22 years against 0.30-0.45, a band whose source is not yet opened); forests carry less basal area than unthinned real stands; young forests are leafier than Baltic measurements; old forests past 100
 years are not sound yet. Everything we know about is in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
 
 ## Roadmap

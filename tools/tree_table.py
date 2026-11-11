@@ -13,6 +13,13 @@ tools/m3_alternation.py and tools/m3_crown_compare.py read it), plus tree.json: 
 first-order branches at set ages, and every shedding event read back from the nodes' death years.  It only reads the
 model, so it changes no number: tests/test_tree_table.py.
 
+Since 2026-11-11 (tools/limb_wood.py, treegen/logs.py; tests/test_logging.py): each snapshot also has branch wood by
+order, crown quarter and limb age and the limb measures the Nordic scans were read by; each year has the wood shed, what
+the year had to pay against its pool, and leaf area counted three ways; tree.json counts the years the tree couldn't pay
+its sapwood.  With --set log.rings=true each year also has its ring carbon split into stem and branch, sapwood and wind,
+and limbs.json has every limb every year: wood, leaf area and its rings' carbon; with --set shedding.log_limbs=true as
+well, what its own leaves fixed against its upkeep.  Both settings leave stats.json as it is without them.
+
 Sources for the comparison columns are the tools' own: Repola 2008 (tools/m3_wood.py), Evo TLS 2024
 (tools/m3_crown_compare.py), Lintunen 2013 (tools/m3_branches.py).  Those three are for a look, not a verdict.
 """
@@ -58,6 +65,8 @@ def snapshot(model, year: int) -> dict:
     """Wood and first-order branches now.  Same definitions as tools/m3_wood.py and tools/m3_branches.py."""
     import numpy as np
 
+    import limb_wood
+
     T, s = model.tree, model.stats[-1]
     n = T.n
     alive = T.death[:n] < 0
@@ -98,7 +107,7 @@ def snapshot(model, year: int) -> dict:
                  "fine_root_kg": float(carbon.get("leaf_dm_g", 0.0)) * float(lc.fine_root_to_leaf_mass) / 1000.0,
                  "root_share": float(s.get("water", {}).get("root_share", 0.0)),
                  "root_carbon": float(carbon.get("root", 0.0)), "fixed_carbon": float(carbon.get("fixed", 0.0))}
-    return {"age": year, **roots, "shape": crown_shape(model), "d0_mm": 2000.0 * float(T.radius[0]), "stem_top_m": float(T.pos[stem_nodes[-1], 2]), "stem_m3": stem_v,
+    return {"age": year, **roots, "branch_wood": limb_wood.branch_wood(model, crown_base_stem), "shape": crown_shape(model), "d0_mm": 2000.0 * float(T.radius[0]), "stem_top_m": float(T.pos[stem_nodes[-1], 2]), "stem_m3": stem_v,
             "crown_base_stem_m": crown_base_stem, "lowest_stem_branch_m": lowest_stem,
             "crown_ratio_stem": None if crown_base_stem is None or h <= 0.0 else (h - crown_base_stem) / h, "leader_losses": len(model.leader_losses),
             "stem_kg": stem_v * DENSITY, "branch_kg": (total_v - stem_v) * DENSITY,
@@ -308,8 +317,9 @@ def one(seed: int, sets: list, out: Path, years: int, stand: bool = True) -> int
     import numpy as np
 
     import cli
+    import limb_wood
     import root_measure
-    from treegen import checkpoint, export
+    from treegen import checkpoint, export, logs
     from treegen.environment import make_environment, make_soil
     from treegen.growth import GrowthModel
     from treegen.params import load_environment, load_species
@@ -320,6 +330,7 @@ def one(seed: int, sets: list, out: Path, years: int, stand: bool = True) -> int
     env_p, _ = load_environment(environment)
     model = GrowthModel(sp, make_environment(env_p), seed, stand=stand, soil=make_soil(env_p), lean=True)
     yearly, snaps = [], []
+    limb_log = [] if logs.on(sp, "rings") else None     # log.rings: every limb, every year (limbs.json)
     for year in range(1, years + 1):
         root_wood_before = root_measure.wood_kg(model) if model.roots is not None else 0.0
         model.step()
@@ -337,12 +348,19 @@ def one(seed: int, sets: list, out: Path, years: int, stand: bool = True) -> int
                        "driver": getattr(model, "_driver_log", None)})
         if model.roots is not None:
             yearly[-1]["root_ledger"] = root_measure.ledger_year(model, year, root_wood_before)
+        # wood shed, what the year had to pay against its pool, leaf area three ways and, with log.rings on, how the rings split
+        yearly[-1].update(limb_wood.year_record(model, year))
+        if limb_log is not None:
+            limb_log += limb_wood.limb_rows(model, year)
         if year % SNAPSHOT_EVERY == 0:
             snaps.append(snapshot(model, year))
             if model.roots is not None:
                 snaps[-1]["root_arch"] = root_measure.architecture(model)
     out.mkdir(parents=True, exist_ok=True)
-    (out / "tree.json").write_text(json.dumps({"yearly": yearly, "snapshots": snaps, "shed": shed_events(model)}), encoding="utf-8")
+    (out / "tree.json").write_text(json.dumps({"yearly": yearly, "snapshots": snaps, "shed": shed_events(model),
+                                               "sapwood_short_years": int(getattr(model, "sapwood_short_years", 0))}), encoding="utf-8")
+    if limb_log is not None:
+        (out / "limbs.json").write_text(json.dumps({"columns": limb_wood.LIMB_COLUMNS, "what": limb_wood.LIMBS_WHAT, "rows": limb_log}), encoding="utf-8")
     # as cli.py has it: tools/scorecard.py reads "stand" as stand-tree, managed and "open" as single-tree, open-grown
     meta = {"species": sp.species.scientific_name, "species_file": species, "environment": environment, "mode": "stand" if stand else "open", "seed": seed,
             "generator": "treegen 0.4, tools/tree_table.py"}

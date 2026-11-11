@@ -101,6 +101,10 @@ def per_seed(targets: dict, runs: list, ages: list) -> list:
     return out
 
 
+# The band check's words as the table prints them: inside the band is not a pass (DECISIONS 110 item 4); FAIL is FAIL
+BAND_WORDS = {"PASS": "inside", "FAIL": "FAIL"}
+
+
 def compare(base: list, option: list, base_verdicts: dict, option_verdicts: dict) -> tuple:
     """Rows for every target both sides scored, and the targets one side scored and the other didn't."""
     names = []
@@ -165,13 +169,13 @@ def main(argv=None) -> int:
     rows, unscored = compare(per_seed(targets, base_runs, ages), per_seed(targets, option_runs, ages), verdicts[0], verdicts[1])
     print(f"{len(folders[0])} paired {like['what']} seeds; machine {like['machine'][0]}, {like['machine'][1]}; targets at {a.ref}; {a.kind}")
     print(f"Code: baseline {like['base_code']}, option {like['option_code']}\n")
-    print("| Target | Seeds | Band | Baseline | Option | Difference | SE | Verdicts | Moved |")
+    print("| Target | Seeds | Band | Baseline | Option | Difference | SE | Band checks | Moved |")
     print("|---|---|---|---|---|---|---|---|---|")
     for r in rows:
         print(f"| `{r['target']}` | {r['n']} | {r['lo']:.2f}-{r['hi']:.2f} | {r['base_mean']:.3f} | {r['option_mean']:.3f} | {r['difference']:+.3f} | {r['se']:.3f} | "
-              f"{r['base_verdict']} to {r['option_verdict']} | {r['moved']} |")
+              f"{BAND_WORDS.get(r['base_verdict'], r['base_verdict'])} to {BAND_WORDS.get(r['option_verdict'], r['option_verdict'])} | {r['moved']} |")
     d = decide(rows, unscored, a.kind)
-    print(f"\nPASS to FAIL: {d['pass_to_fail'] or 'none'}")
+    print(f"\nBand check PASS to FAIL (inside to outside the band, whatever the kind): {d['pass_to_fail'] or 'none'}")
     print(f"Significantly worse: {d['further'] or 'none'}")
     print(f"Improved: {d['closer'] or 'none'}")
     print(f"Scored on one side only: {d['unscored'] or 'none'}")

@@ -1,5 +1,5 @@
 """A species' accuracy, in one place: is its file complete, where do its values come from, and how
-many of its targets does a saved ensemble pass?  This wraps tools/scorecard.py and doesn't change it.
+many of its targets does a saved ensemble sit inside the band of (a band check, not a pass)?  This wraps tools/scorecard.py and doesn't change it.
 
     python tools/species_report.py                                   # every species in species/, values only
     python tools/species_report.py --species betula_pendula --ensemble out/bench/ensemble/base_trees
@@ -93,7 +93,7 @@ def score_metric(name: str, item: dict, runs: list, ages: list) -> list:
                "status": "NOT APPLICABLE", "share": None, "source": item.get("source"), "notes": ""}
         if values:
             mean = statistics.fmean(values)
-            status = "INFO" if item.get("scoring") == "info" else ("PASS" if lo <= mean <= hi else "FAIL")
+            status = "INFO" if scorecard.is_info(item) else ("PASS" if lo <= mean <= hi else "FAIL")
             row.update(mean=mean, sd=statistics.stdev(values) if len(values) > 1 else 0.0, status=status,
                        share=sum(lo <= v <= hi for v in values) / len(values))
         rows.append(row)
@@ -150,7 +150,7 @@ def value_counts(labels: dict) -> dict:
 
 
 def target_verdicts(rows: list) -> dict:
-    """target -> its statuses at each age scored.  A target passes only if it passes at every age."""
+    """target -> its band checks at each age scored.  A target counts as inside its band only if it is inside at every age."""
     out = {}
     for r in rows:
         if r["status"] in ("PASS", "FAIL", "INFO"):
@@ -167,13 +167,24 @@ def summary_line(name: str, counts: dict, rows: list | None, n_runs: int, ages: 
     passed = sum(all(s == "PASS" for s in v) for v in scored.values())
     ages_txt = " and ".join(str(a) for a in ages)
     note = "" if approved else " (targets not approved)"
-    return (f"{name}: {passed} of {len(scored)} scored targets pass at ages {ages_txt}, over {n_runs} runs{note}; "
-            f"{sum(s == 'PASS' for v in scored.values() for s in v)} of {sum(len(v) for v in scored.values())} age checks pass; {values}.")
+    return (f"{name}: {passed} of {len(scored)} scored targets inside their band at ages {ages_txt}, over {n_runs} runs{note}; "
+            f"{sum(s == 'PASS' for v in scored.values() for s in v)} of {sum(len(v) for v in scored.values())} age checks inside the band "
+            "(the band check only: the mean inside the band, whatever the target's kind; a tuned or by-design row inside "
+            f"its band is not a pass, and the Reads column and tools/scorecard.py say which rows may read PASS); {values}.")
+
+
+def word(r: dict) -> str:
+    """What a row prints: the scorecard's 'reads' (its kind and the pass rule) when it has one; a target scored
+    here by its 'metric' has none, so it prints the band check, under a column that says so: 'inside' for a
+    mean inside the band, never PASS, whatever the target's kind."""
+    if r.get("reads"):
+        return r["reads"]
+    return "inside" if r["status"] == "PASS" else r["status"]
 
 
 def print_targets(rows: list, ages: list) -> None:
     head = " | ".join(f"At {a}" for a in ages)
-    print(f"| Target | {head} | Band | Verdict | Share of seeds inside |")
+    print(f"| Target | {head} | Band | Reads (band check where the target has no kind) | Share of seeds inside |")
     print("|---|" + ":---:|" * len(ages) + ":---:|:---:|:---:|")
     by_name = {}
     for r in rows:
@@ -187,7 +198,7 @@ def print_targets(rows: list, ages: list) -> None:
         cells = [f"{at[a]['mean']:.2f}" if a in at and at[a]["mean"] is not None else "-" for a in ages]
         scored = [r for r in group if r["mean"] is not None]
         # a target can set its own ages (stand density at 45 and 67, as its source measured)
-        verdict = ", ".join(r["status"] if age_of(r["target"]) in ages else f"{r['status']} at {age_of(r['target'])}: {r['mean']:.0f}" for r in scored)
+        verdict = ", ".join(word(r) if age_of(r["target"]) in ages else f"{word(r)} at {age_of(r['target'])}: {r['mean']:.0f}" for r in scored)
         share = ", ".join(f"{100 * r['share']:.0f} %" for r in scored)
         print(f"| `{name}` | {' | '.join(cells)} | {scored[0]['target_range']} | {verdict} | {share} |")
     if skipped:

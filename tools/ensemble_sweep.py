@@ -66,7 +66,7 @@ def table(values: list, label: str, base: str | None, base_value: str | None, re
                     cells.append("-")
                     continue
                 where = position_in_band(r) if key == "site_index_curves" else ""
-                cells.append(f"{r['mean']:.2f} +- {r['sd']:.2f}, {r['status']}, {100 * r['share']:.0f} %{where}")
+                cells.append(f"{r['mean']:.2f} +- {r['sd']:.2f}, {r['reads']}, {100 * r['share']:.0f} %{where}")
             print(f"| {v} | " + " | ".join(cells) + " |")
         print()
     print("Band: " + "; ".join(sorted({rows[k]['target_range'] for k in rows if key_in(k[1])})))
