@@ -220,6 +220,38 @@ def test_a_plot_is_the_same_with_the_settings_on(base):
     assert run([]) == run(LOSSLESS)
 
 
+@pytest.mark.parametrize("periodic", [(0.0, 0.0, 40, 40), None], ids=["stand", "open"])
+def test_light_by_rows_is_the_sweep_by_layers_to_float32_rounding(periodic):
+    """speed.light_rows isn't lossless: the same sums in another order (ShadowPropagation._sweep_rows, fast.sweep_rows).  Its field,
+    and the sky-only layers kept for the light under the canopy, must agree with the sweep by layers to float32 rounding: at most
+    1e-6, as the species file says (1.3e-7 on the server, 2026-11-11)."""
+    from treegen.light import SUBCANOPY_LIGHT_HEIGHTS_M, ShadowPropagation
+
+    sp, _ = cli.load_species("betula_pendula")
+    env_p, _ = cli.load_environment("sweden_open_field")
+    rng = np.random.default_rng(4)
+    leaves = rng.uniform((0.0, 0.0, 3.0), (3.0, 3.0, 6.0), (6000, 3))      # a field of about 0.4 at its densest
+    weights = rng.uniform(0.5, 3.0, len(leaves))
+    wood = np.array([[1.5, 1.5, z] for z in np.arange(0.05, 6.0, 0.1)])
+    region = np.stack([np.minimum(leaves.min(0), wood.min(0)), leaves.max(0)])
+    fields = []
+    for rows in (False, True):
+        prop = ShadowPropagation(cli.make_environment(env_p), sp.light)
+        prop.fast_layers, prop.fast_rows = True, rows
+        fields.append(prop.compute(leaves, weights, region, periodic=periodic, wood_pos=wood, wood_area=np.full(len(wood), 1e-3),
+                                   diffuse_heights=SUBCANOPY_LIGHT_HEIGHTS_M if periodic else None))
+        assert ("_tf_split" in prop.__dict__) == rows      # the rows path ran, or didn't
+    layers, by_rows = fields
+    assert layers.S.shape == by_rows.S.shape and layers.S.max() > 0.2
+    assert np.abs(layers.S - by_rows.S).max() <= 1e-6
+    if periodic:
+        assert layers.diffuse_layers.keys() == by_rows.diffuse_layers.keys()
+        for z, a in layers.diffuse_layers.items():
+            b = by_rows.diffuse_layers[z]
+            assert (a is None) == (b is None) and (a is None or np.abs(a - b).max() <= 1e-6)
+        assert any(a is not None for a in layers.diffuse_layers.values())
+
+
 # What the compiled code copies, and what it assumes.  A run only catches a drift on a path that's switched on, so these catch any
 # edit at all.  If one fails: change the copy named in the message to match, run tools/speed_drift.py on the settings in use, and
 # only then put the new hash here.

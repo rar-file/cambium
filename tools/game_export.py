@@ -6,8 +6,14 @@
     # budgets are settings; override them here or in the species file (appearance.game)
     python tools/game_export.py export --seed 5 --ages 30 --budget lod1=8000 --out out/game/test
 
+    # a quick look at the geometry: the same meshes, no map written, no far level
+    python tools/game_export.py export --seed 5 --ages 30 --no-textures --out out/game/look
+
     # for the game in Unreal 5.8: its folders, wind data and materials (docs/unreal.md)
     python tools/game_export.py export --target unreal --seed 5 --ages 15,60 --seasons summer --out out/game/unreal
+
+    # frames of a time-lapse, a year apart: without the new leaves each spring, which in a film read as shimmer
+    python tools/game_export.py export --seed 5 --ages 58,59,60 --timelapse --out out/game/film
 
     # sheets for looking at it, drawn from the exported files
     python tools/game_export.py render out/game/seed5 --prefix reports/renders/look_
@@ -21,7 +27,6 @@ Without --stand the tree grows in the open, with it in a stand (as tools/example
 """
 from __future__ import annotations
 
-import argparse
 import json
 import pickle
 import sys
@@ -35,7 +40,7 @@ sys.path.insert(0, str(ROOT))
 
 import cli  # noqa: E402
 from treegen import appearance as ap  # noqa: E402
-from treegen import checkpoint, game, mesh, preview  # noqa: E402
+from treegen import checkpoint, checks, game, mesh, preview  # noqa: E402
 from treegen import look_render as lr  # noqa: E402
 from treegen import textures as tx  # noqa: E402
 from treegen.environment import make_environment, make_soil  # noqa: E402
@@ -44,6 +49,8 @@ from treegen.growth import GrowthModel  # noqa: E402
 from treegen.params import load_environment, load_species  # noqa: E402
 
 DEFAULT_SEASONS = ("summer",)
+# what a manifest says of an export made with --no-textures
+NO_TEXTURES = {"textures": "none: a quick look at the geometry. The meshes are those of a full export; no map is in the files, and there is no far level"}
 
 
 def grow_with_leaves(species: str, seed: int, ages: list, environment: str, stand: bool, scenario: list):
@@ -74,8 +81,10 @@ def shoot_arrays(model, age: int) -> tuple:
     return pos, r
 
 
-def export_stage(model, sp, look: dict, tiles: list, age: int, snap: ap.LeafSnapshot, out: Path, seasons: list, slug: str, meta: dict, log=print) -> dict:
-    """All levels of one age, for each season.  Wood is baked once and shared between seasons."""
+def export_stage(model, sp, look: dict, tiles: list, age: int, snap: ap.LeafSnapshot, out: Path, seasons: list, slug: str, meta: dict, log=print,
+                 kept: dict | None = None, textures: bool = True) -> dict:
+    """All levels of one age, for each season.  Wood is baked once and shared between seasons.  ``kept``: one dict for a whole
+    export, which holds what is the same at every age.  ``textures`` False: the same meshes with no map in the files."""
     t0 = time.time()
     gcfg_full = look["game"]["full_mesh"]
     T = model.tree
@@ -100,11 +109,12 @@ def export_stage(model, sp, look: dict, tiles: list, age: int, snap: ap.LeafSnap
     lods = {lod["name"]: lod for lod in gcfg["lods"]}
     jpeg = int(gcfg["jpeg_quality"])
     seed = int(gcfg["texture_seed"])
-    # leaves
-    blade0 = tx.leaf_blade(look, seed + 500)
-    fill = blade0["fill"]
-    leaves = ap.leaf_instances(look, sp, snap, pos, r_wood, age, fill)
-    strips_tex = tx.strip_texture(look, seed + 600)
+    # leaves.  What depends on the look and the texture seed alone is the same at every age: made for the export's first, kept for the rest
+    kept = {} if kept is None else kept
+    if not kept:
+        kept.update(blade=tx.leaf_blade(look, seed + 500), strips=tx.strip_texture(look, seed + 600))
+    leaves = ap.leaf_instances(look, sp, snap, pos, r_wood, age, kept["blade"]["fill"])
+    strips_tex = kept["strips"]
     # the reduced wood, shared between seasons
     lod1 = next((v for v in lods.values() if v["kind"] == "reduced"), None)
     arrays1, wood1_tris, thr = None, 0, None
@@ -137,16 +147,16 @@ def export_stage(model, sp, look: dict, tiles: list, age: int, snap: ap.LeafSnap
                 parts = {"far_cards": glb.triangles}
             else:
                 arrays = arrays0 if lod["kind"] == "full" else arrays1
-                game.add_wood(glb, wood, arrays, jpeg, float(lod["stem_texture_scale"]), float(lod["atlas_scale"]))
+                game.add_wood(glb, wood, arrays, jpeg, float(lod["stem_texture_scale"]), float(lod["atlas_scale"]), textures)
                 parts = {"wood": glb.triangles}
                 if lod.get("peel_strips") and strips is not None:
-                    game.add_strips(glb, look, strips, strips_tex)
+                    game.add_strips(glb, look, strips, strips_tex, textures)
                     parts["bark_strips"] = glb.triangles - parts["wood"]
                 if ll is not None and len(leaves.node):
                     tri0 = glb.triangles
                     blade = tx.leaf_blade(look, seed + 500, game._turning(ll["mean_chlorophyll"], look["leaves"]["interveinal_lead"]))
                     if lod["leaf_kind"] == "blades":
-                        m = game._leaf_material(glb, "leaf_blade", blade, ll, jpeg)
+                        m = game._leaf_material(glb, "leaf_blade", blade, ll, jpeg, textures)
                         a = game.blades_arrays(look, leaves, ll)
                         glb.add_mesh("leaves", m, a["V"], a["N"], a["F"], a["UV"], a["T"], colour=a["colour"], attributes={"NODE_ID": a["node"], "LEAF_SUN": a["sun"], "LEAF_TURN": a["turn"]})
                     else:
@@ -154,7 +164,7 @@ def export_stage(model, sp, look: dict, tiles: list, age: int, snap: ap.LeafSnap
                         target = max((int(lod["budget"]) - glb.triangles) // 2, 1)
                         a = game.leaf_cards(look, leaves, ll, target, cards_tex["coverage"], cards_tex["grid"], crown_centre)
                         if a is not None:
-                            m = game._leaf_material(glb, "leaf_card", cards_tex, ll, jpeg)
+                            m = game._leaf_material(glb, "leaf_card", cards_tex, ll, jpeg, textures)
                             glb.add_mesh("leaf_cards", m, a["V"], a["N"], a["F"], a["UV"], a["T"], colour=a["colour"])
                             parts["leaf_area_represented_m2"] = round(a["represented_area"], 3)
                     parts["leaves"] = glb.triangles - tri0
@@ -210,6 +220,42 @@ def continuity(folder: Path, stages: list, slug: str, look: dict) -> list:
     return out
 
 
+SEASONS = ("spring", "summer", "early_autumn", "autumn", "winter")
+
+
+def check_export(a) -> None:
+    """Every argument and the output folder, before anything grows: a slip costs a second, not a run."""
+    checks.seed(a.seed)
+    if not checks.wholes("--ages", a.ages, 1, checks.YEARS_MAX):
+        raise ValueError("give --ages, e.g. 15,30,60")
+    seasons = [s.strip() for s in a.seasons.split(",") if s.strip()]
+    if not seasons or not set(seasons) <= set(SEASONS):
+        raise ValueError(f"--seasons must be some of {', '.join(SEASONS)}, not {a.seasons!r}")
+    look = ap.load_look(checks.inputs(a.species, a.environment, a.set))
+    levels = [lod["name"] for lod in look["game"]["lods"]]
+    for name in [x for x in a.levels.split(",") if x.strip()] + [x.partition("=")[0] for x in a.budget]:
+        if name not in levels:
+            raise ValueError(f"unknown level {name!r}; this species has {', '.join(levels)}")
+    for item in a.budget:
+        val = item.partition("=")[2]
+        if not (val.lower() == "none" or val.isdigit()):
+            raise ValueError(f"--budget {item!r}: give LEVEL=TRIANGLES, e.g. lod1=8000, or LEVEL=none")
+    for item in a.look:
+        key, eq, val = item.partition("=")
+        d = look
+        for part in key.split("."):
+            if not isinstance(d, dict) or part not in d:
+                raise ValueError(f"--look {key}: no such look value")
+            d = d[part]
+        try:
+            json.loads(val)
+        except ValueError:
+            raise ValueError(f"--look {key}: {val!r} isn't JSON") from None
+    if getattr(a, "timelapse", False) and any(item.partition("=")[0] == "leaves.each_year" for item in a.look):
+        raise ValueError("--timelapse sets leaves.each_year itself; leave --look leaves.each_year out")
+    checks.folder(a.out)
+
+
 def main_export(a) -> int:
     ages = sorted(int(x) for x in a.ages.split(","))
     seasons = [s.strip() for s in a.seasons.split(",") if s.strip()]
@@ -231,6 +277,10 @@ def main_export(a) -> int:
     look = ap.load_look(raw)
     if getattr(a, "levels", None):
         look["game"]["lods"] = [lod for lod in look["game"]["lods"] if lod["name"] in a.levels.split(",")]
+    textures = getattr(a, "textures", True)
+    if not textures:
+        # a quick look at the geometry: the far level is nothing but a map
+        look["game"]["lods"] = [lod for lod in look["game"]["lods"] if lod["kind"] != "far"]
     for item in a.budget:
         name, val = item.split("=")
         for lod in look["game"]["lods"]:
@@ -245,8 +295,10 @@ def main_export(a) -> int:
         if parts[-1] not in d:
             raise KeyError(f"no such look value: {key}")
         d[parts[-1]] = json.loads(val)
+    if getattr(a, "timelapse", False):
+        ap.timelapse_look(look)
     if getattr(a, "target", "generic") == "unreal":
-        return export_unreal(a, model, sp, look, snaps, ages, seasons, out)
+        return export_unreal(a, model, sp, look, snaps, ages, seasons, out, textures)
     slug = Path(a.species).stem
     meta = {"species": sp.species.scientific_name, "species_file": a.species, "environment": a.environment, "seed": a.seed, "mode": "stand" if a.stand else "open",
             "generator": "treegen tools/game_export.py"}
@@ -254,17 +306,18 @@ def main_export(a) -> int:
     t0 = time.time()
     tiles = tx.make_tiles(look)
     print(f"bark tiles made in {time.time() - t0:.1f} s; {', '.join(t.name for t in tiles)}", flush=True)
-    stages = []
+    stages, kept = [], {}
     for age in ages:
         if age > model.year:
             print(f"age {age}: the tree stopped at {model.year}", flush=True)
             continue
-        stages.append(export_stage(model, sp, look, tiles, age, snaps[age], out, seasons, slug, meta, log=lambda s: print(s, flush=True)))
+        stages.append(export_stage(model, sp, look, tiles, age, snaps[age], out, seasons, slug, meta, log=lambda s: print(s, flush=True), kept=kept, textures=textures))
     checks = check_files(out)
     doc = {
-        "continuity": continuity(out, stages, slug, look),
+        "continuity": continuity(out, stages, slug, look) if textures else [],
         "format": "treegen.game/1",
         **meta,
+        **({} if textures else NO_TEXTURES),
         "units": {"length": "m", "up_axis": "Y (glTF)", "ground": "y = 0, stem base at the origin"},
         "levels": look["game"]["lods"],
         "stages": stages,
@@ -276,7 +329,7 @@ def main_export(a) -> int:
     return 0
 
 
-def export_unreal(a, model, sp, look: dict, snaps: dict, ages: list, seasons: list, out: Path) -> int:
+def export_unreal(a, model, sp, look: dict, snaps: dict, ages: list, seasons: list, out: Path, textures: bool = True) -> int:
     """For the game: its folders, names, wind data and material setup (treegen/game_unreal.py)."""
     from treegen import game_unreal as gu
 
@@ -294,7 +347,8 @@ def export_unreal(a, model, sp, look: dict, snaps: dict, ages: list, seasons: li
         pos, r_wood = shoot_arrays(m, age)
         return skel, rad, is_root, orig, pos, r_wood
 
-    ctx = {"look": look, "model": model, "sp": sp, "out": out, "asset": asset, "meta": meta, "tiles": tiles, "snaps": snaps, "seed": a.seed, "skeleton": skeleton}
+    ctx = {"look": look, "model": model, "sp": sp, "out": out, "asset": asset, "meta": meta, "tiles": tiles, "snaps": snaps, "seed": a.seed, "skeleton": skeleton,
+           "textures": textures}
     stages = []
     for age in ages:
         if age > model.year:
@@ -303,7 +357,7 @@ def export_unreal(a, model, sp, look: dict, snaps: dict, ages: list, seasons: li
         stages.append(gu.export_stage(ctx, age, seasons, log=lambda s: print(s, flush=True)))
     checks = check_files(out)
     fragments = gu.write_fragments(out, asset, stages, float(look["game"]["unreal"]["roots"]["surface_depth_m"]))
-    doc = {"format": "treegen.game.unreal/1", **meta, "target": "unreal", "asset": asset, "bark_gains": gains, "color0": gu.COLOR0, "uv_layout": gu.UV_LAYOUT,
+    doc = {"format": "treegen.game.unreal/1", **meta, **({} if textures else NO_TEXTURES), "target": "unreal", "asset": asset, "bark_gains": gains, "color0": gu.COLOR0, "uv_layout": gu.UV_LAYOUT,
            "units": {"length": "m in the file; Unreal's import makes cm", "up_axis": "Y (glTF), (x, z, -y) of the model's frame, as the game's plants"},
            "levels": look["game"]["lods"], "stages": stages, "checks": checks, "fragments": fragments}
     (out / "game_manifest.json").write_text(json.dumps(doc, indent=1), encoding="utf-8")
@@ -573,7 +627,7 @@ def main_render(a) -> int:
 def main() -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
-    ap_ = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap_ = checks.Parser(description=__doc__.split("\n\n")[0])
     sub = ap_.add_subparsers(dest="command", required=True)
     e = sub.add_parser("export")
     e.add_argument("--species", default="betula_pendula")
@@ -591,6 +645,8 @@ def main() -> int:
     e.add_argument("--look", action="append", default=[], metavar="KEY=JSON", help="change a value in the appearance block for this export, e.g. bark.stem_texture_px=[512,2048]")
     e.add_argument("--state", default=None, help="keep the grown tree in this file, and reuse it if it's there")
     e.add_argument("--levels", default="", help="only these levels, e.g. lod0; all if left out")
+    e.add_argument("--no-textures", dest="textures", action="store_false", help="a quick look at the geometry: the same meshes, no map written, no far level")
+    e.add_argument("--timelapse", action="store_true", help="for a film of one frame a year: no new leaves each spring (leaves.each_year off), because new leaves in every frame read as shimmer")
     r = sub.add_parser("render")
     r.add_argument("folder")
     r.add_argument("--prefix", default="reports/renders/look_")
@@ -602,9 +658,16 @@ def main() -> int:
     v = sub.add_parser("values", help="where each look value comes from: SOURCE, DERIVED or TUNED")
     v.add_argument("--species", default="betula_pendula")
     a = ap_.parse_args()
-    if getattr(a, "sets", None):
-        a.set = Path(a.sets).read_text(encoding="utf-8").split() + a.set
     if a.command == "export":
+        try:
+            if a.sets:
+                try:
+                    a.set = Path(a.sets).read_text(encoding="utf-8").split() + a.set
+                except OSError as exc:
+                    raise ValueError(f"--sets {a.sets}: can't read it ({exc.strerror or exc})") from None
+            check_export(a)
+        except (ValueError, FileNotFoundError) as exc:
+            raise checks.stop("game_export.py", exc) from None
         return main_export(a)
     if a.command == "render":
         return main_render(a)

@@ -369,7 +369,7 @@ class GrowthModel:
         if not p_loss:
             return
         # Moose winter browsing clips the distal shoot down to bite_diameter_m
-        # (Mathisen et al. 2017: 2.16 +- 0.15 mm on B. pendula)
+        # (Mathisen et al. 2017: 2.16 +- 0.15 mm, measured on B. pubescens; used for B. pendula)
         ax = int(T.axis[tip])
         shoot_nodes = []
         curr = tip
@@ -542,6 +542,33 @@ class GrowthModel:
     def stems_per_ha(self, height: float) -> float:
         s = self.stand_spacing(height)
         return 2.0 * 10000.0 / (math.sqrt(3.0) * s * s)
+
+    def stem_top_m(self) -> float:
+        """The stem's own top now (m): the height of the last node of the stem (Tree.trunk_chain), which is what the height curve limits.  height_m in the
+        yearly stats is the tree's highest living point, and a limb's second top or fork can stand above the stem (reports/design/2026-11-12_height_faults.md)."""
+        T = self.tree
+        return float(T.pos[int(T.trunk_chain(self.leader_axes)[-1]), 2])
+
+    def stem_top_measured(self) -> float:
+        """The stem's top as the last yearly row measured it, at the moment that row's height_m was read (measure() keeps it while log.stem_tops or
+        stand.thinning_on_stem_top is on); for a tree that has none kept, as it is now."""
+        kept = getattr(self, "_stem_top_m", None)
+        return self.stem_top_m() if kept is None else kept
+
+    def _schedule_height(self, highest: float, measured: bool = False) -> float:
+        """The height a stand tree's thinning schedule (stand.thinning) is read at, for every place that reads it: the light's neighbours (_stand_cell), the
+        soil water's leaf area, the wind's load, a limb's reach (_frame_goal), damage (damage.state_from_model) and the yearly stats' spacing and leaf
+        area index.  As it has been: `highest`, the tree's highest living point as that place reads it, anew at every reading.  Two corrections of that
+        bookkeeping, both off by default (species block stand; neither is a value from a source):
+        thinning_on_stem_top reads the stem's own top instead: as it is now, or with `measured` as the last yearly row measured it, for the places that
+        read the height from that row.  thinning_stays reads the greatest height the schedule has been read at so far, so a row once reached is kept."""
+        st = self.sp.stand
+        h = highest
+        if getattr(st, "thinning_on_stem_top", False):
+            h = self.stem_top_measured() if measured else self.stem_top_m()
+        if getattr(st, "thinning_stays", False):
+            h = self._schedule_reached = max(h, getattr(self, "_schedule_reached", h))
+        return h
 
     def _random_stand_map(self, rng) -> list:
         """Neighbours of the focal tree in one square periodic cell of
@@ -749,7 +776,7 @@ class GrowthModel:
             field = self._plot_view
         elif self.stand:
             height = float(T.pos[:n0][alive, 2].max())
-            cpos, cw, cell, c_wpos, c_warea = self._stand_cell(src, src_w, height, wpos, warea)
+            cpos, cw, cell, c_wpos, c_warea = self._stand_cell(src, src_w, self._schedule_height(height), wpos, warea)
             old = getattr(self, "_field", None)
             if (t - 1) % fast.light_every(sp) != 0 and old is not None and old.S.shape[:2] == (cell[2], cell[3]):
                 field = old     # lossy, speed.light_every: last year's light
@@ -892,7 +919,7 @@ class GrowthModel:
             la_tot_est = float(bud_leaf.sum())
             if self.stand:
                 height = float(T.pos[:n0][alive, 2].max()) if alive.any() else 0.0
-                stand_lai = la_tot_est * (self.stems_per_ha(height) / 10000.0)
+                stand_lai = la_tot_est * (self.stems_per_ha(self._schedule_height(height)) / 10000.0)
             else:
                 d_proj = float(self.stats[-1].get("crown_projected_diameter_m") or 0.0) if self.stats else 0.0
                 stand_lai = la_tot_est / (math.pi * d_proj * d_proj / 4.0) if d_proj > 0 else 0.0
@@ -1681,7 +1708,7 @@ class GrowthModel:
         bc = max(0.5 * (float(np.ptp(xy[:, 0])) + float(np.ptp(xy[:, 1]))), 0.1) if len(xy) > 1 else 0.1
         cb = float((self.stats[-1].get("crown_base_height_m") if self.stats else None) or 0.0)
         dc = max(h - cb, 0.1)
-        D = float(getattr(self, "_plot_spacing", 0.0) or (math.sqrt(10000.0 / self.stems_per_ha(h)) if self.stand else max(bc, h)))
+        D = float(getattr(self, "_plot_spacing", 0.0) or (math.sqrt(10000.0 / self.stems_per_ha(self._schedule_height(h))) if self.stand else max(bc, h)))
         u_h = float(wl.wind_speed_m_s)
         if stage_b:
             st = self.sp.pipe_model.stem_theory
@@ -2319,7 +2346,7 @@ class GrowthModel:
         overlap = getattr(cf, "spacing_overlap", None)
         if overlap:
             # neighbours: a limb that meets the next crown stops there.  The spacing here is the stand's mean, not this tree's own gap
-            spacing = float(getattr(self, "_plot_spacing", 0.0) or (self.stand_spacing(h) if self.stand else 0.0))
+            spacing = float(getattr(self, "_plot_spacing", 0.0) or (self.stand_spacing(self._schedule_height(h, measured=True)) if self.stand else 0.0))
             if spacing > 0.0:
                 reach_max = min(reach_max, 0.5 * float(overlap) * spacing)
         depth = np.clip((h - T.pos[base, 2]) / crown, 0.0, 1.0)
@@ -2552,8 +2579,14 @@ class GrowthModel:
         q_canopy = q / max(herb, 1e-9)
         f_light = min(1.0, q_canopy / float(hd.light_full)) ** float(hd.light_exponent)
         f_water = min(1.0, max(opening, 0.0) / float(hd.water_full))
-        ref_alpha = getattr(hd, "reference_alpha", None)
-        vigour = float(self.sp.resource.alpha) / float(ref_alpha) if ref_alpha else 1.0
+        status = getattr(self, "_height_status", None)
+        if status is not None:
+            # plot.height_status, off by default: the tree's standing among its neighbours, set by its plot each year
+            # (treegen/height_status.py), in place of its drawn vigour, which then stays in its carbon only
+            vigour = float(status)
+        else:
+            ref_alpha = getattr(hd, "reference_alpha", None)
+            vigour = float(self.sp.resource.alpha) / float(ref_alpha) if ref_alpha else 1.0
         inc = self._curve_height(t) - self._curve_height(t - 1)
         alone = getattr(hd, "open_grown_share", None)
         if alone and not self.stand and getattr(self, "_plot_view", None) is None:
@@ -3174,6 +3207,12 @@ class GrowthModel:
             tips[0] = False
             hr = run[tips]
             hanging = hr[hr >= float(self.sp.stats.hanging_twig_min_length)]
+        if logs.on(self.sp, "stem_tops") or getattr(getattr(self.sp, "stand", None), "thinning_on_stem_top", False):
+            # only read: the stem's own top at the moment this row's height is read, for the records (log.stem_tops) and for a schedule read on stem tops.
+            # Kept on the model, never in the row: stats.json is the same with the record on or off
+            self._stem_top_m = self.stem_top_m()
+        # the height the stand's schedule is read at for this row's spacing and leaf area index: the highest living point, unless a switch says otherwise
+        at = self._schedule_height(height, measured=True) if self.stand else height
         return {
             "year": int(self.year),
             "height_m": round(height, 4),
@@ -3195,11 +3234,11 @@ class GrowthModel:
             "mean_hanging_twig_length_m": round(float(hanging.mean()), 4) if hanging.size else 0.0,
             "p90_hanging_twig_length_m": round(float(np.percentile(hanging, 90)), 4) if hanging.size else 0.0,
             "max_hanging_twig_length_m": round(float(hanging.max()), 4) if hanging.size else 0.0,
-            "stand_spacing_m": round(self.stand_spacing(height), 3) if self.stand else None,
+            "stand_spacing_m": round(self.stand_spacing(at), 3) if self.stand else None,
             # leaf area index: the tree's leaf area over the ground area it
             # holds at the current stem density (stand), or over its crown
             # projection (open-grown)
-            "lai": round(total_leaves * self.light.leaf_area * self.stems_per_ha(height) / 10000.0, 3) if self.stand
+            "lai": round(total_leaves * self.light.leaf_area * self.stems_per_ha(at) / 10000.0, 3) if self.stand
             else (round(total_leaves * self.light.leaf_area / max(math.pi * hull_d * hull_d / 4.0, 1e-6), 3) if hull_d > 0 else None),
             # relative light (%) at 1.0-2.0 m under the stand canopy this
             # season (light.SUBCANOPY_LIGHT_HEIGHTS_M); stand runs only

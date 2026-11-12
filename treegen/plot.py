@@ -40,7 +40,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import damage, fast, logs
+from . import damage, death_by_standing, fast, height_status, logs
 from .growth import GrowthModel
 from .light import SUBCANOPY_LIGHT_HEIGHTS_M
 from .regeneration import Regeneration, SpreadRegeneration
@@ -128,6 +128,11 @@ class Plot:
         if bool(getattr(pp, "height_follows_dominants", False)) and getattr(hd0, "reference_alpha", None):
             self._hd_own = copy.copy(hd0)
             self._hd_ref0 = float(hd0.reference_alpha)
+        # plot.height_status, off by default: each tree's height step by its standing among its neighbours, a published rule
+        # in place of its drawn vigour (treegen/height_status.py).  Set only when on, so a plot without it is as it was
+        hs = getattr(pp, "height_status", None)
+        if hs is not None and bool(getattr(hs, "enabled", False)):
+            self._status_cfg = hs
         shared_soil = make_soil() if self.lean else None
         for k in range(n0):
             sp_k = self._tree_species(species)
@@ -177,6 +182,10 @@ class Plot:
             self.mort.old_age_elsewhere = damage._is_on(species) and bool(getattr(species.damage.old_age, "enabled", False))
             self.mort_rng = np.random.default_rng([seed, 5381])
             self.rings = {}
+            # mortality.rule, crowding (today's) by default; birch_2002 is death by standing (treegen/death_by_standing.py)
+            rule = str(getattr(mp, "rule", "crowding"))
+            if rule not in death_by_standing.RULES:
+                raise ValueError(f"mortality.rule must be one of {death_by_standing.RULES}, not {rule!r}")
 
     def _sides(self):
         """The plot's two sides (m)."""
@@ -229,6 +238,27 @@ class Plot:
         v = float(np.mean([float(self.trees[ks[i]].sp.resource.alpha) for i in top])) / float(self.species.resource.alpha)
         self._dominant_vigour = v
         self._hd_own.reference_alpha = self._hd_ref0 * v
+
+    def _height_status(self):
+        """plot.height_status: every living tree's status for this year's height step, from the stand as its tree list
+        holds it at the end of last year (DBH over bark to 0.01 cm, 0 for none; height to 0.001 m).  Kept on each tree
+        (GrowthModel._height_status, read by _height_limit_plan), never on the plot's shared height_driver; the plot-year's
+        record goes into the year's stats as height_status."""
+        ks = list(self.alive)
+        if not ks:
+            return
+        bark = getattr(getattr(self.species, "mortality", None), "bark_double_mm", logs.BARK)
+        last = [self.trees[k].stats[-1] if self.trees[k].stats else None for k in ks]
+        d = [0.0 if r is None or r.get("dbh_cm") is None else round(float(over_bark_cm(r["dbh_cm"], bark)), 2) for r in last]
+        h = [0.0 if r is None else round(float(r["height_m"]), 3) for r in last]
+        out = height_status.plot_year(self._status_cfg, d, h, self.area, float(self.year), self.trees[ks[0]]._curve_height,
+                                      float(self.species.height_driver.catch_up), getattr(self, "_status_started", False))
+        self._status_started = out["started"]
+        self._status_row = out["row"]
+        for i, k in enumerate(ks):
+            m = self.trees[k]
+            m._height_status = float(out["status"][i])
+            m._height_status_rec = {"height_" + name: (None if out[name] is None else float(out[name][i])) for name in ("modifier", "ratio", "rdfl")}
 
     @staticmethod
     def _lighten(m, light):
@@ -393,6 +423,8 @@ class Plot:
         h_canopy = max((self.trees[k].stats[-1]["height_m"] for k in active if self.trees[k].stats), default=0.0)
         if getattr(self, "_hd_own", None) is not None:
             self._height_reference()
+        if getattr(self, "_status_cfg", None) is not None:
+            self._height_status()
         # plot.spacing_min_height_share, off by default (null): the spacing that stops a limb's reach and sets the wind's
         # load counts only trees at least this share of the canopy top's height, so seedlings and suppressed trees under
         # a canopy don't shrink the big trees' crowns.  Null: every living tree counts, as it has been
@@ -426,6 +458,8 @@ class Plot:
         self.stats.append(self.measure())
         if log:
             self._log_year()
+        if logs.on(self.species, "stem_tops"):
+            self._log_stem_tops()
 
     def _dbh(self, k):
         d = self.trees[k].dbh_m()
@@ -437,7 +471,11 @@ class Plot:
         if not self.alive:
             return
         n_dom = max(1, int(round(100 * self.area / 1e4)))
-        h = sorted((self.trees[k].stats[-1]["height_m"] for k in self.alive), reverse=True)[:n_dom]
+        if getattr(self.species.stand, "thinning_on_stem_top", False):
+            # stand.thinning_on_stem_top, off by default: the programme is read on the stems' own tops, as a stand tree's schedule then is
+            h = sorted((self.trees[k].stem_top_measured() for k in self.alive), reverse=True)[:n_dom]
+        else:
+            h = sorted((self.trees[k].stats[-1]["height_m"] for k in self.alive), reverse=True)[:n_dom]
         hdom = float(np.mean(h))
         target = None
         for h0, dens in self.stages:
@@ -497,9 +535,47 @@ class Plot:
             rings[n] = M.ring_mm(h)
         xy = np.array([self._offset(k)[:2] for k in now])
         age = np.array([self.trees[k].year for k in now], float)
+        if str(getattr(M.p, "rule", "crowding")) == "birch_2002":
+            self._death_by_standing(now, d, rings, xy, age)
+            return
         hz = M.hazards(xy, d, rings, age, float(self.year))
         self._rd_mean = float(hz["rd"].mean())
         for n, cause in M.draw(hz, self.mort_rng):
+            self._finish(now[n], cause)
+
+    def _death_by_standing(self, now, d, rings, xy, age):
+        """mortality.rule birch_2002 (treegen/death_by_standing.py): from its start, each tree's yearly hazard is Hynynen et
+        al. 2002's Eq. 47, raised where the stand is over the silver birch self-thinning line, plus old age as today; the
+        crowding, suppressed and background hazards are not used.  Before the start, today's hazards, drawn as today.  Both
+        draw from the plot's mortality stream.  The stand is read as a tree list holds it: DBH over bark to 0.01 cm (d is
+        wood DBH, cm), height to 0.001 m.  With log.stand on, the plot-year and each tree's hazard go into stand_log."""
+        M = self.mort
+        p = M.p.birch_2002
+        line = self.species.plot.height_status.birch_2002
+        state = self.__dict__.setdefault("_standing", {"started": False, "start_year": None, "line_prev": None})
+        ob = np.round(over_bark_cm(d, M.bark), 2)
+        h = np.round(np.array([float(self.trees[k].stats[-1]["height_m"]) for k in now]), 3)
+        old = np.zeros(len(now)) if getattr(M, "old_age_elsewhere", False) else M.old_age_rate(age)
+        out = death_by_standing.plot_year(p, line, ob, h, old, self.area, float(self.year), state)
+        if not out["started"]:
+            hz = M.hazards(xy, d, rings, age, float(self.year))
+            self._rd_mean = float(hz["rd"].mean())
+            died = M.draw(hz, self.mort_rng)
+        else:
+            # the neighbourhood's relative density stays in the yearly stats as a reading (treegen/thinning.py); it kills no tree
+            i, j = M.hood.cells(xy)
+            self._rd_mean = float(M.relative_density(over_bark_cm(d, M.bark), i, j).mean())
+            died = death_by_standing.draw(out["hazards"], self.mort_rng)
+        if logs.on(self.species, "stand"):
+            row = dict(out["row"])
+            counts = {}
+            for _, cause in died:
+                counts[cause] = counts.get(cause, 0) + 1
+            row["deaths"] = counts
+            if out["trees"] is not None:
+                row["trees"] = {"id": [int(k) for k in now], **out["trees"]}
+            self._log_row()["death_rule"] = row
+        for n, cause in died:
             self._finish(now[n], cause)
 
     def open_gap(self, x: float, y: float, radius: float) -> int:
@@ -526,6 +602,10 @@ class Plot:
             row = self.trees[k].stats[-1]
             self.info[k]["last"] = {"age_years": self.trees[k].year, "height_m": row["height_m"], "dbh_cm": row.get("dbh_cm"),
                                     "crown_base_height_m": row.get("crown_base_height_m"), "crown_width_m": row.get("crown_width_m")}
+        if logs.on(self.species, "stem_tops"):
+            # log.stem_tops, only read: the tree's stem top as its last yearly row measured it, for a list of the stand.  Kept beside info, not in
+            # it, so a plot.json that holds info (--tree-table) is the same with the log on or off
+            self.__dict__.setdefault("stem_tops_gone", {})[k] = self.trees[k].stem_top_measured()
         self.alive.remove(k)
         if getattr(self, "mort", None) is not None:
             self.rings.pop(k, None)
@@ -588,6 +668,17 @@ class Plot:
                     "top_height_trees": round(counted, 3),
                     "top_height_mean_m": None if simple is None else round(simple, 4),
                     "lai": round(la / self.area, 4), "lai_lit": None if lit is None else round(lit / self.area, 4)})
+
+    def _log_stem_tops(self):
+        """log.stem_tops, only reads: the year's row of stem_log, once the year is done.  Top height on the approved definition and the spread of
+        height, each on the trees' heights (their highest living points) and on their stems' own tops, from the diameters and heights a tree list
+        holds, as _log_year's (treegen/logs.py stem_top_row).  A stem's top is as its tree's last yearly row measured it, beside that row's height."""
+        bark = getattr(getattr(self.species, "mortality", None), "bark_double_mm", logs.BARK)
+        last = [self.trees[k].stats[-1] for k in self.alive]
+        d = [0.0 if r.get("dbh_cm") is None else round(float(over_bark_cm(r["dbh_cm"], bark)), 2) for r in last]
+        h = [round(float(r["height_m"]), 3) for r in last]
+        stem = [round(float(self.trees[k].stem_top_measured()), 3) for k in self.alive]
+        self.__dict__.setdefault("stem_log", []).append(logs.stem_top_row(self.year, d, h, stem, self.area))
 
     # -- checkpoints ------------------------------------------------------
     def checkpoint(self, out_dir) -> None:
@@ -677,6 +768,9 @@ class Plot:
             row.update(self._stand_row(d, h))
         if getattr(self, "_hd_own", None) is not None:
             row["dominant_vigour"] = round(float(getattr(self, "_dominant_vigour", 1.0)), 4)
+        if getattr(self, "_status_row", None) is not None:
+            # plot.height_status: the rule's plot-year, as it set this year's steps (treegen/height_status.py plot_year)
+            row["height_status"] = dict(self._status_row)
         if getattr(self, "regen", None) is not None:
             # everything above counts the recruits too
             row["recruits_alive"] = sum(1 for k in self.alive if self.info[k].get("recruit"))

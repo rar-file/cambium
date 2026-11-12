@@ -26,10 +26,10 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from treegen import checkpoint, export, mesh, preview
+from treegen import checkpoint, checks, export, mesh, preview
 from treegen.environment import make_environment, make_soil
 from treegen.growth import GrowthModel
-from treegen.params import ROOT, load_environment, load_species, run_manifest
+from treegen.params import ROOT, SettingError, load_environment, load_species, run_manifest
 from treegen.reference import reference_block
 
 CROWN_ATTRS = ["birth_year", "death_year", "branch_order", "radius", "node_id"]
@@ -370,8 +370,24 @@ def _sizes(out: Path) -> dict:
     return files
 
 
+def _check(args, out: Path) -> None:
+    """Every argument and the output folder, before anything grows: a slip costs a second, not a run."""
+    checks.seed(args.seed)
+    checks.years(args.years)
+    checks.positive("--chunk-vertices", args.chunk_vertices)
+    checks.wholes("--preview-ages", args.preview_ages, 0)
+    checks.wholes("--shaded-ages", args.shaded_ages, 0)
+    checks.wholes("--save-at", args.save_at, 1, args.years)
+    if args.resume_state:
+        if not Path(args.resume_state).is_file():
+            raise ValueError(f"--resume-state: no file {args.resume_state}")
+    else:
+        checks.inputs(args.species, args.environment, args.set)
+    checks.folder(out)
+
+
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = checks.Parser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--species", default="betula_pendula")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--years", type=int, default=60)
@@ -394,12 +410,18 @@ def main(argv=None) -> int:
         args.no_mesh = args.no_preview = True
 
     out = Path(args.out) / (f"{args.seed}_stand" if args.stand else str(args.seed))
-    out.mkdir(parents=True, exist_ok=True)
+    try:
+        _check(args, out)
+    except (ValueError, FileNotFoundError) as exc:
+        raise checks.stop("cli.py", exc) from None
     timings, memory = {}, {}
     t0 = time.time()
-    model, sp = grow(args.species, args.seed, args.years, args.environment, stand=args.stand, verbose=not args.quiet,
-                     lean=args.lean, save_at=[int(x) for x in args.save_at.split(",") if x.strip()],
-                     state_dir=out / "states", resume_state=args.resume_state, scenario=args.set)
+    try:   # a --set after --resume-state is checked on the saved values, before the first year grows
+        model, sp = grow(args.species, args.seed, args.years, args.environment, stand=args.stand, verbose=not args.quiet,
+                         lean=args.lean, save_at=checks.wholes("--save-at", args.save_at, 1, args.years),
+                         state_dir=out / "states", resume_state=args.resume_state, scenario=args.set)
+    except SettingError as exc:
+        raise checks.stop("cli.py", exc) from None
     timings["growth_s"] = round(time.time() - t0, 1)
     memory["after_growth_mb"] = peak_memory_mb()
     meta = {

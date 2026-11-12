@@ -8,7 +8,6 @@ report ages (default 50 and 60), plus runtime and peak memory.
 """
 from __future__ import annotations
 
-import argparse
 import json
 import sys
 import time
@@ -17,6 +16,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+
+from treegen import checkpoint, checks  # noqa: E402
+from treegen.params import load_species  # noqa: E402
 
 KEYS = ("height_m", "dbh_cm", "crown_width_m", "crown_base_height_m", "crown_ratio", "living_internodes",
         "leaf_area_m2", "mean_hanging_twig_length_m")
@@ -91,8 +93,39 @@ def summarize(results: list[dict]) -> dict:
     return out
 
 
+def _check(a) -> None:
+    """Every argument and the output file's folder, before anything grows."""
+    try:
+        seeds = _seeds(a.seeds)
+    except ValueError:
+        seeds = []
+    if not seeds:
+        raise ValueError(f"--seeds must be like 1-10 or 1,3,5, not {a.seeds!r}")
+    for s in seeds:
+        checks.seed(s, "--seeds")
+    modes = a.modes.split(",")
+    if not set(modes) <= {"open", "stand"}:
+        raise ValueError(f"--modes must be open, stand or open,stand, not {a.modes!r}")
+    checks.years(a.years)
+    checks.whole("--workers", a.workers, 1)
+    checks.positive("--factor", a.factor)
+    if a.kind == "nudge":
+        if not a.param:
+            raise ValueError("nudge needs --param, e.g. resource.alpha")
+        sp, _ = load_species("betula_pendula")
+        old = sp
+        for part in a.param.split("."):
+            old = getattr(old, part, None)
+        checkpoint.set_values(sp, [f"{a.param}=null"])  # refuses a name that isn't there, with the nearest ones
+        if not all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in (old if isinstance(old, list) else [old])):
+            raise ValueError(f"--param {a.param} is {old!r}; nudge multiplies a number or a list of numbers")
+    if Path(a.out).is_dir():
+        raise ValueError(f"--out is a file to write, and {a.out} is a folder")
+    checks.folder(Path(a.out).parent)
+
+
 def main(argv=None):
-    ap = argparse.ArgumentParser()
+    ap = checks.Parser()
     ap.add_argument("kind", choices=["seeds", "nudge"])
     ap.add_argument("--seeds", default="1-10")
     ap.add_argument("--modes", default="open,stand")
@@ -102,6 +135,10 @@ def main(argv=None):
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--out", required=True)
     a = ap.parse_args(argv)
+    try:
+        _check(a)
+    except (ValueError, FileNotFoundError) as exc:
+        raise checks.stop("sweep.py", exc) from None
     jobs = [{"seed": s, "mode": m, "years": a.years, "param": a.param, "factor": a.factor, "ages": [50, 60]}
             for m in a.modes.split(",") for s in _seeds(a.seeds)]
     with ProcessPoolExecutor(max_workers=a.workers) as ex:

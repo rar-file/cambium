@@ -1,4 +1,4 @@
-"""Compiled copies of hot passes, for the species file's ``speed`` settings (all off by default).
+"""Compiled copies of hot passes, for the species file's ``speed`` settings (birch's file turns on the six that keep the same bits).
 
 Each one repeats the numpy expressions it replaces operation for operation, so a run gives the same bits with the setting on
 or off: tests/test_speed.py checks each kernel against its numpy form, and tools/golden.py checks whole runs.  What makes that

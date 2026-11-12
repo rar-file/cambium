@@ -59,7 +59,7 @@ https://github.com/user-attachments/assets/e2807019-4082-4453-aa3e-8a605fc22181
     <td width="50%" valign="top">
       <img src="docs/media/autumn.webp" alt="The 60-year birch and the forest edge in autumn yellow, path-traced in Unreal">
       <h3>Seasons and age</h3>
-      Spring leaf-out to autumn yellow and bare winter. Bark whitens as the tree ages and darkens at the base.
+      Spring leaf-out to autumn yellow and bare winter, with new leaves each spring: no leaf hangs quite as it did the year before. Bark whitens as the tree ages and darkens at the base.
     </td>
   </tr>
   <tr>
@@ -122,7 +122,7 @@ Grown forests are compared with measured stands in Germany, Estonia, Finland and
 
 | Measure | Age 50 | Age 60 | Real figure | What kind of check |
 |---|---|---|---|---|
-| Top height | 21.4 m | 23.1 m | 21.95 / 23.75 m (site curve) | by design, not a test |
+| Top height | 21.4 m | 23.1 m | 21.95 / 23.75 m (site curve) | by design for the stem's own top, not a test |
 | Light under the canopy | 18.2 % | 19.5 % | 6.4-19.8 % | tuned against |
 | Leaf area index | 4.51 | 4.29 | at most 4.5 (Baltic stands) | tuned against; misses by 0.01 at 50 |
 | Branch wood over Repola's equation for crown parts (A3), stand trees | 1.48 | 1.78 | 1.00, his branches with bark | tuned against; a miss |
@@ -131,9 +131,15 @@ Grown forests are compared with measured stands in Germany, Estonia, Finland and
 No independent test applies at 50 or 60 years yet, so none has been passed: the scored checks are built in or tuned to, and the untuned spread rests on one stand per age.
 An independent review, a full audit and the fresh run are in [`reports/`](reports/).
 
-**Known faults:** the twigs hang far more than a wild silver birch's do; the forest is too even (trees too alike
-in size); branches carry too much wood; young crowns are too long for their age (crown ratio 0.82-0.97 at 11-22 years against 0.30-0.45, a band whose source is not yet opened); forests carry less basal area than unthinned real stands; young forests are leafier than Baltic measurements; old forests past 100
-years are not sound yet. Everything we know about is in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
+**Known faults:** the twigs hang about twice as much as a wild silver birch's do, measured against photos, and never
+branch (a stiffer twig setting is in forest tests); the forest is too even, and its trees die almost at random where
+real ones die small (a published survival rule is built, off by default, and in test); branches carry too much wood,
+and a stand tree's thickest limbs are about twice as thick as measured ones; a tree's height is read at its highest
+point, which a side top can lift up to 2 m above the stem that the site curve drives; young crowns are too long for
+their age (crown ratio 0.82-0.97 at 11-22 years against 0.30-0.45, a band whose source is not yet opened); forests
+carry less basal area than unthinned real stands; young forests are leafier than Baltic measurements; old forests
+past 100 years are not sound yet. Everything we know about is in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md), and each
+finding with its numbers is in [`DECISIONS.md`](DECISIONS.md) and [`reports/design/`](reports/design/).
 
 ## Roadmap
 

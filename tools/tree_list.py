@@ -15,6 +15,14 @@ and branch wood and stem volume, its leaf area counted two more ways, the light 
 held its leader this year, and the years it couldn't pay its sapwood (treegen/logs.py tree_record).  A
 living tree has them always.  A dead one has the first two always and the rest only from a run with
 log.stand on, which keeps each tree as it went.
+
+From a plot with plot.height_status on (treegen/height_status.py), each tree also has the status that
+multiplied its height step this year and how the rule worked it out, and the list's header the rule's
+plot-year (height_status_year).  A list from a plot without the switch has none of these.
+
+From a plot with log.stem_tops on (treegen/logs.py, 2026-11-12), each tree also has stem_top_m beside height_m: the
+top of its stem, where height_m is its highest living point, which can be a limb's.  Both are as the tree's last
+yearly row measured them.  A list from a plot without the log has no such column.
 """
 from __future__ import annotations
 
@@ -39,6 +47,8 @@ def _row(id_: int, x: float, y: float, species: str, last: dict, bark, info: dic
     info = info or {}
     return {"id": id_, "x_m": round(x, 3), "y_m": round(y, 3), "species": species, "age_years": int(last["age_years"]),
             "height_m": round(float(last["height_m"]), 3),
+            # log.stem_tops, only from a plot with it on: the stem's own top beside the height, which is the highest living point
+            **({"stem_top_m": None if last["stem_top_m"] is None else round(float(last["stem_top_m"]), 3)} if "stem_top_m" in last else {}),
             "dbh_cm": None if wood is None else round(float(over_bark_cm(wood, bark)), 2),
             "crown_base_m": None if last.get("crown_base_height_m") is None else round(float(last["crown_base_height_m"]), 3),
             "crown_width_m": round(float(last.get("crown_width_m") or 0.0), 3),
@@ -66,12 +76,21 @@ def _six(v):
     return v if v is None or isinstance(v, int) else float(f"{float(v):.6g}")
 
 
+# plot.height_status, only from a plot with it on (treegen/height_status.py): the status that multiplied the tree's height step
+# this year, the rule's modifier before the dominants' mean divided it, d over the dominants' diameter as the rule held it, and
+# (rule birch_2002) the relative density factor of the larger trees.  Columns a list without the switch doesn't have at all.
+STATUS = ("height_status", "height_modifier", "height_ratio", "height_rdfl")
+
+
 def _more(record: dict | None) -> dict:
     """A record's columns; null for a row with no record."""
     if record is None:
         return {k: None for k in MORE}
     got = {**record, "stem_kg": record["stem_m3"] * DENSITY, "branch_kg": record["branch_m3"] * DENSITY}
-    return {k: _six(got.get(k)) for k in MORE}
+    out = {k: _six(got.get(k)) for k in MORE}
+    if "height_status" in record:
+        out.update({k: _six(record.get(k)) for k in STATUS})
+    return out
 
 
 def _base_wood_cm(model, at_m: float = 0.05):
@@ -89,10 +108,13 @@ def last_year_of(model) -> dict:
     """What a list needs from a living tree's last yearly row."""
     s = model.stats[-1]
     c = s.get("carbon") or {}
-    return {"age_years": model.year, "height_m": s["height_m"], "dbh_cm": s.get("dbh_cm"),
-            "crown_base_height_m": s.get("crown_base_height_m"), "crown_width_m": s.get("crown_width_m"),
-            "leaf_area_m2": s.get("leaf_area_m2"), "leaf_dm_g": c.get("leaf_dm_g"), "d0_wood_cm": _base_wood_cm(model),
-            "lowest_live_branch_m": s.get("lowest_live_branch_m"), "carbon_fixed": c.get("fixed"), "carbon_sink_limited": c.get("sink_limited")}
+    out = {"age_years": model.year, "height_m": s["height_m"], "dbh_cm": s.get("dbh_cm"),
+           "crown_base_height_m": s.get("crown_base_height_m"), "crown_width_m": s.get("crown_width_m"),
+           "leaf_area_m2": s.get("leaf_area_m2"), "leaf_dm_g": c.get("leaf_dm_g"), "d0_wood_cm": _base_wood_cm(model),
+           "lowest_live_branch_m": s.get("lowest_live_branch_m"), "carbon_fixed": c.get("fixed"), "carbon_sink_limited": c.get("sink_limited")}
+    if logs.on(model.sp, "stem_tops"):
+        out["stem_top_m"] = model.stem_top_measured()
+    return out
 
 
 def tree_list(plot, dead_years: int = 10, run: dict | None = None) -> dict:
@@ -101,6 +123,18 @@ def tree_list(plot, dead_years: int = 10, run: dict | None = None) -> dict:
     bark = getattr(getattr(plot.species, "mortality", None), "bark_double_mm", BARK)
     sides = plot._sides()
     went = getattr(plot, "tree_log", None) or {}      # log.stand: each tree that went, as it stood
+    status = {}
+    if getattr(plot, "_status_cfg", None) is not None:
+        status = {"height_status": "plot.height_status (treegen/height_status.py), rule " + str(plot._status_cfg.rule) + ": height_status multiplied the "
+                                   "tree's height step this year in place of its drawn vigour; height_modifier is the rule's modifier before the dominants' "
+                                   "mean divided it, height_ratio d over the dominants' diameter as the rule held it, height_rdfl the relative density "
+                                   "factor of the larger trees (rule birch_2002); all from the stand at the end of the year before",
+                  "height_status_year": dict(getattr(plot, "_status_row", None) or {})}
+    stem = logs.on(plot.species, "stem_tops")
+    gone = getattr(plot, "stem_tops_gone", None) or {}      # log.stem_tops: the stem top of each tree that went, as its last yearly row measured it
+    stem_note = {"stem_top": "stem_top_m (log.stem_tops): the top of the tree's stem, the last node of the leader chain, which is what the height curve limits; "
+                             "height_m is the tree's highest living point, which can be a limb's second top or fork above the stem; both as the tree's "
+                             "last yearly row measured them"} if stem else {}
     trees = []
     for k in plot.alive:
         i = plot.info[k]
@@ -109,7 +143,8 @@ def tree_list(plot, dead_years: int = 10, run: dict | None = None) -> dict:
         removed = i.get("removed")
         if removed is None or removed <= plot.year - dead_years or "last" not in i:
             continue
-        trees.append(dict(_row(i["id"], i["x"], i["y"], species, i["last"], bark, i, went.get(i["id"])), alive=False, died_year=removed, cause=i.get("cause")))
+        last = dict(i["last"], stem_top_m=gone.get(i["id"])) if stem else i["last"]
+        trees.append(dict(_row(i["id"], i["x"], i["y"], species, last, bark, i, went.get(i["id"])), alive=False, died_year=removed, cause=i.get("cause")))
     return {"plot_year": plot.year, "years_since_stand_began": plot.year, "side_x_m": sides[0], "side_y_m": sides[1], "area_m2": plot.area,
             "repeats_at_edges": True, "origin": "centre of the plot", "dbh": "over bark at 1.3 m, tools/bark.py; null below 1.3 m",
             "crown_width": "mean of the widths along x and y",
@@ -120,7 +155,7 @@ def tree_list(plot, dead_years: int = 10, run: dict | None = None) -> dict:
                       "sapwood_short_years: years the pool didn't cover the year's must-haves",
             "germination": "germination_year: the plot year after which the tree's first season came, so its age is the plot year less this; "
                            "vigour: its drawn factor on carbon gain (plot.vigour_sd), to 4 places",
-            "seed": plot.seed, "mode": plot.mode, "run": run or {},
+            **status, **stem_note, "seed": plot.seed, "mode": plot.mode, "run": run or {},
             "trees_alive": len(plot.alive), "trees": trees}
 
 

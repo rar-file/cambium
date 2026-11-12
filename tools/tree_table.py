@@ -19,6 +19,12 @@ the year had to pay against its pool, and leaf area counted three ways; tree.jso
 its sapwood.  With --set log.rings=true each year also has its ring carbon split into stem and branch, sapwood and wind,
 and limbs.json has every limb every year: wood, leaf area and its rings' carbon; with --set shedding.log_limbs=true as
 well, what its own leaves fixed against its upkeep.  Both settings leave stats.json as it is without them.
+With --set shedding.log_limbs=true (2026-11-12) limb_light.json has, beside limbs.json and row for row with it, each
+limb's light as the shedding test read it, whether it is a plain limb, a reiterated one or the second top, and how many
+fork axes it carries (tools/limb_wood.py LIGHT_WHAT); limbs.json is as it is without it.  With --open the tree grows
+in the open, as tools/hang_run.py --open grows it.
+With --set log.stem_tops=true (2026-11-12) each year of tree.json also has stem_top_m, the stem's own top, beside the
+height_m of that year in stats.json, which is the tree's highest living point; stats.json is as it is without it.
 
 Sources for the comparison columns are the tools' own: Repola 2008 (tools/m3_wood.py), Evo TLS 2024
 (tools/m3_crown_compare.py), Lintunen 2013 (tools/m3_branches.py).  Those three are for a look, not a verdict.
@@ -331,6 +337,7 @@ def one(seed: int, sets: list, out: Path, years: int, stand: bool = True) -> int
     model = GrowthModel(sp, make_environment(env_p), seed, stand=stand, soil=make_soil(env_p), lean=True)
     yearly, snaps = [], []
     limb_log = [] if logs.on(sp, "rings") else None     # log.rings: every limb, every year (limbs.json)
+    limb_light = [] if limb_wood.light_log_on(sp) else None     # shedding.log_limbs: each limb's light, kind and forks (limb_light.json)
     for year in range(1, years + 1):
         root_wood_before = root_measure.wood_kg(model) if model.roots is not None else 0.0
         model.step()
@@ -350,8 +357,13 @@ def one(seed: int, sets: list, out: Path, years: int, stand: bool = True) -> int
             yearly[-1]["root_ledger"] = root_measure.ledger_year(model, year, root_wood_before)
         # wood shed, what the year had to pay against its pool, leaf area three ways and, with log.rings on, how the rings split
         yearly[-1].update(limb_wood.year_record(model, year))
+        if logs.on(sp, "stem_tops"):
+            # log.stem_tops: the stem's own top as this year's row measured it, beside that row's height_m (the highest living point)
+            yearly[-1]["stem_top_m"] = round(model.stem_top_measured(), 4)
         if limb_log is not None:
             limb_log += limb_wood.limb_rows(model, year)
+        if limb_light is not None:
+            limb_light += limb_wood.limb_light_rows(model, year)
         if year % SNAPSHOT_EVERY == 0:
             snaps.append(snapshot(model, year))
             if model.roots is not None:
@@ -361,6 +373,8 @@ def one(seed: int, sets: list, out: Path, years: int, stand: bool = True) -> int
                                                "sapwood_short_years": int(getattr(model, "sapwood_short_years", 0))}), encoding="utf-8")
     if limb_log is not None:
         (out / "limbs.json").write_text(json.dumps({"columns": limb_wood.LIMB_COLUMNS, "what": limb_wood.LIMBS_WHAT, "rows": limb_log}), encoding="utf-8")
+    if limb_light is not None:
+        (out / "limb_light.json").write_text(json.dumps({"columns": limb_wood.LIGHT_COLUMNS, "what": limb_wood.LIGHT_WHAT, "rows": limb_light}), encoding="utf-8")
     # as cli.py has it: tools/scorecard.py reads "stand" as stand-tree, managed and "open" as single-tree, open-grown
     meta = {"species": sp.species.scientific_name, "species_file": species, "environment": environment, "mode": "stand" if stand else "open", "seed": seed,
             "generator": "treegen 0.4, tools/tree_table.py"}

@@ -124,6 +124,12 @@ class GLBWriter:
 
 
 # -- GLB for games (tools/game_export.py) ----------------------------------------
+# zlib's level for every PNG an export writes.  A PNG holds the same pixels at any level: only its bytes and the seconds to write them
+# change.  4, where it was 6: on the 24 maps of one age for Unreal, 8.3 s against 18.0 s, and 45.5 MB against 43.3 MB.  Levels 1 to 3
+# took 5.0 to 7.1 s but 50.5 to 55.4 MB, as below 4 zlib matches by its fast method (tools/export_timing.py levels, on the server).
+PNG_LEVEL = 4
+
+
 def encode_image(rgb, alpha=None, kind: str = "jpeg", quality: int = 88) -> tuple:
     """Encode an array (0-1, rows from v = 0) as (bytes, mime type).  Values are written as given,
     so a colour map has to be sRGB-encoded first."""
@@ -140,7 +146,7 @@ def encode_image(rgb, alpha=None, kind: str = "jpeg", quality: int = 88) -> tupl
     u8 = (a * 255.0 + 0.5).astype(np.uint8)
     img = Image.fromarray(u8[..., 0] if u8.shape[-1] == 1 else u8)
     if alpha is not None or kind == "png":
-        img.save(buf, "PNG", optimize=False, compress_level=6)
+        img.save(buf, "PNG", optimize=False, compress_level=PNG_LEVEL)
         return buf.getvalue(), "image/png"
     img.save(buf, "JPEG", quality=int(quality), subsampling=0 if kind == "jpeg_full" else 2)
     return buf.getvalue(), "image/jpeg"

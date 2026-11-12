@@ -12,7 +12,7 @@ Cambium is the public face of the ``treegen`` engine: it adds nothing to the mod
 nothing in it.  The same seed and settings give the same tree as ``python cli.py`` in a checkout.
 
 Importing it sets the maths libraries to one thread (``treegen.threads``), so a run gives the same
-bits on every machine.
+tree on the same machine and library versions, whatever the number of cores.
 """
 import treegen as _treegen  # noqa: F401  (first: one maths thread, before numpy loads)
 

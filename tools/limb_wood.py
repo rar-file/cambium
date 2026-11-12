@@ -50,6 +50,16 @@ LIMBS_WHAT = ("One row a living limb a year, the limb as it stands after that ye
               "own_carbon, upkeep: what its own leaves fixed, after the roots' share, and the upkeep of its wood and leaves, as the shedding test read them at the "
               "start of the year (shedding.log_limbs), in the same units.  Null where that log is off, or doesn't hold the limb: one too young for the shedding test, "
               "or made stem or limb by a change of leader within the year.")
+# shedding.log_limbs (2026-11-12, reports/design/2026-11-12_limbs_challenge.md section 9): limb_light.json, beside limbs.json
+LIGHT_COLUMNS = ("year", "node", "light", "kind", "fork_axes")
+LIGHT_WHAT = ("Written only with shedding.log_limbs on; limbs.json is as it is without it.  One row a living limb a year, the same limbs in the same order as "
+              "limbs.json's rows of that year (year and node as there).  light: the leaf-weighted mean light on the buds of everything on the limb, as the "
+              "shedding test read it at the start of the year (treegen/growth.py, the ratio it holds against shedding.light_per_leaf_threshold; 1 = open "
+              "sky, the herb layer's shade included).  Null for a limb too young for the test (shedding.min_branch_age), one made limb by a change of "
+              "leader within the year, and every limb with speed.drop_dead on.  kind, at the end of the year: second_top, the one reiterated limb that "
+              "goes up as a second top (crown_frame.earned, on a tree drawn to fork); reiterated, a limb made a reiterated complex (resource.reiteration); "
+              "limb, any other.  fork_axes: how many living axes on the limb the model named as its forks (crown_frame.fork_leaf_area_m2), at the end "
+              "of the year; 0 for none.")
 
 
 def limbs(model) -> dict:
@@ -174,6 +184,39 @@ def limb_rows(model, year: int) -> list:
                      round(100.0 * float(L["stem_d_m"][i]), 3), round(float(L["length_m"][i]), 3), float(f"{L['wood_m3'][i] * DENSITY:.5g}"),
                      float(f"{L['leaf_area_m2'][i]:.5g}"), *[None if v is None else float(f"{v:.5g}") for v in rings.get(node, (None, None, None))],
                      *[None if v is None else float(f"{v:.5g}") for v in earned.get(node, (None, None))]])
+    return rows
+
+
+def light_log_on(sp) -> bool:
+    """Is shedding.log_limbs on?  (A species file from before it: no.)"""
+    return bool(getattr(getattr(sp, "shedding", None), "log_limbs", False))
+
+
+def limb_light_rows(model, year: int) -> list:
+    """One row a living limb, in LIGHT_COLUMNS' order, for limb_light.json (LIGHT_WHAT): the light the shedding test read on
+    its leaves at the start of the year (model._limb_log, kept with shedding.log_limbs on), and what the limb is and how many
+    fork axes it carries now.  Reads only: model.__dict__ is read, not _frame_tops(), which would name the second top."""
+    T = model.tree
+    n = T.n
+    alive = T.death[:n] < 0
+    first = logs.limb_starts(model, n, alive)
+    log = getattr(model, "_limb_log", None)
+    light = {} if log is None or log["year"] != year or fast.on(model.sp, "drop_dead") else \
+        {int(k): float(q) for k, q in zip(log["node"], log["ratio"])}
+    reiterated = getattr(model, "reit", None) or {}
+    top = model.__dict__.get("_frame_second_top")
+    forks = {}
+    fork_of = model.__dict__.get("_frame_fork_of") or {}
+    if fork_of:
+        living = set(np.unique(T.axis[:n][alive]).tolist())
+        for ax, limb in fork_of.items():
+            if int(ax) in living:
+                forks[int(limb)] = forks.get(int(limb), 0) + 1
+    rows = []
+    for node in first.tolist():
+        kind = "second_top" if top is not None and int(T.axis[node]) == int(top) else ("reiterated" if node in reiterated else "limb")
+        q = light.get(node)
+        rows.append([year, node, None if q is None else float(f"{q:.5g}"), kind, forks.get(node, 0)])
     return rows
 
 

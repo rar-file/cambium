@@ -98,6 +98,8 @@ On the command line, use `--set KEY=JSON`, once for each value:
 cambium grow --species birch --seed 1 --years 30 --set resource.alpha=4.5
 ```
 
+A name the species file doesn't hold is refused before anything grows, and the message gives the nearest real names. A value must be of the kind the file has there: a number (or true/false), text, a list, or null for the code's own fallback. A record given for a block changes only the names in it, so `--set 'roots.paid={"enabled": true}'` is the same as `--set roots.paid.enabled=true`. A list of records, such as `stand.thinning`, is replaced whole, and each row may use only the names the file's rows use.
+
 !!! warning
     A changed value gives a different tree, not the published birch. Some values have to move together. For example, `light.leaf_area_m2`, `shoot.internode_length` and `resource.alpha` are linked: a bigger leaf with the same `alpha` gives a seedling that never grows, with no error. See [Species and sources](species.md).
 

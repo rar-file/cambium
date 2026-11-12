@@ -1,6 +1,7 @@
 """A run saved partway and resumed is the same run."""
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -81,6 +82,59 @@ def test_scenario_values_change_only_what_they_name():
     assert ns.a.b == 5 and ns.c == 2
     with pytest.raises(KeyError):
         checkpoint.set_values(ns, ["a.nope=5"])
+
+
+def test_a_set_value_is_read_as_the_species_file_would_be():
+    sp, _ = cli.load_species("betula_pendula")
+    paid = dict(vars(cli.load_species("betula_pendula")[0].roots.paid))
+    rows = '[{"from_height_m": 0.0, "stems_per_ha": 3000}, {"from_height_m": 8.0, "stems_per_ha": 1200}]'
+    checkpoint.set_values(sp, [f"stand.thinning={rows}", 'roots.paid={"enabled": true, "collar_roots_min": 5}', "resource.alpha=4.5"])
+    # a list of records: read by name, as plot.py and growth.py read the file's rows
+    stages = sorted(sp.stand.thinning, key=lambda s: float(s.from_height_m))
+    assert [s.stems_per_ha for s in stages] == [3000, 1200]
+    # a nested value: a record merges into its block; the block's other values stay as the file has them
+    assert sp.roots.paid.enabled is True and sp.roots.paid.collar_roots_min == 5
+    assert {k: v for k, v in vars(sp.roots.paid).items() if k not in ("enabled", "collar_roots_min")} == \
+           {k: v for k, v in paid.items() if k not in ("enabled", "collar_roots_min")}
+    assert len(vars(sp.roots.paid)) == len(paid) > 2
+    assert sp.resource.alpha == 4.5                                                # a plain number
+
+
+def test_a_set_record_or_row_with_a_name_the_block_hasnt_got_is_refused():
+    sp, _ = cli.load_species("betula_pendula")
+    for item, says in (('roots.paid={"enabld": true}', "no such parameter in it: enabld; nearest: roots.paid.enabled"),
+                       ('resource={"alpah": 4.4}', "nearest: resource.alpha"),
+                       ('stand.thinning=[{"from_height": 0, "stem_per_ha": 3000}]', "'from_height' in a row of stand.thinning; nearest: from_height_m"),
+                       ('stand.thinning=[{"from_height_m": 0, "stem_per_ha": 3000}]', "'stem_per_ha' in a row of stand.thinning; nearest: stems_per_ha"),
+                       ('stand.thinning=[{"from_height_m": 0}]', "a row of stand.thinning must hold stems_per_ha"),
+                       ('leader_damage.events=[{"name": "moose", "min_height_m": 0.2, "max_height_m": 2.5, "probability_per_year": 0.1, "probabilty": 1}]',
+                        "'probabilty' in a row of leader_damage.events")):
+        with pytest.raises(KeyError, match=re.escape(says)):
+            checkpoint.set_values(sp, [item])
+    assert sp.roots.paid.enabled is True and sp.resource.alpha != 4.4 and len(sp.stand.thinning) == 3   # nothing half-applied
+
+
+def test_a_set_value_of_another_kind_is_refused():
+    sp, _ = cli.load_species("betula_pendula")
+    for item, says in (("speed=true", "a block of settings takes a record"), ("roots.paid=3", "a block of settings takes a record"),
+                       ("stand.thinning=3000", "a list of records"), ('resource.alpha="4.5"', "takes a number"),
+                       ("resource.alpha=NaN", "isn't a number a run can use"), ("resource.alpha=1e999", "isn't a number a run can use")):
+        with pytest.raises(ValueError, match=re.escape(says)):
+            checkpoint.set_values(sp, [item])
+    # what the repo's runs do: null for the code's own fallback, true for 1 where a number is read
+    checkpoint.set_values(sp, ["pipe_model.branch_sapwood_thick_m=null", "crown_frame.twigs_browsed=true", "resource.alpha=5"])
+    assert sp.pipe_model.branch_sapwood_thick_m is None and sp.crown_frame.twigs_browsed is True and sp.resource.alpha == 5
+
+
+def test_a_set_name_that_isnt_there_names_the_nearest_ones():
+    sp, _ = cli.load_species("betula_pendula")
+    for item, nearest in (("resource.alpah=4.5", "resource.alpha"), ("resourse.alpha=4.5", "resource.alpha"),
+                          ("stand.thinning.extra=1", "stand.thinning")):
+        with pytest.raises(KeyError, match=f"no such parameter.*nearest: {nearest}"):
+            checkpoint.set_values(sp, [item])
+    for item in ("resource.alpha", "resource.alpha=abc"):
+        with pytest.raises(ValueError, match="resource.alpha"):
+            checkpoint.set_values(sp, [item])
 
 
 def test_states_are_left_out_of_the_output_hash(tmp_path):

@@ -1,0 +1,59 @@
+{
+ "note": "Which part of each reference photo tools/hang_photo.py reads, set by eye on 2026-11-11. Boxes are [x0, y0, x1, y1] in shares of the picture's width and height from its top-left corner: inside any include box, outside every exclude box. They keep to birch twigs against the sky and leave out the ground, buildings, cables, conifers and other trees. base_x, base_y are where the subject tree's stem meets the ground and top_x, top_y its highest twig, as shares of the picture's width and height; null where one is out of frame. picture_px is the photo's width and height in pixels, which turns the boxes into tree heights (tools/hang_photo.py, window_of) so the same part of a model tree is read. outline is false where crowns overlap, so no width is read. Oslo's base was first set at 0.70, the roof line behind the stem; the stem meets the ground at 0.833 (corrected 2026-11-11). Numbers only: the photos themselves stay on the owner's PC (reference/CREDITS.md).",
+ "photos": {
+  "oslo_norway.jpg": {
+   "kind": "solitary", "young": false, "outline": true, "picture_px": [1280, 1920],
+   "base_x": 0.58, "base_y": 0.833, "top_x": 0.54, "top_y": 0.066,
+   "include": [[0.13, 0.055, 0.785, 0.47], [0.13, 0.47, 0.60, 0.60], [0.13, 0.60, 0.27, 0.68]],
+   "exclude": [[0.44, 0.545, 0.52, 0.60]]
+  },
+  "meilen_switzerland_solitary.jpg": {
+   "kind": "solitary", "young": false, "outline": true, "picture_px": [750, 1000],
+   "base_x": 0.42, "base_y": 0.905, "top_x": 0.45, "top_y": 0.072,
+   "include": [[0.06, 0.06, 0.93, 0.62], [0.06, 0.62, 0.70, 0.68]],
+   "exclude": []
+  },
+  "hallinden_sweden.jpg": {
+   "kind": "solitary", "young": true, "outline": true, "picture_px": [1280, 1707],
+   "base_x": 0.635, "base_y": 0.867, "top_x": 0.40, "top_y": 0.055,
+   "include": [[0.07, 0.045, 0.55, 0.44], [0.55, 0.045, 0.68, 0.415], [0.68, 0.045, 0.77, 0.39], [0.07, 0.505, 0.50, 0.60]],
+   "exclude": []
+  },
+  "tuntorp_sweden.jpg": {
+   "kind": "group or edge", "young": false, "outline": true, "picture_px": [1280, 1648],
+   "base_x": 0.55, "base_y": 0.904, "top_x": 0.47, "top_y": 0.194,
+   "include": [[0.29, 0.18, 0.76, 0.655]],
+   "exclude": []
+  },
+  "brastad_sweden_first_snow.jpg": {
+   "kind": "group or edge", "young": false, "outline": false, "picture_px": [1280, 1746],
+   "base_x": 0.41, "base_y": 0.92, "top_x": 0.36, "top_y": 0.02,
+   "include": [[0.0, 0.015, 1.0, 0.36]],
+   "exclude": []
+  },
+  "russia_birch_forest.jpg": {
+   "kind": "group or edge", "young": false, "outline": false, "picture_px": [1024, 1536],
+   "base_x": 0.335, "base_y": 0.573, "top_x": 0.36, "top_y": 0.068,
+   "include": [[0.13, 0.04, 0.47, 0.42], [0.47, 0.0, 1.0, 0.07]],
+   "exclude": []
+  },
+  "gullmarsskogen_stand_1.jpg": {
+   "kind": "dense stand, from inside", "young": false, "outline": false, "picture_px": null,
+   "base_x": null, "base_y": null, "top_x": null, "top_y": null,
+   "include": [[0.0, 0.0, 1.0, 0.40]],
+   "exclude": []
+  },
+  "gullmarsskogen_stand_5.jpg": {
+   "kind": "dense stand, from inside", "young": false, "outline": false, "picture_px": null,
+   "base_x": null, "base_y": null, "top_x": null, "top_y": null,
+   "include": [[0.0, 0.0, 1.0, 0.40]],
+   "exclude": []
+  },
+  "gullmarsskogen_stand_6.jpg": {
+   "kind": "dense stand, from inside", "young": false, "outline": false, "picture_px": null,
+   "base_x": null, "base_y": null, "top_x": null, "top_y": null,
+   "include": [[0.0, 0.0, 1.0, 0.35]],
+   "exclude": []
+  }
+ }
+}

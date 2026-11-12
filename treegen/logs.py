@@ -1,4 +1,4 @@
-"""Records for the reports (species block ``log``; both switches off by default).
+"""Records for the reports (species block ``log``; every switch off by default).
 
 Nothing here changes what a tree or a plot grows.  Each function only reads the model, or works on numbers the model had
 already worked out when it was called.  tests/test_logging.py grows trees and plots with every log on and off and compares
@@ -11,6 +11,14 @@ be compared with one without.
 * ``log.stand``: a plot keeps a row a year (``plot.stand_log``): the stem volume of the trees that went, top height on the
   approved definition, the leaf area the year's light was worked out from, and how many leaders light, water or carbon
   held back; and each tree that went, as it stood in its last year (``plot.tree_log``).  tools/forest.py saves both.
+* ``log.stem_tops`` (2026-11-12, reports/design/2026-11-12_height_faults.md): the stem's own top beside the height.  A
+  tree's height_m is its highest living point, which can be a limb's second top or fork above the stem; the height curve
+  sets the stem's top.  A tree keeps its stem's top as each yearly row measures it (``model._stem_top_m``, set in
+  GrowthModel.measure at the moment height_m is read; never in the row, so stats.json is the same).  tools/tree_table.py
+  writes it into each year of tree.json, tools/tree_list.py gives each tree a ``stem_top_m`` column, and a plot keeps a
+  row a year (``plot.stem_log``, stem_top_row below; tools/forest.py saves it as stem_log.json, its own file, so that
+  plot.json and stand_log.json are the same with it on or off) and the stem top of each tree that went
+  (``plot.stem_tops_gone``).
 
 Kept without a switch, because each is one number a tree-year that the model has in hand: ``model._must_log`` (what the
 year had to pay before any side shoot, the pool it had, and the share of those rings it paid),
@@ -20,6 +28,7 @@ tree's buds carried when the year's light was worked out).
 from __future__ import annotations
 
 import math
+import statistics
 
 import numpy as np
 
@@ -81,6 +90,11 @@ def tree_record(model) -> dict:
     if grew_this_year(model) and getattr(model, "_hd", None) is not None and model.stats:
         row = model.stats[-1].get("height_limit") or {}
         out.update(leader_light=row.get("light_q"), light_factor=row.get("light"), water_factor=row.get("water"), carbon_factor=row.get("carbon"))
+    status = getattr(model, "_height_status", None)
+    if status is not None:
+        # plot.height_status, only when on (treegen/height_status.py): this year's status, the rule's modifier before the
+        # dominants' mean divided it, d over the dominants' diameter as the rule held it, and (birch_2002) RDFL
+        out.update(height_status=status, **(getattr(model, "_height_status_rec", None) or {}))
     return out
 
 
@@ -121,6 +135,36 @@ def fitted_top_height(d_cm, h_m, area_m2: float) -> tuple:
         top, counted, simple = naslund_top_height(d_cm, h_m, area_m2)
     poor = any("Polyfit" in str(w.message) for w in caught)
     return (None if poor or top != top else float(top)), float(counted), (None if simple != simple else float(simple))
+
+
+OVER_M = 0.3      # a tree counts as standing over its stem when its highest point is more than this above the stem's top (the T2 report's 0.3 m)
+
+
+def stem_top_row(year: int, d_cm, h_m, stem_m, area_m2: float) -> dict:
+    """log.stem_tops: one plot year read two ways from the same living trees and the same diameters: on each tree's height
+    (its highest living point, as every list and yearly row has it) and on its stem's own top.  d_cm: over bark to 0.01 cm,
+    0 for a tree under 1.3 m; h_m and stem_m to 0.001 m, as a tree list holds them.
+
+    Top height is the approved definition both times (fitted_top_height, the sums log.stand's row is made with), so
+    top_height_approved_m here is that row's figure.  The spread of height is tools/independent_checks.py's: the sample SD
+    over the living trees that have a DBH, None with fewer than three."""
+    top, counted, simple = fitted_top_height(d_cm, h_m, area_m2)
+    top_stem, _, simple_stem = fitted_top_height(d_cm, stem_m, area_m2)
+    past = [(float(h), float(s)) for d, h, s in zip(d_cm, h_m, stem_m) if d]
+    over = [round(float(h) - float(s), 3) for h, s in zip(h_m, stem_m)]      # to 0.001 m, as the heights are
+
+    def spread(values):
+        return round(statistics.stdev(values), 4) if len(values) >= 3 else None
+
+    def four(v):
+        return None if v is None else round(v, 4)
+
+    return {"year": int(year), "trees": len(over),
+            "top_height_approved_m": four(top), "top_height_approved_stem_m": four(top_stem),
+            "top_height_trees": round(counted, 3),
+            "top_height_mean_m": four(simple), "top_height_mean_stem_m": four(simple_stem),
+            "height_sd_m": spread([h for h, _ in past]), "height_sd_stem_m": spread([s for _, s in past]), "height_sd_trees": len(past),
+            "trees_over": sum(1 for x in over if x > OVER_M), "over_most_m": max(over) if over else None}
 
 
 def limb_starts(model, n: int, alive: np.ndarray) -> np.ndarray:
@@ -189,4 +233,22 @@ STAND_LOG_WHAT = {
     "water_slowed": "leaders whose water factor was under 1",
     "carbon_cut": "leaders whose own shoot cost more than the tree's whole pool, and was cut",
     "short_of_sapwood": "trees whose pool didn't cover the year's must-haves (the leader's shoot, the frame's limbs and the foliage's sapwood), so their rings were cut by share",
+}
+
+STEM_LOG_WHAT = {
+    "year": "plot year; the row is the plot at the end of that year",
+    "trees": "living trees at the end of the year",
+    "top_height_approved_m": "top height on the approved definition, on each tree's height: its highest living point, as every tree list and yearly row has it "
+                             "(the figure stand_log.json has under the same name)",
+    "top_height_approved_stem_m": "the same definition, the same trees and diameters, on each tree's stem top: the last node of its stem (the leader chain), "
+                                  "which is what the height curve limits; null where the other is null, or while too few stem tops are past 1.3 m",
+    "top_height_trees": "how many trees the mean diameter both are read at is of (the last with its fractional share)",
+    "top_height_mean_m": "those trees' mean height",
+    "top_height_mean_stem_m": "those trees' mean stem top",
+    "height_sd_m": "spread of height as tools/independent_checks.py reads it from a tree list: the sample SD of height over the living trees past 1.3 m "
+                   "(those with a DBH); null with fewer than three",
+    "height_sd_stem_m": "the same over those trees' stem tops",
+    "height_sd_trees": "how many trees those two are over",
+    "trees_over": f"living trees whose highest point is more than {OVER_M:g} m above their stem's top",
+    "over_most_m": "the most any living tree's highest point is above its stem's top, m",
 }

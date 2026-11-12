@@ -20,7 +20,6 @@ in memory, so it needs more of that.  Output is the same on what's been tested s
 """
 from __future__ import annotations
 
-import argparse
 import json
 import statistics
 import sys
@@ -31,6 +30,8 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 
 from batch import Job, run_batch  # noqa: E402
+
+from treegen import checks  # noqa: E402
 
 BASE = ROOT / "out" / "bench" / "ensemble"
 TREE_PEAK_GB, PLOT_PEAK_GB = 0.6, 7.0   # plots: 6.1-6.7 GB measured with no save files, 100 trees to 60
@@ -75,6 +76,25 @@ def median_seed(rows: dict, age: int = 60) -> int:
     return min(score, key=lambda s: (score[s], s))
 
 
+def _check(a) -> None:
+    """Every argument and the output folder, before any seed starts: a slip fails once, here, not in every run."""
+    if a.what == "median":
+        checks.whole("--age", a.age, 0)
+        if not (BASE / a.label).is_dir():
+            raise ValueError(f"no ensemble {a.label!r} in {BASE}")
+        return
+    if a.seeds is not None:
+        checks.whole("--seeds", a.seeds, 1)
+    checks.seed(a.first_seed, "--first-seed")
+    checks.years(a.years)
+    if a.what == "plots":
+        checks.whole("--trees", a.trees, 1)
+        if a.mode not in ("natural", "managed"):
+            raise ValueError(f"--mode must be natural or managed, not {a.mode!r}")
+    checks.inputs(a.species, "sweden_open_field", a.set)
+    checks.folder(BASE / a.label)
+
+
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -85,7 +105,7 @@ def main():
         if done.returncode == 0:
             marker.write_text("done\n")
         sys.exit(done.returncode)
-    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap = checks.Parser(description=__doc__.split("\n\n")[0])
     ap.add_argument("what", choices=["trees", "plots", "median"])
     ap.add_argument("--label", required=True)
     ap.add_argument("--species", default="betula_pendula", help="a name in species/, or a path")
@@ -98,6 +118,10 @@ def main():
     ap.add_argument("--first-seed", type=int, default=1, help="for a rerun on fresh seeds (PROTOCOL.md section 9)")
     ap.add_argument("--age", type=int, default=60)
     a = ap.parse_args()
+    try:
+        _check(a)
+    except (ValueError, FileNotFoundError) as exc:
+        raise checks.stop("ensemble.py", exc) from None
     if a.what == "trees":
         sys.exit(run_trees(a.label, a.seeds or 20, a.years, a.set, a.first_seed, a.species))
     if a.what == "plots":

@@ -153,9 +153,15 @@ def test_leaf_count_and_area_are_the_models():
     out = ap.leaf_instances(look, sp, snap, pos, np.full(n, 0.002), 10, 0.9)
     # area: the model counts leaves * reference area
     assert out.area.sum() == pytest.approx(leaves.sum() * 0.0015, rel=0.02)
-    # the same leaf in the same place when asked again
-    again = ap.leaf_instances(look, sp, snap, pos, np.full(n, 0.002), 11, 0.9)
+    # the same leaf in the same place when asked again.  A year on its place on the wood is the same and how it hangs is
+    # that spring's (leaves.each_year, on since 2026-11-12); with the time-lapse look it hangs as it did, as every leaf did before
+    again = ap.leaf_instances(look, sp, snap, pos, np.full(n, 0.002), 10, 0.9)
     assert np.array_equal(out.along, again.along) and np.array_equal(out.base, again.base)
+    a_year_on = ap.leaf_instances(look, sp, snap, pos, np.full(n, 0.002), 11, 0.9)
+    assert np.array_equal(out.base, a_year_on.base) and not np.array_equal(out.along, a_year_on.along)
+    lapse = ap.timelapse_look(copy.deepcopy(look))
+    kept = [ap.leaf_instances(lapse, sp, snap, pos, np.full(n, 0.002), age, 0.9) for age in (10, 11)]
+    assert np.array_equal(kept[0].along, kept[1].along) and np.array_equal(kept[0].base, kept[1].base)
 
 
 # -- textures ------------------------------------------------------------------------------------
@@ -927,9 +933,14 @@ def test_leaves_differ_in_size_with_the_trees_total_held(look):
     assert 0.2 < cv < 0.35
     assert off.area.std() / off.area.mean() < 0.07
     assert on.area.max() < 0.0030 and on.area.min() > 0.0006
-    # the same leaf the same size from year to year
+    # a leaf's share is that spring's (leaves.each_year, on since 2026-11-12): a year on the sizes differ, as spread as they
+    # were, with the tree's total held.  With the time-lapse look the same leaf is the same size from year to year, as before
     again = ap.leaf_instances(lk, None, snap, pos, r, 41)
-    assert np.allclose(on.area, again.area)
+    assert not np.allclose(on.area, again.area) and abs(again.area.sum() - on.area.sum()) < 1e-9
+    assert again.area.std() / again.area.mean() == pytest.approx(cv, rel=0.05)
+    lapse = ap.timelapse_look(copy.deepcopy(lk))
+    kept = [ap.leaf_instances(lapse, None, snap, pos, r, age) for age in (40, 41)]
+    assert np.allclose(kept[0].area, kept[1].area)
 
 
 def _limb_atlas(look, shares):

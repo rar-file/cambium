@@ -14,7 +14,6 @@ holds only the trees' current state and a stopped run can resume.  Trees
 that leave the plot (thinned or dead) get timeline.json and stats.json;
 trees alive at the end also get meshes (unless --no-mesh).
 """
-import argparse
 import json
 import shutil
 import sys
@@ -23,13 +22,38 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import cli  # noqa: E402
-from treegen import checkpoint, export  # noqa: E402
-from treegen.params import run_manifest  # noqa: E402
+from treegen import checkpoint, checks, export  # noqa: E402
+from treegen.params import SettingError, run_manifest  # noqa: E402
 from treegen.plot import Plot  # noqa: E402
 
 
+def _check(args, out: Path) -> None:
+    """Every argument and the output folder, before anything grows: a slip costs a second, not a run."""
+    checks.seed(args.seed)
+    checks.years(args.years)
+    checks.whole("--trees", args.trees, 1)
+    if args.start_trees is not None:
+        checks.whole("--start-trees", args.start_trees, 1)
+    if args.dense_start is not None:
+        checks.positive("--dense-start", args.dense_start)
+    checks.whole("--checkpoint-every", args.checkpoint_every, 0)
+    checks.wholes("--save-at", args.save_at, 1, args.years)
+    if args.branch_from:
+        if not (Path(args.branch_from) / "checkpoint.pkl").is_file():
+            raise ValueError(f"--branch-from: no saved state in {args.branch_from}")
+        if out.exists():
+            raise ValueError(f"--branch-from copies the state into a new folder, and {out} is already there")
+        checks.folder(out.parent)
+    elif args.resume:
+        if not (out / "checkpoint.pkl").is_file():
+            raise ValueError(f"--resume: no checkpoint in {out}")
+    else:
+        checks.inputs(args.species, args.environment, args.set)
+        checks.folder(out)
+
+
 def main(argv=None):
-    ap = argparse.ArgumentParser()
+    ap = checks.Parser()
     ap.add_argument("--species", default="betula_pendula")
     ap.add_argument("--environment", default="sweden_open_field")
     ap.add_argument("--trees", type=int, default=25, help="trees left at the managed programme's final stem density (sets the plot area)")
@@ -52,6 +76,10 @@ def main(argv=None):
                     help="natural regeneration: seed rain, germination and recruits (treegen/regeneration.py)")
     args = ap.parse_args(argv)
     out = Path(args.out or f"out/plot_{args.seed}")
+    try:
+        _check(args, out)
+    except (ValueError, FileNotFoundError) as exc:
+        raise checks.stop("plot.py", exc) from None
     if args.branch_from:
         shutil.copytree(args.branch_from, out)
     out.mkdir(parents=True, exist_ok=True)
@@ -66,7 +94,10 @@ def main(argv=None):
                 plot.mode = args.mode
             for item in args.set:   # every living tree, and the template for recruits
                 for target in [plot.trees[k].sp for k in plot.alive] + [plot.species]:
-                    checkpoint.set_values(target, [item])
+                    try:
+                        checkpoint.set_values(target, [item])
+                    except SettingError as exc:   # on the saved values, before the first year grows
+                        raise checks.stop("plot.py", exc) from None
         elif args.mode or args.set:
             print("--mode and --set are ignored on a plain --resume; use --branch-from for a scenario", flush=True)
     else:

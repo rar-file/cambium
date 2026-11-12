@@ -285,8 +285,11 @@ def continue_trunk(tree, select, radius=None, stub_share: float = 0.0):
     collar on the lateral.  Only where the trunk has no selected
     continuation of its own (a living fork is left as it is), or, with
     ``stub_share``, one no thicker than that share of the lateral: the lost
-    leader's last thread, which is drawn as a side shoot.  The tree itself is
-    not changed."""
+    leader's last thread, which is drawn as a side shoot.  A continuation is
+    any selected node further along the trunk, not only the next one: among
+    shed branches (``select`` = the dead nodes) the lost leader's dead end can
+    lie past a stub that still lives, and the trunk has then not ended.  The
+    tree itself is not changed."""
     n = tree.n
     sel = np.asarray(select[:n], bool)
     idx = np.nonzero(sel)[0]
@@ -301,17 +304,17 @@ def continue_trunk(tree, select, radius=None, stub_share: float = 0.0):
     path = path[::-1]
     axis = np.asarray(tree.axis[:n]).copy()
     lat = np.asarray(tree.is_lateral[:n]).astype(bool).copy()
+    depth = np.asarray(tree.depth[:n])
     changed = False
     for a, b in zip(path[:-1], path[1:]):
         if axis[a] == 0 and axis[b] != 0 and lat[b]:
             kids = idx[par[idx] == a]
             own = kids[axis[kids] == 0]
             if own.size and stub_share > 0.0 and np.max(radius[own]) <= stub_share * radius[b]:
-                depth = np.asarray(tree.depth[:n])
                 axis[(axis == 0) & (depth > depth[a])] = axis.max() + 1
                 lat[own] = True
                 own = own[:0]
-            if not own.size:
+            if not own.size and not np.any((axis[idx] == 0) & (depth[idx] > depth[a])):
                 axis[axis == axis[b]] = 0
                 lat[b] = False
                 changed = True

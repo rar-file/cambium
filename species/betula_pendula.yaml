@@ -360,9 +360,10 @@ bud_fate:
 
 light:
   # Voxel edge (m) for shadow propagation [P09 Sec. 4.2]: ~4 internodes,
-  # about one leaf length.  Results are insensitive to it because the shadow
-  # per leaf is conserved: 0.1, 0.15 and 0.2 m give the same light
-  # distribution. VERIFY
+  # about one leaf length.  The shadow per leaf is conserved, but the edge
+  # still matters: in the saved test ensembles (older settings) crowns at 60
+  # were about 2 % wider at 0.15 m and 12 % wider at 0.2 m
+  # (reports/reviews/2026-11-11_audit_speed.md, S10). VERIFY
   voxel_size: 0.10
   # Shadow of one leaf in its own voxel is a = k * A_leaf / voxel_size^2
   # (Beer-Lambert).  Measured in closed Betula pendula stands: K_PAR 0.37
@@ -1041,6 +1042,47 @@ plot:
   # vigour of that year's dominants, not over 1 (treegen/plot.py, Plot._height_reference).  The
   # dominants then follow the curve, and a single tree of vigour 1 is unchanged.
   height_follows_dominants: true
+  # A switch, off by default (plan 2026-11-11, step E; reports/design/2026-11-11_earned_height_build.md): a plot tree's height
+  # step is the curve's step at its own age x light x water x its status, a published rule of its diameter against the
+  # dominants', set by the plot each year (treegen/height_status.py).  Its drawn vigour then no longer multiplies its height;
+  # it stays in its carbon.  The status is divided by the dominants' mean, so they keep the curve's step.  A tree outside
+  # a plot is unchanged.  rule: pine_1995 (Hynynen 1995, Scots pine: borrowed) or birch_2002 (Hynynen et al. 2002, birch).
+  # scale_over: top_height (the 100 thickest a hectare, the approved top height's trees) or rule (the rule's own dominants).
+  # steer_top_height: the plan's arm B, one plot-wide factor in 0 to height_driver.catch_up that steers the approved top
+  # height to the curve; top height is then by design.  Labels in reference/betula_pendula/labels.yaml.
+  height_status:
+    enabled: false
+    rule: pine_1995
+    scale_over: top_height
+    steer_top_height: false
+    # Hynynen 1995, Silva Fennica 29(3), eq. 5 and Table 6, p. 235: Scots pine, 11 thinned trials, ages 29-56 at the
+    # start.  Borrowed from Scots pine, never sourced for birch.  Limits: the data's range in the paper's Fig. 5, by eye.
+    pine_1995:
+      a1: 0.2445
+      a2: -0.471
+      a3: 0.8045
+      ratio_min: 0.4
+      ratio_max: 1.1
+      ih_min_m: 0.6
+      ih_max_m: 3.6
+      start_top_height_m: 10.0
+    # Hynynen et al. 2002, Metla Research Papers 835: Eq. 33 p. 40, Table 24 p. 41 (self-sown: planted false); the silver
+    # birch self-thinning line, Eq. 50 and Table 34 p. 53; stump diameter, Eq. 3 p. 22; the data's range, Table 5 p. 18.
+    # Silver and downy birch pooled; mostly birch mixed into pine and spruce stands, mineral soils, Finland.  The stump diameter
+    # and the self-thinning line here are also read by mortality.rule birch_2002 (treegen/death_by_standing.py).
+    birch_2002:
+      a1: 1.54405
+      a2: -0.81202
+      planted: false
+      self_thinning_b0: 14.1979
+      self_thinning_b1: -2.2178
+      stump_a_cm: 2.0
+      stump_b: 1.25
+      dbh_min_cm: 1.0
+      dbh_max_cm: 41.4
+      rdfl_max: 1.567
+      start_top_height_m: 2.6
+      start_age_years: 12.0
   # A TEST, off by default (null), no source: the spacing that stops a limb's reach (crown_frame.spacing_overlap) and sets the wind's load
   # counts only trees at least this share of the canopy top's height.  Null: every living tree counts, seedlings included, so in an old
   # forest with regeneration a veteran's limbs stop at the seedlings' spacing (treegen/plot.py, Plot.step; review 2026-11-09, finding 6).
@@ -1202,6 +1244,50 @@ mortality:
   # (treegen/thinning.py), off by default.  On top of the carbon rule, which
   # leaves a suppressed tree alive for decades on a metre of leaf.
   enabled: false
+  # Which rule kills trees in a natural plot, a switch (plan 2026-11-11; DECISIONS 111).  crowding: today's, the hazards
+  # below.  birch_2002: death by standing (treegen/death_by_standing.py; reports/design/2026-11-12_death_by_standing_build.md).
+  # From its start, Hynynen et al. 2002's survival model (Eq. 47) gives each tree's yearly hazard and the silver birch
+  # self-thinning line caps the stems; the crowding, suppressed and background hazards below are then not used.  Old age,
+  # snow, wind and the carbon rule stay as they are.
+  rule: crowding
+  # Hynynen, Ojansuu, Hokka, Siipilehto, Salminen & Haapala 2002, Metla Research Papers 835.  The stump diameter (Eq. 3) and
+  # the self-thinning line (Eq. 50) are read from plot.height_status.birch_2002, one copy for both rules.  Labels in
+  # reference/betula_pendula/labels.yaml.
+  birch_2002:
+    # Eq. 47 p. 50 and Table 32 p. 51, "Deciduous, SC1-8": p5 = 1 / (1 + exp(a0 + a1 d_s + a2 RDFL + a3 d_s RDFL)), the
+    # chance of dying of within-stand competition in the coming five years; d_s the stump diameter, cm.  Data, p. 24: five
+    # experiments in planted or self-sown silver and pubescent birch on fertile mineral soils, thinning trials with untreated
+    # controls; plot mean age 17-50 years, dominant height 12.3-22.4 m, 370-3,051 stems/ha; no diameter range printed.  The
+    # crowding term (a2 + a3 d_s) RDFL turns negative past d_s = -a2 / a3 = 22.87 cm, DBH 16.69 cm.
+    a0: 3.014
+    a1: 0.1015
+    a2: -9.313
+    a3: 0.4073
+    # The model's period, years (p. 50); the yearly hazard is -ln(1 - p5) / period_years.
+    period_years: 5.0
+    # Over the line: evenly, Eq. 61 p. 58, every counted tree's chance of living the year times N_max / N (the report's own);
+    # by_odds, every counted tree's five-year odds of dying times one factor (the design's own choice: an estimate).  Both aim
+    # at the line at the D_g before the raise; by_odds takes mostly small trees, so it leaves the stand about 0-2 % over the
+    # line read after the deaths (the check's arithmetic on the control's stands); evenly lands on it.
+    over_line: evenly
+    # Under this D_gs, cm, the line is its tangent there (pp. 56-57).  The line's own data (Tables 8 and 11, pp. 21 and 23):
+    # untreated control plots, silver birch 10 stands, 17 plots, D_g 7.4-25.5 cm, 572-6,484 stems/ha.  The cap first binds
+    # at about 12-15 years, at D_g about 3 cm and about 13,000 stems/ha: outside those data, on the tangent.
+    line_tangent_below_cm: 12.0
+    # The report checks the line at the end of each five-year step; here every this many years (1: each year, after growth).
+    line_every_years: 1
+    # The report's limit on one step's cut, 1.5 times the line's own fall (p. 57), set for inventory plots whose stem numbers
+    # are imprecise; null: no limit (a plot here counts every tree).  1.5 here is a reading of that limit, measured from
+    # this year's stems, not from the stems at a step's start as the report's is.
+    line_cut_limit: null
+    # The start: the stand's age, years, and its approved top height, m, if set.  12 is the design's choice and the height
+    # rule's own start; the survival data begin at 17 years and 12.3 m, so the years before are extrapolated.
+    start_age_years: 12.0
+    start_top_height_m: null
+    # The survival data's limits (p. 24): read only to say, in the records, where the rule runs outside them.
+    data_age_years: [17.0, 50.0]
+    data_top_height_m: [12.3, 22.4]
+    data_stems_per_ha: [370.0, 3051.0]
   # --- Self-thinning: RD = SDI / sdi_max, SDI = sum of (DBH over bark / 25 cm) ^
   # slope a hectare (Reineke's stand density index, summed tree by tree).
   # Lee, Siipilehto & Hynynen 2025, For. Ecol. Manage. 575:122374 (full text open in Luke's
@@ -1326,6 +1412,17 @@ stand:
     - {from_height_m: 0.0, stems_per_ha: 1800}
     - {from_height_m: 11.0, stems_per_ha: 1000}
     - {from_height_m: 16.0, stems_per_ha: 450}
+  # Two corrections of the model's own bookkeeping, both off by default (2026-11-12, reports/design/2026-11-12_height_faults.md).  Neither is a value
+  # from a source.  A stand tree's neighbours are counted from the schedule above by the tree's height, read anew every year at its highest living point.
+  # thinning_stays: a thinning, once reached, stays.  The schedule is read at the greatest height it has been read at so far, so a storm that shortens
+  # the tree doesn't bring the removed neighbours back.
+  thinning_stays: false
+  # thinning_on_stem_top: the schedule is read at the stem's own top, which the height curve sets, and not at the highest living point, which a limb's
+  # second top or fork can hold above the stem for some years, bringing a thinning forward.  Every place in a stand tree that reads the schedule
+  # follows both (GrowthModel._schedule_height): the light's neighbours, the wind's load, a limb's reach, damage, the soil water's leaf area and the
+  # yearly stats' spacing and leaf area index.  A managed plot's own thinning (treegen/plot.py _thin) only ever removes trees, so it stays as it is;
+  # it follows the second, reading its dominants' stem tops.
+  thinning_on_stem_top: false
 
 stats:
   # A first-order limb counts towards the crown base only if its subtree
@@ -1991,6 +2088,8 @@ appearance:
     leaves.on_shoots.size_cv: "DERIVED: Kovacic & Nikolic 2005, Acta Biol. Cracov. Ser. Bot. 47/2:7, Table 1 (publisher's PDF), Betula pendula, 5000 leaves of 50 trees: lamina length CV 11.6-15.9 %, so about 23-32 % in area, as area goes with length squared. For comparison, measured in area: Konopka & Pajtik 2026, Cent. Eur. For. J. 72:159, B. pendula, 3672 leaves of 204 young trees: 11.89 +- 5.73 cm2 pooled, CV 48 %, which takes in sites and classes; Caesar 1983, B. papyrifera, a related species: 13.2 +- 3.3 cm2, CV 25 %, for short-shoot leaves."
     leaves.on_shoots.size_limits_sd: "TUNED: so the largest blade is about 8 cm long and the smallest about 4.5 cm, at the model's own mean leaf. Floras give 3-7.5 cm; the model's mean is high, so the top end runs a little past that."
     leaves.on_shoots.splay_deg: "TUNED: by eye on birch-data/summer_reference/Birkenblaetter_Betula_pendula.jpg (Roletschek): a cluster's stalks leave well out from the shoot's axis. Not measured."
+    leaves.on_shoots.bud_scale_leaves: "SOURCE: Macdonald & Mothersill 1983, Can. J. Bot. 61:3049, doi:10.1139/b83-342, the abstract on the publisher's page (the full text is paid for and wasn't read), Betula papyrifera, a related species, mature trees over three seasons: a short shoot's terminal bud has three outer rudimentary leaves, whose stipules are its scales, then one to three foliage leaves, then the three rudimentary leaves of the next bud. An axillary bud has one outer rudimentary leaf, not three: that's a short shoot's first bud, and the bud a short shoot goes on from after it has flowered. The three between one year's leaves and the next's are the next terminal bud's, so the step holds from a shoot's first year. So on a 2/5 spiral a shoot with two leaves a year has them the same ways round each year, and one with three turns 144 degrees a year. GUESSED: the look counts every earlier year at this year's number of leaves, so a shoot whose number changed doesn't follow on from last year's; and it doesn't know which shoots flowered, where the new axis would start its own spiral. Nothing found for B. pendula. Real shoots also twist; nobody measured by how much. Read by leaves.each_year only."
+    leaves.each_year: "TUNED: a setting, not a value: on since 2026-11-12, the owner's choice (DECISIONS.md row 119), for trees and game exports. 0 gives the leaves every export had before the setting; an export's --timelapse sets it, because in a film of one frame a year new leaves in every frame read as shimmer. On, a leaf's hang, roll, size share and days to turn are drawn again each year inside the ranges already here, so the spread of angles and the tree's leaf area stay as they are. GUESSED: that a leaf's draws owe nothing to last year's leaf on the same shoot. No source found measures how alike a short shoot's leaves are from one year to the next."
     game.unreal.leaf.on_shoots: "TUNED: a setting, not a value: this target has each leaf where its shoot has it."
     leaves.petiole_m: "TUNED: from the 1-2 cm petiole in this file's light.leaf_spread comment, which gives no paper."
     leaves.fold_deg: "TUNED: by eye."
@@ -2215,10 +2314,22 @@ appearance:
       spur_m_per_year: 0.003
       spur_max_m: 0.04
       divergence_deg: 144.0
+      # the scale leaves of a short shoot's winter bud, on the same spiral as its leaves; read by each_year only
+      bud_scale_leaves: 3
       splay_deg: 60.0
       # a leaf's own size round the model's, with the tree's total held: its CV, and how far it goes either way, in SDs
       size_cv: 0.3
       size_limits_sd: [-2.2, 1.5]
+    # Whose leaves these are.  0: a leaf's own draws (how steeply it hangs, its roll, its size share, its days
+    # to turn) go by its node alone, so every spring brings last year's leaves back exactly.  Over 0: by its
+    # node and the year, so they're new each spring; with on_shoots, a short shoot's cluster also goes on round
+    # the shoot's spiral from last year's, past the bud_scale_leaves the bud made in between (counted as if the
+    # shoot had this year's number of leaves every year).  What the wood has stays: a node keeps its number of
+    # leaves and where they leave it, which without on_shoots is the side of the node each leaf sits on.
+    # On since 2026-11-12, the owner's choice (DECISIONS.md row 119): trees and game exports have new leaves
+    # each spring.  A time-lapse, a film of one frame a year, has it off: new leaves in every frame read
+    # as shimmer.  An export's --timelapse sets this to 0 for that export.
+    each_year: 1.0
     fold_deg: 24.0
     texture_size_px: 256
   game:
@@ -2390,9 +2501,9 @@ speed:
   sky_azimuth_count: null
   sun_hour_step: null
 
-# Records for the reports, both off by default (treegen/logs.py).  Each only keeps numbers the model has already worked out, or reads the trees once the
-# year is done, so neither changes what a tree or a plot grows: tests/test_logging.py shows it.  tools/golden.py leaves these two out of its hashes, as
-# it does speed's settings, so a run with a record on can be compared with one without.
+# Records for the reports, all off by default (treegen/logs.py).  Each only keeps numbers the model has already worked out, or reads the trees once the
+# year is done, so none changes what a tree or a plot grows: tests/test_logging.py and tests/test_stem_top.py show it.  tools/golden.py leaves log's
+# settings out of its hashes, as it does speed's, so a run with a record on can be compared with one without.
 log:
   # a tree keeps how each year's rings split, in carbon: stem and branches, and for each the sapwood that replaces what stopped conducting, the
   # sapwood more foliage asks for, and the wind's extra; and each limb's own share.  tools/tree_table.py then writes them out year by year, with
@@ -2402,3 +2513,8 @@ log:
   # worked out from, how many leaders light, water or carbon held back) and each tree that went as it stood in its last year.  tools/forest.py
   # then writes stand_log.json, and its tree lists carry the dead trees' wood
   stand: false
+  # the stem's own top beside the height (2026-11-12).  A tree's height is its highest living point, which can be a limb's second top or fork above the
+  # stem; the height curve sets the stem's top.  A tree keeps its stem's top as each yearly row measures it.  tools/tree_table.py then writes it into
+  # each year of tree.json (stem_top_m), tools/tree_list.py gives every tree a stem_top_m column, and a plot keeps a row a year, which tools/forest.py
+  # writes as stem_log.json: top height on the approved definition and the spread of height, each on highest points and on stem tops
+  stem_tops: false

@@ -64,7 +64,7 @@ resource:
     # a complex's bud age is multiplied by this; 0 to 1
     rejuvenation: 0.5
     # direction a complex then seeks; 0 to 180 deg from vertical
-    setpoint_angle_deg: 0
+    setpoint_angle_deg: 12
   # upkeep of one living internode; 0 to 10 carbon units per year
   maintenance_per_internode: 0.5
   # respired while building tissue; 0 to 2 g C per g C built
@@ -97,26 +97,26 @@ resource:
 
 bud_fate:
   # a lateral bud makes a long shoot with at least this many nodes of resource; 0 to 100 nodes
-  long_shoot_threshold: 3.0
+  long_shoot_threshold: 5
   # below this share of a node a tip doesn't extend; 0 to 1 nodes
   min_tip_extension: 0.1
   # an increment below one node still makes an axillary bud
   axillary_buds_below_one_metamer: false
   density_control:
     # dense local foliage suppresses buds
-    enabled: false
+    enabled: true
     # leaf density below which no bud is lost; 0 to 50 m2/m3
     af_full: 0.3
     # leaf density above which no bud grows; 0 to 100 m2/m3
-    af_zero: 3.2
+    af_zero: 1.7
     # grid cell for leaf density; 0.01 to 10 m
     cell_m: 0.5
     # density read after this year's growth
-    after_growth: false
+    after_growth: true
   # a bud that doesn't extend makes a short shoot at this light; above 1 no short shoots form; 0 to 5 relative light
-  short_shoot_light: 0.3
+  short_shoot_light: 0.15
   # a short shoot dies below this; 0 to 1 relative light
-  short_shoot_survival_light: 0.21
+  short_shoot_survival_light: 0.15
   # resource a short shoot needs to become a long shoot; 0 to 1000 nodes
   spur_release_threshold: 6.0
   # short shoots are no sink in the split
@@ -189,7 +189,7 @@ light:
 
 shedding:
   # a limb is shed when its leaves' mean light falls below this; 0 to 1 relative light
-  light_per_leaf_threshold: 0.21
+  light_per_leaf_threshold: 0.15
   # younger limbs aren't shed; 0 to 500 years
   min_branch_age: 2
   # a limb that can't pay its upkeep is shed
@@ -241,7 +241,7 @@ mechanics:
   # full correction from this error on; 0.1 to 90 deg
   sine_law_saturation_deg: 10.0
   # shoots thinner than this hang; very small = none hang; 1e-05 to 0.5 m
-  pendulous_radius: 0.006
+  pendulous_radius: 0.012
   # how sharply; 0 to 50
   pendulous_sharpness: 4.0
   # load steps per year; 1 to 100 steps
@@ -310,7 +310,7 @@ pipe_model:
     # 0 off; 1 plain pipe model below the crown; 2 plus the wind envelope; 0 to 2 stage
     stage: 2
     # wind at the canopy top; 0 to 90 m/s
-    wind_speed_m_s: 12.0
+    wind_speed_m_s: 8
     # wind's fall below the canopy top; 0 to 20
     canopy_wind_attenuation: 2.0
 
@@ -324,7 +324,7 @@ geometry:
   # its decay height; 0.01 to 20 m
   root_flare_height: 0.45
   # only roots this share of the thickest raise a ridge, and ridges don't pile up; 0 = all, added up; 0 to 1
-  root_flare_min_share: 0.0
+  root_flare_min_share: 0.5
   # junction fillet, per child radius; 0 to 10
   junction_blend: 0.6
   # branch collar's extra radius; 0 to 10
@@ -371,7 +371,7 @@ leader_damage:
 
 damage:
   # old age, wind and snow can act (treegen/damage.py)
-  enabled: false
+  enabled: true
   # keep every tree's size and buckling sum in each snow year, in plot.json; for tuning
   log_snow_trees: false
   # over-bark DBH per wood DBH; 1 to 2 cm/cm
@@ -380,7 +380,7 @@ damage:
   stem_form_factor: 0.45
   old_age:
     # ageing can kill
-    enabled: false
+    enabled: true
     # ln(maximum age) = b0 + b1 SIS + b2 ln(n); -20 to 30
     amax_b0: 4.6246
     # b1; -1 to 1 per m
@@ -399,7 +399,7 @@ damage:
     years_to_breast_height: 5.5
   wind:
     # storms can snap and uproot
-    enabled: false
+    enabled: true
     # chance of wind damage per period on the mean tree; -20 to 20 logit
     intercept: -5.03
     # soil type's effect; -10 to 10 logit
@@ -482,7 +482,7 @@ damage:
     min_leaves_left: 0.5
   snow:
     # wet snow can break and bend
-    enabled: false
+    enabled: true
     # years between damaging snowfalls; 1 to 1000 years
     return_years: 5
     # load of a damaging snowfall; 0 to 500 kg/m2 of crown
@@ -541,7 +541,6 @@ mortality:
   size_weight:
   vigour:
   background:
-  old_age:
 
 stand:
   # trees across the light grid's cell; 1 to 50 trees
@@ -609,11 +608,11 @@ roots:
   # taproot's pull; 0 to 100 1/m
   taproot_gravitropism_per_m: 3.0
   # lateral direction; 0 to 180 deg from up
-  lateral_setpoint_deg: 97
+  lateral_setpoint_deg: 92
   # scatter of that; 0 to 90 deg
   lateral_setpoint_spread_deg: 4
   # lateral's pull; 0 to 100 1/m
-  lateral_gravitropism_per_m: 1.5
+  lateral_gravitropism_per_m: 3.0
   # sinker direction; 0 to 180 deg from up
   sinker_setpoint_deg: 180
   # sinker's pull; 0 to 100 1/m
@@ -691,7 +690,7 @@ roots:
   trim_taproot: true
   paid:
     # root wood and fine roots cost carbon
-    enabled: false
+    enabled: true
     # stump diameter at no stem diameter; 0 to 50 cm
     stump_d_intercept_cm: 2.0
     # stump diameter per stem diameter; 0.5 to 3 cm/cm
@@ -820,6 +819,11 @@ appearance:
       rhytidome:
         climbs:
     uneven_top:
+      black:
+      plates:
+      stage_ramps:
+        papery:
+      limbs:
     peel:
     marks:
   leaves:
@@ -828,6 +832,7 @@ appearance:
       days:
     light_effect:
     shape:
+    on_shoots:
   game:
     full_mesh:
     reduced_mesh:
@@ -835,7 +840,6 @@ appearance:
     unreal:
       roots:
       stem_relief:
-        plates:
       leaf:
         shape:
       days:
@@ -843,17 +847,17 @@ appearance:
 
 speed:
   # carbon solve compiled; same bits
-  compiled_carbon: false
+  compiled_carbon: true
   # bending compiled; same bits
-  compiled_mechanics: false
+  compiled_mechanics: true
   # light grids held layer first; same bits
-  light_layers: false
+  light_layers: true
   # soil grids kept between years; same bits
-  keep_soil_grids: false
+  keep_soil_grids: true
   # carbon solve in fewer evaluations; same bits on the runs tested
-  quick_solve: false
+  quick_solve: true
   # the order of passes from a compiled count; same bits
-  quick_levels: false
+  quick_levels: true
   # light by frequency rows, scipy's ffts; new rounding
   light_rows: false
   # lean runs drop dead nodes; same yearly stats on the runs tested
@@ -866,3 +870,5 @@ speed:
   sky_azimuth_count: null
   # fewer sun directions; lossy; 0.25 to 6 h
   sun_hour_step: null
+
+log:

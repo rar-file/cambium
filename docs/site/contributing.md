@@ -55,6 +55,8 @@ Tests that mark a known model fault are kept failing on purpose, and their docst
 - Say in the pull request which results moved, and by how much.
 - If you change a value in a species file, update its label in `reference/<species>/labels.yaml`. A value whose label wasn't updated counts as unchecked.
 
+**The golden check.** `cases/golden_server.json` holds the hash of every output of the golden runs (`tools/golden.py`), as the project's reference server recorded them, with its Python and library versions, its processor, and each run's seconds and peak memory. A change that should move no result is checked there: `python tools/golden.py record <label> --check` exits 0 only when every file hashes the same, and otherwise names each run or file that differs, is missing or is new. Hashes belong to the machine, so on your own computer record the runs before and after your change and run `python tools/golden.py compare <before> <after>`. A change that moves results updates the tracked file in the same pull request, with `python tools/golden.py track`.
+
 ## Conduct and security
 
 Everyone taking part follows the [Code of Conduct](https://github.com/rar-file/cambium/blob/main/CODE_OF_CONDUCT.md) (Contributor Covenant 2.1). Report security problems privately, as [SECURITY.md](https://github.com/rar-file/cambium/blob/main/SECURITY.md) says, not as issues.

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-SLOW_FIXTURES = {"unreal_export"}
+SLOW_FIXTURES = {"unreal_export", "small_exports"}
 SLOW = {
     "tests/test_cambium.py::test_a_small_forest",
     "tests/test_cambium.py::test_glb_export_every_level_and_stage",
@@ -43,6 +43,7 @@ SLOW = {
     "tests/test_game_export.py::test_every_file_loads_and_every_level_keeps_its_budget",
     "tests/test_game_export.py::test_thinning_saves_triangles_and_leaves_the_stem_alone",
     "tests/test_height_limit.py::test_a_lost_leader_is_replaced_and_gets_back_to_the_curve",
+    "tests/test_leaves_each_year.py::test_cambiums_export_takes_the_option_too",
     "tests/test_height_limit.py::test_a_side_shoot_never_ends_above_the_leader",
     "tests/test_roots_paid.py::test_anchorage_and_the_root_plate_still_read_the_roots",
     "tests/test_roots_paid.py::test_measuring_the_roots_changes_nothing",

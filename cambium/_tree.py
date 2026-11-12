@@ -1,8 +1,9 @@
 """One tree: grow it, read its yearly records, export it.
 
 ``grow()`` runs the same steps as ``python cli.py`` (``cli.grow``), so the same seed and settings give
-the same tree, bit for bit.  Exports go through the same code as ``cli.py`` (USD) and
-``tools/game_export.py`` (game-ready glTF).
+the same tree, bit for bit, on the same machine and library versions; another machine grows another
+tree from that seed (treegen/threads.py).  Exports go through the same code as ``cli.py`` (USD) and
+``tools/game_export.py`` (glTF for game engines).
 """
 from __future__ import annotations
 
@@ -135,16 +136,20 @@ class Tree:
         return [out / "stats.json", out / "stats.csv"]
 
     def export(self, path: str | Path, format: str = "glb", lod=None, ages=None, seasons=("summer",), look: dict | None = None,
-               log=None) -> list:
+               log=None, textures: bool = True, timelapse: bool = False) -> list:
         """Write the tree's meshes into the folder ``path``; returns the files written.
 
-        format="glb": game-ready glTF 2.0 with PBR textures, one file per age, season and level of detail
+        format="glb": glTF 2.0 for game engines, with PBR textures, one file per age, season and level of detail
         (``betula_pendula_age060_summer_lod0.glb``), and game_manifest.json.  The levels come from the
         species file: lod0 full detail, lod1 reduced (a triangle budget), lod2 far cards.  lod=None writes
         all; "lod1" or ["lod0", "lod1"] picks.  lod2 is drawn from lod0's file, so lod0 comes with it.
         ages: default the tree's age; an earlier age needs ``grow(..., stages=[...])``.  seasons: any of
         spring, summer, early_autumn, autumn, winter.  look: appearance values to change for this
-        export only, by dotted path (``{"bark.tile_px": 256}``).
+        export only, by dotted path (``{"bark.tile_px": 256}``).  textures=False is a quick look at the
+        geometry: the same meshes with no textures in the files, and no far level (it is nothing but one).
+        Leaves are new each spring: a leaf hangs, rolls and turns colour in its own way that year.  timelapse=True
+        is for a film of one frame a year: every leaf then hangs as it did the year before, because new leaves
+        in every frame read as shimmer.
 
         format="usd": the research meshes ``cli.py`` writes: tree.usdc (lod0, full detail; parts in
         tree_parts/) and tree_reduced.usdc (lod1, under 10 % of its triangles), Z-up, with roots, shed
@@ -156,6 +161,8 @@ class Tree:
             raise ValueError(f"format must be one of {', '.join(FORMATS)}, not {format!r}")
         if self.model.lean:
             raise ValueError("a lean tree keeps nothing an export reads")
+        if timelapse and "leaves.each_year" in (look or {}):
+            raise ValueError("timelapse sets leaves.each_year itself; leave it out of look")
         out = Path(path)
         out.mkdir(parents=True, exist_ok=True)
         log = log or (lambda s: None)
@@ -164,7 +171,7 @@ class Tree:
             if ages != [self.age]:
                 raise ValueError("format='usd' writes the tree at its own age only")
             return self._export_usd(out, _levels(lod, list(USD_LEVELS)))
-        return self._export_glb(out, lod, ages, seasons, look, log)
+        return self._export_glb(out, lod, ages, seasons, look, log, textures, timelapse)
 
     def _export_usd(self, out: Path, levels: list) -> list:
         cli = _engine.load("cli")
@@ -172,7 +179,8 @@ class Tree:
                        [], 400_000, {}, {})
         return [out / USD_LEVELS[name] for name in levels]
 
-    def _export_glb(self, out: Path, lod, ages: list, seasons, look_values: dict | None, log) -> list:
+    def _export_glb(self, out: Path, lod, ages: list, seasons, look_values: dict | None, log, textures: bool = True,
+                    timelapse: bool = False) -> list:
         from treegen import appearance as ap
         from treegen import textures as tx
         from treegen.params import load_species
@@ -198,7 +206,9 @@ class Tree:
             if parts[-1] not in d:
                 raise KeyError(f"no such look value: {key}")
             d[parts[-1]] = val
-        lods = look["game"]["lods"]
+        if timelapse:
+            ap.timelapse_look(look)
+        lods = [x for x in look["game"]["lods"] if textures or x["kind"] != "far"]
         want = _levels(lod, [x["name"] for x in lods])
         if any(x["kind"] == "far" and x["name"] in want for x in lods) and lods[0]["name"] not in want:
             want.insert(0, lods[0]["name"])     # far cards are drawn from the first level's file
@@ -206,9 +216,11 @@ class Tree:
 
         meta = self.metadata(f"cambium {__version__} (treegen tools/game_export.py)")
         tiles = tx.make_tiles(look)
-        stages = [ge.export_stage(self.model, self.params, look, tiles, a, snaps[a], out, seasons, self.species, meta, log=log)
-                  for a in ages]
-        doc = {"continuity": ge.continuity(out, stages, self.species, look), "format": "treegen.game/1", **meta,
+        kept = {}     # what is the same at every age: made once
+        stages = [ge.export_stage(self.model, self.params, look, tiles, a, snaps[a], out, seasons, self.species, meta, log=log, kept=kept,
+                                  textures=textures) for a in ages]
+        doc = {"continuity": ge.continuity(out, stages, self.species, look) if textures else [], "format": "treegen.game/1", **meta,
+               **({} if textures else ge.NO_TEXTURES),
                "units": {"length": "m", "up_axis": "Y (glTF)", "ground": "y = 0, stem base at the origin"},
                "levels": look["game"]["lods"], "stages": stages, "checks": ge.check_files(out, log=log), "needs": ge.ENGINE_NOTES}
         (out / "game_manifest.json").write_text(json.dumps(doc, indent=1), encoding="utf-8")
@@ -221,7 +233,7 @@ def grow(species: str = "betula_pendula", seed: int = 1, years: int = 60, stand:
     """Grow one tree, year by year, and return it.
 
     species: a species name ("betula_pendula"), an alias ("birch") or a path to a species .yaml file.
-    seed: the tree's random seed; the same seed and settings give the same tree, bit for bit.
+    seed: the tree's random seed; the same seed and settings give the same tree on the same machine and library versions.
     stand: grow among neighbours (shadow volumes around it), as in a forest, instead of in the open.
     stages: earlier ages to keep the leaves at, so ``export(ages=...)`` can write those ages too.
     settings: species values to change from the start, by dotted path:

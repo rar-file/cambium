@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import copy
 import json
+import shutil
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -34,7 +35,7 @@ import numpy as np
 from . import appearance as ap
 from . import game, mesh as meshlib
 from . import textures as tx
-from .export import GameGLB
+from .export import PNG_LEVEL, GameGLB
 from .textures import ALB
 
 CLAMP, REPEAT = 33071, 10497
@@ -112,16 +113,17 @@ def _write_png(path: Path, rgb: np.ndarray, alpha: np.ndarray | None = None) -> 
     a = np.clip(np.asarray(rgb, np.float32), 0.0, 1.0)
     if alpha is not None:
         a = np.concatenate([a, np.clip(np.asarray(alpha, np.float32), 0.0, 1.0)[..., None]], axis=-1)
-    Image.fromarray((a * 255.0 + 0.5).astype(np.uint8)).save(path, compress_level=6)
+    Image.fromarray((a * 255.0 + 0.5).astype(np.uint8)).save(path, compress_level=PNG_LEVEL)
     return path.name
 
 
 class Maps:
     """Writes a slot's textures, named as the game's material stage looks for them, and adds its material."""
 
-    def __init__(self, out: Path, asset: str):
+    def __init__(self, out: Path, asset: str, textures: bool = True):
         self.folder = out / "SourceArt" / "PolyHaven" / asset / "textures"
         self.asset = asset
+        self.textures = textures    # False: a quick look at the geometry, with no map written and none named by a material
 
     def uri(self, name: str) -> str:
         return f"../../PolyHaven/{self.asset}/textures/{name}"
@@ -130,6 +132,8 @@ class Maps:
               cavity: np.ndarray | None = None) -> dict:
         """Colour is linear.  Roughness in red (what M_Surface and M_Foliage read), height in green,
         cavity in blue, as the game's plant masks.  Alpha in the colour map's own alpha."""
+        if not self.textures:
+            return {}
         d = {}
         d["diff"] = _write_png(self.folder / f"{slot}_diff_2k.png", ap.linear_to_srgb(colour), alpha)
         d["nor"] = _write_png(self.folder / f"{slot}_nor_gl_2k.png", normal * 0.5 + 0.5)
@@ -137,7 +141,22 @@ class Maps:
         d["rough"] = _write_png(self.folder / f"{slot}_rough_2k.png", np.stack([rough, zero if height is None else height, zero if cavity is None else cavity], -1))
         return d
 
+    def write_once(self, kept: dict, name: str, slot: str, make) -> tuple:
+        """An atlas that depends on the look and the texture seed alone is the same at every age: baked and written for an export's
+        first age, and for the others its files copied under their own slot's names.  Returns (the atlas, its files)."""
+        if name not in kept:
+            atlas = make()
+            kept[name] = (atlas, slot, self.write(slot, atlas["rgb"], atlas["normal"], atlas["rough"], alpha=atlas["alpha"]))
+        atlas, first, files = kept[name]
+        copies = {kind: file.replace(first, slot) for kind, file in files.items()}
+        for kind, file in files.items():
+            if copies[kind] != file:
+                shutil.copyfile(self.folder / file, self.folder / copies[kind])
+        return atlas, copies
+
     def material(self, glb: GameGLB, slot: str, files: dict, wrap_s: int, wrap_t: int, alpha_clip: float | None = None, two_sided: bool = False, extras: dict | None = None) -> int:
+        if not self.textures:
+            return glb.add_material({"name": slot, "doubleSided": two_sided, "extras": {"color0": "wind"}})
         tb = glb.add_texture_uri(self.uri(files["diff"]), wrap_s, wrap_t, files["diff"][:-4])
         tn = glb.add_texture_uri(self.uri(files["nor"]), wrap_s, wrap_t, files["nor"][:-4])
         tr = glb.add_texture_uri(self.uri(files["rough"]), wrap_s, wrap_t, files["rough"][:-4])
@@ -833,7 +852,7 @@ def hang_leaves(leaves: ap.LeafInstances, z_rel: np.ndarray, cfg: dict) -> ap.Le
     degrees on average, about 55 at the top of the crown and about 30 at its bottom.  That's a blade's
     slope from its base to its tip, so the curl ``blade_mesh`` will give each leaf is taken off here."""
     n = len(leaves.node)
-    key = np.arange(n)
+    key = np.arange(n) if leaves.key is None else leaves.key      # leaves.each_year: this year's leaves
     table = np.asarray(cfg["angle_by_height"], float)
     mean = np.interp(z_rel, table[:, 0], table[:, 1])
     curl = float(cfg["curl"][0]) + (float(cfg["curl"][1]) - float(cfg["curl"][0])) * ap.hash01(key, 86)
@@ -881,7 +900,7 @@ def blade_mesh(look: dict, leaves: ap.LeafInstances, chl: np.ndarray, atlas: dic
     levels = len(fractions)
     rows = atlas["rows"]
     n = len(leaves.node)
-    key = np.arange(n)
+    key = np.arange(n) if leaves.key is None else leaves.key      # leaves.each_year: this year's leaves
     h = lambda salt: ap.hash01(key, salt)  # noqa: E731
     variant = (h(82) * rows).astype(np.int64)
     flip_uv = h(83) < 0.5
@@ -1193,7 +1212,7 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
         arrays1 = game.wood_arrays(wood, game.join_meshes([crown1, as_stem(foot1, stem_node)]))
         arrays1["stem"] = shape_stem(arrays1["stem"], wood, line, line - surface_depth, swell, None, relief_cfg, flows, centre)
     base_name = f"{asset}_age{age:03d}"
-    maps = Maps(out, asset)
+    maps = Maps(out, asset, ctx.get("textures", True))
     split = out / "SourceArt" / "PolyHaven_split" / asset
     split.mkdir(parents=True, exist_ok=True)
     # bark maps, once per age
@@ -1234,24 +1253,23 @@ def export_stage(ctx: dict, age: int, seasons: list, log=print) -> dict:
         info.update(file=str(rpath.relative_to(out)).replace("\\", "/"), variant=rname, min_z_m=round(float(arr["V"][:, 2].min()), 3),
                     max_z_m=round(float(arr["V"][:, 2].max()), 3), from_foot=from_foot)
         root_files_out[lname] = info
-    # leaves
-    blade0 = tx.leaf_blade(look, seed + 500)
-    leaves = ap.leaf_instances(look, sp, ctx["snaps"][age], pos, r_wood, age, blade0["fill"])
+    # leaves.  What depends on the look and the texture seed alone is the same at every age: made for the export's first, kept for the rest
+    kept = ctx.setdefault("kept", {})
+    if "blade" not in kept:
+        kept["blade"] = tx.leaf_blade(look, seed + 500)
+    leaves = ap.leaf_instances(look, sp, ctx["snaps"][age], pos, r_wood, age, kept["blade"]["fill"])
     # where each leaf's stalk leaves its twig: the base as placed, less the stalk's length
     leaf_out = leaves.base - pos[leaves.node]
     leaf_out /= np.maximum(np.linalg.norm(leaf_out, axis=1, keepdims=True), 1e-9)
     leaves.twig = pos[leaves.node] + leaf_out * r_wood[leaves.node][:, None]
     leaf_z_rel = np.clip(pos[leaves.node, 2] / max(height, 1e-3), 0.0, 1.0)
     leaves = hang_leaves(leaves, leaf_z_rel, u["leaf"])
-    atlas = leaf_atlas(look, seed + 500)
     leaf_slot = f"{base_name}_leaf"
-    leaf_files = maps.write(leaf_slot, atlas["rgb"], atlas["normal"], atlas["rough"], alpha=atlas["alpha"])
+    atlas, leaf_files = maps.write_once(kept, "leaf", leaf_slot, lambda: leaf_atlas(look, seed + 500))
     strips = ap.peel_strips(look, pos, T.parent[: T.n], r_wood, T.birth[: T.n], alive, age, height, ap.over_bark_dbh_cm(look, dbh_w))
-    strip_tex = strip_atlas(look, seed + 600)
-    strip_files = maps.write(strip_slot, strip_tex["rgb"], strip_tex["normal"], strip_tex["rough"], alpha=strip_tex["alpha"])
-    cards = card_atlas(look, seed + 700) if lod1 is not None else None
+    strip_tex, strip_files = maps.write_once(kept, "strip", strip_slot, lambda: strip_atlas(look, seed + 600))
     card_slot = f"{base_name}_card_leaf"
-    card_files = maps.write(card_slot, cards["rgb"], cards["normal"], cards["rough"], alpha=cards["alpha"]) if cards is not None else None
+    cards, card_files = maps.write_once(kept, "card", card_slot, lambda: card_atlas(look, seed + 700)) if lod1 is not None else (None, None)
     days = look["leaves"]["season"]["days"]
     out_stage = {"age": age, "height_m": height, "dbh_wood_cm": dbh_w, "dbh_over_bark_cm": round(ap.over_bark_dbh_cm(look, dbh_w), 2), "exported_leaves": int(len(leaves.node)),
                  "roots": {**root_table(model, age), "ground_line_m": round(line, 3), "showing": roots_showing(surface0, line, centre), "files": root_files_out},

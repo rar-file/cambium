@@ -12,7 +12,7 @@ tree.export("out/birch5_game", format="glb", ages=(15, 30, 60), seasons=("summer
 ```
 
 ```python
-tree.export(path, format="glb", lod=None, ages=None, seasons=("summer",))
+tree.export(path, format="glb", lod=None, ages=None, seasons=("summer",), textures=True, timelapse=False)
 ```
 
 | Argument | Meaning |
@@ -20,13 +20,15 @@ tree.export(path, format="glb", lod=None, ages=None, seasons=("summer",))
 | `lod` | `None` writes every level. `"lod1"` or `["lod0", "lod1"]` picks some. `lod2` is drawn from `lod0`, so asking for `lod2` writes `lod0` too |
 | `ages` | Which ages to write. Ages before the last need `stages=` when you grow the tree |
 | `seasons` | Any of `spring`, `summer`, `early_autumn`, `autumn`, `winter` |
+| `textures` | `False` is a quick look at the geometry: the same meshes, with no textures in the files and no `lod2`, which is nothing but a texture. On the command line: `--no-textures` |
+| `timelapse` | `True` is for a film of one frame a year: leaves are not new each spring. See [Growth stages](#growth-stages). On the command line: `cambium export --timelapse` |
 
 On the command line:
 
 ```
 cambium grow --species birch --seed 7 --years 60 --export glb --lod lod0,lod1 --seasons summer,autumn
 cambium export --species birch --seed 5 --ages 15,30,60 [--forest] [--format glb|usd]
-               [--lod ...] [--seasons ...] --out DIR [--quiet]
+               [--lod ...] [--seasons ...] [--no-textures] [--timelapse] --out DIR [--quiet]
 ```
 
 `cambium export` grows the tree to the oldest age and writes each age as a stage. Add `--forest` for a tree grown among neighbours (tall and narrow) instead of in the open (wide).
@@ -72,6 +74,8 @@ tree.export("out/stages", format="glb", ages=(5, 15, 30, 60))
 ```
 
 Each stage is the same tree at a different age, with the same origin and the same node ids. To show a tree growing, swap to the next stage while the player is looking away, or cross-fade (dither) between two stages. Stems move a little between stages, so a swap in plain view shows a small jump.
+
+A stage's leaves are that spring's. From one year to the next a leaf keeps its shoot and its side of the twig, and hangs, rolls and turns colour in its own way; the number of leaves and their area stay the model's. A game that shows one stage for several years shows the same leaves in each of them. For a time-lapse, a film of one frame a year, export with `timelapse=True` (`cambium export --timelapse`): every leaf then hangs as it did the year before, because new leaves in every frame read as shimmer.
 
 ## Seasons
 

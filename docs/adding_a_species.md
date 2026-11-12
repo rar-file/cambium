@@ -90,6 +90,10 @@ These are written into the model, so a species that differs here needs code firs
 - **Climate lives in the species file:** the rain and evaporation in `soil_water_balance`, and storm direction in `damage.wind`. They belong to the site, and should move to `environments/`.
 - **Height curves:** `reference.height` and the scorecard expect the Hossfeld IV form.
 
+## New settings
+
+A species or site file may hold only the names listed in `treegen/names.py`. A misspelt name stops the run as the file loads, and the message gives the nearest real names. A new setting needs its full dotted name added there, as well as its value in the species file. Write each name as nested blocks, never with a dot in it; only `appearance.provenance` is keyed by dotted names. A list of records, such as `stand.thinning`, has its row names in `ROWS` in the same file: the names every row holds, and those a row may hold.
+
 ## Keeping the template current
 
 When a setting is added to `treegen/species_schema.py`, rewrite the template:

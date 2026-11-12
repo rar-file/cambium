@@ -23,6 +23,16 @@ def load_look(species_raw: dict) -> dict:
     return look
 
 
+def timelapse_look(look: dict) -> dict:
+    """The look for a time-lapse, a film of one frame a year: ``leaves.each_year`` off, the leaves every export
+    had before that setting.  New leaves each spring are the default and true to the tree, but new leaves in
+    every frame read as shimmer.  Off, a leaf placed here hangs as it did the year before; the game target's
+    own draws then go by a leaf's place in the tree's list, so there its droop still shifts a little.
+    Changes ``look`` and returns it."""
+    look["leaves"]["each_year"] = 0.0
+    return look
+
+
 def srgb_to_linear(c) -> np.ndarray:
     """sRGB 0-255 to linear 0-1."""
     a = np.asarray(c, float) / 255.0
@@ -243,6 +253,7 @@ class LeafInstances:
     area: np.ndarray         # m2, one-sided, as the model has it
     sun: np.ndarray          # 0 shade, 1 sun
     delay: np.ndarray        # days later than the tree's average to turn
+    key: np.ndarray | None = None   # with leaves.each_year: each leaf's number this year, for an exporter's own draws
 
 
 def _on_shoot(cfg: dict, snap: LeafSnapshot, pos: np.ndarray, r: np.ndarray, node: np.ndarray, k: np.ndarray, in_node: np.ndarray, tree_age: int) -> tuple:
@@ -265,8 +276,9 @@ def _on_shoot(cfg: dict, snap: LeafSnapshot, pos: np.ndarray, r: np.ndarray, nod
 
 
 def _size_spread(cfg: dict, key: np.ndarray, area: np.ndarray) -> np.ndarray:
-    """Leaves of one kind differ in size.  Each leaf's own share, the same every year, with the tree's
-    total leaf area held: the model's sizes and their mean stay as they are."""
+    """Leaves of one kind differ in size.  Each leaf's own share, the same every year unless its key is the
+    year's (``leaves.each_year``), with the tree's total leaf area held: the model's sizes and their mean stay
+    as they are."""
     sigma = np.sqrt(np.log(1.0 + float(cfg["size_cv"]) ** 2))
     z = np.sqrt(-2.0 * np.log(np.maximum(hash01(key, 6), 1e-9))) * np.cos(2.0 * np.pi * hash01(key, 7))
     low, high = cfg["size_limits_sd"]
@@ -279,7 +291,12 @@ def leaf_instances(look: dict, sp, snap: LeafSnapshot, pos: np.ndarray, radius: 
     size, placed by a hash of the node, so a leaf keeps its place from age to age.  ``fill`` is the
     share of a blade's diamond its outline fills; the diamond is enlarged so the visible area is the
     model's.  With ``leaves.on_shoots`` asked for, each leaf leaves its shoot as a birch's does and has
-    a size of its own round the model's; the leaves, and the tree's total leaf area, are the same."""
+    a size of its own round the model's; the leaves, and the tree's total leaf area, are the same.
+    With ``leaves.each_year`` asked for, the leaves are this year's, not last year's: a leaf's own draws (how
+    steeply it hangs, its roll, its days to turn, its size share) go by its node, its number and the year, and
+    a short shoot's cluster goes on round the shoot's spiral from last year's, past the bud's scale leaves.
+    What the wood has stays: how many leaves a node has, and where they leave it, which with leaves on no
+    shoot is the side of the node each one sits on.  The tree's total leaf area is the same."""
     lv = look["leaves"]
     a_ref = snap.reference_area
     size = np.where(snap.size > 0, snap.size, a_ref)
@@ -290,14 +307,27 @@ def leaf_instances(look: dict, sp, snap: LeafSnapshot, pos: np.ndarray, radius: 
     node = np.repeat(np.arange(len(count)), n_leaf)
     k = np.arange(len(node)) - np.repeat(np.r_[0, np.cumsum(n_leaf)[:-1]], n_leaf)
     key = node * 64 + k
-    az = 2.0 * np.pi * hash01(key, 1)
+    # the wood's: the side of its node a leaf sits on when leaves are on no shoot, by the node and the leaf's number in any year
+    side = key
+    each_year = float(lv.get("each_year", 0.0)) > 0.0
+    if each_year:
+        # this spring's leaves: the same numbers for the same tree at the same age, others the year after
+        key = key + int(tree_age) * 2 ** 40
+    az = 2.0 * np.pi * hash01(side, 1)
     lo, hi = np.radians(lv["inclination_deg"])
     inc = lo + (hi - lo) * hash01(key, 2)
     place = lv.get("on_shoots")
     on_shoots = place is not None and float(place["strength"]) > 0.0 and snap.lat_dir is not None
     r = radius[np.minimum(node, len(radius) - 1)]
     if on_shoots:
-        tip, stalk, az = _on_shoot(place, snap, pos, r, node, k, n_leaf[node], tree_age)
+        turn = k
+        if each_year:
+            # a shoot that has leaves again numbers them on round its spiral, past the scale leaves of the bud in between.
+            # Every earlier year is counted at this year's number of leaves: a shoot whose number changed has its leaves
+            # where the wood has them, but doesn't follow on from last year's round its axis
+            years = np.maximum(float(tree_age) - np.asarray(snap.birth, float)[node], 0.0)
+            turn = k + (n_leaf[node] + float(place.get("bud_scale_leaves", 0.0))) * years
+        tip, stalk, az = _on_shoot(place, snap, pos, r, node, turn, n_leaf[node], tree_age)
     outward = np.stack([np.cos(az), np.sin(az), np.zeros(len(az))], 1)
     along = outward * np.cos(inc)[:, None] + np.array([0.0, 0.0, -1.0]) * np.sin(inc)[:, None]
     across = np.stack([-np.sin(az), np.cos(az), np.zeros(len(az))], 1)
@@ -317,7 +347,8 @@ def leaf_instances(look: dict, sp, snap: LeafSnapshot, pos: np.ndarray, radius: 
     spread = (hash01(key, 4) - 0.5) * 2.0 * float(lv["turn_spread_days"])
     late = np.where(snap.is_spur[node], 0.0, float(lv["long_shoot_delay_days"]))
     old = -float(lv["old_tree_advance_days"]) * min(tree_age / 100.0, 1.0)
-    return LeafInstances(node=node, base=base, along=along, across=across, length=L, width=L / aspect, area=area, sun=sun, delay=spread + late + old)
+    return LeafInstances(node=node, base=base, along=along, across=across, length=L, width=L / aspect, area=area, sun=sun, delay=spread + late + old,
+                         key=key if each_year else None)
 
 
 # -- free bark strips ---------------------------------------------------------------------------

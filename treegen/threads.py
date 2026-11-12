@@ -3,8 +3,13 @@ DECISIONS.md row 26).
 
 Results depend slightly on the OpenBLAS thread count (out/bench/m1/parallel_proof_
 one_thread.txt: up to 0.03 % at age 60), so a run on a PC with a different number of
-cores could differ.  One thread gives the same bits everywhere it runs, and costs
+cores could differ.  One thread gives the same bits whatever the number of cores, and costs
 about 6 % in speed (47 s against 50 s for the seed-1 tree).
+
+That holds on one machine.  Another machine grows another tree from the same seed: between
+this PC and the server, 216 of the 225 golden files differed, from year 2 or 3 on
+(reports/P0_performance.md).  The cause (chip, system, maths library) isn't separated yet.
+So a seed isn't a portable tree: compare means across machines, and seeds on one machine.
 
 Importing treegen sets this.  A library reads the environment variables only when
 it loads, and a script may have imported numpy first, so the loaded OpenBLAS copies

@@ -21,6 +21,10 @@ Time and peak memory are written per year as year_log, the place to read a run's
 trees that went, top height on the approved definition, the leaf area the year's light was worked out
 from, and how many leaders light, water or carbon held back; the tree lists then carry the dead trees'
 wood too.  plot.json and the trees are the same with it on or off.
+
+--set log.stem_tops=true (2026-11-12) also writes stem_log.json: a row a year with top height on the approved
+definition and the spread of height, each on the trees' highest points and on their stems' own tops; the
+tree lists then have a stem_top_m column.  plot.json, stand_log.json and the trees are the same with it on or off.
 """
 from __future__ import annotations
 
@@ -37,7 +41,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 import cli  # noqa: E402
 import tree_list  # noqa: E402
 from batch import free_gb  # noqa: E402
-from treegen import checkpoint, logs  # noqa: E402
+from treegen import checkpoint, death_by_standing, logs  # noqa: E402
 from treegen.params import run_manifest  # noqa: E402
 from treegen.plot import Plot  # noqa: E402
 
@@ -93,8 +97,17 @@ def run(a) -> None:
         if getattr(plot, "stand_log", None):
             # log.stand (treegen/logs.py): a row a year, in its own file, so plot.json is the same with the log on or off
             tmp = out / "stand_log.json.tmp"
-            tmp.write_text(json.dumps({"area_m2": plot.area, "seed": a.seed, "year": plot.year, "what": logs.STAND_LOG_WHAT, "rows": plot.stand_log}), encoding="utf-8")
+            sl = {"area_m2": plot.area, "seed": a.seed, "year": plot.year, "what": logs.STAND_LOG_WHAT, "rows": plot.stand_log}
+            if any("death_rule" in r for r in plot.stand_log):
+                # mortality.rule birch_2002 only (treegen/death_by_standing.py): what its yearly record holds
+                sl["death_rule_what"] = death_by_standing.RECORD_WHAT
+            tmp.write_text(json.dumps(sl), encoding="utf-8")
             tmp.replace(out / "stand_log.json")
+        if getattr(plot, "stem_log", None):
+            # log.stem_tops (treegen/logs.py): a row a year, in its own file, so plot.json and stand_log.json are the same with the log on or off
+            tmp = out / "stem_log.json.tmp"
+            tmp.write_text(json.dumps({"area_m2": plot.area, "seed": a.seed, "year": plot.year, "what": logs.STEM_LOG_WHAT, "rows": plot.stem_log}), encoding="utf-8")
+            tmp.replace(out / "stem_log.json")
 
     while plot.year < a.years and plot.alive:
         y0 = time.time()

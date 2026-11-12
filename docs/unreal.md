@@ -393,6 +393,8 @@ The paper's extract gives no slope to apply. So if age 60 should show more, that
 
 Placing them right doesn't make the crown fuller: crown fill side on rose by 1-2 points, and a twig's leaves still look about one blade wide.
 
+**From year to year** (`leaves.each_year`, on since 2026-11-12; `reports/design/2026-11-11_leaves_each_year.md`). A stage's leaves are that spring's: each leaf's slope, roll, size share, days to turn and blade shape are new, on the shoot the wood has, and a short shoot's cluster goes on round its spiral from last year's. The leaf count and the tree's leaf area stay the model's. A stage shown for several years shows the same leaves each of those years. For a time-lapse, a film of one frame a year, add `--timelapse` to the export, because new leaves in every frame read as shimmer. It turns the setting off for that export, which gives the leaves this target had before: each leaf's droop still shifts a little from year to year (a median of 9 degrees, against about 80 with new leaves; one tree, ages 49-50 and 59-60), because the target draws it by the leaf's place in the tree's list.
+
 **Scans and licences:**
 
 | Scan | Licence | Fit | Note |

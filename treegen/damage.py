@@ -387,7 +387,8 @@ def state_from_model(model, stems_per_ha: float | None = None, basal_area_m2_ha:
         offset = float(np.hypot(c[0] - T.pos[0, 0], c[1] - T.pos[0, 1]))
     h, dbh = float(s["height_m"]), s["dbh_cm"]
     if stems_per_ha is None:
-        stems_per_ha = float(model.stems_per_ha(h)) if model.stand else 0.0
+        # (the stand's schedule, read as every other place reads it: GrowthModel._schedule_height)
+        stems_per_ha = float(model.stems_per_ha(model._schedule_height(h, measured=True))) if model.stand else 0.0
     if basal_area_m2_ha is None:
         over_bark = float(dbh or 0.0) * float(model.sp.damage.dbh_over_bark_factor)
         basal_area_m2_ha = stems_per_ha * math.pi / 4.0 * (over_bark / 100.0) ** 2

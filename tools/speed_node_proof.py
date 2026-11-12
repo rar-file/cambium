@@ -1,4 +1,4 @@
-"""On the node: the four golden runs with settings off and on, compared, the result where tools/node/fetch.sh can reach it.
+"""On the node: the four golden runs (or those named with --only) with settings off and on, compared, the result where tools/node/fetch.sh can reach it.
 
     tools/node/submit.sh <commit> node_speed_gold tools/speed_node_proof.py node_speed_gold --set speed.compiled_carbon=true ...
 
@@ -23,7 +23,7 @@ def main():
     ap.add_argument("--only", default=None)
     ap.add_argument("--set", action="append", default=[])
     a = ap.parse_args()
-    only = a.only.split(",") if a.only else None
+    only = a.only.split(",") if a.only else list(golden.RUNS)   # the four; golden.MORE_RUNS only when named
     out = ROOT / "out" / "bench" / "ensemble" / a.label
     out.mkdir(parents=True, exist_ok=True)
     off = golden.record(a.label + "_off", only)

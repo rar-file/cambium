@@ -345,7 +345,9 @@ def _encoded_bark(wood: WoodParts, bake: dict, key, jpeg: int, scale: float) -> 
     return done
 
 
-def _bark_material(glb: GameGLB, images: dict, name: str, wrap_s: int, wrap_t: int) -> int:
+def _bark_material(glb: GameGLB, images: dict | None, name: str, wrap_s: int, wrap_t: int) -> int:
+    if images is None:     # a quick look at the geometry: no maps
+        return glb.add_material({"name": name})
     base = glb.add_texture(*images["base"], wrap_s, wrap_t, name + "_base")
     orm = glb.add_texture(*images["orm"], wrap_s, wrap_t, name + "_orm")
     normal = glb.add_texture(*images["normal"], wrap_s, wrap_t, name + "_normal")
@@ -369,9 +371,10 @@ def _down(a, k):
     return b.reshape(shape).mean((1, 3))
 
 
-def add_wood(glb: GameGLB, wood: WoodParts, arrays: dict, jpeg: int, stem_scale: float, atlas_scale: float) -> None:
+def add_wood(glb: GameGLB, wood: WoodParts, arrays: dict, jpeg: int, stem_scale: float, atlas_scale: float, textures: bool = True) -> None:
+    """``textures`` False: the same meshes, their materials plain (a quick look at the geometry)."""
     if "stem" in arrays:
-        m = _bark_material(glb, _encoded_bark(wood, wood.stem_bake, ("stem", stem_scale), jpeg, stem_scale), "bark_stem", 10497, 33071)
+        m = _bark_material(glb, _encoded_bark(wood, wood.stem_bake, ("stem", stem_scale), jpeg, stem_scale) if textures else None, "bark_stem", 10497, 33071)
         a = arrays["stem"]
         glb.add_mesh("stem", m, a["V"], a["N"], a["F"], a["UV"], a["T"], attributes={"NODE_ID": a["node"], "RADIUS": a["radius"]})
     if "branch" in arrays:
@@ -388,7 +391,7 @@ def add_wood(glb: GameGLB, wood: WoodParts, arrays: dict, jpeg: int, stem_scale:
         for k, (x0, x1, c) in enumerate(atlas["layout"]):
             alb[:, max(x0 - 4, 0):min(x1 + 4, W)] = np.minimum(alb[:, max(x0 - 4, 0):min(x1 + 4, W)] * scale[k].astype(np.float32), 1.0)
         atlas["albedo"] = alb
-        m = _bark_material(glb, _encoded_bark(wood, atlas, ("atlas", atlas_scale, id(arrays)), jpeg, atlas_scale), "bark_branch", 33071, 10497)
+        m = _bark_material(glb, _encoded_bark(wood, atlas, ("atlas", atlas_scale, id(arrays)), jpeg, atlas_scale) if textures else None, "bark_branch", 33071, 10497)
         colour = np.c_[np.clip(a["tint"] / scale[a["col"]], 0.0, 1.0), np.ones(len(a["V"]))]
         glb.add_mesh("branches", m, a["V"], a["N"], a["F"], a["UV"], a["T"], colour=colour, attributes={"NODE_ID": a["node"], "RADIUS": a["radius"]})
 
@@ -418,7 +421,9 @@ def _turning(mean_chl: float, lead: float) -> float:
     return float(lead) * 4.0 * m * (1.0 - m)
 
 
-def _leaf_material(glb: GameGLB, name, tex: dict, ll: dict, jpeg: int) -> int:
+def _leaf_material(glb: GameGLB, name, tex: dict, ll: dict, jpeg: int, textures: bool = True) -> int:
+    if not textures:     # a quick look at the geometry: no maps
+        return glb.add_material({"name": name, "doubleSided": True})
     srgb = ap.linear_to_srgb(tex["rgb"])
     t_base = glb.add_texture(*encode_image(srgb, tex["alpha"]), 10497, 10497, name + "_base")
     mean = np.maximum((tex["rgb"] * tex["alpha"][..., None]).reshape(-1, 3).sum(0) / max(float(tex["alpha"].sum()), 1.0), 1e-3)
@@ -525,9 +530,14 @@ def leaf_cards(look: dict, leaves: ap.LeafInstances, ll: dict, target: int, cove
 
 
 # -- bark strips ----------------------------------------------------------------------------------
-def add_strips(glb: GameGLB, look: dict, strips: ap.PeelStrips, tex: dict) -> None:
-    t = glb.add_texture(*encode_image(ap.linear_to_srgb(tex["rgb"]), tex["alpha"]), 33071, 33071, "bark_strip_base")
-    m = glb.add_material({"name": "bark_strip", "alphaMode": "MASK", "alphaCutoff": 0.5, "pbrMetallicRoughness": {"baseColorTexture": {"index": t}, "metallicFactor": 0.0, "roughnessFactor": 0.7}})
+def add_strips(glb: GameGLB, look: dict, strips: ap.PeelStrips, tex: dict, textures: bool = True) -> None:
+    if not textures:     # a quick look at the geometry: no maps
+        m = glb.add_material({"name": "bark_strip"})
+    else:
+        if "png" not in tex:     # every file with strips holds the same map: encoded once
+            tex["png"] = encode_image(ap.linear_to_srgb(tex["rgb"]), tex["alpha"])
+        t = glb.add_texture(*tex["png"], 33071, 33071, "bark_strip_base")
+        m = glb.add_material({"name": "bark_strip", "alphaMode": "MASK", "alphaCutoff": 0.5, "pbrMetallicRoughness": {"baseColorTexture": {"index": t}, "metallicFactor": 0.0, "roughnessFactor": 0.7}})
     glb.add_mesh("bark_strips", m, strips.vertices, strips.normals, strips.faces, strips.uv, _tangents(strips.vertices, strips.normals, strips.uv, strips.faces), colour=strips.colour)
 
 
